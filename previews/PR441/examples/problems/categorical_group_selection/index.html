@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>Categorical factor selection · ProximalSolvers.jl</title><meta name="title" content="Categorical factor selection · ProximalSolvers.jl"/><meta property="og:title" content="Categorical factor selection · ProximalSolvers.jl"/><meta property="twitter:title" content="Categorical factor selection · ProximalSolvers.jl"/><meta name="description" content="Documentation for ProximalSolvers.jl."/><meta property="og:description" content="Documentation for ProximalSolvers.jl."/><meta property="twitter:description" content="Documentation for ProximalSolvers.jl."/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script><link href="../../../assets/examples-gallery.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">ProximalSolvers.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Learn</span><ul><li><a class="tocitem" href="../../../learn/01-lasso-problem/">1: The lasso problem</a></li><li><a class="tocitem" href="../../../learn/02-optimality-kkt/">2: Optimality and KKT conditions</a></li><li><a class="tocitem" href="../../../learn/03-proximal-operator/">3: The proximal operator</a></li><li><a class="tocitem" href="../../../learn/04-proximal-gradient/">4: Proximal gradient descent</a></li><li><a class="tocitem" href="../../../learn/05-acceleration/">5: Acceleration</a></li><li><a class="tocitem" href="../../../learn/06-coordinate-descent/">6: Coordinate descent</a></li><li><a class="tocitem" href="../../../learn/07-duality-certificates/">7: Duality and certificates</a></li><li><a class="tocitem" href="../../../learn/08-floating-point/">8: Floating-point computation</a></li></ul></li><li><span class="tocitem">Use</span><ul><li><a class="tocitem" href="../../../getting-started/">Getting started</a></li><li><a class="tocitem" href="../../../choosing-solver/">Choosing a solver</a></li><li><a class="tocitem" href="../../../support/">Supported problems</a></li><li><a class="tocitem" href="../../../working-with-results/">Results and troubleshooting</a></li><li><a class="tocitem" href="../../../benchmarks/">Benchmarks and performance</a></li><li><a class="tocitem" href="../../../glossary/">Glossary</a></li></ul></li><li><a class="tocitem" href="../../">Examples Gallery</a></li><li><span class="tocitem">Problems</span><ul><li><a class="tocitem" href="../lasso/">Lasso</a></li><li><a class="tocitem" href="../weighted_lasso/">Weighted lasso</a></li><li><a class="tocitem" href="../nonnegative_least_squares/">Nonnegative least squares</a></li><li><a class="tocitem" href="../nonnegative_lasso/">Nonnegative sparse regression</a></li><li><a class="tocitem" href="../elastic_net/">Elastic net</a></li><li><a class="tocitem" href="../l0_sparse_regression/">ℓ₀-penalized sparse regression</a></li><li><a class="tocitem" href="../group_lasso/">Group lasso</a></li><li><a class="tocitem" href="../square_root_lasso/">Square-root lasso</a></li><li><a class="tocitem" href="../constrained_least_squares/">Constrained least squares</a></li><li><a class="tocitem" href="../linf_regularized_regression/">Least squares with an ℓ∞ penalty</a></li><li><a class="tocitem" href="../sparse_signal_denoising/">Sparse signal denoising with ADMM</a></li></ul></li><li><span class="tocitem">Statistical applications</span><ul><li><a class="tocitem" href="../robust_sparse_regression/">Robust sparse regression</a></li><li><a class="tocitem" href="../scaled_lasso/">Scaled lasso</a></li><li><a class="tocitem" href="../sparse_deconvolution/">Sparse deconvolution and event recovery</a></li><li><a class="tocitem" href="../change_point_detection/">Change-point detection</a></li><li><a class="tocitem" href="../stability_selection/">Stability selection with repeated lasso fits</a></li><li><a class="tocitem" href="../nodewise_gaussian_graph/">Gaussian graph: neighborhood selection</a></li><li><a class="tocitem" href="../sparse_additive_regression/">Sparse additive regression</a></li><li><a class="tocitem" href="../multitask_group_lasso/">Multi-task group lasso</a></li><li class="is-active"><a class="tocitem" href>Categorical factor selection</a><ul class="internal"><li><a class="tocitem" href="#Reference-coding-and-the-model"><span>Reference coding and the model</span></a></li><li><a class="tocitem" href="#Which-factors-survive?"><span>Which factors survive?</span></a></li><li><a class="tocitem" href="#Check-the-encoding-and-restore-the-intercept"><span>Check the encoding and restore the intercept</span></a></li><li><a class="tocitem" href="#Independent-numerical-validation"><span>Independent numerical validation</span></a></li><li><a class="tocitem" href="#Interpretation-and-limitations"><span>Interpretation and limitations</span></a></li><li><a class="tocitem" href="#What-we-learned"><span>What we learned</span></a></li></ul></li><li><a class="tocitem" href="../sparse_covariance_soft_thresholding/">Sparse covariance thresholding</a></li></ul></li><li><span class="tocitem">Solver comparisons</span><ul><li><a class="tocitem" href="../../comparisons/lasso_solvers/">Lasso: solvers at equal accuracy</a></li><li><a class="tocitem" href="../../comparisons/group_lasso_solvers/">Group lasso: CD, PGD and APG</a></li></ul></li><li><a class="tocitem" href="../../../api/">API reference</a></li><li><span class="tocitem">Contracts</span><ul><li><a class="tocitem" href="../../../contracts/">How to read a contract</a></li><li><a class="tocitem" href="../../../contracts/inputs/">Inputs</a></li><li><a class="tocitem" href="../../../contracts/working-precision/">Working precision</a></li><li><a class="tocitem" href="../../../contracts/cd-scalar/">Scalar coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-sparse-iterate/">SparseIterate coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-group/">Group coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-multiresponse/">Multiresponse coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-sqrt-lasso/">Square-root lasso</a></li><li><a class="tocitem" href="../../../contracts/pg-iteration/">Proximal gradient iteration</a></li><li><a class="tocitem" href="../../../contracts/apg/">Accelerated proximal gradient</a></li><li><a class="tocitem" href="../../../contracts/admm/">Consensus ADMM</a></li><li><a class="tocitem" href="../../../contracts/line-search/">Line search</a></li><li><a class="tocitem" href="../../../contracts/pg-stopping/">PG stopping</a></li><li><a class="tocitem" href="../../../contracts/results-failures/">Results and failures</a></li><li><a class="tocitem" href="../../../contracts/deferred/">Deferred surface</a></li><li><a class="tocitem" href="../../../contracts/architecture/">Architecture</a></li><li><a class="tocitem" href="../../../contracts/history/">History</a></li><li><input class="collapse-toggle" id="menuitem-9-18" type="checkbox"/><label class="tocitem" for="menuitem-9-18"><span class="docs-label">Evidence</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../../contracts/evidence/stopping-audit-352/">Stopping audit</a></li><li><a class="tocitem" href="../../../contracts/evidence/cached-residual-378/">Cached-residual investigation</a></li><li><a class="tocitem" href="../../../contracts/evidence/strict-accuracy-config/">Strict-accuracy configuration</a></li><li><a class="tocitem" href="../../../contracts/evidence/lazy-curvature-cost/">Lazy-curvature cost</a></li><li><a class="tocitem" href="../../../contracts/evidence/oracle-range-observations/">Oracle range observations</a></li><li><a class="tocitem" href="../../../contracts/evidence/examples-index-baseline/">Historical example index</a></li><li><a class="tocitem" href="../../../contracts/evidence/sqrt-fallback-406/">Square-root fallback history</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Statistical applications</a></li><li class="is-active"><a href>Categorical factor selection</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Categorical factor selection</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/mlakolar/ProximalSolvers.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/mlakolar/ProximalSolvers.jl/blob/master/examples/problems/categorical_group_selection.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Categorical-factor-selection"><a class="docs-heading-anchor" href="#Categorical-factor-selection">Categorical factor selection</a><a id="Categorical-factor-selection-1"></a><a class="docs-heading-anchor-permalink" href="#Categorical-factor-selection" title="Permalink"></a></h1><p>A categorical predictor, such as a subscription plan, usually needs several dummy columns in a regression. Ordinary least squares keeps all those columns; ordinary lasso can select individual level contrasts. If our question is instead <strong>which complete factors matter?</strong>, group lasso can remove all the contrasts of a factor together.</p><p>Here five simulated factors explain a continuous response. Only Region and Channel affect its conditional mean. We fit one group per factor, then compare the fitted group norms with the known truth. The example uses existing dense least-squares group lasso, not a formula interface or a new categorical-data solver.</p><p><img src="../categorical_group_selection.svg" alt="Estimated group norms by factor, colored by true relevance, with true norms shown as diamonds."/></p><p>Bars and squares show the fitted group norms. Diamonds show the true norms, shifted slightly to the right so both marks remain visible at zero. Blue denotes relevant factors and orange denotes irrelevant factors in the simulation.</p><pre><code class="language-julia hljs">using LinearAlgebra, Random
+using ProximalBase, ProximalSolvers</code></pre><h2 id="Reference-coding-and-the-model"><a class="docs-heading-anchor" href="#Reference-coding-and-the-model">Reference coding and the model</a><a id="Reference-coding-and-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#Reference-coding-and-the-model" title="Permalink"></a></h2><p>Factor j has mⱼ levels, numbered 1 through mⱼ. <strong>Level 1 is the reference:</strong> its row is all zeros; level ℓ &gt; 1 has a one in column ℓ − 1. A coefficient is thus a difference from the reference level, holding other factors fixed. We omit one column per factor to avoid the exact dependence between a full set of dummies and the intercept.</p><p>The encoder below needs only Julia arrays. Its groups are disjoint and cover every column.</p><pre><code class="language-julia hljs">function reference_encode(levels, nlevels)
+  n, q = size(levels)
+  @assert q == length(nlevels) &amp;&amp; all(m -&gt; m &gt;= 2, nlevels)
+  @assert all(1 &lt;= levels[i, j] &lt;= nlevels[j] for i in 1:n, j in 1:q)
+  groups = Vector{Vector{Int}}()
+  D = zeros(Float64, n, sum(nlevels .- 1))
+  offset = 0
+  for j in 1:q
+    push!(groups, collect(offset .+ (1:(nlevels[j] - 1))))
+    for i in 1:n
+      ell = levels[i, j]
+      ell &gt; 1 &amp;&amp; (D[i, offset + ell - 1] = 1.0)
+    end
+    offset += nlevels[j] - 1
+  end
+  D, groups
+end
+colmeans(A) = vec(sum(A, dims = 1)) / size(A, 1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">colmeans (generic function with 1 method)</code></pre><p>We simulate independent, uniformly distributed factors, an additive mean, and independent Gaussian errors with standard deviation 0.6. Every level occurs in this seeded sample. The intercept 2.0 is the mean response when all factors are at their reference levels.</p><pre><code class="language-julia hljs">rng = Xoshiro(410)
+n = 200
+factor_names = [&quot;Region&quot;, &quot;Plan&quot;, &quot;Channel&quot;, &quot;Device&quot;, &quot;Cohort&quot;]
+nlevels = [3, 4, 5, 3, 4]
+levels = hcat([rand(rng, 1:m, n) for m in nlevels]...)
+D, groups = reference_encode(levels, nlevels)
+p = size(D, 2)
+beta_true = zeros(p)
+beta_true[groups[1]] = [2.0, -1.5]
+beta_true[groups[3]] = [1.8, -1.3, 1.0, -0.8]
+true_relevant = [any(!iszero, beta_true[G]) for G in groups]
+a_true, sigma = 2.0, 0.6
+y = a_true .+ D * beta_true + sigma * randn(rng, n)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">200-element Vector{Float64}:
+  4.778401968250595
+  0.9509306269774846
+  1.8953531563625396
+  0.408275242782542
+ -0.20468663159856704
+  4.568811662616598
+  1.8087209688459644
+  0.5781851350237139
+  1.2861983486083342
+ -0.41314877722696464
+  ⋮
+  4.156560338455733
+  2.4183010991877456
+  2.3672444310967733
+  4.8535960852943285
+  0.20127558989684707
+  1.9311912882150437
+  2.560820874527043
+ -0.8116310302500415
+  3.369950999824582</code></pre><p>For the model y = a + Dβ + error, the least-squares intercept at any fixed β is a = ȳ − d̄ᵀβ. Centering gives Z = D − 1d̄ᵀ and z = y − ȳ, so profiling out this <strong>unpenalized intercept</strong> yields the convex objective</p><p class="math-container">\[\min_\beta\; \frac{1}{2n}\|z-Z\beta\|_2^2
+      +\lambda\sum_{j=1}^5\sqrt{|G_j|}\,\|\beta_{G_j}\|_2.\]</p><p>The group norm couples a factor&#39;s contrasts: a zero block removes that complete factor. A selected block can still contain individual zero coefficients. Ordinary lasso instead penalizes each dummy coefficient separately and can retain only some level contrasts.</p><p>We <strong>do not standardize the dummy columns</strong>. The coefficient norms therefore measure reference-level differences in response units. The default weights √|Gⱼ| account for block size, but do not make selection invariant to a different reference, contrast basis, scaling, or level frequencies. Those choices change the penalty and can change the selected factors.</p><pre><code class="language-julia hljs">dbar, ybar = colmeans(D), sum(y) / n
+Z, z = D .- dbar&#39;, y .- ybar
+weights = sqrt.(Float64.(length.(groups)))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5-element Vector{Float64}:
+ 1.4142135623730951
+ 1.7320508075688772
+ 2.0
+ 1.4142135623730951
+ 1.7320508075688772</code></pre><p>At β = 0, the loss gradient is −Zᵀz/n. All blocks can remain zero exactly when λ ≥ λmax = maxⱼ ‖Z[:, Gⱼ]ᵀz‖₂ / (n√|Gⱼ|). We use a fixed fraction of this threshold for illustration; it is not a cross-validated choice or a promise of correct selection.</p><pre><code class="language-julia hljs">lambda_max(Z, z, groups) = maximum(norm(Z[:, G]&#39; * z) / (size(Z, 1) * sqrt(length(G))) for G in groups)
+lambdamax = lambda_max(Z, z, groups)
+lambda = 0.12 * lambdamax</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.06872917265362881</code></pre><p><code>LeastSquaresLoss(z, Z)</code> is half the residual sum of squares, so the multiplier is 1/n. <code>BlockIterate(Float64, p, g)</code> takes exactly the groups of the penalty, in the same order. Cyclic coordinate descent updates a whole block at a time; momentum is disabled here.</p><pre><code class="language-julia hljs">function fit_groups(Z, z, groups, lambda)
+  g = GroupNormL2(lambda, groups)
+  x = BlockIterate(Float64, size(Z, 2), g)
+  result = solve!(x, (1 / size(Z, 1)) * LeastSquaresLoss(z, Z), g,
+                  CDSolver(order = :cyclic, momentum = false, tol = 1e-12))
+  @assert result.minimizer === x
+  @assert all(collect(blockindices(x, j)) == groups[j] for j in eachindex(groups))
+  (; x, beta = Vector(x), result)
+end
+fit = fit_groups(Z, z, groups, lambda)
+beta = fit.beta
+true_norms = [norm(beta_true[G]) for G in groups]
+estimated_norms = [norm(beta[G]) for G in groups]
+selected = findall(!iszero, estimated_norms)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Int64}:
+ 1
+ 3</code></pre><h2 id="Which-factors-survive?"><a class="docs-heading-anchor" href="#Which-factors-survive?">Which factors survive?</a><a id="Which-factors-survive?-1"></a><a class="docs-heading-anchor-permalink" href="#Which-factors-survive?" title="Permalink"></a></h2><p>An estimated norm of zero means every contrast for that factor is zero. In the run shown, Region and Channel are selected, and their fitted norms are smaller than the true norms. Plan, Device and Cohort have zero fitted norms. Plotting runs only in the documentation environment; the standalone script and tests do not load Plots. To reproduce the figure locally, run <code>julia --project=docs docs/make.jl</code> after installing the documentation environment.</p><pre><code class="language-julia hljs">using Plots
+labels = [&quot;$(factor_names[j])\n($(nlevels[j]) levels)&quot; for j in eachindex(groups)]
+relevant = findall(true_relevant)
+irrelevant = findall(!, true_relevant)
+colors = [active ? :steelblue : :darkorange for active in true_relevant]
+fig = bar(eachindex(groups), estimated_norms; color = colors, label = &quot;&quot;,
+          xticks = (eachindex(groups), labels), ylabel = &quot;Coefficient group norm&quot;,
+          xlabel = &quot;Categorical factor (reference level 1)&quot;,
+          title = &quot;Group lasso selects complete factors&quot;, size = (850, 420),
+          ylims = (-0.13, 1.2 * maximum(true_norms)), legend = :topright,
+          bottom_margin = 6Plots.mm)
+scatter!(fig, relevant, estimated_norms[relevant]; marker = :rect, color = :steelblue,
+         label = &quot;Fit: relevant factor&quot;)
+scatter!(fig, irrelevant, estimated_norms[irrelevant]; marker = :rect, color = :darkorange,
+         label = &quot;Fit: irrelevant factor&quot;)
+scatter!(fig, eachindex(groups) .+ 0.17, true_norms; marker = :diamond, color = :black,
+         markersize = 5, label = &quot;True norm&quot;)
+savefig(fig, &quot;categorical_group_selection.svg&quot;); nothing
+
+println(&quot;λmax = &quot;, lambdamax, &quot;; λ = 0.12 λmax = &quot;, lambda)
+println(&quot;factor    levels  contrasts  true relevance  fitted norm  selected&quot;)
+for j in eachindex(groups)
+  println(rpad(factor_names[j], 10), rpad(nlevels[j], 8), rpad(length(groups[j]), 11),
+          rpad(true_relevant[j], 16), rpad(round(estimated_norms[j], digits = 4), 13), j in selected)
+end
+println(&quot;selected factors: &quot;, factor_names[selected])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">λmax = 0.5727431054469068; λ = 0.12 λmax = 0.06872917265362881
+factor    levels  contrasts  true relevance  fitted norm  selected
+Region    3       2          true            2.2283       true
+Plan      4       3          false           0.0          false
+Channel   5       4          true            1.9571       true
+Device    3       2          false           0.0          false
+Cohort    4       3          false           0.0          false
+selected factors: [&quot;Region&quot;, &quot;Channel&quot;]</code></pre><p>The table and figure describe this one realization. The assertions require selected and unselected factors, but deliberately do not require perfect recovery of the true factors.</p><pre><code class="language-julia hljs">@assert 0 &lt; length(selected) &lt; length(groups)</code></pre><h2 id="Check-the-encoding-and-restore-the-intercept"><a class="docs-heading-anchor" href="#Check-the-encoding-and-restore-the-intercept">Check the encoding and restore the intercept</a><a id="Check-the-encoding-and-restore-the-intercept-1"></a><a class="docs-heading-anchor-permalink" href="#Check-the-encoding-and-restore-the-intercept" title="Permalink"></a></h2><p>We check the dimensions, column partition, and every encoded row. A separate probe visits every possible level of each factor, including the all-zero reference row, so a missing sample level cannot hide an encoding error.</p><pre><code class="language-julia hljs">@assert size(D) == (n, sum(nlevels .- 1)) &amp;&amp; eltype(D) == Float64
+@assert sort(reduce(vcat, groups)) == collect(1:p)
+@assert all(length(groups[j]) == nlevels[j] - 1 for j in eachindex(groups))
+for j in eachindex(groups)
+  @assert sort(unique(levels[:, j])) == collect(1:nlevels[j])
+  @assert D[:, groups[j]] == Float64.([levels[i, j] == ell for i in 1:n, ell in 2:nlevels[j]])
+  probe, _ = reference_encode(reshape(collect(1:nlevels[j]), :, 1), [nlevels[j]])
+  @assert all(iszero, probe[1, :])
+  @assert probe[2:end, :] == Matrix{Float64}(I, nlevels[j] - 1, nlevels[j] - 1)
+end
+@assert norm(colmeans(Z)) &lt;= 1e-12 &amp;&amp; abs(sum(z) / n) &lt;= 1e-12
+ahat = ybar - dot(dbar, beta)
+fitted = ahat .+ D * beta
+@assert norm(fitted - (ybar .+ Z * beta), Inf) &lt;= 1e-12
+@assert abs(sum(fitted - y) / n) &lt;= 1e-12  # intercept normal equation
+println(&quot;reference-level intercept: true = &quot;, a_true, &quot;; estimated = &quot;, ahat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">reference-level intercept: true = 2.0; estimated = 2.148719208028875</code></pre><h2 id="Independent-numerical-validation"><a class="docs-heading-anchor" href="#Independent-numerical-validation">Independent numerical validation</a><a id="Independent-numerical-validation-1"></a><a class="docs-heading-anchor-permalink" href="#Independent-numerical-validation" title="Permalink"></a></h2><p>A small change over a coordinate-descent pass (<code>converged</code>) is not an independent optimality certificate. We compute the objective and gradient directly from the data. Write h = Zᵀ(Zβ − z)/n and wⱼ = √|Gⱼ|. At the optimum, the group KKT conditions are</p><p class="math-container">\[h_{G_j} + \lambda w_j\frac{\beta_{G_j}}{\|\beta_{G_j}\|_2}=0
+\quad (\beta_{G_j}\ne0),\qquad
+\|h_{G_j}\|_2\le\lambda w_j\quad (\beta_{G_j}=0).\]</p><p>The largest residual below measures violation of these equations and inequalities. A zero residual characterizes a minimizer of this convex objective.</p><pre><code class="language-julia hljs">objective(Z, z, b, groups, lambda) =
+  sum(abs2, Z * b - z) / (2 * size(Z, 1)) +
+  lambda * sum(sqrt(length(G)) * norm(b[G]) for G in groups)
+function group_kkt(Z, z, b, groups, lambda)
+  grad = Z&#39; * (Z * b - z) / size(Z, 1)
+  residual = 0.0
+  for G in groups
+    bg, hg = b[G], grad[G]
+    t = lambda * sqrt(length(G))
+    violation = iszero(norm(bg)) ? max(norm(hg) - t, 0.0) : norm(hg + t * bg / norm(bg))
+    residual = max(residual, violation)
+  end
+  residual
+end
+obj = objective(Z, z, beta, groups, lambda)
+kkt = group_kkt(Z, z, beta, groups, lambda)
+@assert all(isfinite, beta)
+@assert abs(fit.result.minimum - obj) &lt;= 1e-10 * (1 + abs(obj))
+@assert kkt &lt;= 1e-7 * max(1.0, lambdamax)
+@assert sort(collect(activecoordinates(fit.x))) == selected
+@assert all(isactive(fit.x, j) == (j in selected) for j in eachindex(groups))
+original_obj = sum(abs2, fitted - y) / (2n) + lambda * sum(weights .* estimated_norms)
+@assert abs(original_obj - obj) &lt;= 1e-12 * (1 + abs(obj))
+@assert group_kkt(Z, z, zeros(p), groups, lambdamax) &lt;= 1e-12 * max(1.0, lambdamax)
+println(&quot;passes = &quot;, fit.result.passes, &quot;; converged = &quot;, fit.result.converged,
+        &quot;; independently computed objective = &quot;, obj, &quot;; KKT residual = &quot;, kkt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">passes = 57; converged = true; independently computed objective = 0.7588637979235885; KKT residual = 3.4425059900151113e-13</code></pre><p>A tiny control tests the zero-fit threshold through the actual solver. Its two factors have 3 and 4 levels, each observed, and its response is seeded noise. A small margin above λmax avoids deciding the boundary from floating-point rounding. Both levels return exact zero blocks, no active groups, and an independently checked objective and KKT residual.</p><pre><code class="language-julia hljs">let levels = hcat([mod1(i, 3) for i in 1:12], [mod1(i, 4) for i in 1:12])
+  Ds, Gs = reference_encode(levels, [3, 4])
+  Zs = Ds .- colmeans(Ds)&#39;
+  zs = randn(Xoshiro(411), 12); zs .-= sum(zs) / length(zs)
+  lm = lambda_max(Zs, zs, Gs)
+  for ls in (1.01 * lm, 2 * lm)
+    control = fit_groups(Zs, zs, Gs, ls)
+    @assert all(iszero, control.beta) &amp;&amp; isempty(collect(activecoordinates(control.x)))
+    @assert group_kkt(Zs, zs, control.beta, Gs, ls) &lt;= 1e-12
+    @assert abs(control.result.minimum - objective(Zs, zs, control.beta, Gs, ls)) &lt;= 1e-12
+  end
+  println(&quot;tiny control: no active factor at 1.01 λmax or 2 λmax&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">tiny control: no active factor at 1.01 λmax or 2 λmax</code></pre><h2 id="Interpretation-and-limitations"><a class="docs-heading-anchor" href="#Interpretation-and-limitations">Interpretation and limitations</a><a id="Interpretation-and-limitations-1"></a><a class="docs-heading-anchor-permalink" href="#Interpretation-and-limitations" title="Permalink"></a></h2><p>With reference coding, a zero block means no fitted mean differences between any levels of that factor, holding other factors fixed. It does not mean that the factor is unrelated to the response in every population, or that a selected factor causes the response.</p><ul><li>The simulated mean is additive. Interactions between factors need their own modeling decisions; this fit cannot discover an effect present only through an interaction.</li><li>Rare levels, correlated factors, and a different contrast coding can change selection. Group-size weights alone do not resolve these issues.</li><li>The displayed norms depend on the reference coding. They summarize coefficient blocks, not variance explained or a coding-independent measure of importance.</li><li>λ was fixed for illustration. Prediction tuning needs validation data; selected factors and shrunken coefficients do not supply valid post-selection p-values or intervals.</li><li>The KKT check establishes optimization accuracy for the chosen objective. It cannot establish recovery of the true factors from noisy observations.</li></ul><h2 id="What-we-learned"><a class="docs-heading-anchor" href="#What-we-learned">What we learned</a><a id="What-we-learned-1"></a><a class="docs-heading-anchor-permalink" href="#What-we-learned" title="Permalink"></a></h2><p>Reference coding turns factors into identifiable coefficient blocks. Centering handles a free intercept, and <code>GroupNormL2</code> selects those blocks together using existing group-lasso coordinate descent. The group-norm plot explains the selection; independent objective and KKT checks tell us whether the numerical fit solves the stated problem.</p><p><a href="../../#Reproduce-the-figures">Reproduce the figures locally</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../multitask_group_lasso/">« Multi-task group lasso</a><a class="docs-footer-nextpage" href="../sparse_covariance_soft_thresholding/">Sparse covariance thresholding »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Thursday 19 November 2026 19:19">Thursday 19 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
