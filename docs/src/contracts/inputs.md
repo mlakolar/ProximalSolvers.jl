@@ -426,7 +426,10 @@ the penalty with that level passes [IN-02](@ref) and, with weights, all of
 [IN-03](@ref) (its level, weights and coefficients). Other penalties, including wrapped ones,
 `Float32` data, sparse designs, views and other array types are refused.
 
-**Iteration.** The trial sequence of [PGD-01](@ref) is unchanged. A trial forms the
+**Iteration.** The trial sequence of [PGD-01](@ref) is unchanged. As for least squares,
+an unweighted `NormL1` enters through the working penalty with level `T(lambda)` of
+[IN-02](@ref); a weighted one is used as supplied in the trial steps, and
+[STOP-03](@ref) gives its stationarity check. A trial forms the
 image `z = X x` once, in a private buffer, and takes its value from ProximalBase's
 `value_from_predictor(f, z)`. The gradient of an accepted point comes from
 `value_and_gradient_from_predictor!(G, d, f, z)` at the cached image, which writes
