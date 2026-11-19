@@ -1,28 +1,41 @@
-# This example compares three solver configurations on one seeded lasso by the
-# time each needs to reach the same accuracy. The script computes the accuracy from
-# the problem data and the returned coefficients and does not read it from the
-# solvers. The solvers are cyclic coordinate descent with `momentum=false`,
-# coordinate descent with `order=:random`, its default momentum setting and a seeded
-# generator for each run, and dense proximal gradient descent.
+# Suppose two algorithms fit the same sparse regression model. One returns quickly,
+# but its coefficients are still far from satisfying the optimization conditions.
+# Calling it faster would confuse speed with accuracy. This tutorial compares three
+# solver configurations after checking their answers on a common scale.
+#
+# We observe ``y = X\beta^\star + \varepsilon`` with a sparse coefficient vector and
+# correlated predictors, and solve the lasso problem
+# ```math
+# \min_\beta\quad F(\beta) = \frac{1}{2n}\|y-X\beta\|_2^2
+#                                  + \lambda\|\beta\|_1.
+# ```
+# The penalty encourages a small model. Changing the algorithm should change how we
+# compute its estimate, rather than change the statistical objective.
+#
+#md # ![Independent KKT violation and relative objective gap versus measured wall time for three lasso solver configurations; dashed lines mark common accuracy targets.](lasso_solvers.svg)
+#
+# In the figure, each marker is a **separate solve from zero** at one tolerance setting,
+# not a point in one solver's iteration history. The left panel checks stationarity;
+# the right checks objective accuracy against a tightly solved reference. A setting
+# must lie below both dashed lines to reach the common target. The measured times
+# illustrate this experiment; they do not establish a general speed ranking.
 #
 #md # [Download this example as a Jupyter notebook](@__NAME__.ipynb)
-#nb # The plotting cells of this notebook need the package Plots in the active environment.
+#nb # Plotting cells need Plots in the active environment; the figure appears after the sweep.
 #
-# ## Why time to equal accuracy
+# ## Why the stopping flags are not enough
 #
 # Each solver stops by its own rule, documented with `CDSolver` and `ProximalOptions`.
-# The rules measure different quantities: for coordinate descent a change of the
-# coefficients over a pass, for proximal gradient descent changes of the objective and
-# of the iterate and a gradient/proximal residual. The tolerances of different solvers
-# are not defined on a common scale. The `converged` flag reports that the solver's own
-# rule was met and is not a certificate of optimality. Timing each solver up to its
-# own `converged` flag compares the solvers at the accuracies that their rules give in
-# that run. Here each of the three solvers is run over a sweep of tolerances, each
-# result is scored by an independent objective gap and KKT violation, and the reported
-# time is the time of the first setting in the sweep that meets both thresholds
-# `gaptarget` and `kkttarget` defined below.
+# Coordinate descent measures coefficient changes over a pass; proximal gradient
+# descent measures objective, iterate, and gradient/proximal changes. Their tolerances
+# are not on a common scale, and `converged` reports the solver's own test rather than
+# an independent optimality certificate. We sweep tolerances, check the returned
+# coefficients from the data, and report the first setting meeting both accuracy
+# targets. The configurations are cyclic coordinate descent without momentum,
+# random-order coordinate descent with default momentum and a seeded generator,
+# and dense proximal gradient descent.
 #
-# ## The problem
+# ## A reproducible correlated-regression experiment
 #
 # The design has `n = 1000` rows and `p = 200` columns that follow an AR(1) pattern
 # with correlation `rho` between neighbouring columns. Twenty coefficients are
@@ -50,13 +63,13 @@ lambda = lambda_max / 100
 f = (1 / n) * LeastSquaresLoss(y, X)
 g = NormL1(lambda);
 
-# ## Independent measures
+# ## What counts as an accurate answer?
 #
 # The two functions below compute from the problem data `X`, `y`, `n` and `lambda` and
 # from the coefficient vector they are given; they use no solver diagnostics, cached
 # quantities or reported values. The
-# objective is the lasso objective. The KKT violation applies the rule of the page
-# "Sparsity and an optimality check": for a zero coefficient it is the excess of the
+# objective is the lasso objective. A KKT residual measures how far the first-order
+# optimality conditions are from holding. For a zero coefficient it is the excess of the
 # gradient magnitude over `lambda`, and for a nonzero coefficient it is the distance
 # of the gradient from `-lambda * sign(beta[j])`. It is divided by `lambda` below.
 objective(beta) = sum(abs2, y - X * beta) / (2n) + lambda * sum(abs, beta)
@@ -67,7 +80,7 @@ function kktviolation(beta)
                                  abs(grad[j] + lambda * sign(beta[j])), eachindex(beta))
 end;
 
-# ## Reference solution
+# ## Construct a reference estimate
 #
 # The reference objective value `fstar` comes from cyclic coordinate descent run to
 # a very small tolerance with `relative=false`, started from zero. The
@@ -81,7 +94,7 @@ fstar = objective(reference)
 @assert kktviolation(reference) / lambda <= 1e-10
 @assert isapprox(fstar, refresult.minimum; rtol=1e-10)
 
-# ## Sweeps
+# ## Run the same experiment for each solver
 #
 # Each run of the sweeps starts from the zero vector. The wall time of a setting is
 # the minimum over five timed repetitions of the `solve!` call alone, after one
@@ -181,7 +194,7 @@ for (name, (runs, parameter, unit)) in sweeps
   @assert any(reached, runs) "$name does not reach the target in its sweep"
 end
 
-# ## Accuracy against time
+# ## Reproduce and interpret the figure
 #
 # Each line is one solver and each marker one setting of its sweep. The left panel
 # shows the KKT violation divided by `lambda` and the right panel the relative
@@ -201,9 +214,12 @@ end
 #!jl end
 #!jl hline!(kktplot, [kkttarget]; color=:black, linestyle=:dash, label="target")
 #!jl hline!(gapplot, [gaptarget]; color=:black, linestyle=:dash, label="target")
-#!jl plot(kktplot, gapplot; layout=(1, 2), size=(1250, 400), bottom_margin=5Plots.mm, left_margin=5Plots.mm)
+#!jl accuracy_plot = plot(kktplot, gapplot; layout=(1, 2), size=(1250, 400), bottom_margin=5Plots.mm, left_margin=5Plots.mm)
+#md savefig(accuracy_plot, "lasso_solvers.svg")
+#md nothing
+#nb display(accuracy_plot)
 
-# ## What to take from this
+# ## Limitations of the comparison
 #
 # Each time above is the minimum of five timed repetitions after a warm-up call. The
 # times illustrate how to compare solvers at equal accuracy and are not benchmark
@@ -219,3 +235,25 @@ end
 # gradient descent on a `SparseIterate` is not part of it. The last column of the
 # table counts, for this problem, the settings whose `converged` flag was set while the
 # independent KKT measure was above `flagtol`.
+#
+# A nearly horizontal objective-gap curve can coexist with a larger KKT residual:
+# objective value and stationarity measure different aspects of optimization error.
+# Tightening a solver tolerance can increase work without a useful accuracy gain
+# once floating-point arithmetic limits the returned answer. Use both panels and the
+# table instead of selecting a winner from one low-time marker. The reference itself
+# is a numerical fit, not a known exact minimum; very small or negative computed gaps
+# can reflect its finite precision. The plot floors gaps for logarithmic display only.
+#
+# These checks assess optimization, not prediction or variable-selection quality.
+# Correlated predictors can make coefficients sensitive even when objective values
+# agree closely. Choosing `lambda` and assessing uncertainty require a separate
+# statistical analysis. The run excludes other designs, penalty levels, precisions,
+# hardware, and solver configurations.
+#
+# ## What we learned
+#
+# Compare algorithms on the same objective, starting point, and independently checked
+# accuracy target. A solver's stopping flag is useful diagnostic information, but it
+# cannot replace that common check. Here the table answers how much measured work
+# each configuration needed for this target; a general performance claim needs the
+# separate benchmark workflow.

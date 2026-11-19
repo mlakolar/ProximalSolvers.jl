@@ -8,7 +8,7 @@
 # the known truth. The example uses existing dense least-squares group lasso, not a formula
 # interface or a new categorical-data solver.
 #
-#md # ![Estimated group norms by factor, colored by true relevance, with true norms shown as diamonds.](categorical_group_norms.svg)
+#md # ![Estimated group norms by factor, colored by true relevance, with true norms shown as diamonds.](categorical_group_selection.svg)
 #
 # Bars and squares show the fitted group norms. Diamonds show the true norms, shifted
 # slightly to the right so both marks remain visible at zero. Blue denotes relevant factors
@@ -131,7 +131,7 @@ selected = findall(!iszero, estimated_norms)
 #!jl          label = "Fit: irrelevant factor")
 #!jl scatter!(fig, eachindex(groups) .+ 0.17, true_norms; marker = :diamond, color = :black,
 #!jl          markersize = 5, label = "True norm")
-#!jl savefig(fig, "categorical_group_norms.svg"); nothing
+#!jl savefig(fig, "categorical_group_selection.svg"); nothing
 
 println("λmax = ", lambdamax, "; λ = 0.12 λmax = ", lambda)
 println("factor    levels  contrasts  true relevance  fitted norm  selected")

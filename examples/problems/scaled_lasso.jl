@@ -1,3 +1,10 @@
+# In a regression experiment we often need both a sparse coefficient estimate and a noise
+# estimate. The noise level measures variation left unexplained by the fitted model. Scaled
+# lasso estimates both together, without inserting a known noise standard deviation into its
+# penalty level. The simulation below lets us compare both estimates with their generating values.
+#
+#md # ![True and scaled-lasso coefficients, alongside the generating and estimated noise levels](scaled_lasso.svg)
+#
 # The scaled lasso of Sun and Zhang (2012) estimates the coefficients and the noise level together by
 # minimizing
 #
@@ -13,6 +20,8 @@
 # has no scaled-lasso function; this page shows the computation with `SqrtLeastSquaresLoss`, `NormL1` and
 # `CDSolver`, and what the solver's certificate says about the result. Penalty weights are not supported:
 # the square-root lasso refuses a weighted `NormL1`, see [Supported problems](../../support.md).
+#
+
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
 # ## The problem
@@ -63,6 +72,25 @@ println("σ̂ = ", σ̂, " (simulated noise level 0.5, norm(y - X*βtrue)/sqrt(n
 @assert norm(r) > 0
 @assert isfinite(σ̂) && σ̂ > 0
 
+
+# ## Reading the figure
+#
+# The coefficient panel shows shrinkage and the predictors retained by this fit. The right
+# panel compares the generating noise standard deviation, the realized noise norm divided by
+# `√n`, and `σ̂`. They need not coincide: residuals include error from estimating and shrinking
+# coefficients. These bars describe one simulated sample, not confidence intervals.
+#!jl using Plots
+#!jl coefficient_panel = scatter(1:p, βtrue; label="True coefficients", color=:black,
+#!jl   markersize=4, xlabel="Predictor", ylabel="Coefficient", title="Sparse coefficients")
+#!jl scatter!(coefficient_panel, 1:p, β; label="Scaled lasso", color=:darkorange, markersize=3)
+#!jl noise_panel = bar(["Generating", "Realized", "Estimated"],
+#!jl   [0.5, norm(y - X * βtrue) / sqrt(n), σ̂]; color=[:black, :gray, :darkorange],
+#!jl   label=false, ylabel="Noise / residual scale", title="Noise-level estimate")
+#!jl plot(coefficient_panel, noise_panel; layout=(1, 2), size=(940, 380),
+#!jl   legend=:outertop, bottom_margin=6Plots.mm, left_margin=6Plots.mm)
+#!jl savefig("scaled_lasso.svg")
+#!jl nothing
+
 # ## The joint objective
 #
 # The function below evaluates `L` in ordinary arithmetic. At `σ̂` it equals `P(β̂)/√n`, the objective
@@ -79,6 +107,29 @@ for σ in (0.9σ̂, 1.1σ̂)
     println("L(β̂, ", σ / σ̂, "σ̂) - L(β̂, σ̂) = ", Lσ - L̂, " (formula: ", (σ - σ̂)^2 / (2σ), ")")
     @assert Lσ > L̂
 end
+
+# ## Independent stationarity and objective checks
+#
+# At a nonzero residual, the profiled loss has gradient `-X'r/(√n ‖r‖)`. Its lasso
+# conditions use `λ₀`: a nonzero coefficient satisfies `gradⱼ + λ₀ sign(βⱼ) = 0`,
+# while a zero coefficient needs `|gradⱼ| ≤ λ₀`. The derivative in the noise scale is
+# `1/2 - ‖r‖²/(2nσ̂²)`, which should also be zero. These checks use the data, not the
+# solver's convergence flag. We also evaluate a feasible square-root-lasso dual point to
+# obtain an independent relative objective-gap bound, up to floating-point rounding.
+grad = -(X' * r) / (sqrt(n) * norm(r))
+kkt = maximum(iszero(β[j]) ? max(abs(grad[j]) - λ₀, 0.0) :
+  abs(grad[j] + λ₀ * sign(β[j])) for j in eachindex(β))
+scale_stationarity = abs(0.5 - sum(abs2, r) / (2n * σ̂^2))
+θ = (min(1.0, λ * norm(r) / norm(X' * r, Inf)) / norm(r)) * r
+primal = norm(r) + λ * norm(β, 1)
+dual = dot(θ, y)
+@assert norm(θ) <= 1 + 1e-12 && norm(X' * θ, Inf) <= λ * (1 + 1e-12)
+@assert dual > 0 && isapprox(primal, result.minimum; rtol=1e-10)
+independent_gap = (primal - dual) / dual
+@assert -1e-12 <= independent_gap <= 1e-4
+@assert kkt / λ₀ <= 1e-5 && scale_stationarity <= 1e-12
+println("independent KKT / λ₀ = ", kkt / λ₀, "; scale stationarity = ", scale_stationarity,
+        "; independent relative gap = ", independent_gap)
 
 # ## What the certificate says
 #
@@ -134,3 +185,20 @@ println("λ₀‖β‖₁ = ", λ₀2 * norm(β2, 1), ", L(β, σ) for σ = ", �
 # is not decided by this point, because another square-root lasso minimizer with a nonzero residual may
 # exist. A very small but nonzero residual is not
 # an exact fit: then `σ̂ = norm(r)/sqrt(n) > 0` is the minimizer of `L(β, ·)`.
+
+# ## Statistical limitations
+#
+# The noise model is additive and homoscedastic. Misspecification or omitted predictors can
+# inflate the residual scale, and the penalty here is fixed rather than tuned. A small objective
+# gap does not certify recovery of coefficients or the noise variance. Exact fits need the
+# separate treatment above because the scale parameter is constrained to be positive.
+#
+# ## What we learned
+#
+# Profiling the positive noise scale turns scaled lasso into square-root lasso. The residual
+# determines its noise estimate when it is nonzero. Comparing the recovered coefficients and
+# noise scale with the simulation truth exposes shrinkage; objective and stationarity checks
+# answer the separate question of numerical accuracy.
+#
+# The figure is generated from this script during the documentation build. Run the script
+# alone for the same seeded calculations and checks without loading Plots.
