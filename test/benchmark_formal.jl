@@ -27,7 +27,7 @@ groups() = collect(H.CASE_GROUPS)
 catalog(suite = "quick"; deferred = false) = call(H.build_catalog, suite, groups(); deferred)
 spec(id) = only(filter(s -> s.meta.id == id, catalog("extended")))
 spec_deferred(id) = only(filter(s -> s.meta.id == id, catalog("extended"; deferred = true)))
-const PB_REV = "7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e"
+const PB_REV = "fc13ace163d219da0668b7f18be54ce6043edbf7"
 
 const QUICK = sort!(vcat(
   ["cd/$p/cd/$(w)$i-$t/call" for (p, ws) in (("lasso", ("",)), ("lasso-B", ("", "warm-")))
@@ -262,7 +262,7 @@ end
   # registry sources and a tree other than the one the committed manifests record.
   pin = call(H.checkout_base_pin, dirname(@__DIR__))
   @test pin.rev == PB_REV && pin.url == "https://github.com/mlakolar/ProximalBase.jl"
-  @test pin.trees == ["f69e82d31395fb867523b77dbd297eccde30608d"] && base.tree in pin.trees
+  @test pin.trees == ["686ead109dce9c9e72790e6b9c7571e87799602c"] && base.tree in pin.trees
   @test call(H.check_proximalbase, base, "", pin) === nothing
   other = merge(base, (; rev = "eb74a914d779371a02e4a6637eaa724aeb66fdf5",
                          tree = "d1da2065a3895cb90aa5d0dd1a008c482602bd00"))
