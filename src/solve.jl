@@ -59,7 +59,7 @@ end
 # without `kind`) both accept a NormL1, with or without weights, and an unweighted ElasticNet; :gradient also
 # accepts a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
 # its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
-// pointer to the supported alternatives. The levels must pass _scalar_parameter for T (finite, nonnegative,
+# pointer to the supported alternatives. The levels must pass _scalar_parameter for T (finite, nonnegative,
 # representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
 # weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
 # Scaled(NormLinf(λ)) is refused as any other penalty.
