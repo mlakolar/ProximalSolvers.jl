@@ -17,6 +17,7 @@ const EXAMPLES = [
   (section = "Problems", path = "problems/square_root_lasso.jl", title = "Square-root lasso", notebook = false),
   (section = "Problems", path = "problems/linf_regularized_regression.jl", title = "Least squares with an ℓ∞ penalty", notebook = false),
   (section = "Statistical applications", path = "problems/scaled_lasso.jl", title = "Scaled lasso", notebook = false),
+  (section = "Statistical applications", path = "problems/sparse_deconvolution.jl", title = "Sparse deconvolution and event recovery", notebook = false),
   (section = "Statistical applications", path = "problems/change_point_detection.jl", title = "Change-point detection", notebook = false),
   (section = "Statistical applications", path = "problems/nodewise_gaussian_graph.jl", title = "Gaussian graph: neighborhood selection", notebook = false),
   (section = "Statistical applications", path = "problems/sparse_additive_regression.jl", title = "Sparse additive regression", notebook = false),
