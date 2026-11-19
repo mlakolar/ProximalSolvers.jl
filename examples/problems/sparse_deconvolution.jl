@@ -73,7 +73,7 @@ yfit = H * β;
 # available, and is skipped by the standalone script and ordinary example tests.
 #!jl using Plots
 #!jl observation_panel = plot(1:n, yclean; color=:black, linestyle=:dash, linewidth=2,
-#!jl   label="Noiseless blurred signal", ylabel="Sensor output", title="Sparse deconvolution: a known response blurs brief events")
+#!jl   label="Noiseless blurred signal", ylabel="Sensor output", legend_columns=3, title="Sparse deconvolution: a known response blurs brief events")
 #!jl scatter!(observation_panel, 1:n, y; color=:gray, markersize=3, markerstrokewidth=0,
 #!jl   label="Noisy observations")
 #!jl plot!(observation_panel, 1:n, yfit; color=:darkorange, linewidth=2, label="Reconstruction")
@@ -87,7 +87,7 @@ yfit = H * β;
 #!jl scatter!(estimate_panel, findall(!iszero, β), β[findall(!iszero, β)];
 #!jl   color=:darkorange, markersize=3, label=false)
 #!jl plot(observation_panel, truth_panel, estimate_panel; layout=(3, 1), link=:x,
-#!jl   xlims=(1, n), size=(940, 800), legend=:outertop, legend_columns=3, titlefontsize=12,
+#!jl   xlims=(1, n), size=(940, 800), legend=:outertop, titlefontsize=12,
 #!jl   left_margin=7Plots.mm, bottom_margin=4Plots.mm)
 
 # The fitted impulses need not equal the true ones: lasso shrinks amplitudes, and noise can
