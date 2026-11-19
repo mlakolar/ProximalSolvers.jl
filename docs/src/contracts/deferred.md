@@ -23,9 +23,9 @@ The following remain deferred:
   PGD/APG, square-root CD and group/matrix CD also exclude `SqrNormL2` penalties;
 - weighted `NormL1Nonneg`, nonnegative least squares or nonnegative lasso with APG or CD, and the other
   constrained-penalty combinations excluded by [IN-07](@ref);
-- offsets, generalized losses and compositions; the exception is the raw
+- intercepts and offsets, generalized losses and compositions, except the raw
   `LogisticLoss` with `NormL1` and `ProximalGradientDescent` in [IN-09](@ref), where an
-  intercept is an unpenalized column of ones. For the logistic loss, `AccProxGradDescent`,
+  intercept is a column of ones with penalty weight zero. For the logistic loss, `AccProxGradDescent`,
   `CDSolver`, Newton-type methods, `Scaled(LogisticLoss)`, observation weights and
   offsets, `Float32` data, sparse designs and penalties other than `NormL1` remain
   deferred, as do Poisson and other generalized linear model losses;
