@@ -58,8 +58,7 @@ end
 # :gradient (PGD and APG) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
 # without `kind`) both accept a NormL1, with or without weights, and an unweighted ElasticNet; :gradient also
 # accepts a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
-# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty (AccProxGradDescent refuses it in
-# its solve!). The levels must pass _scalar_parameter for the data type T (finite, nonnegative,
+# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. The levels must pass _scalar_parameter for the data type T (finite, nonnegative,
 # representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
 # weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
 # Scaled(NormLinf(λ)) is refused as any other penalty.
@@ -76,7 +75,7 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa GroupNormL2 && kind === :gradient
     _check_dense_group_penalty(g, x, T)
   elseif kind === :gradient
-    throw(ArgumentError("only NormL1, unweighted ElasticNet or NormLinf is supported (ProximalGradientDescent also accepts GroupNormL2)"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"))
   else
     throw(ArgumentError("only NormL1 or unweighted ElasticNet is supported"))
   end
@@ -139,15 +138,14 @@ end
 end
 
 # A GroupNormL2 under the :gradient gate, for a dense x of type T, checked in this order: its parameters have the
-# element type T; it has one weight per group; its groups, read at this call, partition 1:p (p = length(x)) and hold
-# the members they were constructed with; the level and the coefficients λ wₖ pass _weighted_level and
+# element type T; it has one weight per group; its groups, read at this call, partition 1:p (p = length(x)) and match
+# the layout stored in the penalty at construction; the level and the coefficients λ wₖ pass _weighted_level and
 # _check_coefficients; x does not alias the weights. The groups are checked with one mask of p entries: an empty group,
 # an index below 1, an index that appears twice and an index in no group are ArgumentErrors, and an index above p is
-# a DimensionMismatch. ProximalBase's operators read the layout cached at construction (group_of, free), not g.groups,
-# so a change of g.groups after construction is refused where that cache disagrees: each member i of group k must
-# have group_of[i] == k, group_of must have p entries and free must be empty. With group_of[i] == k for the members
-# of a partition of 1:p, every entry of group_of is nonzero, so the free computed from it at construction is empty;
-# free is still checked because it is a separate array.
+# a DimensionMismatch. ProximalBase's value, prox and full-point residual loops iterate g.groups, while its extent and
+# free-coordinate logic use the arrays stored at construction (group_of, free). A change of g.groups after construction
+# is refused where it disagrees with them: each member i of group k must have group_of[i] == k, group_of must have p
+# entries and free must be empty (free is a separate array, so it is checked itself).
 function _check_dense_group_penalty(g::GroupNormL2, x, ::Type{T}) where T
   g isa GroupNormL2{T} ||
     throw(ArgumentError("the parameters of GroupNormL2 must have the element type $T of the data; convert the penalty " *

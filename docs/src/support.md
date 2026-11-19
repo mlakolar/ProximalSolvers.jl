@@ -18,7 +18,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Lasso](examples/problems/lasso.md) |
 | Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | Float32 (a, b, f), Float64 (b, f) | [Weighted lasso](examples/problems/weighted_lasso.md) |
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Elastic net](examples/problems/elastic_net.md) |
-| Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | — | [Group lasso](examples/problems/group_lasso.md) |
+| Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | Float32 (a, b, h), Float64 (b, h) | [Group lasso](examples/problems/group_lasso.md) |
 | Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | none yet |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
@@ -67,9 +67,9 @@ lasso (note e).
   a `BlockIterate{T}` over `vec(B)` with the row groups of `B`, and `momentum` other than `true`
   ([the rules](@ref "Multi-response group lasso with coordinate descent")). The tests check the `Matrix` and the
   `BlockIterate` coefficients against an independent KKT residual and objective computed from `X` and `Y`.
-- **(h)** `ProximalGradientDescent` with `GroupNormL2` needs a `GroupNormL2{T}` of the element type of the data
+- **(h)** `ProximalGradientDescent` and `AccProxGradDescent` with `GroupNormL2` need a `GroupNormL2{T}` of the element type of the data
   whose groups partition `1:p`, with the level and coefficients in the range that
-  [Group lasso with proximal gradient descent](@ref) states. `AccProxGradDescent` refuses `GroupNormL2`.
+  [Group lasso with proximal gradient descent](@ref) states.
 
 **Updating the matrix.** A pull request that adds or removes support for a combination
 changes its cell and its tutorial link in the same pull request, together with the test
@@ -88,7 +88,7 @@ These tutorials apply rows of the matrix to statistical problems and add no solv
 ## What works today?
 
 The supported objective is a lasso (CD also solves a group lasso on a `BlockIterate` and a
-square-root lasso, and PGD a group lasso on a dense vector, below):
+square-root lasso, and PGD and APG a group lasso on a dense vector, below):
 
 ~~~math
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_1,
@@ -117,7 +117,7 @@ certificate.
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below) |
 | Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
-| Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
+| Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
 
 ### [Weighted lasso](@id weighted-lasso-support)
@@ -203,31 +203,34 @@ the values of `X` and describes the curvature and the stopping statistic of a gr
 
 ### Group lasso with proximal gradient descent
 
-`solve!(x, f, g, ProximalGradientDescent(), options)` minimizes the same group lasso when `x` is a dense
-`Vector{T}` (`T` equal to `Float32` or `Float64`), the data, the loss and the scale are as above, and
+`solve!(x, f, g, ProximalGradientDescent(), options)` and `solve!(x, f, g, AccProxGradDescent(), options)` minimize the
+same group lasso when `x` is a dense `Vector{T}` (`T` equal to `Float32` or `Float64`), the data, the loss and the scale
+are as above (for `AccProxGradDescent`, with the size bounds of (b)), and
 
 - `g` is a `GroupNormL2{T}`: its level and weights have the element type of the data (convert with
   `GroupNormL2(T(lambda), groups, T.(w))`; unlike `CDSolver` on a `BlockIterate`, a `Float64` penalty with
   `Float32` data is refused);
-- the groups of `g` partition `1:p` and hold the members they were constructed with: an index above `p` is
+- the groups of `g` partition `1:p` and match the layout stored in the penalty at construction: an index above `p` is
   refused with a `DimensionMismatch`, and an empty group, an index in two groups or in no group, and a change of
-  `g.groups` after construction that moves an index (ProximalBase's operators use the layout cached at
-  construction) with an `ArgumentError`;
+  `g.groups` after construction where it disagrees with that layout (ProximalBase's extent and free-coordinate
+  logic use the arrays stored at construction) with an `ArgumentError`;
 - the level and the weights pass the rules of the [weighted lasso](@ref weighted-lasso-support), with one coefficient
   `c_k = T(lambda) * w_k` per group in place of one per entry (a zero weight leaves its group unpenalized);
 - `x` does not alias `X`, `y` or the weights.
 
 These checks run before `x` is written. The proximal step is ProximalBase's block soft threshold. A proposed
-stop counts only if ProximalBase's group KKT residual is below `max(gradtol, 64 eps(T)) * S`, with
+stop counts only if ProximalBase's group KKT residual is below `max(gradtol, 64 eps(T)) * S` (for
+`AccProxGradDescent`, the check forms `∇f(x)` once per proposed stop and counts it in `grad_calls`), with
 `S = max(max_k c_k, max_k ‖[∇f(0)]_{G_k}‖₂)` (see [the stationarity check](@ref "The stationarity check of a stop")).
-`test/group_pgd.jl` checks `Float32` and `Float64` solves against references computed from the data in
-`BigFloat`: the closed form on designs with block-orthogonal columns (raw and `1/n`-scaled loss, default weights
-and weights with a zero), a correlated design (also against `CDSolver` on a `BlockIterate`), contiguous, permuted,
-singleton and single-group layouts given as ranges or as vectors, a group of zero columns, `lambda = 0` against
-the least-squares fit, a level above the smallest level with a zero solution, and a `Float64` loss scale of
-`1e-300`. Singleton groups with unit weights have the stop scale of `NormL1(lambda)` where no entry of `∇f(0)` has a
-subnormal square. `AccProxGradDescent`
-refuses `GroupNormL2`.
+`test/group_pgd.jl` checks `Float32` and `Float64` solves against references computed from the data in `BigFloat`.
+Both `ProximalGradientDescent` and `AccProxGradDescent` run: the closed form on designs with block-orthogonal columns
+(raw and `1/n`-scaled loss, default weights and weights with a zero), a correlated design (also against `CDSolver` on a
+`BlockIterate`), singleton groups with unit weights against `NormL1(lambda)`, a zero weight, `lambda = 0` against the
+least-squares fit, a level above the smallest level with a zero solution, a huge `xtol` or `ftol` that must not stop at a point
+that fails the check, and the stop check just below and just above its threshold. Only `ProximalGradientDescent` runs the
+contiguous, permuted and single-group layouts given as ranges or as vectors, a group of zero columns, and a `Float64` loss scale
+of `1e-300`. Singleton groups with unit weights have the stop scale of `NormL1(lambda)` where no entry of `∇f(0)` has a
+subnormal square.
 
 ### Multi-response group lasso with coordinate descent
 
@@ -369,7 +372,7 @@ The current development core intentionally excludes the following:
 | ADMM, Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE, graphical lasso (log-determinant estimation of a precision matrix) | Deferred |
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |
-| APG with a `GroupNormL2` penalty; PGD or APG with `BlockIterate` or `Matrix` coefficients or a matrix response | Deferred; refused with an `ArgumentError` |
+| PGD or APG with `BlockIterate` or `Matrix` coefficients or a matrix response | Deferred; refused with an `ArgumentError` |
 | `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
 | Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |

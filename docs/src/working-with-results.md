@@ -84,7 +84,7 @@ diagnostics, not changes to the statistical model.
 | Type/unsupported input error | Compare the problem, solver, iterate and element type with the [Problem × solver matrix](@ref "Problem × solver matrix"), and the input with the rules of [Supported problems](support.md) |
 | Penalty seems too strong or too weak | `LeastSquaresLoss` is a sum; explicitly multiply by `1/n` for mean-normalized lasso |
 | PGD rejects `SparseIterate` | PGD needs a dense coefficient vector; CD supports one-dimensional `SparseIterate` |
-| PGD or APG rejects `BlockIterate` | Only CD solves the group lasso, with a `BlockIterate` and a `GroupNormL2` penalty |
+| PGD or APG rejects `BlockIterate` | PGD and APG take a dense `Vector{T}`, with a `GroupNormL2{T}` penalty for the group lasso; only CD takes a `BlockIterate` |
 | `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
 | Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md) |
 | `gap` is NaN | Gap certification is implemented only for the square-root lasso with CD; there, `NaN` means that the run stopped without a certificate |

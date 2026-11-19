@@ -65,7 +65,8 @@ groups and an active coordinate is a group number.
 
 **BlockIterate:** A ProximalBase coefficient vector whose coordinates for
 coordinate descent are groups of entries that partition `1:p`. `CDSolver`
-uses it with a `GroupNormL2` penalty for the group lasso.
+uses it with a `GroupNormL2` penalty for the group lasso; PGD and APG solve the group lasso on a dense
+`Vector` instead and refuse a `BlockIterate`.
 
 **Compaction:** Removing zero-valued coordinates from the list of
 active coordinates, possibly changing their storage order.

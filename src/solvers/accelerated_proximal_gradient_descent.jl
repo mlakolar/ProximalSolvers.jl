@@ -7,12 +7,14 @@
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
 
 Accelerated proximal gradient descent (APG) for least squares with a `NormL1` (lasso, with optional weights),
-`ElasticNet` or `NormLinf` penalty and a dense `Vector{Float32}` or `Vector{Float64}` coefficient iterate (Parikh
+`ElasticNet`, `NormLinf` or group lasso (`GroupNormL2`, see [`ProximalGradientDescent`](@ref)) penalty and a dense
+`Vector{Float32}` or `Vector{Float64}` coefficient iterate (Parikh
 and Boyd, *Proximal Algorithms*, §4.3). Iteration `k` (counted from the start or the last
 restart) extrapolates `y = x + k/(k+3) (x - x')` from the last two accepted
 iterates and takes a proximal gradient step from `y`: a gradient step for the
 least-squares loss followed by the proximal operator of the penalty (soft thresholding for `NormL1`, at the level
-`λ wⱼ` of entry `j` for `NormL1(λ, w)`, with the ridge weight after it for `ElasticNet`, and for `NormLinf` the
+`λ wⱼ` of entry `j` for `NormL1(λ, w)`, with the ridge weight after it for `ElasticNet`, for `GroupNormL2` ProximalBase's
+block soft threshold, and for `NormLinf` the
 point minus its projection onto the ℓ1 ball of radius `λ/L`). It is a FISTA-family method; its
 momentum sequence `k/(k+3)` is not the textbook FISTA recurrence.
 
@@ -45,9 +47,10 @@ increase of `L`; `solve!` then restores the last accepted iterate and rethrows. 
 rejected. Pass `ProximalOptions(...)` as the fifth argument to [`solve!`](@ref).
 A stop that the `xtol`, `ftol` or `gradtol` test proposes counts only if the computed KKT
 residual at the accepted `x` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with
-`λmax = α‖Xᵀy‖∞` and `λ` the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient
-`T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`; see [`ProximalOptions`](@ref)); for `NormLinf` the
-generic proximal-gradient check of [`ProximalOptions`](@ref) applies instead. For `NormL1` and `ElasticNet`, `converged = true` guarantees only that the
+`λ` the ℓ1 level of the penalty (`λ` of `NormL1(λ)`, the largest coefficient
+`T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`) and, for `NormL1` and `ElasticNet`, `λmax = α‖Xᵀy‖∞` (see [`ProximalOptions`](@ref)); for `GroupNormL2(λ, groups, w)` the residual is the
+group KKT residual and `λmax = maxₖ α‖[Xᵀy]_{Gₖ}‖₂`, `λ = T(λ) * maximum(w)`; for `NormLinf` the
+generic proximal-gradient check of [`ProximalOptions`](@ref) applies instead. For `NormL1`, `ElasticNet` and `GroupNormL2`, `converged = true` guarantees only that the
 computed, normalized KKT residual `‖G‖∞ / max(λ, λmax)` is below `max(gradtol, 64 eps(T))` (the
 threshold is formed in `T`, which can round or overflow; see [`ProximalOptions`](@ref)). It is
 not an exact-arithmetic certificate and does not guarantee coefficient accuracy on
@@ -310,7 +313,8 @@ end
 Minimize the same least-squares lasso, elastic net or `NormLinf` problem as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
-of `ProximalGradientDescent`, except that a `GroupNormL2` penalty is refused; in addition `β` and `α` must satisfy their bounds after
+of `ProximalGradientDescent`, including a `GroupNormL2` penalty with its group stopping check (see `ProximalGradientDescent` and
+[`ProximalOptions`](@ref)); in addition `β` and `α` must satisfy their bounds after
 conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
 `n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
 rounding-error bounds of the line search need. Every refusal of an input, option or
@@ -322,7 +326,6 @@ function solve!(x, f, g, method::AccProxGradDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
   _check_problem(x, f, g)
-  g isa GroupNormL2 && throw(ArgumentError("AccProxGradDescent does not support GroupNormL2; use ProximalGradientDescent on a dense Vector or CDSolver on a BlockIterate"))
   _check_method(method, eltype(x))
   _check_bound_size(f, eltype(x))
   t0 = time()

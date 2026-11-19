@@ -300,7 +300,7 @@ T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T
 (see below), while the gradient methods (`ProximalGradientDescent`, `AccProxGradDescent`) refuse it.
 The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNormL2` penalty on a
 `BlockIterate{T}` with the same groups; only `CDSolver` accepts a `BlockIterate`, and `CDSolver` describes it.
-`ProximalGradientDescent` also minimizes the group lasso on a dense `Vector{T}` (see below). The loss
+`ProximalGradientDescent` and `AccProxGradDescent` also minimize the group lasso on a dense `Vector{T}` (see below). The loss
 uses same-type `Matrix` X and `Vector` y. The penalty of the gradient methods is a `NormL1(λ)` or
 `NormL1(λ, w)`, an unweighted `ElasticNet(λ1, λ2)` (`λ1 ‖x‖₁ + (λ2/2) ‖x‖²`) or `NormLinf(λ)` (`λ max|xᵢ|`),
 whose levels are finite and nonnegative and representable in `T` without overflow or underflow; for a dense
@@ -323,13 +323,13 @@ or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it, a
 `ProximalGradientDescent` accepts `g = GroupNormL2(λ, groups, w)` (or with the default weights) when `g` is a
 `GroupNormL2{T}` (its level and weights have the element type of the data; convert with
 `GroupNormL2(T(λ), groups, T.(w))`), its groups partition `1:p` (none empty, no index in two groups,
-none in no group, none above `p`) and hold the members they were constructed with (a change of `g.groups` after
-construction that moves an index is refused; construct the penalty again), its weights are finite and nonnegative, `T(λ)` is zero or a normal number of `T`,
+none in no group, none above `p`) and match the layout stored in the penalty at construction (a change of `g.groups` after
+construction is refused where it disagrees with that layout; construct the penalty again), its weights are finite and nonnegative, `T(λ)` is zero or a normal number of `T`,
 each coefficient `λ wₖ`, rounded in `T`, is finite and, where `λ` and `wₖ` are both positive, a normal number of `T`,
 and `x` does not alias `w`. A zero weight leaves its group unpenalized. The proximal step is ProximalBase's block soft
 threshold, and the stopping check uses the group KKT residual of ProximalBase's `kkt_violation` (see
-[`ProximalOptions`](@ref)). `AccProxGradDescent` and `CDSolver` on a dense `Vector` or a `SparseIterate` refuse
-`GroupNormL2`.
+[`ProximalOptions`](@ref)). `AccProxGradDescent` accepts the same `GroupNormL2` with the same stopping check;
+`CDSolver` on a dense `Vector` or a `SparseIterate` refuses it.
 
 Borrowed X/y must not alias mutable `x` or change during a solve. Results share
 `x`; copy it to retain earlier coefficients. Unsupported inputs/options fail

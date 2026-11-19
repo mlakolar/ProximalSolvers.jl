@@ -1,5 +1,6 @@
-# This example compares block coordinate descent (`CDSolver` on a `BlockIterate`) and proximal
-# gradient descent (`ProximalGradientDescent` on a dense `Vector`) on one seeded group lasso, by
+# This example compares block coordinate descent (`CDSolver` on a `BlockIterate`), proximal
+# gradient descent (`ProximalGradientDescent` on a dense `Vector`) and its accelerated version
+# (`AccProxGradDescent` on a dense `Vector`) on one seeded group lasso, by
 # the time each needs to reach the same accuracy. As in
 # [Lasso: solvers at equal accuracy](lasso_solvers.md), the accuracy is computed from the problem
 # data and the returned coefficients, not read from the solvers, and each solver is run over a
@@ -70,7 +71,7 @@ fstar = objective(reference)
 # Each run starts from zero. The time of a setting is the minimum over three timed calls after
 # one warm-up call; a timed call allocates the starting iterate, calls `solve!` and, for coordinate
 # descent, converts the `BlockIterate` result to a `Vector`, so these costs are included. Coordinate descent is swept over `tol`, and proximal gradient
-# descent over one scale used for `xtol` and `gradtol` (with `ftol = 0`).
+# descent, plain and accelerated, over one scale used for `xtol` and `gradtol` (with `ftol = 0`).
 function measure(run!; repetitions = 3)
   besttime, beta, result = Inf, zeros(p), nothing
   for k in 1:repetitions + 1
@@ -93,10 +94,13 @@ cdruns = sweep(10.0 .^ (-3:-1:-9),
           () -> (x = BlockIterate(Float64, p, g); r = solve!(x, f, g, solver); (Vector(x), r))),
   result -> result.passes)
 
-pgdruns = sweep(10.0 .^ (-3:-1:-11),
+gradientruns(method) = sweep(10.0 .^ (-3:-1:-11),
   scale -> (options = ProximalOptions(maxiter = 100_000, ftol = 0, xtol = scale, gradtol = scale);
-            () -> (beta = zeros(p); r = solve!(beta, f, g, ProximalGradientDescent(), options); (beta, r))),
-  result -> result.iterations);
+            () -> (beta = zeros(p); r = solve!(beta, f, g, method, options); (beta, r))),
+  result -> result.iterations)
+
+pgdruns = gradientruns(ProximalGradientDescent())
+apgruns = gradientruns(AccProxGradDescent());
 
 # ## Time to the target accuracy
 #
@@ -108,7 +112,8 @@ kkttarget = 1e-4
 reached(run) = run.gap <= gaptarget && run.kkt <= kkttarget
 
 sweeps = ["CD on a BlockIterate, cyclic" => (cdruns, "tol", "passes"),
-          "PGD on a dense Vector" => (pgdruns, "scale", "iterations")]
+          "PGD on a dense Vector" => (pgdruns, "scale", "iterations"),
+          "APG on a dense Vector" => (apgruns, "scale", "iterations")]
 
 function tablerow(name, runs, parameter, unit)
   k = findfirst(reached, runs)
@@ -135,9 +140,9 @@ end
 
 # ## What to take from this
 #
-# The times illustrate how to compare the two solvers at equal accuracy on this one problem, one
+# The times illustrate how to compare the solvers at equal accuracy on this one problem, one
 # design and one `lambda`; they come from one machine in one run and are not benchmark evidence
 # (see [Benchmarks and performance](../../benchmarks.md)). A CD pass and a PGD iteration are
 # different units of work: a full pass visits each group once and an active pass the active groups,
-# while a PGD iteration forms products with `X` and its transpose (more of them when its line search
-# rejects a trial).
+# while a PGD or APG iteration forms products with `X` and its transpose (more of them when its line
+# search rejects a trial).
