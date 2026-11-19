@@ -15,6 +15,7 @@ standard = [
   "group_cd_preflight",
   "group_pgd",
   "nonnegative_lasso",
+  "nonnegative_least_squares",
   "multiresponse_cd",
   "core_regressions",
   "sparse_cd",

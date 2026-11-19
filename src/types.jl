@@ -62,7 +62,8 @@ when the accuracy matters. These options do not configure coordinate descent:
 `ElasticNet(lambda1, lambda2)` and uncentered `SqrNormL2(lambda)` for dense or
 one-dimensional `SparseIterate` least-squares problems and stops by its change test.
 
-For dense PGD with unweighted `NormL1Nonneg(lambda)`, the KKT score is
+For dense PGD with unweighted `NormL1Nonneg(lambda)` or `IndNonnegative()`
+(with `lambda = 0`), the KKT score is
 `abs(grad[j] + T(lambda))` at a positive coefficient and
 `max(-(grad[j] + T(lambda)), 0)` at zero. The check uses the scale
 `max(T(lambda), s * norm(X'y, Inf))` and tolerance floor `64eps(T)`;

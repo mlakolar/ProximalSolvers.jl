@@ -74,15 +74,15 @@ A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its ful
 
 ### [STOP-16 Nonnegative-lasso residual and scale](@id STOP-16)
 
-**Statement.** For unweighted `NormL1Nonneg(λ0)`, PGD checks the accepted point with ProximalBase's full-point `kkt_violation`. At each check it converts the scalar level once into `NormL1Nonneg(T(λ0))`. With `λ = T(λ0)`, the entry score is `abs(∇f(x)[j] + λ)` when `x[j] > 0`, and `max(-(∇f(x)[j] + λ), 0)` when `x[j] == 0`. The residual is the maximum entry score. An infeasible point has residual `Inf` and cannot pass. A positive derivative at a zero coordinate can satisfy constrained stationarity.
+**Statement.** For unweighted `NormL1Nonneg(λ0)`, PGD checks the accepted point with ProximalBase's full-point `kkt_violation`. At each check it converts the scalar level once into `NormL1Nonneg(T(λ0))`. For `IndNonnegative()`, PGD uses `NormL1Nonneg(zero(T))` for the check because both penalties have the same value and normal cone on the feasible set. With `λ = T(λ0)`, the entry score is `abs(∇f(x)[j] + λ)` when `x[j] > 0`, and `max(-(∇f(x)[j] + λ), 0)` when `x[j] == 0`. The residual is the maximum entry score. An infeasible point has residual `Inf` and cannot pass. A positive derivative at a zero coordinate can satisfy constrained stationarity.
 
 The scale is `S = max(λ, λmax)`, where `λmax` is the computed symmetric magnitude `s‖Xᵀy‖∞`. This is not the one-sided penalty level at which zero solves the constrained problem. Apply the computed threshold, tolerance floor, strict comparison and scale guards of [STOP-04](@ref). Passing records a computed residual check, with the working-precision limitations of [STOP-12](@ref).
 
-**Applies to.** ProximalGradientDescent with unweighted NormL1Nonneg; dense Vector{T}; T = Float32 or Float64. The feasible-start requirement and unsupported combinations are specified in [IN-07](@ref).
+**Applies to.** ProximalGradientDescent with unweighted `NormL1Nonneg` or `IndNonnegative()`; dense Vector{T}; T = Float32 or Float64. The feasible-start requirement and unsupported combinations are specified in [IN-07](@ref).
 
 **Code.** `src/utils.jl`: dedicated `_stationary!`, `_converted_penalty`, `_l1_level`, `_scale_norm` and `_lambda_max!`.
 
-**Tests.** `test/nonnegative_lasso.jl`: both precisions, zero and positive starts, zero and converted levels, inactive-coordinate KKT, correlated designs, independent residual/objective checks and refusals.
+**Tests.** `test/nonnegative_lasso.jl`: both precisions, zero and positive starts, zero and converted levels, inactive-coordinate KKT, correlated designs, independent residual/objective checks and refusals. `test/nonnegative_least_squares.jl` checks both precisions against independent gradients and objectives, including a positive derivative at a positive coefficient that must veto an objective-change stopping proposal.
 
 **Sources.** Current-source addition after the historical migration baseline: upstream `fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8`, [`src/utils.jl` dedicated check and constrained-residual rule](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156), [level conversion](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L232-L233), and [`test/nonnegative_lasso.jl`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/test/nonnegative_lasso.jl#L12-L67).
 
@@ -168,7 +168,7 @@ A small accepted `L` makes `t` large and this mapping a weaker stationarity meas
 
 Each generic check with finite positive `t` adds one proximal evaluation, counted in `prox_calls`; APG additionally counts its gradient at `x`. These costs accrue before call limits are tested. The generic check restores its scratch `delta_x` to `x - x_previous` before the remaining diagnostics read it.
 
-The dedicated NormL1Nonneg check [STOP-16](@ref) uses PGD's held gradient and does not add a proximal evaluation.
+The dedicated nonnegative-penalty check [STOP-16](@ref) uses PGD's held gradient and does not add a proximal evaluation.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 

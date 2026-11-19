@@ -438,7 +438,7 @@ end
   @test isequal(Vector(xs), before)
   for method in METHODS
     allowed = method isa PGD ?
-      "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported" :
+      "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg or IndNonnegative is supported" :
       "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"
     refused(ArgumentError, allowed, start(), f, ProximalBase.NormL2(λ), method)
   end

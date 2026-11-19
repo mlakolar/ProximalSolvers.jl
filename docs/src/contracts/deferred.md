@@ -21,7 +21,7 @@ The following remain deferred:
   zero-valued center or a union-typed center holding `nothing`), and
   `SqrNormL2` with PGD/APG, square-root loss or group/matrix coefficients;
   the supported uncentered scalar least-squares CD form is [IN-01](@ref);
-- weighted `NormL1Nonneg`, nonnegative lasso with APG or CD, and the other
+- weighted `NormL1Nonneg`, nonnegative least squares or nonnegative lasso with APG or CD, and the other
   constrained-penalty combinations excluded by [IN-07](@ref);
 - intercepts and offsets, generalized losses and compositions;
 - monotone or active-set acceleration, APG diagonal preconditioning, ADMM/Newton,

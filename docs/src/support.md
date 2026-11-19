@@ -17,6 +17,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Lasso](examples/problems/lasso.md) |
 | Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | Float32 (a, b, f), Float64 (b, f) | [Weighted lasso](examples/problems/weighted_lasso.md) |
+| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | — | — | — | — | Float32 (a, i), Float64 (i) | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
 | Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [Elastic net](examples/problems/elastic_net.md) |
 | Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
@@ -36,8 +37,8 @@ coefficients over a pass and not a certificate of optimality, except for the squ
 lasso (note e).
 
 Ridge uses the same least-squares loss and supported positive scaling; its
-CD-only input rules are specified in [IN-01](@ref). Nonnegative lasso also uses
-that loss and scaling; its PGD-only feasibility rules are specified in [IN-07](@ref).
+CD-only input rules are specified in [IN-01](@ref). Nonnegative least squares and nonnegative lasso also use
+that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref).
 
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
@@ -123,7 +124,7 @@ with `ElasticNet(lambda1, lambda2)`. `CDSolver` also accepts uncentered
 zero. Its supported storage and center type are specified in [IN-01](@ref).
 `ProximalGradientDescent` and `AccProxGradDescent` also solve the
 ℓ∞-penalized problem (below). PGD additionally supports nonnegative coefficients
-with unweighted `NormL1Nonneg`; see [the nonnegative input rules](@ref IN-07).
+with `IndNonnegative()` or unweighted `NormL1Nonneg`. See [the nonnegative input rules](@ref IN-07).
 CD's numerical step restrictions and its change-test
 meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 
@@ -137,7 +138,7 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Ridge penalty | Uncentered `SqrNormL2(lambda)` with the least-squares loss and `CDSolver` on a dense vector or a one-dimensional `SparseIterate` (note j above) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
-| Nonnegative lasso | `ProximalGradientDescent` only, with unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
+| Nonnegative least squares and lasso | `ProximalGradientDescent` only, with `IndNonnegative()` or unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
 
 ### [Weighted lasso](@id weighted-lasso-support)
@@ -286,24 +287,17 @@ dense, even when the coefficients use `SparseIterate`.
 
 ### Nonnegative lasso with proximal gradient descent
 
-**(i)** `ProximalGradientDescent` accepts unweighted `NormL1Nonneg(lambda)` with the same
-dense least-squares data and positive loss scales as lasso. `lambda` is finite, nonnegative,
-and representable in `T` without overflow or rounding a nonzero level to zero. The dense
-`Vector{T}` start must be nonnegative; an infeasible start is refused before writes.
-The proximal operator enforces feasibility at each step. At positive coefficients the
-point-aware KKT residual is `abs(grad[j] + T(lambda))`; at zero coefficients it is
-`max(-(grad[j] + T(lambda)), 0)`. A proposed stop must pass the same threshold as
-lasso: `max(gradtol, 64 eps(T)) * max(T(lambda), s * norm(X'y, Inf))`.
-This scale uses the symmetric gradient magnitude, not the one-sided level at which the
-zero vector solves the constrained problem. A kept stop is a computed residual check,
-not an exact-arithmetic certificate. APG, coordinate descent, weighted `NormL1Nonneg`,
-sparse or block iterates, and square-root loss are refused. No intercept is fitted.
+**(i)** With dense least-squares data and a feasible nonnegative starting vector,
+use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares.
+Use unweighted `NormL1Nonneg(lambda)` with a positive level for nonnegative
+lasso. These combinations are available with PGD. See [the input contract](@ref IN-07)
+for refusals and [the constrained stationarity check](@ref STOP-16) for how PGD
+checks a stopping proposal at positive and zero coefficients.
 
-See [the input contract](@ref IN-07), [the constrained stationarity check](@ref STOP-16)
-and the [nonnegative regression walkthrough](examples/problems/nonnegative_lasso.md).
-The tests include a successful convergence assertion for an inactive coefficient
-with a positive loss derivative; other cases also check feasibility, objective
-values and independently recomputed constrained KKT residuals.
+The [NNLS walkthrough](examples/problems/nonnegative_least_squares.md) compares
+the two objectives on a common mixture. The [nonnegative sparse-regression
+walkthrough](examples/problems/nonnegative_lasso.md) compares constrained and
+ordinary lasso.
 
 ## What is not supported yet?
 
