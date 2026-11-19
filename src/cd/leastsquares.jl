@@ -75,20 +75,22 @@ function _sqnorm!(m::LSModel{T}, k::Int) where T
 end
 _flat_column(m::LSModel, k::Int) = all(iszero, view(m.X, :, k))
 # The coordinate step. With a = ‖X_k‖², b = rᵀX_k and the centre c = old + b/a, the step is the soft
-# threshold of c at τ = λ/(m.s a) (for an ElasticNet, followed by the ridge weight 1/(1 + λ2/(m.s a))).
+# threshold of c at τ = λ/(m.s a) for a NormL1 (for an ElasticNet, followed by the ridge weight
+# 1/(1 + λ2/(m.s a))). For an uncentered SqrNormL2 the prox applies ridge shrinkage to c.
 # A flat column (a = 0 and X_k = 0) takes the penalty's minimizer. A
 # curvature a that is 0 for a column that is not flat (its squares underflow), or that is not finite, is
 # refused before the coordinate or the residual changes. For a finite a, p = m.s a is formed in `S` and
 # γ = 1/p. Where p and γ are both at least floatmin(S), the step is `prox_block(g, c, k, γ)`, whose NormL1
 # prox forms the threshold γλ in its own working type. Where one of them is smaller, `_outside_band`
-# takes over. There γ is not a usable coefficient at a positive penalty: it is 0 where p overflows (the
+# takes over. For the lasso at a positive penalty level, γ is 0 where p overflows (the
 # threshold γλ is 0 and the penalty is ignored), Inf where p is below 1/floatmax(S) (the threshold is
 # Inf, which sets a finite centre to 0), and has fewer significant bits where p or γ is subnormal. At
-# λ = 0 the prox keeps a zero threshold for any γ. `_exceptional_step` forms τ without p or γ. A
+# λ = 0 the NormL1 prox keeps a zero threshold for any γ. Its `_exceptional_step` forms τ without p or γ. A
 # curvature a that is not finite gives p = Inf and γ = 0 for a positive finite scale, so it leaves the
 # band and is refused in `_outside_band`. For an ElasticNet, ProximalBase's `prox_block` is the step in
 # the band, and `_exceptional_step` takes the lasso's range-safe form at λ2 = 0 (the penalty NormL1(λ1))
-# and refuses the step at λ2 > 0, which has no such form here. In exact arithmetic a fixed point of
+# and refuses the step at λ2 > 0. For an uncentered SqrNormL2, the exceptional step keeps c at λ = 0
+# and refuses positive levels. In exact arithmetic a fixed point of the lasso step
 # x = shrink(x + b/a′, λ/(m.s a′)) satisfies m.s b ∈ λ ∂|x| for any positive a′ used in both places, so
 # a rounded or subnormal curvature does not move the fixed point (whether and how fast the iteration
 # reaches it can change).
@@ -128,8 +130,7 @@ end
 # in the band of the fast path: α is representable in T (`solve!` checks it) and a is finite in T, so
 # p lies between about 1e-90 and 1e77 for S = Float64 on Float32 data. Another scale type (`solve!` refuses
 # one that is not Float32, Float64 or an integer; an LSModel built directly can have S = BigFloat), or a
-# penalty without a method below (an unweighted NormL1 or ElasticNet, or a NormL1 with a Vector{T} of weights,
-# has one), is refused.
+# penalty without a method below is refused.
 @noinline function _exceptional_step(g::NormL1{<:Real, Nothing}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}}
   shrink(c, min(_threshold(T, g.λ0, α, a), floatmax(T)))
 end
@@ -156,6 +157,10 @@ end
   iszero(g.λ2) ? _exceptional_step(NormL1(g.λ1), c, α, a, k) : _refuse_ridge_step(T, k)
 @noinline _refuse_ridge_step(::Type{T}, k::Int) where T =
   throw(ArgumentError("the coordinate step of coordinate $k is outside the normal range of $T (the loss scale times the squared norm of its column, or its reciprocal, is below floatmin); ElasticNet with lambda2 > 0 has no range-safe step there; rescale the data or the loss"))
+@noinline function _exceptional_step(g::SqrNormL2{<:Real, Nothing}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}}
+  iszero(g.λ) && return c
+  throw(ArgumentError("the coordinate step of coordinate $k is outside the normal range of $T (the loss scale times the squared norm of its column, or its reciprocal, is below floatmin); SqrNormL2 with lambda > 0 has no range-safe step there; rescale the data or the loss"))
+end
 @noinline _exceptional_step(g, c, α, a, k::Int) =
   throw(ArgumentError("the coordinate step of coordinate $k has no range-safe form for a $(typeof(g)) penalty and a loss scale of type $(typeof(α))"))
 # τ = λ/(α a) with λ the penalty level converted to Float64. Float32: α and a are Float32, so their

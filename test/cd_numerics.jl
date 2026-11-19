@@ -1366,8 +1366,7 @@ end
     @test err isa ArgumentError && occursin("curvature of coordinate 2", err.msg)
     @test m.r == r0 && Vector(x) == x0 && isnan(m.a[2])
   end
-  # a penalty without an exceptional step, where the product is outside the band (a weighted NormL1 has one,
-  # test/weighted_lasso.jl)
+  # A positive ridge level is refused where the product is outside the band.
   Xs = T.(1e5 .* X[:, [1, 3]])
   m = PS.cdmodel((T === Float32 ? 1f30 : 1e300) * LeastSquaresLoss(y, Xs), SparseIterate(zeros(T, 2)))
   x = SparseIterate(T.([0.1, 0.2]))
@@ -1380,7 +1379,7 @@ end
   catch e
     e
   end
-  @test err isa ArgumentError && occursin("no range-safe form", err.msg)
+  @test err isa ArgumentError && occursin("SqrNormL2 with lambda > 0", err.msg)
   @test Vector(x) == T.([0.1, 0.2])
   # a scale type that is wider than T: the exceptional step is not defined for it (unreachable through solve!)
   W = T === Float32 ? Float64 : BigFloat

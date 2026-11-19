@@ -18,16 +18,18 @@ code.
   norm `a` of its column, formed from the two square roots where the product
   `s * a` is zero, subnormal or overflowing for a finite `a`; a nonzero change
   times an infinite scale (a computed scale that overflows the working type) is
-  refused with an `ArgumentError`. The coordinate step forms its threshold
+  refused with an `ArgumentError`. The lasso coordinate step forms its threshold
   `lambda / (s * a)` without the product or its reciprocal where either is
   outside the normal range (with weights, outside that range `lambda` stands for the coefficient `T(lambda) * w[k]`
   rounded in `T`; inside it ProximalBase's `prox_block` forms its threshold from `lambda` and `w[k]`), and a column whose squared norm is not finite is
-  refused with an `ArgumentError` that names the curvature. For an `ElasticNet`,
+  refused with an `ArgumentError` that names the curvature. For an `ElasticNet` or uncentered `SqrNormL2`,
   in the normal range the step of a visit is ProximalBase's `prox_block`. At a visit to a column
   with a finite positive `a` where `s * a` or its reciprocal is below `floatmin` of the type that
-  combines `s` with the working type, the step with `lambda2 = 0` is the lasso's, and with
-  `lambda2 > 0` the visit is refused with an `ArgumentError` that names the coordinate, during the
-  pass: the iterate passed to `solve!` is unchanged, and a borrowed RNG may have advanced.
+  combines `s` with the working type, the elastic-net step with `lambda2 = 0` is the lasso's,
+  and the `SqrNormL2` step with `lambda = 0` is unpenalized. With `lambda2 > 0` for an
+  elastic net or `lambda > 0` for `SqrNormL2`, the visit is refused with an `ArgumentError`
+  that names the coordinate. On a refusal during the pass, the iterate passed to `solve!` is
+  unchanged, and a borrowed RNG may have advanced.
   A visit to a flat column (all entries 0) sets its coordinate to 0 at the levels that `solve!`
   accepts (also for a `NormL1` at a zero weight), and a visit to a column that is not flat whose `a` underflows to 0 is refused with an
   `ArgumentError` about the curvature, as for the lasso. With `maxpasses = 0` no coordinate is visited. With

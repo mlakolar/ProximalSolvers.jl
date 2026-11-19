@@ -58,7 +58,8 @@ end
 # checked by _check_problem. :gradient retains the APG gate.
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
 # :gradient (APG), :pgd (PGD) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
-# without `kind`) accept a NormL1, with or without weights, and an unweighted ElasticNet; both gradient kinds also
+# without `kind`) accept a NormL1, with or without weights, and an unweighted ElasticNet. :cd also accepts an
+# uncentered SqrNormL2. Both gradient kinds also
 # accept a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
 # its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
 # pointer to the supported alternatives. The levels must pass _scalar_parameter for T (finite, nonnegative,
@@ -71,6 +72,9 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa ElasticNet && g.w === nothing
     _scalar_parameter(g.λ1, T, "penalty lambda1")
     _scalar_parameter(g.λ2, T, "penalty lambda2")
+  elseif g isa SqrNormL2 && kind === :cd
+    g.y === nothing || throw(ArgumentError("CDSolver requires an uncentered SqrNormL2 penalty"))
+    _scalar_parameter(g.λ, T, "penalty lambda")
   elseif g isa NormLinf && kind in (:gradient, :pgd)
     _scalar_parameter(g.λ, T, "penalty lambda")
   elseif g isa NormLinf
@@ -88,7 +92,7 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif kind === :gradient
     throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"))
   else
-    throw(ArgumentError("only NormL1 or unweighted ElasticNet is supported"))
+    throw(ArgumentError("CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2"))
   end
   nothing
 end

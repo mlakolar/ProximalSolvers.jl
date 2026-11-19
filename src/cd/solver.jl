@@ -3,27 +3,29 @@
                momentum=nothing, rng=Random.default_rng(), anderson=0,
                gaptol=0, gapsafe=false)
 
-Coordinate descent for the least-squares lasso and elastic net, and, with ProximalBase's
+Coordinate descent for the least-squares lasso, elastic net and ridge, and, with ProximalBase's
 `SqrtLeastSquaresLoss`, the square-root lasso (described below). Call
 `solve!(beta, f, g, CDSolver())` with matching `Float32` or `Float64`
 design/response data and coefficients. The coefficient storage can be
 a dense `Vector` or a one-dimensional ProximalBase `SparseIterate`. With the least-squares
-loss, the penalty is `NormL1(lambda)`, `NormL1(lambda, w)` or an unweighted `ElasticNet(lambda1, lambda2)`
-(the square-root lasso, below, takes an unweighted `NormL1` with a positive level). The weights `w`
+loss, the penalty is `NormL1(lambda)`, `NormL1(lambda, w)`, unweighted `ElasticNet(lambda1, lambda2)`
+or uncentered `SqrNormL2(lambda)`. The square-root lasso takes an unweighted `NormL1` with a
+positive level. The weights `w`
 of a `NormL1` are a `Vector{T}` (`T` the element type of the data) with finite nonnegative entries (see
 [`solve!`](@ref)): `solve!` checks the coefficient `T(lambda) w[j]` of entry `j`, the product rounded in `T`, to be zero
 or a normal number of `T` (with `T(lambda)` zero or normal as well), and a zero weight leaves it unpenalized. The
 coordinate step in the normal range is ProximalBase's `prox_block`, which forms its threshold from `lambda` and
 `w[j]` in its working type; see [Supported problems](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/#weighted-lasso-support)
 for how that threshold and the checked coefficient can differ.
-For an `ElasticNet` the coordinate step of a visit in the normal range is ProximalBase's
+For an `ElasticNet` or an uncentered `SqrNormL2`, the coordinate step of a visit in the normal range is ProximalBase's
 `prox_block` of the penalty. Let `s` be the loss scale and `a` the squared norm of the
 column, finite and positive. At a visit where `s * a` or its reciprocal is below
-`floatmin` of the type that combines `s` with the working type, the step with
+`floatmin` of the type that combines `s` with the working type, the elastic-net step with
 `lambda2 = 0` is the lasso's range-safe form (the threshold formed without the product
 or its reciprocal), and with `lambda2 > 0` the visit is refused with an `ArgumentError`
-that names the coordinate; for a `NormL1` with weights the step there is the lasso's range-safe form at
-the coefficient `T(lambda) w[k]` of the coordinate. The refusal happens during the pass: the iterate passed to
+that names the coordinate. For `SqrNormL2`, the visit is refused at `lambda > 0` and takes the
+unpenalized step at `lambda = 0`. For a `NormL1` with weights, the step there is the lasso's range-safe
+form at the coefficient `T(lambda) w[k]` of the coordinate. On a refusal during the pass, the iterate passed to
 `solve!` is unchanged, and a borrowed RNG may have advanced. A visit to a flat column
 (all entries 0) sets its coordinate to 0, at the levels that `solve!` accepts, for each of these
 penalties (also where a weight is zero); a visit to a column that is not flat and whose `a` underflows to 0 is refused
@@ -54,9 +56,9 @@ A column whose squared norm `a` is not finite in the working type is refused wit
 an `ArgumentError` before the first change of its coordinate, and the starting
 point is unchanged. Where the product `s * a` or its reciprocal is outside the
 normal range of the type that combines `s` with the working type, the
-coordinate step forms its threshold `lambda / (s * a)` without them.
+lasso coordinate step forms its threshold `lambda / (s * a)` without them.
 `relative=false` makes the threshold an absolute change threshold;
-`maxpasses` limits the run. For least squares (lasso and elastic net) and the group lasso, an end-of-pass
+`maxpasses` limits the run. For least squares and the group lasso, an end-of-pass
 convergence flag does not guarantee a small KKT residual; for reported fits, check
 optimality independently. What the change test implies, and where it can be met away
 from a minimizer (a product that underflows or cancels, a warm start far above the

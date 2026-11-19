@@ -968,6 +968,7 @@ end
     @test refused(ArgumentError, "weighted NormL1", x, f, NormL1(T(0.25), ones(T, 3)), solver())
     @test refused(ArgumentError, "ElasticNet", x, f, ElasticNet(T(0.25), T(0.5)), solver())
     @test refused(ArgumentError, "only unweighted NormL1 is supported with SqrtLeastSquaresLoss", x, f, NormL2(T(1)), solver())
+    @test refused(ArgumentError, "only unweighted NormL1 is supported with SqrtLeastSquaresLoss", x, f, SqrNormL2(T(1)), solver())
     @test refused(ArgumentError, "penalty lambda must be finite and positive", x, f, NormL1(T(Inf)), solver())
     @test refused(ArgumentError, "X must be Matrix", x, SqrtLeastSquaresLoss(y, sparse(X)), g, solver())
     @test refused(ArgumentError, "X must be Matrix", x, SqrtLeastSquaresLoss(opposite(y), opposite(X)), g, solver())
