@@ -111,6 +111,12 @@ const WORKING_L1_SOLVERS = ((ProximalGradientDescent(), NormL1),
 
 @testset "Working ℓ₁ levels in $T" for T in (Float32, Float64)
   W = T === Float32 ? Float64 : BigFloat
+  for penalty in (NormL1, NormL1Nonneg)
+    # Reconstructing a native isbits penalty also passes a value identity check.
+    native_method = which(PS._converted_penalty, (penalty{T, Nothing}, Type{T}))
+    mixed_method = which(PS._converted_penalty, (penalty{W, Nothing}, Type{T}))
+    @test native_method !== mixed_method
+  end
   δ = nextfloat(zero(T))
   a = T(2)^(T === Float32 ? -60 : -507)
   options = ProximalOptions(maxiter=8, store_trace=true, extended_trace=true)
