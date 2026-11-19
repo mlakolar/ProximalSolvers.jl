@@ -1,7 +1,8 @@
 # Logistic regression models the probability of a binary outcome from a linear
-# predictor. With many candidate covariates, an ℓ₁ penalty on the slopes encourages a
-# sparse fit: a large enough level sets slopes exactly to zero and shrinks the others,
-# while the intercept stays unpenalized. This page
+# predictor. With many candidate covariates, an ℓ₁ penalty on the slopes can give a
+# minimizer in which some slopes are exactly zero, while the intercept stays
+# unpenalized; at a larger level the ℓ₁ norm of the slopes at the minimizer is no larger,
+# although an individual slope need not shrink. This page
 # fits such a model with `ProximalGradientDescent` and checks the fit with quantities
 # computed directly from the data.
 #
@@ -22,12 +23,11 @@
 # **summed** over the observations, not averaged. Divided by ``n``, ``F/n`` is the mean
 # negative log likelihood plus ``\lambda\|b_{1:p}\|_1``, the usual normalization, so the
 # penalty level passed to the solver is ``n\lambda``. In `NormL1(n * lambda, w)` with
-# `w = [0; ones(p)]`, the weights are penalty weights: the first is zero, so the
+# `w = [0.0; ones(p)]`, the weights are penalty weights: the first is zero, so the
 # intercept ``b_0`` is not penalized. They are not observation weights, which this solver
 # does not support. The solver also refuses the scaled loss `(1/n) * LogisticLoss(y, X̃)`;
 # in exact arithmetic the raw loss with the level ``n\lambda`` has the same minimizers,
-# provided ``n\lambda`` is a level the solver accepts (finite, with weighted coefficients
-# in range). See the [input contract](@ref IN-09) for the supported data and the refusals.
+# provided the penalty with that level passes the solver's level and weight rules. See the [input contract](@ref IN-09) for the supported data and the refusals.
 
 using LinearAlgebra, Printf, Random, ProximalBase, ProximalSolvers
 
@@ -59,21 +59,21 @@ y = Float64.(rand(rng, n) .< prob_true)
 @assert 0 < sum(y) < n                    # both classes are present
 X = [ones(n) Z]
 
-# ## This sample is not separable
+# ## Checking that this sample is not separable
 #
 # With ``r_i=2y_i-1``, the data are separable, at least weakly, when some ``d\neq0`` has
-# ``r_i\tilde x_i^\top d\ge0`` for every ``i``: moving the coefficients along ``d`` does not
-# increase a term of the loss and, for a design of full column rank, decreases at least
-# one, so the unpenalized loss has no minimizer. Positive
-# weights ``u_i`` with ``\sum_i u_ir_i\tilde x_i=0`` rule this out: for such a ``d``,
-# ``0=\sum_i u_ir_i\tilde x_i^\top d`` would force ``\tilde Xd=0``, so ``d=0`` for a design of
-# full column rank. At any ``b`` the weights ``u_i=|y_i-\sigma(\eta_i)|`` are positive, and
-# ``\sum_i u_ir_i\tilde x_i`` is minus the gradient of the loss; near the unpenalized fit a
-# small least-squares correction ``c`` makes the sum zero in exact arithmetic. Newton steps
-# from zero give that fit, and the check is that the corrected weights stay positive,
-# with a margin far above rounding. This is a property of the sample. For ``\lambda>0`` the
-# penalized fit below has a finite minimizer when both classes are present, separable or
-# not: the penalty bounds the slopes, and then the two classes bound the intercept.
+# ``r_i\tilde x_i^\top d\ge0`` for every ``i``; for a design of full column rank the
+# unpenalized loss then decreases strictly along ``d`` and has no minimizer. In exact
+# arithmetic, positive weights ``u_i`` with ``\sum_i u_ir_i\tilde x_i=0`` rule this out: for
+# such a ``d``, ``0=\sum_i u_ir_i\tilde x_i^\top d`` would force ``\tilde Xd=0``. We take
+# ``u_i=|y_i-\sigma(\eta_i)|`` at an approximate unpenalized fit from 25 Newton steps,
+# subtract the least-squares correction ``c`` that makes ``\sum_i(u_i-c_i)r_i\tilde x_i``
+# zero in exact arithmetic, and check numerically that ``u-c`` stays positive, with the
+# correction below ``10^{-6}`` times the smallest weight, and that ``\tilde X`` has full
+# numerical rank. This is a numerical check of the argument for this sample. For
+# ``\lambda>0`` the penalized fit below has a finite minimizer when both classes are
+# present, separable or not: the penalty bounds the slopes, and then the two classes
+# bound the intercept.
 b_newton = zeros(p + 1)
 for _ in 1:25
   mu = sigmoid.(X * b_newton)
@@ -128,8 +128,8 @@ result = solve!(b, f, g, ProximalGradientDescent(), options)
 # The largest score is zero exactly at a minimizer. The solver reports `converged = true`
 # only when its own residual is below ``10^{-10}S``, with the scale
 # ``S=\max(n\lambda,\|\tilde X^\top(\tfrac12-y)\|_\infty)`` printed below. The tolerance
-# ``10^{-8}n`` on the independent residual is our choice; here it is far above
-# ``10^{-10}S`` plus the rounding of the two computations.
+# ``10^{-8}n`` on the independent residual is our choice; the script checks that it is at
+# least ten times the solver's threshold ``10^{-10}S`` here.
 eta = X * b
 s = 1 .- 2 .* y
 grad = X' * (s .* sigmoid.(s .* eta))
@@ -150,9 +150,9 @@ nonzero = count(!iszero, b[2:end])
 @printf("lambda_max = %.4f, lambda = %.4f; %d of %d slopes are nonzero\n", lambda_max, lambda, nonzero, p)
 
 # The planted and the estimated coefficients, for the slopes that are nonzero in either.
-# The penalty shrinks the slope vector as a whole; in a correlated design an individual
-# estimate need not be smaller than in another fit, and a correlated neighbour of a
-# planted covariate can be selected in its place. The page asserts no particular support.
+# At a larger level the ℓ₁ norm of the slopes at the minimizer is no larger; in a
+# correlated design an individual estimate need not shrink, and a correlated neighbour of a planted
+# covariate can be selected in its place. The page asserts no particular support.
 @printf("%-10s %9s %9s\n", "", "planted", "estimate")
 @printf("%-10s %9.3f %9.3f\n", "intercept", intercept_true, b[1])
 for j in 1:p
@@ -214,8 +214,8 @@ solve!(b_null, f, NormL1(1.01 * n * lambda_max, w), ProximalGradientDescent(), o
 # The solver supports this model only with a dense `Float64` design, a binary response
 # and `ProximalGradientDescent`; observation weights, offsets, a scaled loss,
 # `AccProxGradDescent` and `CDSolver` are refused. The level ``\lambda`` here is fixed for
-# illustration. Choosing it for prediction needs, for example, validation on data not
-# used for the fit, and the selected covariates depend on the correlation between them.
+# illustration. To choose it for prediction, one option is to compare levels on data not
+# used for the fit; the selected covariates also depend on the correlation between them.
 #
 # ## What we learned
 #

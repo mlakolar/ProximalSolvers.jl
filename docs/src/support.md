@@ -309,8 +309,8 @@ dense, even when the coefficients use `SparseIterate`.
 ~~~
 
 with `w_j = 1` for the unweighted `NormL1(lambda)`. With a first column of ones in `X`
-and `w = [0; ones(p)]`, the first coefficient is an unpenalized intercept and the
-penalty is `lambda` times the ℓ₁ norm of the slopes.
+and `w = [0.0; ones(size(X, 2) - 1)]`, the first coefficient is an unpenalized intercept
+and the penalty is `lambda` times the ℓ₁ norm of the other coefficients.
 
 Use ProximalBase's `LogisticLoss(y, X)` with `NormL1(lambda)` or `NormL1(lambda, w)` and
 `ProximalGradientDescent` on a `Vector{Float64}`. The design is a dense `Matrix{Float64}`,
@@ -346,7 +346,7 @@ The current development core intentionally excludes the following:
 | Feature | Current status |
 | --- | --- |
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
-| Generalized losses other than the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent` in [IN-09](@ref); automatic intercept handling and offsets (an explicit column of ones with penalty weight zero works wherever a weighted `NormL1` is supported, including that logistic case); matrix responses other than least squares with `CDSolver`, a row-group `GroupNormL2` and a `Matrix` or `BlockIterate` coefficient | Deferred |
+| Generalized losses other than the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent` in [IN-09](@ref); automatic intercept handling and offsets (a column of ones can be supplied as an unpenalized coordinate, with penalty weight zero, under the input rules of a weighted `NormL1`); matrix responses other than least squares with `CDSolver`, a row-group `GroupNormL2` and a `Matrix` or `BlockIterate` coefficient | Deferred |
 | `LogisticLoss` with `AccProxGradDescent`, `CDSolver` or `ADMMSolver`, with observation weights or an offset, `Scaled(LogisticLoss)`, `Float32` data, a sparse design or a penalty other than `NormL1` | Refused with an `ArgumentError` (deferred) |
 | Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
 | Observation weights; infinite penalty weights; penalty weights that are not a `Vector{T}` of the type of the data | Deferred; the penalty weights are refused with an `ArgumentError` |

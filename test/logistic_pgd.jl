@@ -60,12 +60,12 @@ function newton(X, y; iterations = 100)
   b, norm(G, Inf)
 end
 
-# A certificate, in BigFloat, that the data (X, y) are not separable, even weakly. At any b the weights
-# uᵢ = |yᵢ - σ(ηᵢ)| = σ(-rᵢηᵢ), rᵢ = 2yᵢ - 1, are positive and satisfy Aᵀu = -∇f(b) for A = diag(r) X. The
-# least-squares correction c = A (AᵀA)⁻¹ Aᵀu gives Aᵀ(u - c) = 0 in exact arithmetic. If u - c > 0 and X has
-# full column rank, no d ≠ 0 has rᵢ xᵢᵀd ≥ 0 for every i: 0 = Σᵢ (uᵢ - cᵢ) rᵢ xᵢᵀd would force X d = 0. Then the
-# unpenalized loss grows without bound along every direction and has a finite minimizer. The correction is
-# small when the gradient at b is small, as at the Newton point. Returns min(u - c) / max|c|.
+# A numerical witness, computed in BigFloat, that the data (X, y) are not separable, even weakly. At any b the
+# weights uᵢ = |yᵢ - σ(ηᵢ)| = σ(-rᵢηᵢ), rᵢ = 2yᵢ - 1, are positive and satisfy Aᵀu = -∇f(b) for A = diag(r) X.
+# In exact arithmetic the least-squares correction c = A (AᵀA)⁻¹ Aᵀu gives Aᵀ(u - c) = 0, and if u - c > 0 and X
+# has full column rank, no d ≠ 0 has rᵢ xᵢᵀd ≥ 0 for every i (0 = Σᵢ (uᵢ - cᵢ) rᵢ xᵢᵀd would force X d = 0), so the
+# unpenalized loss has a finite minimizer. Here c and the rank are computed numerically. Returns
+# min(u - c) / max|c|, the margin of the computed corrected weights over the computed correction.
 function nonseparable(X, y, b)
   r = big.(2 .* y .- 1)
   A = r .* big.(X)
@@ -75,9 +75,10 @@ function nonseparable(X, y, b)
   minimum(u - c) / maximum(abs, c)
 end
 
-# A lower bound on the smallest eigenvalue of the Hessian Xᵀ diag(σ(ηᵢ)σ(-ηᵢ)) X on the segment from a to b:
-# along it each ηᵢ moves linearly from (X a)ᵢ to (X b)ᵢ, and σ(t)σ(-t) decreases in |t|, so the smallest weight
-# of observation i on the segment is at one of the two ends.
+# A Float64 estimate of a lower bound on the smallest eigenvalue of the Hessian Xᵀ diag(σ(ηᵢ)σ(-ηᵢ)) X on the
+# segment from a to b. In exact arithmetic each ηᵢ moves linearly from (X a)ᵢ to (X b)ᵢ along it, and σ(t)σ(-t)
+# decreases in |t|, so the smallest weight of observation i on the segment is at one of the two ends; the
+# eigenvalue of the matrix with those weights is computed with eigmin.
 function segment_curvature(X, a, b)
   w(t) = sigmoid(t) * sigmoid(-t)
   eigmin(Symmetric(X' * (X .* min.(w.(X * a), w.(X * b)))))
@@ -105,16 +106,18 @@ slope_threshold(X, y) = norm(X[:, 2:end]' * (sum(y) / length(y) .- y), Inf)
 # Tight options for the accuracy checks: a stop needs a computed KKT residual below 1e-10 S (STOP-04)
 const TIGHT = ProximalOptions(maxiter = 20_000, ftol = 1e-15, xtol = 1e-12, gradtol = 1e-10, allow_f_increases = true)
 
-# The independent residual bound used with TIGHT. A stop needs the solver's residual, formed from its Float64
-# gradient Xᵀd with d = σ(X b) - y, below 1e-10 S. With u = eps/2, |dᵢ| ≤ 1 and M = maxᵢ Σⱼ |Xᵢⱼ||bⱼ|, each entry of
-# that gradient differs from the exact one by at most about n u max|Xᵢⱼ| (n + p M / 4 + 2): the rounding of the
-# product Xᵀd, of the image X b (σ has slope at most ¼) and of d. `rounding_bound` is this number; each accuracy
-# check below asserts that it is at most 1e-9 and that S ≥ 1, so a residual below 1e-10 S in Float64 is below
-# 1e-10 S + 1e-9 ≤ 1e-8 S in exact arithmetic. KKT_TOL = 1e-8 is that bound.
+# The tolerance of the independent residual in the checks that use KKT_TOL (with TIGHT). A stop needs the solver's
+# residual, formed from its Float64 gradient Xᵀd with d = σ(X b) - y, below 1e-10 S. With u = eps/2, |dᵢ| ≤ 1 and
+# M = maxᵢ Σⱼ |Xᵢⱼ||bⱼ|, a first-order estimate of the rounding of each entry of that gradient is
+# n u max|Xᵢⱼ| (n + p M / 4 + 2), from the product Xᵀd, the image X b (σ has slope at most ¼) and d; it omits the
+# rounding of the KKT scores and of S. `rounding_bound` is this estimate. Where KKT_TOL is used, the check also
+# asserts that the estimate is at most 1e-9 and that S ≥ 1, so that 1e-8 S leaves room above 1e-10 S + 1e-9.
+# The accuracy evidence is the independent residual itself.
 const KKT_TOL = 1e-8
 rounding_bound(X, b) = (n = size(X, 1); M = maximum(abs.(X) * abs.(b)); n * eps() / 2 * maximum(abs, X) * (n + size(X, 2) * M / 4 + 2))
 
-# The independent residual of b for NormL1(λ, w), with the conditions of the KKT_TOL argument checked
+# The independent residual of b for NormL1(λ, w) and its tolerance KKT_TOL S, with the rounding estimate and
+# S ≥ 1 checked (see KKT_TOL)
 function residual_check(X, y, b, λ, w = nothing)
   S = stop_scale(X, y, λ, w)
   @test rounding_bound(X, b) <= 1e-9 && S >= 1
@@ -253,9 +256,8 @@ end
     @test all(iszero, b[2:end])
     @test b[1] ≈ b0 atol = 1e-8
   end
-  # At the computed threshold itself the zero slopes are optimal in exact arithmetic; the computed level can be a
-  # rounding below the exact threshold, so the slopes are checked against a small tolerance, with the intercept
-  # and the independent residual
+  # At the mathematical threshold the zero slopes are optimal; the computed level can differ from it by rounding,
+  # so the slopes are checked against a small tolerance, with the intercept and the independent residual
   level = slope_threshold(X, y)
   w = [0.0; ones(k - 1)]
   b = [0.0; fill(0.5, k - 1)]
@@ -272,7 +274,8 @@ end
   n, k = size(X)
   bref, gnorm = newton(X, y)
   @test gnorm < 1e-30
-  # the data are not separable (certificate at the Newton point), so the loss has a finite minimizer, near bref
+  # the numerical witness at the Newton point indicates that the data are not separable, so that the loss has a
+  # finite minimizer near bref
   @test nonseparable(X, y, bref) > 1
   b64 = Float64.(bref)
   Gref = oracle(X, y, b64).gradient
@@ -281,8 +284,9 @@ end
     r = solve!(b, LogisticLoss(y, X), g, ProximalGradientDescent(), TIGHT)
     @test r.converged
     G = oracle(X, y, b).gradient
-    # μ bounds the curvature on the segment from b to b64, so ‖b - b64‖₂ ≤ ‖∇f(b) - ∇f(b64)‖₂ / μ; the
-    # gradient at the stop keeps this bound below the tolerance, and the distance itself is checked as well
+    # μ estimates a lower bound on the curvature on the segment from b to b64, under which, in exact arithmetic,
+    # ‖b - b64‖₂ ≤ ‖∇f(b) - ∇f(b64)‖₂ / μ; this estimate is checked against the tolerance, and the distance itself
+    # is checked directly
     μ = segment_curvature(X, b, b64)
     @test μ > 0 && Float64(norm(G - Gref)) / μ <= 1e-7 * max(1, norm(b64, Inf))
     @test norm(b - b64, Inf) <= 1e-7 * max(1, norm(b64, Inf))
@@ -305,9 +309,9 @@ end
     @test r.minimum ≈ Float64(objective(X, y, b, level)) rtol = 1e-12
     residual
   end
-  # The objective is strongly convex on the segment between the two points, with modulus at least μ, and each
-  # point has a subgradient of ∞-norm equal to its residual; so ‖b1 - b2‖₂ ≤ √k (r₁ + r₂) / μ, which the
-  # residuals keep below 1e-6
+  # In exact arithmetic, with μ a lower bound on the curvature of the objective on the segment between the two
+  # points and each residual the ∞-norm of a subgradient, ‖b1 - b2‖₂ ≤ √k (r₁ + r₂) / μ. With μ estimated by
+  # segment_curvature, this estimate is checked against 1e-6, and the distance itself is checked directly.
   μ = segment_curvature(X, b1, b2)
   @test μ > 0 && sqrt(k) * sum(residuals) / μ <= 1e-6
   @test r1.minimum ≈ r2.minimum rtol = 1e-10
@@ -474,28 +478,34 @@ end
 
 @testset "one class with an unpenalized intercept: no finite minimizer" begin
   # y = ones(8) with an intercept column of ones and weight zero: F(b₀) = 8 log(1 + e^{-b₀}) decreases toward 0 as
-  # b₀ grows, its derivative -8σ(-b₀) is negative at every finite b₀, and no minimizer exists (IN-09). The
-  # computed residual can still fall below the threshold, so neither outcome of `converged` is required. The
-  # results must be finite, and a reported convergence must agree with the stationarity criterion recomputed
-  # from the data: the KKT residual below τ S, with τ = max(gradtol, 64 eps) and S = max(λ maxⱼ wⱼ, ‖Xᵀ(½ - y)‖∞).
+  # b₀ → +∞, its derivative -8σ(-b₀) is negative at every finite b₀, and no minimizer exists (IN-09). The computed
+  # residual can still fall below the threshold, so neither outcome of `converged` is required. The results must
+  # be finite; when convergence is reported, the solver's criterion is re-formed at the returned point as the
+  # solver forms it (STOP-03, STOP-04), and the independent residual is compared with the same threshold.
   X1, y1 = ones(8, 1), ones(8)
   λ, w = 0.1, [0.0]
+  f1 = LogisticLoss(y1, X1)
   options = ProximalOptions(maxiter = 1000, gradtol = 1e-10)
-  τ, S = max(options.gradtol, 64eps()), stop_scale(X1, y1, λ, w)
+  τ = max(options.gradtol, 64eps())
+  threshold = τ * max(λ * maximum(w), norm(X1' * (0.5 .- y1), Inf))
   # from zero, and from a start where σ(-b₀) underflows in Float64
   for start in ([0.0], [1000.0])
     b = copy(start)
-    r = solve!(b, LogisticLoss(y1, X1), NormL1(λ, w), ProximalGradientDescent(), options)
+    r = solve!(b, f1, NormL1(λ, w), ProximalGradientDescent(), options)
     @test r.minimizer === b
     @test all(isfinite, b) && isfinite(r.minimum)
-    @test !isnan(r.g_residual) && !isnan(r.f_residual) && !isnan(r.x_residual)
+    @test isfinite(r.x_residual) && isfinite(r.f_residual) && isfinite(r.g_residual)   # r.gap is the NaN sentinel
     G = oracle(X1, y1, b).gradient
     @test G[1] < 0                     # in BigFloat, nonzero where the Float64 derivative underflows
     println("logistic PGD, one class from $start: converged = $(r.converged), iterations = $(r.iterations), ",
-            "b₀ = $(b[1]), independent residual = $(Float64(-G[1])), τ S = $(τ * S)")
-    # the residual of the solver's check is computed in Float64; the factor 1 + 1e-12 allows for its rounding
-    # (a sum of eight derivatives, each evaluated without cancellation)
-    @test !r.converged || Float64(maximum(scores(G, b, λ, w))) <= τ * S * (1 + 1e-12)
+            "b₀ = $(b[1]), independent residual = $(-G[1]), threshold = $threshold")
+    if r.converged
+      G64, d = zeros(1), zeros(8)
+      ProximalBase.value_and_gradient_from_predictor!(G64, d, f1, X1 * b)
+      residual = kkt_violation(NormL1(λ, w), G64, b)
+      @test isfinite(residual) && threshold >= floatmin(Float64) && residual < threshold
+      @test maximum(scores(G, b, λ, w)) < big(threshold)
+    end
   end
 end
 
@@ -645,11 +655,12 @@ end
   X, y = logistic_data(100, 8; seed = 13)
   k = size(X, 2)
   g = NormL1(1.0, [0.0; ones(k - 1)])
-  # an ordinary iteration allocates nothing, as for least squares
+  # for this fixture and penalty, ten warmed iterations allocate nothing, for logistic and for least squares
   @test iteration_bytes(LogisticLoss(y, X), g, zeros(k)) == 0
   @test iteration_bytes(LeastSquaresLoss(y, X), g, zeros(k)) == 0
-  # whole solves of at most 30 iterations each, setup included: without stopping proposals, and with a proposal (and so
-  # a stationarity check) at each iteration that moves x
+  # whole solves of at most 30 iterations each, setup included, with two option sets: xtol = 1e-300 with ftol and
+  # gradtol zero, under which the proposal tests do not hold for these solves, and xtol = 1e10, under which the
+  # iterate test proposes a stop at each iteration that moves x, so that the stationarity check runs
   for o in (ProximalOptions(maxiter = 30, ftol = 0, xtol = 1e-300, gradtol = 0, allow_f_increases = true),
             ProximalOptions(maxiter = 30, ftol = 0, xtol = 1e10, gradtol = 0, allow_f_increases = true))
     logistic = solve_bytes(LogisticLoss(y, X), g, zeros(k), o)

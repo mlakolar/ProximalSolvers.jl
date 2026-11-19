@@ -1,4 +1,5 @@
-# Once-per-solve validation; no numeric solver arithmetic or conversion changes.
+# Once-per-solve validation; no numeric solver arithmetic or conversion changes. `_allfinite` is also called on
+# the image of each logistic trial (src/solvers/image_models.jl).
 using ProximalBase: leastsquares_data
 function _allfinite(A::Array)
   finite = true
@@ -371,9 +372,9 @@ function _check_logistic_problem(x, f, g, kind::Symbol)
   f isa Scaled &&
     throw(ArgumentError("Scaled(LogisticLoss) is not supported (ProximalBase provides no predictor oracles for it); " *
                         "for a positive finite scale a, use the raw LogisticLoss(y, X) with the penalty level lambda/a, " *
-                        "which has the same minimizers in exact arithmetic when lambda/a is a level that solve! accepts " *
-                        "(finite and representable in Float64, and with weights, coefficients (lambda/a) * w[j] that are " *
-                        "finite and zero or normal): for the mean loss " *
+                        "which has the same minimizers in exact arithmetic when the penalty with that level passes the " *
+                        "level and weight rules of solve! (with weights, for the level, the weights and their products): " *
+                        "for the mean loss " *
                         "(1/n) * LogisticLoss(y, X) with NormL1(lambda), use LogisticLoss(y, X) with NormL1(n * lambda)"))
   f isa LogisticLoss{Float64} && f.X isa Matrix{Float64} && f.y isa Vector{Float64} ||
     throw(ArgumentError("LogisticLoss needs X::Matrix{Float64} and y::Vector{Float64}; Float32 data, sparse designs " *
