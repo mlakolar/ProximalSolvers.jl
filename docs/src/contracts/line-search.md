@@ -52,13 +52,15 @@ If `L ≥ c` in the comparison precision, accept and keep the current estimate m
 
 With `c` denoting the finite returned curvature, the retry is `L ← min(Lexact, max(c, L/β))`.
 
+For a raw `LogisticLoss` the check uses the factor `¼` in place of `s`; [IN-09](@ref) gives the bounds that make it conservative.
+
 Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` local estimate, or a gradient-mode estimate formed from a gradient with a nonfinite entry. Every checked rejection costs one matrix-vector product. This check reduces inflated local estimates caused by rounding of `f(x) - q(x)` (loss minus the local quadratic model) or by differences of gradients. Near a minimizer that rounding can inflate `L̂` by orders of magnitude, shrinking the step until `x` stops moving. The check provides no rounding certificate. A decision near directional curvature can go either way, and a direction nearly in the null space of `X` can have a large relative curvature error.
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: LineSearches.check_rejection!, _step_curvature; src/line_searches.jl: backtrack!`.
 
-**Tests.** test/core_regressions.jl: PGD checked rejections and nonfinite-gradient/tiny-step cases.
+**Tests.** test/core_regressions.jl: PGD checked rejections and nonfinite-gradient/tiny-step cases; test/logistic_pgd.jl: the bounds behind the factor `¼` and checked rejections of logistic solves.
 
 **Sources.** `docstring:src/line_searches.jl:L26`, `docs/src/numerics.md:L928`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`.
 

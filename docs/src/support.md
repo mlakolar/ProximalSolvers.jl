@@ -27,6 +27,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | Float32, Float64 | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 | Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | Float32, Float64 | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
+| Sparse logistic regression: raw `LogisticLoss` with a binary response, `NormL1` or `NormL1(lambda, w)` | — | — | — | — | Float64 (k) | — | — | [Sparse logistic regression](examples/problems/logistic_regression.md) |
 
 `NormL1` and `ElasticNet` are unweighted where they appear in the table, except in the weighted-lasso row,
 where `NormL1(lambda, w)` has one weight per coefficient. `GroupNormL2` takes its group
@@ -89,6 +90,11 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   all-zero center, are refused; so are `SqrNormL2` with PGD, APG, block or matrix
   coefficients, or square-root loss. See [supported calls](@ref IN-01),
   [scalar levels](@ref IN-02) and [coordinate range rules](@ref CD-04).
+- **(k)** Sparse logistic regression needs `X::Matrix{Float64}`, a response `y::Vector{Float64}`
+  whose entries are 0 or 1, a `Vector{Float64}` coefficient and a raw `LogisticLoss(y, X)`
+  without observation weights or offset (see [Sparse logistic regression with proximal gradient descent](@ref)).
+  The tests check the returned point against an objective, gradient and KKT residual computed
+  from the data in `BigFloat`.
 
 ### Statistical applications
 
@@ -133,9 +139,9 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Input | Supported |
 | --- | --- |
 | Design matrix `X` | Nonempty, finite, dense `Matrix{Float32}` or `Matrix{Float64}` |
-| Response `y` | Finite vector with the same element type and `length(y) == size(X,1)` |
+| Response `y` | Finite vector with the same element type and `length(y) == size(X,1)`; for `LogisticLoss`, a `Vector{Float64}` whose entries are 0 or 1 |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
-| Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below) |
+| Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below); for `ProximalGradientDescent` on a `Vector{Float64}`, also the raw `LogisticLoss` with `NormL1` (see below) |
 | Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`) |
 | Ridge penalty | Uncentered `SqrNormL2(lambda)` with the least-squares loss and `CDSolver` on a dense vector or a one-dimensional `SparseIterate` (note j above) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
@@ -296,6 +302,25 @@ For using sparse **coefficients**, see the
 [sparsity tutorial](sparsity-and-kkt.md). The design matrix still must be
 dense, even when the coefficients use `SparseIterate`.
 
+### Sparse logistic regression with proximal gradient descent
+
+~~~math
+\min_b\quad \sum_{i=1}^n \{\log(1+e^{\eta_i})-y_i\eta_i\}+\lambda\sum_j w_j|b_j|,\qquad \eta=Xb,
+~~~
+
+Use ProximalBase's `LogisticLoss(y, X)` with `NormL1(lambda)` or `NormL1(lambda, w)` and
+`ProximalGradientDescent` on a `Vector{Float64}`. The design is a dense `Matrix{Float64}`,
+the response a `Vector{Float64}` of zeros and ones, and the loss has no observation weights
+or offset. The loss is the sum over the observations; for the mean negative log likelihood
+plus `λ‖b‖₁`, pass the level `n * λ`. For an intercept, put a column of ones in `X` and give
+it the penalty weight zero.
+
+`AccProxGradDescent`, `CDSolver`, a `Scaled` logistic loss,
+`Float32` data, sparse designs and other penalties are refused before any write. The exact
+input rules, the curvature factor of the line search and the stopping scale are in
+[the logistic input contract](@ref IN-09). The [tutorial](examples/problems/logistic_regression.md)
+fits seeded data and checks its objective and KKT residual from the data.
+
 ### Nonnegative lasso with proximal gradient descent
 
 **(i)** With dense least-squares data and a feasible nonnegative starting vector,
@@ -317,7 +342,8 @@ The current development core intentionally excludes the following:
 | Feature | Current status |
 | --- | --- |
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
-| Generalized losses, intercepts/offsets; matrix responses other than least squares with `CDSolver`, a row-group `GroupNormL2` and a `Matrix` or `BlockIterate` coefficient | Deferred |
+| Generalized losses other than the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent`, intercepts (other than an unpenalized column of ones there) and offsets; matrix responses other than least squares with `CDSolver`, a row-group `GroupNormL2` and a `Matrix` or `BlockIterate` coefficient | Deferred |
+| `LogisticLoss` with `AccProxGradDescent`, `CDSolver` or `ADMMSolver`, with observation weights or an offset, `Scaled(LogisticLoss)`, `Float32` data, a sparse design or a penalty other than `NormL1` | Refused with an `ArgumentError` (deferred) |
 | Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
 | Observation weights; infinite penalty weights; penalty weights that are not a `Vector{T}` of the type of the data | Deferred; the penalty weights are refused with an `ArgumentError` |
 | Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
