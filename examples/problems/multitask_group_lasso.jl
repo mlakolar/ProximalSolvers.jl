@@ -1,7 +1,7 @@
-# Multi-task regression with shared row sparsity, fitted as a group lasso. There are `K`
-# regression tasks on the same `n × p` design `X`, with responses `Y ∈ ℝⁿˣᴷ` (one column per
-# task) and coefficients `B ∈ ℝᵖˣᴷ` (one column per task, one row per predictor). The fit
-# minimizes
+# Multi-task regression with shared row sparsity, fitted as a group lasso on the rows of the
+# coefficient matrix. There are `K` regression tasks on the same `n × p` design `X`, with
+# responses `Y ∈ ℝⁿˣᴷ` (one column per task) and coefficients `B ∈ ℝᵖˣᴷ` (one column per task,
+# one row per predictor). The fit minimizes
 #
 # `(1/(2n)) ‖Y − X B‖²_F + λ √K Σⱼ ‖B[j, :]‖₂`.
 #
@@ -12,10 +12,11 @@
 # (nuclear-norm) estimator: nothing ties the coefficient values across tasks, only the set of
 # predictors.
 #
-# The problem is solved exactly as an ordinary group lasso in the stacked vector
-# `vec(B) ∈ ℝᵖᴷ`, with `GroupNormL2`, a `BlockIterate` and `CDSolver`; this is the group lasso
-# row of [Supported problems](../../support.md), and the basic use of these types is explained
-# in [Group lasso](group_lasso.md). No multi-response solver is involved.
+# The problem is solved by `CDSolver` on a `Matrix` coefficient, with ProximalBase's
+# `LeastSquaresLoss(Y, X)` for the matrix response and `GroupNormL2` on the rows of `B`; this is
+# the multi-response group lasso row of [Supported problems](../../support.md), whose rules
+# are stated in [Multi-response group lasso with coordinate descent](@ref). The solver works
+# from `X` and `Y` directly, without a Kronecker design or a vectorized response.
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -52,77 +53,76 @@ X = X_raw .- xbar'
 Y = Y_raw .- ybar'
 @assert norm(colmeans(X)) <= 1e-12 && norm(colmeans(Y)) <= 1e-12
 
-# ## The stacked problem
+# ## The problem
 #
-# Julia stores a matrix by columns, so `vec(B)` lists task 1, then task 2, and so on, and
-# entry `B[j, k]` sits at position `(k − 1) p + j`. Then `vec(X B) = (I_K ⊗ X) vec(B)`, so with
-# `Z = I_K ⊗ X` (dense, `nK × pK`) and `y = vec(Y)`,
+# ProximalBase's `LeastSquaresLoss(Y, X)` with a matrix response is `‖Y − X B‖²_F / 2`, so the
+# loss of the objective above is `(1/n) * LeastSquaresLoss(Y, X)`. The scale is `1/n` and not
+# `1/(nK)`: the squared Frobenius norm is summed over the tasks, not averaged.
 #
-# `‖Y − X B‖²_F = ‖y − Z vec(B)‖²₂`.
-#
-# Row `j` of `B` is the group `Gⱼ = {j, p + j, …, (K − 1) p + j}` of `vec(B)`: one entry from each
-# task, for the same predictor, and not contiguous. `GroupNormL2(λ, groups)` has the default
-# weights `wⱼ = √|Gⱼ| = √K`, so its value at `vec(B)` is `λ √K Σⱼ ‖B[j, :]‖₂`. The loss is
-# `(1/n)` times ProximalBase's `LeastSquaresLoss(y, Z)`, which is `‖y − Z b‖²/2`. The scale is
-# `1/n` and not `1/(nK)`: with it the stacked objective equals the matrix objective above.
-Z = kron(Matrix{Float64}(I, K, K), X)
-y = vec(Y)
-groups = [[(k - 1) * p + j for k in 1:K] for j in 1:p]
-@assert size(Z) == (n * K, p * K) && length(y) == n * K
-@assert length(groups) == p && sort(reduce(vcat, groups)) == collect(1:(p * K))  # a partition
-@assert all(vec(reshape(1:(p * K), p, K)[j, :]) == groups[j] for j in 1:p)       # group j = row j
-f = (1 / n) * LeastSquaresLoss(y, Z)
+# The groups of `GroupNormL2` index the entries of `vec(B)`, not the columns of `X`. Julia stores
+# a matrix by columns, so entry `B[j, k]` is entry `(k − 1) p + j` of `vec(B)`, and row `j` of `B`
+# is the group `j:p:p*K = {j, p + j, …, (K − 1) p + j}`: one entry from each task, for the same
+# predictor, and not contiguous. The solver requires exactly these groups, in this order.
+# `GroupNormL2(λ, groups)` has the default weights `wⱼ = √|Gⱼ| = √K`, so its value at `B` is
+# `λ √K Σⱼ ‖B[j, :]‖₂`, the penalty above. The assertions check, for the sizes of this page, that
+# the groups partition the entries of `B` and that group `j` is row `j`, and that the penalty
+# evaluated by ProximalBase at `B_true` is `λ √K Σⱼ ‖B_true[j, :]‖₂`.
+rowgroups(p, K) = [collect(j:p:p*K) for j in 1:p]
+groups = rowgroups(p, K)
+@assert sort(reduce(vcat, groups)) == collect(1:(p * K))                       # a partition
+@assert all(LinearIndices((p, K))[j, :] == groups[j] for j in 1:p)            # group j = row j
+let g1 = GroupNormL2(1.0, groups)
+  @assert g1.w == fill(sqrt(K), p)
+  @assert abs(g1(B_true) - sqrt(K) * sum(norm(r) for r in eachrow(B_true))) <= 1e-12
+end
 
-# The objective and the optimality conditions are computed from the matrix data `X` and `Y`,
-# not from `Z` and `y`. With `G = Xᵀ(X B − Y)/n`, a nonzero row satisfies
+# The objective and the optimality conditions are computed from `X` and `Y`, independently of
+# the solver. With `G = Xᵀ(X B − Y)/n`, a nonzero row satisfies
 # `G[j, :] + λ √K B[j, :]/‖B[j, :]‖ = 0` and a zero row satisfies `‖G[j, :]‖ ≤ λ √K`. The function
 # returns the largest violation over the nonzero rows and over the zero rows,
 # `max(‖G[j, :]‖ − λ √K, 0)`.
-objective(B, lambda) = norm(Y - X * B)^2 / (2n) + lambda * sqrt(K) * sum(norm(view(B, j, :)) for j in 1:p)
-function violations(B, lambda)
-  G = X' * (X * B - Y) / n
+objective(X, Y, B, lambda) =
+  norm(Y - X * B)^2 / (2 * size(X, 1)) + lambda * sqrt(size(Y, 2)) * sum(norm(r) for r in eachrow(B))
+function violations(X, Y, B, lambda)
+  G = X' * (X * B - Y) / size(X, 1)
+  t = lambda * sqrt(size(Y, 2))
   nz, zr = 0.0, 0.0
-  for j in 1:p
+  for j in axes(B, 1)
     bj, gj = B[j, :], G[j, :]
     if iszero(norm(bj))
-      zr = max(zr, norm(gj) - lambda * sqrt(K))
+      zr = max(zr, norm(gj) - t)
     else
-      nz = max(nz, norm(gj + lambda * sqrt(K) * bj / norm(bj)))
+      nz = max(nz, norm(gj + t * bj / norm(bj)))
     end
   end
   nz, zr
 end
 
-# The fit returns `B̂ = reshape(x, p, K)`. The tolerance `1e-12` is a threshold on the change
-# of the coefficients over a pass, and `converged` reports only that this change test passed;
-# the optimality statements below rest on `violations`.
+# The fit writes `B̂` into a `p × K` matrix of zeros and returns it as the minimizer. The
+# tolerance `1e-12` is a threshold on the change of the coefficients over a pass, and
+# `converged` reports only that this change test passed; the optimality statements below rest
+# on `violations`. The selected rows are the nonzero rows of `B̂`.
 function fit(X, Y, lambda)
   n, p = size(X)
   K = size(Y, 2)
-  Z = kron(Matrix{Float64}(I, K, K), X)
-  groups = [[(k - 1) * p + j for k in 1:K] for j in 1:p]
-  g = GroupNormL2(lambda, groups)
-  x = BlockIterate(Float64, p * K, g)
-  res = solve!(x, (1 / n) * LeastSquaresLoss(vec(Y), Z), g,
+  g = GroupNormL2(lambda, rowgroups(p, K))
+  B = zeros(Float64, p, K)
+  res = solve!(B, (1 / n) * LeastSquaresLoss(Y, X), g,
                CDSolver(order = :cyclic, momentum = false, tol = 1e-12))
-  @assert res.minimizer === x
-  Bhat = reshape(Vector(x), p, K)
-  @assert size(Bhat) == (p, K) && all(isfinite, Bhat)
-  @assert norm(Z * vec(Bhat) - vec(X * Bhat)) <= 1e-12 * (1 + norm(X * Bhat))
-  rows = sort(collect(activecoordinates(x)))
-  @assert rows == [j for j in 1:p if any(!iszero, Bhat[j, :])]   # active groups = nonzero rows
-  (; Bhat, rows, res)
+  @assert res.minimizer === B
+  @assert size(B) == (p, K) && all(isfinite, B)
+  rows = [j for j in 1:p if any(!iszero, B[j, :])]
+  (; Bhat = B, rows, res)
 end
 
 # ## The penalty level where all rows are zero
 #
-# At `B = 0` the gradient is `−XᵀY/n`, so `B = 0` is optimal exactly when
-# `λ ≥ λmax = maxⱼ ‖(XᵀY)[j, :]‖₂ / (n √K)`. In the stacked problem this is the group score
-# `‖Z[:, Gⱼ]ᵀ y‖₂ / (n wⱼ)` of the [Group lasso](group_lasso.md) page, which the first assertion
-# compares as a check of the indexing.
+# At `B = 0` the gradient of the loss is `−XᵀY/n`, so `B = 0` is optimal exactly when
+# `λ ≥ λmax = maxⱼ ‖(XᵀY)[j, :]‖₂ / (n √K)`. The first assertion checks that `B = 0` meets the
+# zero-row condition at `λmax`.
 lambda_max(X, Y) = maximum(norm(r) for r in eachrow(X' * Y)) / (size(X, 1) * sqrt(size(Y, 2)))
 lambdamax = lambda_max(X, Y)
-@assert abs(lambdamax - maximum(norm(Z[:, G]' * y) / (n * sqrt(K)) for G in groups)) <= 1e-12 * lambdamax
+@assert violations(X, Y, zeros(p, K), lambdamax)[2] <= 1e-12 * lambdamax
 println("λmax = ", round(lambdamax, digits = 4))
 
 # The threshold is checked on a tiny seeded control (`n = 8`, `p = 4`, `K = 2`): at
@@ -149,16 +149,15 @@ lambda = 0.15 * lambdamax
 r = fit(X, Y, lambda)
 Bhat = r.Bhat
 
-# The stacked objective at `vec(B̂)`, computed from `Z` and `y` and also reported by the solver,
-# must equal the matrix objective at `B̂`, and the row conditions must hold.
-obj = objective(Bhat, lambda)
-b = vec(Bhat)
-obj_stacked = norm(y - Z * b)^2 / (2n) + lambda * sum(sqrt(K) * norm(b[G]) for G in groups)
-@assert abs(obj_stacked - obj) <= 1e-12 * (1 + obj)
+# The objective reported by the solver must equal the matrix objective computed from `X`, `Y`
+# and `B̂`, and the row conditions must hold. A selected row is nonzero in every task, as the
+# row penalty makes generic.
+obj = objective(X, Y, Bhat, lambda)
 @assert abs(r.res.minimum - obj) <= 1e-10 * (1 + obj)
-nz, zr = violations(Bhat, lambda)
+nz, zr = violations(X, Y, Bhat, lambda)
 @assert nz <= 1e-6 * lambda && zr <= 1e-6 * lambda
 @assert 0 < length(r.rows) < p
+@assert all(all(!iszero, Bhat[j, :]) for j in r.rows)
 println("λ = 0.15 λmax = ", round(lambda, digits = 4), ": passes = ", r.res.passes,
         "; objective ", round(obj, digits = 6), "; row violations ", nz, " (nonzero), ",
         zr, " (zero)")
@@ -196,12 +195,10 @@ println("prediction error per task: ", round.(mse, digits = 4),
 #
 # ## Limitations
 #
-# - The stacked design `Z = I_K ⊗ X` is formed explicitly and densely, with `K` times as many
-#   rows and columns as `X`. This is fine for a small example; it does not use the structure of
-#   the Kronecker product.
 # - The penalty level is a fixed fraction of `λmax` and is not tuned.
 # - The selected rows are reported for one simulated data set and compared with the truth. They
 #   are no guarantee of recovery on other data, and the page asserts none.
 # - `CDSolver`'s `converged` is a test of the change over a pass. The optimality statements on
 #   this page come from `violations`, computed from `X` and `Y`.
-# - The data are dense `Float64`; no other element type or iterate is run here.
+# - The data are dense `Float64`; the `Float32` and `BlockIterate` forms that the solver also
+#   accepts are not run here.
