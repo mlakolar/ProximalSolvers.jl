@@ -12,7 +12,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [sources]
-ProximalBase = {rev = "a19c59aa723d085d5d7cf5242895bda16eb77214", url = "https://github.com/mlakolar/ProximalBase.jl"}
+ProximalBase = {rev = "7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e", url = "https://github.com/mlakolar/ProximalBase.jl"}
 
 [compat]
 Aqua = "0.8"

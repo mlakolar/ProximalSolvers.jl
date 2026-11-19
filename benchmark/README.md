@@ -39,7 +39,7 @@ PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
 PS_SUITE=extended PS_LIST=true julia --project=benchmark/results/env benchmark/run.jl
 # Extended: 100 deferred historical cases, with missing capabilities
 PS_SUITE=extended PS_LIST=deferred julia --project=benchmark/results/env benchmark/run.jl
-JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=a19c59aa723d085d5d7cf5242895bda16eb77214 \
+JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e \
   julia --project=benchmark/results/env benchmark/run.jl
 python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
 python3 benchmark/summarize.py benchmark/results benchmark/results/summary
