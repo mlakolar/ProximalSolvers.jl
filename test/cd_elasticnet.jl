@@ -417,9 +417,11 @@ end
     X, y = T[1 0; 0 tiny; 0 0], T[2, tiny, 0]
     f = LeastSquaresLoss(y, X)
     flat = LeastSquaresLoss(y, T[1 0; 0 0; 0 0])
+    union_center = SqrNormL2{T, Union{Nothing, Vector{T}}}(T(0.5), nothing)
     for kind in (:dense, :warm)
       x = startof(kind, T[0.5, 0])
       refused(ArgumentError, "requires an uncentered SqrNormL2", x, f, SqrNormL2(zero(T), zeros(T, 2)))
+      refused(ArgumentError, "constructed as SqrNormL2(lambda)", x, f, union_center)
       refused(ArgumentError, "penalty lambda must be finite and nonnegative", x, f, SqrNormL2(T(Inf)))
       if T === Float32
         for λ in (1e-60, 1e40)

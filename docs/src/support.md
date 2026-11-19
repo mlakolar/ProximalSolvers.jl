@@ -73,6 +73,7 @@ lasso (note e).
   whose groups partition `1:p`, with the level and coefficients in the range that
   [Group lasso with proximal gradient descent](@ref) states.
 - **(j)** With uncentered `SqrNormL2(lambda)`, the penalty is `(lambda / 2) * sum(abs2, beta)`.
+  Construct it with `SqrNormL2(lambda)` to select the `Nothing` center type used by the coordinate prox.
   The level must be finite, nonnegative and representable in the coefficient type without overflow
   or rounding a nonzero value to zero. For a finite positive squared column norm, the step outside
   the normal range in (c) is refused at a positive level and is unpenalized at level zero.
