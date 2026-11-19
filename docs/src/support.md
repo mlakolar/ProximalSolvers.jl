@@ -309,7 +309,7 @@ dense, even when the coefficients use `SparseIterate`.
 ~~~
 
 with `w_j = 1` for the unweighted `NormL1(lambda)`. With a first column of ones in `X`
-and `w = [0; ones(p)]`, the first coefficient is a free (unpenalized) intercept and the
+and `w = [0; ones(p)]`, the first coefficient is an unpenalized intercept and the
 penalty is `lambda` times the ℓ₁ norm of the slopes.
 
 Use ProximalBase's `LogisticLoss(y, X)` with `NormL1(lambda)` or `NormL1(lambda, w)` and

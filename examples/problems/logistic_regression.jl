@@ -62,17 +62,18 @@ X = [ones(n) Z]
 # ## This sample is not separable
 #
 # With ``r_i=2y_i-1``, the data are separable, at least weakly, when some ``d\neq0`` has
-# ``r_i\tilde x_i^\top d\ge0`` for every ``i``: moving the coefficients along ``d`` never
-# increases a term of the loss, and the unpenalized loss can have no minimizer. Positive
+# ``r_i\tilde x_i^\top d\ge0`` for every ``i``: moving the coefficients along ``d`` does not
+# increase a term of the loss and, for a design of full column rank, decreases at least
+# one, so the unpenalized loss has no minimizer. Positive
 # weights ``u_i`` with ``\sum_i u_ir_i\tilde x_i=0`` rule this out: for such a ``d``,
 # ``0=\sum_i u_ir_i\tilde x_i^\top d`` would force ``\tilde Xd=0``, so ``d=0`` for a design of
 # full column rank. At any ``b`` the weights ``u_i=|y_i-\sigma(\eta_i)|`` are positive, and
 # ``\sum_i u_ir_i\tilde x_i`` is minus the gradient of the loss; near the unpenalized fit a
 # small least-squares correction ``c`` makes the sum zero in exact arithmetic. Newton steps
 # from zero give that fit, and the check is that the corrected weights stay positive,
-# with a margin far above rounding. This is a property of the sample. The penalized fit
-# below has a finite minimizer whenever both classes are present: the penalty bounds the
-# slopes, and then the two classes bound the intercept.
+# with a margin far above rounding. This is a property of the sample. For ``\lambda>0`` the
+# penalized fit below has a finite minimizer when both classes are present, separable or
+# not: the penalty bounds the slopes, and then the two classes bound the intercept.
 b_newton = zeros(p + 1)
 for _ in 1:25
   mu = sigmoid.(X * b_newton)

@@ -65,7 +65,7 @@ end
 # least-squares correction c = A (AᵀA)⁻¹ Aᵀu gives Aᵀ(u - c) = 0 in exact arithmetic. If u - c > 0 and X has
 # full column rank, no d ≠ 0 has rᵢ xᵢᵀd ≥ 0 for every i: 0 = Σᵢ (uᵢ - cᵢ) rᵢ xᵢᵀd would force X d = 0. Then the
 # unpenalized loss grows without bound along every direction and has a finite minimizer. The correction is
-# small only at a b with a small gradient, such as the Newton point. Returns min(u - c) / max|c|.
+# small when the gradient at b is small, as at the Newton point. Returns min(u - c) / max|c|.
 function nonseparable(X, y, b)
   r = big.(2 .* y .- 1)
   A = r .* big.(X)
