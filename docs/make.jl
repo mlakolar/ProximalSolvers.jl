@@ -20,6 +20,7 @@ const EXAMPLES = [
   (section = "Statistical applications", path = "problems/scaled_lasso.jl", title = "Scaled lasso", notebook = false),
   (section = "Statistical applications", path = "problems/sparse_deconvolution.jl", title = "Sparse deconvolution and event recovery", notebook = false),
   (section = "Statistical applications", path = "problems/change_point_detection.jl", title = "Change-point detection", notebook = false),
+  (section = "Statistical applications", path = "problems/stability_selection.jl", title = "Stability selection with repeated lasso fits", notebook = false),
   (section = "Statistical applications", path = "problems/nodewise_gaussian_graph.jl", title = "Gaussian graph: neighborhood selection", notebook = false),
   (section = "Statistical applications", path = "problems/sparse_additive_regression.jl", title = "Sparse additive regression", notebook = false),
   (section = "Statistical applications", path = "problems/multitask_group_lasso.jl", title = "Multi-task group lasso", notebook = false),
