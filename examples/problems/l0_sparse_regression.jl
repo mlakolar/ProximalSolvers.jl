@@ -30,7 +30,7 @@ using LinearAlgebra, Printf, Random, ProximalBase, ProximalSolvers
 # by at most `64eps(T)` times the larger objective magnitude to allow for rounding
 # on these moderate-scale examples.
 #
-# Use the same conservative reference step ``t_*\!!`` throughout a fit for
+# Use the same conservative reference step ``t_*`` throughout a fit for
 # the residual ``\|\beta-\operatorname{prox}_{t_*\lambda_0\|\cdot\|_0}
 # (\beta-t_*\nabla f(\beta))\|_\infty/t_*``. Check it at the initial point and
 # after each accepted step. A large inverse step chosen by backtracking does not
@@ -180,8 +180,8 @@ function small_checks(::Type{T}) where {T}
   tol = T === Float32 ? T(8e-6) : T(1e-8)
   checktol = T === Float32 ? 2e-6 : 2e-12
 
-  # At t = 1/2 and λ = 1 the threshold is exactly 1. Check both signs,
-  # their adjacent magnitudes, the stored zero sign, and the fused value.
+  ## At t = 1/2 and λ = 1 the threshold is exactly 1. Check both signs,
+  ## their adjacent magnitudes, the stored zero sign, and the fused value.
   input = T[prevfloat(one(T)), -prevfloat(one(T)), 1, -1,
             nextfloat(one(T)), -nextfloat(one(T)), -zero(T)]
   expected = T[0, 0, 0, 0, input[5], input[6], 0]
@@ -209,7 +209,7 @@ function small_checks(::Type{T}) where {T}
             T, start, support, verified.objective, gap, verified.residual, fit.iterations, fit.rejected, fit.status)
   end
 
-  # A second full-rank design gives a separate exhaustive reference.
+  ## A second full-rank design gives a separate exhaustive reference.
   A = T[2 1 0 0; 0 2 1 0; 0 0 2 1; 0 0 0 2; 1 0 1 0]
   b = A * T[1, 0, -0.8, 0] + T[0, 0.02, 0, -0.01, 0]
   for level in T[0, 0.12]
@@ -227,8 +227,8 @@ function small_checks(::Type{T}) where {T}
     end
   end
 
-  # A one-dimensional quadratic with curvature 4 rejects inverse steps
-  # 1/2, 1, and 2. At 4 the zero-level prox takes the exact minimizer.
+  ## A one-dimensional quadratic with curvature 4 rejects inverse steps
+  ## 1/2, 1, and 2. At 4 the zero-level prox takes the exact minimizer.
   A, b, start = reshape(T[2], 1, 1), T[2], zeros(T, 1)
   fit = iht(A, b, zero(T), start; initial_L = T(0.5), max_trials = 4, tol)
   @assert fit.status == :stationary_within_tolerance && fit.beta == T[1]
