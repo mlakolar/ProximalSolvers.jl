@@ -17,11 +17,12 @@ using LinearAlgebra, Printf, Random, ProximalBase, ProximalSolvers
 # solves the constrained problem. For correlated columns, the off-diagonal
 # entries of `X'X` couple the coefficients.
 
+# For the projected-gradient diagnostic, use the inverse Frobenius
+# curvature bound as a fixed positive step. It depends only on the design.
+# A zero mapping is the first-order condition.
 function constrained_fit(label, X::Matrix{T}, y, indicator, project, start, reference) where T
   A, b = Float64.(X), Float64.(y)
   n = length(b)
-  # The inverse Frobenius curvature bound is a fixed, positive step that
-  # depends only on the design. A zero mapping is the first-order condition.
   t = n / sum(abs2, A)
   objective(v) = sum(abs2, A * v - b) / (2n)
   reference_objective = objective(reference)
