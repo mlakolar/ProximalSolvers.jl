@@ -79,9 +79,15 @@ level is accepted for an unweighted `NormL1`, the supported unweighted
 in [IN-01](@ref); weighted `NormL1` has the stricter [IN-03](@ref) rule.
 For ridge, zero is also accepted. Negative, NaN or infinite levels are refused,
 as are finite levels whose conversion overflows or turns a nonzero value into
-zero. A representable level of another real scalar type is allowed; validation
-does not globally replace the supplied penalty parameter by `T(lambda)`.
-ADMM has its own scalar-parameter rules in [ADM-01](@ref).
+zero.
+
+For unweighted `NormL1` with PGD or APG and unweighted `NormL1Nonneg` with
+PGD, public `solve!` validates the supplied penalty and completes the method's
+input checks before forming a working penalty with level `T(lambda)`. It reuses
+an already native penalty. That penalty supplies the initial objective, every
+fused value and proximal evaluation, and the stationarity residual and scale.
+The caller's penalty is unchanged. Other regression penalties and CD retain their
+own arithmetic rules. ADMM has its own scalar-parameter rules in [ADM-01](@ref).
 
 For `Scaled(LeastSquaresLoss(...), s)`, the supported loss scale is either:
 
@@ -134,9 +140,9 @@ g = NormL1(lambda)
 
 **Applies to.** Penalty scalar parameters and the single `Scaled` least-squares wrapper accepted by the public solvers.
 
-**Code.** `src/solve.jl`: `_scalar_parameter`, `_check_loss_scale`, `_loss_scale_error`; `src/cd/leastsquares.jl`: `LSModel`; `src/solvers/image_models.jl`: scale consumers.
+**Code.** `src/solve.jl`: `_scalar_parameter`, `_check_loss_scale`, `_loss_scale_error`; `src/utils.jl`: `_working_gradient_penalty`, `_converted_penalty`, called by the public PGD and APG entry points; `src/cd/leastsquares.jl`: `LSModel`; `src/solvers/image_models.jl`: scale consumers.
 
-**Tests.** `test/core_contracts.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/stopping_scale.jl`; ridge construction/validation in `test/cd_elasticnet.jl`, including negative/NaN constructors, an infinite level and Float32 conversions of `1e-60` and `1e40`, plus supported zero and mixed-scalar levels.
+**Tests.** `test/core_regressions.jl`, “Working ℓ₁ levels”, compares mixed and explicitly converted PGD/APG solves, checks independent objectives and covers pre-write refusals. `test/core_contracts.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/stopping_scale.jl`; ridge construction/validation in `test/cd_elasticnet.jl`, including negative/NaN constructors, an infinite level and Float32 conversions of `1e-60` and `1e40`, plus supported zero and mixed-scalar levels.
 
 **Sources.** `docs/src/numerics.md:L743`, `docs/src/numerics.md:L783`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L327`, `docs/src/support.md:L330`, `docs/src/support.md:L334`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/getting-started.md:L119`. The unweighted nonnegative-lasso level gate is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). Ridge reuses [`_scalar_parameter` at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L11-L21), called by [its new penalty branch](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L75-L79).
 
