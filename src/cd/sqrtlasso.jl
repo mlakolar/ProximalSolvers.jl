@@ -592,6 +592,9 @@ end
 # 2. P_up(β) is finite, P_up(β) < P_lo(x₀) and ratio(P_up(β), D) ≤ `_CERT_TARGET`: β, certified;
 # 3. after stage 9 or at the budget: β if P_up(β) is finite and P_up(β) < P_lo(x₀), x₀ otherwise, both
 #    uncertified.
+# A step refused with an `ArgumentError` during a stage (a step or its stopping scale that is not finite)
+# ends the run with x₀, uncertified, and the stage's passes, the refused one included, count; the
+# smoothing is cleared also before another exception is rethrown.
 # So a point other than x₀ is returned only with P(β) ≤ P_up(β) < P_lo(x₀) ≤ P(x₀), a proved decrease of
 # the objective. A certified ratio other than 0 is at least (P_up − D)/D ≥ (P − P*)/P* for the returned
 # point, as 0 < D ≤ P*. #155 has the evaluation of this rule.
@@ -613,7 +616,14 @@ function _fallback!(m::SqrtLSModel{T}, g, x::SparseIterate{T}, st, s::CDSolver) 
     m.δ64 = polish ? 0.0 : Float64(T(δ))
     m.δ2 = T(m.δ64)^2
     m.tightenings, m.gap, m.uncertified = 0, T(NaN), false
-    _cd!(x, m, g, st, CDSolver(budget - used, s.tol, s.random, s.relative, s.momentum, s.rng))
+    try
+      _cd!(x, m, g, st, CDSolver(budget - used, s.tol, s.random, s.relative, s.momentum, s.rng))
+    catch e
+      m.δ64, m.δ2 = 0.0, zero(T)
+      e isa ArgumentError || rethrow()
+      used += st.passes + 1     # the completed passes of the stage and the refused one
+      break
+    end
     used += st.passes
     m.δ64, m.δ2 = 0.0, zero(T)
     _certify!(m, x)

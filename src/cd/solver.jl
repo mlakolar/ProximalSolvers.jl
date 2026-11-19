@@ -186,7 +186,10 @@ computed at the stage's point. The run returns a changed point only when these b
 objective is below that of the stopped point, and otherwise the stopped point. `converged = true`, with
 `gap` the proved bound, when the bounds certify the returned point, the lower bound of `P*` being the
 largest dual lower bound found at the stop and at the stages; otherwise the run ends with
-`converged = false`, `gap = NaN` and a warning that differs from the `maxpasses` warning. **The fallback
+`converged = false`, `gap = NaN` and a warning that differs from the `maxpasses` warning. A coordinate
+step refused with an `ArgumentError` during the fallback (for example a step that is not finite) ends it
+with the stopped point, uncertified, and the passes of the fallback, the refused one included, count in
+`passes`. **The fallback
 does not guarantee recovery at exact fits:** it can end uncertified, at the stopped point or at a point
 with a proved lower objective that is not optimal. With `y = 0` and a nonzero start it can reach
 `beta = 0`, which is then certified with `gap = 0`; it need not reach it.

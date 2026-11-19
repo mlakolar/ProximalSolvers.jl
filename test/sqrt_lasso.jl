@@ -1122,6 +1122,32 @@ end
   @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
 end
 
+# A coordinate step refused during a fallback stage (an `ArgumentError`: here, with a response near
+# floatmax(T) times the column scale and tol = 1e200, the scaled change of the smoothed step is not
+# finite) ends the fallback with the stopped point, uncertified, and the stage's passes count. The solve
+# with maxpasses = 1 is the stop alone (no budget), so its point and minimum are those of the stop.
+@testset "fallback: a step refused in a stage returns the stopped point ($T, owner = $owner)" for T in (Float64, Float32), owner in (false, true)
+  scale, λ = T === Float32 ? (1f-10, 1f-30) : (1e-155, 1e-300)
+  X = scale .* T[1 1; 0 1]
+  a = T(0.6) * floatmax(T)
+  y = scale .* T[a, -a]
+  kw = (; owner, order = :cyclic, momentum = false, tol = 1e200)
+  x1, r1, logs1 = sqrt_solve(X, y, λ, zeros(T, 2); kw..., maxpasses = 1)
+  @test !r1.converged && isnan(r1.gap) && r1.passes == 1 && isfinite(r1.minimum)
+  out = try
+    sqrt_solve(X, y, λ, zeros(T, 2); kw..., maxpasses = 100)
+  catch e
+    e
+  end
+  @test !(out isa Exception)
+  if !(out isa Exception)
+    x, r, logs = out
+    @test !r.converged && isnan(r.gap) && 1 < r.passes <= 100
+    @test x == x1 && r.minimum == r1.minimum
+    @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+  end
+end
+
 @testset "fallback: y = 0 from a nonzero start, and bounds that are not finite ($T)" for T in (Float64, Float32)
   # the special case y = 0, β = 0 of `_certify!` sets P_up = P_lo = 0 and no D_lo, also after a point
   # with positive bounds

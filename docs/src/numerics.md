@@ -754,7 +754,9 @@ objective is not finite in `T` (for example where it overflows `Float64`).
   `β` is returned certified if `ratio(P_up(β), D) ≤ prevfloat(1e-4)` and `P_up(β) < P_lo(x₀)`; after
   stage 9 or at the end of the budget, `β` is returned uncertified if `P_up(β) < P_lo(x₀)`, and `x₀`
   otherwise. At `y = 0` the certificate gives `P_up = 0` at `β = 0`, where `P = P* = 0`; this counts as
-  ratio 0, so that point is returned certified with `gap = 0` where `P_lo(x₀) > 0`.
+  ratio 0, so that point is returned certified with `gap = 0` where `P_lo(x₀) > 0`. A coordinate step
+  refused with an `ArgumentError` during a stage (for example a step that is not finite) ends the run
+  with `x₀`, uncertified, and the stage's passes, the refused one included, count.
 - **What is proved.** A returned point other than `x₀` has a lower objective than `x₀`, by
   `P(β) ≤ P_up(β) < P_lo(x₀) ≤ P(x₀)`. A certified result has `gap` at least `(P − P*)/P*` at the
   returned point (other than at `P = P* = 0`), because `D ≤ P*`. The smoothed stages only propose points:
