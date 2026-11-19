@@ -136,6 +136,6 @@ end
 #!jl amplitudes = bar(collect(1:p) .+ [-0.24 0 0.24], hcat(beta_true, nnls.beta, sparse.beta);
 #!jl   label=["Generating amplitudes" "NNLS" "Penalized"], color=[:gray65 :teal :orange],
 #!jl   xlabel="Dictionary component", ylabel="Amplitude", legend=:outertop, legendcolumns=3,
-#!jl   bar_width=0.22, xticks=1:p, xlims=(0.5, p+0.5), size=(820, 400))
+#!jl   bar_width=0.22, xticks=1:p, xlims=(0.5, p+0.5), size=(820, 400), margin=5Plots.mm)
 #!jl savefig(amplitudes, "nonnegative_least_squares.svg")
 #!jl nothing
