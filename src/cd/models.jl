@@ -20,6 +20,8 @@ _prepare!(m::CDModel, g, x) = m
 _stop_check!(m::CDModel, g, x, st, maxh, scaled::Bool) = :converged
 _result_gap(m::CDModel{T}) where T = T(NaN)
 _uncertified(m::CDModel) = false
+# The fallback after an uncertified stop (`_run_cd!`): none for the models without a certificate.
+_fallback!(m::CDModel, g, x, st, s) = nothing
 cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model"))
 # The coordinate along a flat LS column (zero slope and curvature), which does not enter the loss: the
 # prox of the penalty at the step floatmax(T) from 0. For an unweighted NormL1 or ElasticNet with finite

@@ -9,7 +9,8 @@ module SqrtLasso
 # certified branch, and the runs with levels of other types. The rescaling and range cases of C assert
 # the certification decision (and, under rescaling, the ratio), the special cases of C and the analytic
 # cases of A assert their known results, and the stop-check and contract tests assert their own
-# conditions. Accuracy statements are medians with a margin; the per-run hard bound is the 1e-4
+# conditions. E checks the fallback after an uncertified stop (fixtures, a hard case, the budget, edge
+# cases); A also checks its smoothed step and pins the step at δ = 0. Accuracy statements are medians with a margin; the per-run hard bound is the 1e-4
 # contract. The data of the reference problems are small dyadic numbers from a fixed hash (no
 # random-number stream), exact in Float32 and in Float64, so both types solve the same problem. The dual vectors θ* and primal points β* below come from an offline Clarabel solve (the
 # script is in the run record of #332 PR A, not in test/); the test trusts neither: it checks that θ*
@@ -270,9 +271,11 @@ const REFERENCES = Dict(
 # ---------------------------------------------------------------------------
 
 # One coordinate step of the model of one column xk at the value `old`: the new value and the cached
-# residual r = y − xk old (rounded in T) that the step starts from.
-function step_once(xk::Vector{T}, y::Vector{T}, λ::T, old::T) where T
+# residual r = y − xk old (rounded in T) that the step starts from. A smoothing level δ is set as
+# `_fallback!` sets it (δ in Float64, δ² rounded in T); δ = 0 is the model's own state.
+function step_once(xk::Vector{T}, y::Vector{T}, λ::T, old::T; δ::T = zero(T)) where T
   m, xs = prepared_model(reshape(copy(xk), :, 1), y, λ, T[old])
+  m.δ64, m.δ2 = Float64(δ), δ^2
   r = copy(m.ls.r)
   PS.coordinate_step!(m, NormL1(λ), xs, 1)
   xs[1], r
@@ -387,6 +390,195 @@ end
   @test worst <= 1
 end
 
+# The smoothed step (a level δ > 0, as in the stages of `_fallback!`) minimizes
+# φ_δ(z) = √(‖ρ − x z‖² + δ²) + λ|z|, the coordinate objective of the problem with one appended row
+# (response δ, design entry 0). `step_excess` on the column [x; 0] and the residual [r; δ] compares it with
+# the BigFloat minimizer of that problem, with `step_bound` for n + 1 rows and S = max(‖(ρ, δ)‖, ‖(r, δ)‖).
+# The allowance needs no further term: the step forms a, b and ‖r‖² + δ² (and the recomputed d² + δ²) in
+# T as the derivation of `step_bound` forms them for a residual of n + 1 entries, since δ is a value of T
+# and δ² rounded in T is the rounded square of the appended entry, one more term of a sum whose bound
+# holds for any order of summation. The range test `_clean_sum` counts n terms, not n + 1, so the squares
+# that underflow change a sum that passes it by at most (n + 1)/n eps(T)²/2 ≤ eps(T)² relative instead of
+# eps(T)²/2, a second-order term within the margin of 3.6u. In `_sqrt_offrange_step` (Float64, scaled by
+# powers of two) the appended entry is scaled and squared like the others, and the recomputed distance
+# takes one `hypot` more, a rounding in Float64 on a distance whose allowance in the derivation,
+# (3γ_n + 4u)‖r‖, is below the (16γ_n + 13u)‖r‖ that the bound uses for the distance.
+function step_excess_smoothed(xk::Vector{T}, y, λ, old, δ::T) where T
+  z, r = step_once(xk, y, λ, old; δ)
+  step_excess([xk; zero(T)], [r; δ], λ, old, z)
+end
+# Whether the step at the cached residual of y − xk old takes the fast path (a and ‖r‖² + δ² pass
+# `_clean_sum`), not `_sqrt_offrange_step` (from the start of the step; the recomputed d² can still send
+# it there).
+function smoothed_fast(xk::Vector{T}, y, λ, old, δ::T) where T
+  m, _ = prepared_model(reshape(copy(xk), :, 1), y, λ, T[old])
+  a, _, ρ2 = PS._column_dot_rsqr(m.ls.X, m.ls.r, 1, T(NaN))
+  PS._clean_sum(a, length(y)) & PS._clean_sum(ρ2 + δ^2, length(y))
+end
+
+@testset "smoothed coordinate step against the appended-row problem ($T)" for T in (Float64, Float32)
+  rng = Xoshiro(2611)
+  worst, fast = 0.0, 0
+  for trial in 1:300
+    n = rand(rng, 2:12)
+    xk = T.(randn(rng, n))
+    ρ = T.(randn(rng, n))
+    mode = trial % 5
+    mode == 1 && (ρ = xk .* T(randn(rng)) .+ T(1e-6) .* ρ)     # nearly parallel
+    mode == 2 && (ρ = xk .* T(randn(rng)))                     # parallel up to the rounding of the product
+    mode == 4 && (ρ = xk .* T(1e3 * randn(rng)) .+ ρ)          # a dominant partial residual
+    λ = T(abs(randn(rng)) * norm(xk) * (mode == 3 ? 1.2 : 0.7))
+    old = T(randn(rng))
+    δ = T(norm(ρ) * 10.0^(-12 + 14 * rand(rng)))               # from 1e-12 to 100 times ‖ρ‖
+    fast += smoothed_fast(xk, ρ, λ, old, δ)
+    e, b = step_excess_smoothed(xk, ρ, λ, old, δ)
+    worst = max(worst, e / b)
+    @test e <= b
+  end
+  @test worst <= 1 && fast > 0
+  xk = T[1, 2, -1, 0.5]                     # a = 6.25, √a = 2.5, exact
+  ρ = T[1, 0, 2, -1] .+ 2 .* xk
+  # δ much larger than the residual, and δ whose square underflows in T (the fast path keeps the
+  # smoothing only up to rounding)
+  for δ in (T(2)^20, T(2)^(T === Float32 ? -80 : -560))
+    @test smoothed_fast(xk, ρ, T(1.25), T(0.75), δ)
+    e, b = step_excess_smoothed(xk, ρ, T(1.25), T(0.75), δ)
+    @test e <= b
+  end
+  # off-range: δ² overflows in T; a tiny column (as in the coordinate step test above); a subnormal
+  # residual; and r = 0 (dyadic data, xk old exact) with a δ whose square underflows, where the step
+  # without smoothing returns old and the smoothed step forms d = δ (with old and δ at the scale 2^-100
+  # (Float32) or 2^-600 (Float64), the threshold λδ/√(a (a − λ²)) moves old visibly)
+  s, ys = T === Float32 ? (70, -30) : (530, -400)
+  sub = T(2)^(T === Float32 ? -140 : -1060)
+  tiny = T(2)^-s .* xk
+  o0 = 3 * T(2)^(T === Float32 ? -100 : -600)
+  cases = [(xk, ρ, T(1.25), T(0.75), T(2)^(T === Float32 ? 70 : 520)),
+           (tiny, T(2)^ys .* T[1, 0, 2, -1], T(2)^(-s - 1), zero(T), T(2)^ys),
+           (tiny, T(2)^ys .* T[1, 0, 2, -1], T(2)^(-s - 1), T(2)^(ys + s - 2), T(2)^(ys - 10)),
+           (xk, sub .* T[1, 0, 2, -1], T(2)^-10, zero(T), sub),
+           (xk, sub .* T[1, 0, 2, -1], T(2)^-10, zero(T), T(2)^10 * sub),
+           (xk, xk .* T(0.75), T(1.25), T(0.75), sub),
+           (xk, xk .* o0, T(0.5), o0, 4 * o0)]
+  for (i, (x, y, λ, old, δ)) in enumerate(cases)
+    @test !smoothed_fast(x, y, λ, old, δ)
+    z, r = step_once(x, y, λ, old; δ)
+    i >= 6 && @test iszero(r)
+    i == 7 && @test 0 < z < old
+    e, b = step_excess_smoothed(x, y, λ, old, δ)
+    @test e <= b
+  end
+  # r = 0 with a δ whose square passes the range test: the fast path, d = δ
+  @test smoothed_fast(xk, xk .* T(0.75), T(1.25), T(0.75), T(0.5))
+  e, b = step_excess_smoothed(xk, xk .* T(0.75), T(1.25), T(0.75), T(0.5))
+  @test e <= b
+end
+
+# The step before the smoothing was added (the two functions as they were before `δ2` and `δ64`
+# existed), frozen here with branch counters, to pin the step at δ = 0 to it bit for bit. hits:
+# 1 prox_block, 2 band step, 3 recomputed d² (fast path), 4 off-range with r = 0, 5 off-range direct d̃,
+# 6 off-range recomputed d̃.
+function frozen_sqrt_minimizer(m, old::T, a::T, b::T, ρ2::T, k::Int, hits) where T
+  ls = m.ls
+  n = length(ls.r)
+  (PS._clean_sum(a, n) & PS._clean_sum(ρ2, n)) || return frozen_sqrt_offrange_step(m, old, k, hits)
+  λ = m.gt.λ0
+  ra = sqrt(a)
+  λ >= ra && return zero(T)
+  q = b/a
+  c = old + q
+  d2 = ρ2 - b*q
+  if d2 < ρ2/16
+    hits[3] += 1
+    d2 = PS._distance_sqr(ls.X, ls.r, k, q)
+    PS._clean_sum(d2, n) || return frozen_sqrt_offrange_step(m, old, k, hits)
+  end
+  d = sqrt(d2)
+  p = ra*(sqrt(ra - λ)*sqrt(ra + λ))
+  γ = d/p
+  τ = γ*λ
+  if (floatmin(T) <= p) & (floatmin(T) <= γ <= floatmax(T)) & (floatmin(T) <= τ <= floatmax(T))
+    hits[1] += 1
+    PS.prox_block(m.gt, c, k, γ)
+  else
+    hits[2] += 1
+    PS._sqrt_band_step(c, ra, λ, Float64(d), 0)
+  end
+end
+function frozen_sqrt_offrange_step(m, old::T, k::Int, hits) where T
+  ls = m.ls
+  X, r, s = ls.X, ls.r, m.res64
+  n = length(r)
+  Mx, M = 0.0, 0.0
+  @inbounds for i in 1:n
+    Mx = max(Mx, abs(Float64(X[i, k])))
+    M = max(M, abs(Float64(r[i])))
+  end
+  ex = exponent(Mx)
+  as = 0.0
+  @inbounds for i in 1:n
+    v = ldexp(Float64(X[i, k]), -ex)
+    as += v*v
+  end
+  ras = sqrt(as)
+  λs = ldexp(Float64(m.gt.λ0), -ex)
+  λs >= ras && return zero(T)
+  iszero(M) && (hits[4] += 1; return old)
+  er = exponent(M)
+  bs, ss = 0.0, 0.0
+  @inbounds for i in 1:n
+    v = ldexp(Float64(r[i]), -er)
+    s[i] = v
+    bs += v*ldexp(Float64(X[i, k]), -ex)
+    ss += v*v
+  end
+  qs = bs/as
+  ds2 = ss - bs*qs
+  if ds2 < ss/16
+    hits[6] += 1
+    @inbounds for i in 1:n
+      s[i] -= qs*ldexp(Float64(X[i, k]), -ex)
+    end
+    ds, ed = PS._scaled_norm(s, n)
+  else
+    hits[5] += 1
+    ds, ed = sqrt(ds2), 0
+  end
+  PS._sqrt_band_step(old + T(ldexp(qs, er - ex)), ras, λs, ds, ed + er - ex)
+end
+
+@testset "δ = 0: the step is the step before the smoothing, bit for bit ($T)" for T in (Float64, Float32)
+  rng = Xoshiro(7213)
+  hits = zeros(Int, 6)
+  mismatches = 0
+  tinyλ = T(2)^(T === Float32 ? -135 : -1050)       # subnormal: γλ underflows, the band step
+  tinyx = T(2)^(T === Float32 ? -70 : -530)          # a column whose squared norm is subnormal
+  sub = T(2)^(T === Float32 ? -140 : -1060)          # a subnormal residual
+  huge = T(2)^(T === Float32 ? 70 : 520)             # a residual whose squares overflow
+  for trial in 1:1200
+    n = rand(rng, 2:12)
+    mode = trial % 8
+    xk = mode == 6 ? T.(rand(rng, -4:4, n)) ./ 4 : T.(randn(rng, n))
+    all(iszero, xk) && (xk[1] = one(T))
+    mode in (3, 4) && (xk = tinyx .* xk)
+    ρ = T.(randn(rng, n))
+    mode in (1, 4) && (ρ = xk .* T(randn(rng)) .+ T(1e-6) .* norm(xk) .* ρ)   # nearly parallel
+    mode == 5 && (ρ = sub .* ρ)
+    mode == 7 && (ρ = huge .* ρ)
+    old = mode == 6 ? T(rand(rng, -8:8) / 8) : T(randn(rng))
+    y = mode == 6 ? xk .* old : ρ .- xk .* old        # mode 6: an exact fit, r = 0
+    λ = mode == 2 ? tinyλ : T(abs(randn(rng)) * norm(xk) * 0.7)
+    m, xs = prepared_model(reshape(copy(xk), :, 1), y, λ, T[old])
+    @assert iszero(m.δ64) && iszero(m.δ2)
+    a, b, ρ2 = PS._column_dot_rsqr(m.ls.X, m.ls.r, 1, T(NaN))
+    z = PS._sqrt_minimizer(m, old, a, b, ρ2, 1)
+    zf = frozen_sqrt_minimizer(m, old, a, b, ρ2, 1, hits)
+    mismatches += !isequal(z, zf)
+  end
+  @test mismatches == 0
+  @test all(>(0), hits)
+end
+
 @testset "analytic cases ($T)" for T in (Float64, Float32)
   # y = 0: β = 0, P = 0, certified with gap 0 at the first pass
   X = T[1 2 3; 4 5 6]
@@ -402,18 +594,22 @@ end
   x, r, _ = sqrt_solve(X, y, λ, zeros(T, 3); order = :cyclic)
   @test r.converged && iszero(x) && 0 <= r.gap <= 1e-4 && r.passes == 1
   # #156: X = [1 2; 0 1], y = [1, 0], λ = 0.1. The minimizer (1, 0) is an exact fit with P* = 0.1 (the
-  # dual point (0.1, -0.1) has value 0.1). Started there, CD keeps it, and the run is not certified.
+  # dual point (0.1, -0.1) has value 0.1). Started there, CD keeps it and its certificate is undefined
+  # (r̂ = 0); the fallback finds a dual lower bound at a point of its stages that certifies (1, 0), which
+  # it returns.
   X, y = T[1 2; 0 1], T[1, 0]
   x, r, logs = sqrt_solve(X, y, 0.1, T[1, 0]; order = :cyclic)
-  @test x == [1, 0] && !r.converged && isnan(r.gap) && isapprox(r.minimum, 0.1; rtol = 4eps(T))
-  @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+  @test x == [1, 0] && r.converged && 0 <= r.gap <= 1e-4 && isapprox(r.minimum, 0.1; rtol = 4eps(T))
+  @test isempty(logs)
   # #155: X = [1 1; 0 0.01], y = X (1, -1), λ = 0.1. Started at the exact fit (1, -1), no single
-  # coordinate improves P = 0.2, while P* = ‖y‖ = 0.01 at 0. The run stops after one pass, uncertified.
+  # coordinate improves P = 0.2, while P* = ‖y‖ = 0.01 at 0. The solve stops uncertified after one pass;
+  # the fallback (budget min(100_000 − 1, max(2000, 20)) = 2000 passes) reaches 0, which is certified.
   X = T[1 1; 0 0.01]
   y = X * T[1, -1]
   x, r, logs = sqrt_solve(X, y, 0.1, T[1, -1]; order = :cyclic)
-  @test x == [1, -1] && !r.converged && isnan(r.gap) && r.passes == 1
-  @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+  @test iszero(x) && r.converged && 0 <= r.gap <= 1e-4 && r.passes > 1 && isempty(logs)
+  @test isapprox(r.minimum, 0.01; rtol = 4eps(T))
+  @test objective_big(X, y, 0.1, x) < objective_big(X, y, 0.1, T[1, -1])
   # the same problem from 0 is certified at P* = 0.01
   x, r, logs = sqrt_solve(X, y, 0.1, zeros(T, 2); order = :cyclic)
   @test r.converged && iszero(x) && 0 <= r.gap <= 1e-4 && isempty(logs)
@@ -580,11 +776,15 @@ end
 
 # An effective threshold that overflows to Inf in T (Float32 data, tol = 1e100): the first full pass
 # passes the change test, and its check certifies or stops the run (Inf cannot be lowered), in both loops.
+# With maxpasses = 1 the fallback after an uncertified stop has no budget, so the run is the solve alone
+# (an uncertified stop gives the uncertified warning, a retry would end at maxpasses with the other one).
+# With the default maxpasses, each stage of the fallback and its final solve end after one full pass (the
+# change test passes, and the final check cannot lower Inf either), so the run makes at most 1 + 9 passes.
 @testset "overflowed threshold: no retry, in both loops" begin
   X, y = Float32[1 0.99; 0 0.1; 1 1], Float32[1, 2, 4]
-  for momentum in (false, true)
-    x, r, logs = sqrt_solve(X, y, 0.01f0, zeros(Float32, 2); order = :random, momentum, rng = Xoshiro(119), tol = 1e100)
-    @test isinf(r.tolerance) && r.passes == 1
+  for momentum in (false, true), maxpasses in (1, 100_000)
+    x, r, logs = sqrt_solve(X, y, 0.01f0, zeros(Float32, 2); order = :random, momentum, rng = Xoshiro(119), tol = 1e100, maxpasses)
+    @test isinf(r.tolerance) && (maxpasses == 1 ? r.passes == 1 : r.passes <= 10)
     if r.converged
       @test 0 <= r.gap <= 1e-4 && isempty(logs)
     else
@@ -818,12 +1018,14 @@ end
     @test x == x0 && r.passes == 0 && !r.converged && isnan(r.gap)
     @test length(logs) == 1 && occursin(NOTCONVERGED, messages(logs)[1])
   end
-  # tol = 0: the change test does not pass, so the stop check is not reached (maxpasses warning)
+  # tol = 0: the change test does not pass, so the stop check is not reached and no fallback runs
+  # (maxpasses warning)
   x, r, logs = sqrt_solve(XT, yT, λ, zeros(T, p); order = :cyclic, tol = 0, maxpasses = 50)
   @test !r.converged && isnan(r.gap) && r.passes == 50 && occursin(NOTCONVERGED, messages(logs)[1])
-  # the uncertified warning differs from the maxpasses warning
+  # the uncertified warning differs from the maxpasses warning (the #155 fixture with maxpasses = 1: an
+  # uncertified stop at the last allowed pass, so the fallback has no budget)
   @test_logs (:warn, UNCERTIFIED) solve!(T[1, -1], SqrtLeastSquaresLoss(T[1 1; 0 0.01] * T[1, -1], T[1 1; 0 0.01]),
-                                         NormL1(0.1), CDSolver(order = :cyclic))
+                                         NormL1(0.1), CDSolver(order = :cyclic, maxpasses = 1))
   @test_logs (:warn, NOTCONVERGED) solve!(zeros(T, p), SqrtLeastSquaresLoss(yT, XT), NormL1(λ), CDSolver(maxpasses = 1, rng = Xoshiro(3)))
   # CDSolver() on a dense Vector uses momentum, as for least squares (random order on the private copy)
   xs = SparseIterate(zeros(T, p))
@@ -831,6 +1033,166 @@ end
   # the minimum agrees with P at the returned point, and an owner keeps its caller identity
   x, r, _ = sqrt_solve(XT, yT, λ, zeros(T, p); owner = true, rng = Xoshiro(9))
   @test r.converged && isapprox(r.minimum, objective_big(X, y, λ, x); rtol = (size(X, 1) + p + 8) * eps(T))
+end
+
+# ---------------------------------------------------------------------------
+# E. The fallback after an uncertified stop (`_fallback!`)
+# ---------------------------------------------------------------------------
+# A changed point is returned only with a proved decrease, P_up(β) < P_lo(x₀): where a run moves, the
+# tests check P(returned) < P(x₀) in BigFloat, x₀ the point of the uncertified stop.
+
+# The stop of the solve without the fallback, with the passes of `_run_cd!` (the same options; the
+# caller passes a fresh RNG for the random order): the point x₀, the passes and whether it is uncertified.
+function stop_without_fallback(X, y, λ, x0; kwargs...)
+  s = CDSolver(; kwargs...)
+  xs = SparseIterate(copy(x0))
+  m = PS.cdmodel(SqrtLeastSquaresLoss(y, X), xs)
+  PS.initialize!(m, xs)
+  s.maxpasses > 0 && PS._prepare!(m, NormL1(λ), xs)
+  st = PS._CDState(eltype(xs), xs, s)
+  PS._cd!(xs, m, NormL1(λ), st, s)
+  Vector(xs), st.passes, PS._uncertified(m)
+end
+# The two configurations: cyclic on a dense vector, and random order with momentum on a SparseIterate
+# (a fresh RNG for each call).
+const FALLBACK_CONFIGS = [("cyclic dense", false, () -> (; order = :cyclic)),
+                          ("random owner momentum", true, () -> (; rng = Xoshiro(17), momentum = true))]
+# A hard case: noiseless with p > n, at about 1e-3 λmax (λ = 2^-8), from 0. The data are small dyadic
+# numbers from the hash, exact in Float32 and in Float64.
+function hard_problem()
+  n, p = 40, 120
+  X = small_ints(n, p, 41, 4) ./ 4
+  b = zeros(p)
+  b[1:5] .= [(-1)^j * j for j in 1:5]
+  X, X * b, 2.0^-8
+end
+
+@testset "fallback: the #155 and #156 fixtures ($T, $label)" for T in (Float64, Float32), (label, owner, kw) in FALLBACK_CONFIGS
+  # #155 from the exact fit (1, -1): certified at 0 after the fallback, a proved decrease
+  X = T[1 1; 0 0.01]
+  y = X * T[1, -1]
+  x, r, logs = sqrt_solve(X, y, 0.1, T[1, -1]; owner, kw()...)
+  @test iszero(x) && r.converged && 0 <= r.gap <= 1e-4 && r.passes > 1 && isempty(logs)
+  @test objective_big(X, y, 0.1, x) < objective_big(X, y, 0.1, T[1, -1])
+  D = dual_bound_big(X, y, 0.1, x)
+  @test (objective_big(X, y, 0.1, x) - D) / D <= 1e-4
+  # #156 from the optimum (1, 0): kept and certified; the dual point (0.1, -0.1) shows P* = 0.1 = P(1, 0)
+  X, y = T[1 2; 0 1], T[1, 0]
+  x, r, logs = sqrt_solve(X, y, 0.1, T[1, 0]; owner, kw()...)
+  @test x == [1, 0] && r.converged && 0 <= r.gap <= 1e-4 && isempty(logs)
+  @test objective_big(X, y, 0.1, x) == committed_dual(X, y, 0.1, [0.1, -0.1])
+end
+
+@testset "fallback: a hard case stays uncertified, not above the stopped point ($T, $label)" for T in (Float64, Float32), (label, owner, kw) in FALLBACK_CONFIGS
+  X64, y64, λ = hard_problem()
+  @test 5e-4 <= λ / lambda_max_big(X64, y64) <= 2e-3
+  X, y = T.(X64), T.(y64)
+  p = size(X, 2)
+  x0, base, uncertified = stop_without_fallback(X, y, λ, zeros(T, p); kw()...)
+  @test uncertified
+  # x₀ is the result of the same solve with maxpasses = base (the fallback then has no budget)
+  x, r, logs = sqrt_solve(X, y, λ, zeros(T, p); owner, maxpasses = base, kw()...)
+  @test x == x0 && r.passes == base && !r.converged && isnan(r.gap)
+  @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+  P0 = objective_big(X, y, λ, x0)
+  # the default maxpasses: the fallback runs within its budget and ends uncertified
+  x, r, logs = sqrt_solve(X, y, λ, zeros(T, p); owner, kw()...)
+  @test !r.converged && isnan(r.gap) && length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+  @test base < r.passes <= base + max(2000, 20base)
+  P = objective_big(X, y, λ, x)
+  @test P <= P0
+  x == x0 || @test P < P0
+  # a fallback that reaches maxpasses (10 passes after the stop): the uncertified warning, not the
+  # maxpasses one
+  x, r, logs = sqrt_solve(X, y, λ, zeros(T, p); owner, maxpasses = base + 10, kw()...)
+  @test r.passes == base + 10 && !r.converged && isnan(r.gap)
+  @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+  P = objective_big(X, y, λ, x)
+  @test P <= P0
+  x == x0 || @test P < P0
+end
+
+# (A run that ends at maxpasses sets no uncertified stop and has no fallback: the tol = 0 run in D.)
+@testset "fallback: an uncertified stop at the last allowed pass ($T)" for T in (Float64, Float32)
+  # #155 with maxpasses = 1: the budget is min(1 − 1, max(2000, 20)) = 0, and x is unchanged
+  X = T[1 1; 0 0.01]
+  y = X * T[1, -1]
+  x, r, logs = sqrt_solve(X, y, 0.1, T[1, -1]; order = :cyclic, maxpasses = 1)
+  @test x == [1, -1] && r.passes == 1 && !r.converged && isnan(r.gap)
+  @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+end
+
+# A coordinate step refused during a fallback stage (an `ArgumentError`: here, with a response near
+# floatmax(T) times the column scale and tol = 1e200, the scaled change of the smoothed step is not
+# finite) ends the fallback with the stopped point, uncertified, and the stage's passes count. The solve
+# with maxpasses = 1 is the stop alone (no budget), so its point and minimum are those of the stop.
+@testset "fallback: a step refused in a stage returns the stopped point ($T, owner = $owner)" for T in (Float64, Float32), owner in (false, true)
+  scale, λ = T === Float32 ? (1f-10, 1f-30) : (1e-155, 1e-300)
+  X = scale .* T[1 1; 0 1]
+  a = T(0.6) * floatmax(T)
+  y = scale .* T[a, -a]
+  kw = (; owner, order = :cyclic, momentum = false, tol = 1e200)
+  x1, r1, logs1 = sqrt_solve(X, y, λ, zeros(T, 2); kw..., maxpasses = 1)
+  @test !r1.converged && isnan(r1.gap) && r1.passes == 1 && isfinite(r1.minimum)
+  out = try
+    sqrt_solve(X, y, λ, zeros(T, 2); kw..., maxpasses = 100)
+  catch e
+    e
+  end
+  @test !(out isa Exception)
+  if !(out isa Exception)
+    x, r, logs = out
+    @test !r.converged && isnan(r.gap) && 1 < r.passes <= 100
+    @test x == x1 && r.minimum == r1.minimum
+    @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+  end
+end
+
+@testset "fallback: y = 0 from a nonzero start, and bounds that are not finite ($T)" for T in (Float64, Float32)
+  # the special case y = 0, β = 0 of `_certify!` sets P_up = P_lo = 0 and no D_lo, also after a point
+  # with positive bounds
+  m, xs = prepared_model(T[1 1], T[0], 0.1, T[1, -1])
+  PS._certify!(m, xs)
+  @test m.pup64 > 0 && m.plo64 > 0
+  xs[1], xs[2] = zero(T), zero(T)
+  @test PS._certify!(m, xs) == (:certified, 0.0) && m.pup64 == 0 && m.plo64 == 0 && isnan(m.dlo64)
+  # y = 0 (P* = 0 at β = 0) from (1, -1), and from a nonzero start on a 5 × 8 design: the fallback reaches
+  # 0, which is returned certified with gap 0
+  x, r, logs = sqrt_solve(T[1 1], T[0], 0.1, T[1, -1]; order = :cyclic)
+  @test iszero(x) && r.converged && r.gap == 0 && r.minimum == 0 && r.passes > 1 && isempty(logs)
+  X = T.(small_ints(5, 8, 77, 4) ./ 4)
+  x0 = T.(vec(small_ints(8, 1, 78, 3)))
+  x, r, logs = sqrt_solve(X, zeros(T, 5), 0.25, x0; order = :cyclic)
+  @test iszero(x) && r.converged && r.gap == 0 && isempty(logs)
+  @test objective_big(X, zeros(T, 5), 0.25, x) < objective_big(X, zeros(T, 5), 0.25, x0)
+  if T === Float64
+    # P_up that overflows Float64: the #155 fixture with β and y scaled by 1e200. The solve stops
+    # uncertified after one pass, P_up(x₀) is not finite, and the fallback does not run.
+    X = [1.0 1; 0 0.01]
+    b = [1.0, -1.0] .* 1e200
+    y = X * b
+    m, xs = prepared_model(X, y, 0.1, b)
+    PS._certify!(m, xs)
+    @test !isfinite(m.pup64)
+    x, r, logs = sqrt_solve(X, y, 0.1, b; order = :cyclic)
+    @test x == b && !r.converged && isnan(r.gap) && r.passes == 1
+    @test length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+  else
+    # Float32 data give a P_up (formed in Float64) that is finite; here it is above floatmax(Float32), so
+    # δ₁ would not be finite in T and the fallback does not run. The objective at x₀ is not finite in
+    # Float32, and `solve!` refuses it as it does without the fallback, after the uncertified warning.
+    X = Float32[1 1; 0 0.01]
+    b = Float32[3f38, -3f38]
+    y = X * b
+    m, xs = prepared_model(X, y, 0.9f0, b)
+    PS._certify!(m, xs)
+    @test isfinite(m.pup64) && !isfinite(Float32(m.pup64))
+    for x in (copy(b), SparseIterate(copy(b)))
+      ok, logs = logged(() -> refused(ArgumentError, "nonfinite objective", x, SqrtLeastSquaresLoss(y, X),
+                                      NormL1(0.9f0), CDSolver(order = :cyclic, rng = Xoshiro(5))))
+      @test ok && length(logs) == 1 && occursin(UNCERTIFIED, messages(logs)[1])
+    end
+  end
 end
 
 end

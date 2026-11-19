@@ -154,16 +154,17 @@ squares.
 
 A full pass whose largest change is below the threshold runs a duality certificate: a dual point along
 the residual `y - X*beta`, recomputed in `Float64`, with a proved bound on the rounding of each computed
-term. `converged = true` only when it proves `(P(beta) - P*)/P* <= 1e-4`, `P*` the minimum, and `gap`
-then holds that bound, rounded up; its denominator is a lower bound of `P*` from the dual point. When
+term. `converged = true` only when it proves `(P(beta) - P*)/P* <= 1e-4` (at a stop, or with its bounds
+in the fallback below), `P*` the minimum, and `gap` then holds that bound, rounded up; its denominator is
+a lower bound of `P*` from a dual point. When
 the certificate does not pass, the change threshold (the reported `tolerance`) is divided by 100 and the
 run continues, at most twice per solve, where `tolerance/100` is finite, positive and below `tolerance`
 (an effective threshold that overflowed to `Inf` is not lowered), and not below a floor in the units of
 the threshold: with a
 relative threshold (`relative=true` and `y != 0`), `16 eps(T)` times `norm(y)`; with an absolute one
 (`relative=false`, or `y = 0`), `16 eps(T)` times the largest `abs(beta[k])` at the check, and no
-tightening at `beta = 0`. Otherwise the run stops with `converged = false`, `gap = NaN` and a warning that
-differs from the `maxpasses` warning. This happens where the recomputed residual is 0 with a nonzero
+tightening at `beta = 0`. Otherwise the solve stops without a certificate. This happens where the
+recomputed residual is 0 with a nonzero
 coefficient, so that the dual direction is undefined: the usual outcome at an exact fit (`y = X*beta`)
 with a positive penalty, where a coordinatewise minimum need not be a minimum (the residual can also
 round to 0 where `y - X*beta` is not 0, and an exact fit whose recomputed residual is not 0 can be
@@ -171,10 +172,32 @@ certified, validly); after a full pass that changed nothing; with `y = 0` and a 
 can be certified unless `beta` reaches 0, and coordinate descent can approach 0 without reaching it; and
 when the threshold cannot be lowered further, for example where the rounding of the recomputed residual
 is not small against the residual itself (as where the fitted values dwarf it), or for `Float32` data
-at the default `tol` with a relative threshold, where `tol/100` is below that floor. With `tol = 0`, or
-a threshold below the changes that rounding produces, the change test does not pass, the certificate
-does not run, and the run ends at `maxpasses` with that warning. At a stop of the certificate,
-`minimum` is evaluated from the residual that it recomputed, when every entry of it is representable
+at the default `tol` with a relative threshold, where `tol/100` is below that floor.
+
+After such a stop (not after a run that reaches `maxpasses`), a fallback continues with up to 8
+smoothing stages, in which the coordinate step of `norm(y - X*beta)` is replaced by that of
+`sqrt(norm(y - X*beta)^2 + delta^2)` with `delta` decreasing from an upper bound of the objective at the
+stopped point, each stage ending at its first converged full pass (or at the end of the budget), and then
+one unsmoothed solve with the stop check above. All of it runs within one budget of
+`min(maxpasses - passes, max(2000, 20 * passes))` further passes, `passes` those of the stop, with the
+order, momentum, `rng`, `tol` and `relative` of the solver; the RNG advances further. Nothing runs where
+the budget is 0, or where that upper bound is not finite in `T`. After each stage the certificate's bounds are
+computed at the stage's point. The run returns a changed point only when these bounds prove that its
+objective is below that of the stopped point, and otherwise the stopped point. `converged = true`, with
+`gap` the proved bound, when the bounds certify the returned point, the lower bound of `P*` being the
+largest dual lower bound found at the stop and at the stages; otherwise the run ends with
+`converged = false`, `gap = NaN` and a warning that differs from the `maxpasses` warning. A coordinate
+step refused with an `ArgumentError` during the fallback (for example a step that is not finite) ends it
+with the stopped point, uncertified, and the passes of the fallback, the refused one included, count in
+`passes`. **The fallback
+does not guarantee recovery at exact fits:** it can end uncertified, at the stopped point or at a point
+with a proved lower objective that is not optimal. With `y = 0` and a nonzero start it can reach
+`beta = 0`, which is then certified with `gap = 0`; it need not reach it.
+
+With `tol = 0`, or a threshold below the changes that rounding produces, the change test does not pass,
+the certificate does not run, no fallback runs, and the run ends at `maxpasses` with the `maxpasses`
+warning. At a stop of the certificate, and at the end of the fallback, `minimum` is evaluated from the
+residual that the certificate recomputed at the returned point, when every entry of it is representable
 in `T`.
 
 See [`solve!`](@ref)
@@ -219,7 +242,9 @@ Base.summary(::CDSolver) = "Coordinate Descent"
 Result sharing the caller's vector or `SparseIterate` as minimizer, with minimum,
 passes, converged, maxchange and tolerance. The compatibility field `kkt_checks = 0` is a
 sentinel. `gap` is `NaN` except after a certified square-root lasso run (see [`CDSolver`](@ref)),
-where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For the
+where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For the square-root
+lasso, `passes` includes the passes of the fallback after an uncertified stop, and is at most `maxpasses`.
+For the
 least-squares lasso and elastic net and the group lasso, `converged` reports the change test and
 `gap` is `NaN`.
 """
@@ -535,7 +560,8 @@ function _warn_not_converged(st::_CDState, s::CDSolver, uncertified::Bool)
   end
 end
 # The run shared by the dense and owner wrappers, on a private SparseIterate: the
-# solve, the not-converged warning and the finite-objective check. It returns the
+# solve, the model's fallback after an uncertified stop (`_fallback!`, which updates the state and the
+# model's outcome), the not-converged warning and the finite-objective check. It returns the
 # state, the final objective and the result's gap (`_result_gap` of the model); the caller commits
 # the point only afterwards.
 function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
@@ -544,6 +570,7 @@ function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolv
   method.maxpasses > 0 && _prepare!(m, g, work)
   st = _CDState(eltype(work), work, method)
   _cd!(work, m, g, st, method)
+  _uncertified(m) && _fallback!(m, g, work, st, method)
   _warn_not_converged(st, method, _uncertified(m))
   result_value = loss_value(m, f, work)+g(work)
   isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))

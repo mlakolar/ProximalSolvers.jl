@@ -310,13 +310,16 @@ a `BlockIterate`, and `ProximalGradientDescent` or `AccProxGradDescent` (Proxima
 for this loss; for `X ≠ 0` it is not differentiable where `y = X*beta`).
 
 For this loss, `converged = true` means that a duality certificate proved
-`(P(beta) − P*)/P* ≤ 1e-4`, with `P*` the minimum, and `gap` then holds that proved bound. A run that
-stops without a certificate reports `converged = false` and `gap = NaN`, with its own warning: at an exact
+`(P(beta) − P*)/P* ≤ 1e-4`, with `P*` the minimum, and `gap` then holds that proved bound. At an exact
 fit (`y = X*beta`) with a positive penalty, coordinate descent can stop at a point that minimizes every
-coordinate but not `P`. [`CDSolver`](@ref) describes the stopping rule, and
-[Numerical behavior](numerics.md) the step and the certificate.
+coordinate but not `P`, and the certificate is usually not defined there. After a stop without a
+certificate, a bounded fallback runs within `maxpasses`; it can certify the stopped point or return a point
+with a proved lower objective, and it does not guarantee recovery at exact fits. A run that ends without a
+certificate reports `converged = false` and `gap = NaN`, with its own warning. [`CDSolver`](@ref) describes
+the stopping rule and the fallback, and [Numerical behavior](numerics.md) the step and the certificate.
 [The square-root lasso tutorial](examples/problems/square_root_lasso.md) solves a seeded problem, checks it
-independently from the data, and shows two exact fits.
+independently from the data, and shows exact fits: two that the fallback certifies and one that it does
+not.
 
 The three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays

@@ -34,7 +34,11 @@ say that this cache is close to `y − Xx` at the returned point (see
 
 Of the problems audited, only the square-root lasso carries a certificate, and that
 certificate has the assumptions stated in [The certificate](@ref "The certificate") and
-[Tightening and the uncertified stop](@ref "Tightening and the uncertified stop"). For the
+[Tightening and the uncertified stop](@ref "Tightening and the uncertified stop"). After a stop
+without a certificate, a bounded fallback
+([The fallback after an uncertified stop](@ref "The fallback after an uncertified stop")) can certify the
+stopped point or return a point with a proved lower objective; it does not guarantee recovery at exact
+fits, and `converged = false` can still mean a nonoptimal exact fit. For the
 other solvers `converged = true` reports that the criterion of its row was met. Check the
 returned point with the [independent KKT residual](sparsity-and-kkt.md) when the result
 matters.
@@ -377,7 +381,8 @@ What you can do:
   [benchmark harness notes](https://github.com/mlakolar/ProximalSolvers.jl/blob/master/benchmark/HARNESS.md)
   and in [issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320).
 - **Square-root lasso.** Certified solves at the default `tol` with `relative = true`, on the seven designs
-  of the audit that are not exact or near-exact fits (210 solves per cell). The penalty level is
+  of the audit that are not exact or near-exact fits (210 solves per cell), counted at the stop check of
+  the solve, before the fallback that follows an uncertified stop. The penalty level is
   a fraction of the level at which the solution is 0. The last column is an upper bound of the
   suboptimality of the worst uncertified Float32 point:
 

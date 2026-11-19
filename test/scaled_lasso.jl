@@ -11,9 +11,9 @@ module ScaledLasso
 #      in Float32 or Float64 is within a stated rounding bound of σ̂ in BigFloat (T4);
 #   3. the tutorial's data have a residual clearly away from zero (T5);
 #   4. at r = 0, L(β, ·) = σ/2 + λ₀‖β‖₁ has no minimizing σ > 0, and a small stored nonzero residual is
-#      not an exact fit (T6);
+#      not an exact fit (T6); the solver can certify P at such a point (T6 (c));
 #   5. runs without a certificate report `converged = false` and `gap = NaN`, and their σ̂, where r ≠ 0,
-#      is the conditional minimizer at their point and nothing more (T7).
+#      is the conditional minimizer at their point and nothing more (T7, a run stopped by maxpasses).
 # Nothing here claims whether a joint minimum is attained. Following #305, the tests assert truthful flags
 # and quality, with a justified tolerance each.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
@@ -23,7 +23,6 @@ using Logging: with_logger
 # Helpers
 # ---------------------------------------------------------------------------
 
-const UNCERTIFIED = r"stopped without a duality certificate"
 const NOTCONVERGED = r"did not converge in maxpasses"
 
 # The result of f() and its log records.
@@ -300,23 +299,24 @@ end
     end
   end
 
-  @testset "T6 (c), T7 (a): the solver's exact-fit candidate is uncertified" begin
+  @testset "T6 (c): the solver certifies an exact fit, whose residual is 0" begin
     for T in (Float32, Float64)
       X = T[1 2; 0 1]
       y = T[1, 0]
       λ = T(0.1)
       β, res, logs = sqrt_solve(X, y, λ, zeros(T, 2); order = :cyclic, momentum = false)
-      # No certificate: both flags, and the warning that says so.
-      @test !res.converged && isnan(res.gap)
-      @test any(occursin(UNCERTIFIED, m) for m in messages(logs))
-      # The candidate of this run: the point (1, 0) with a stored residual of zero. For it L(β, ·) has no
-      # minimizing σ > 0 (T6 (a)); the run says nothing about the joint minimum.
+      # The solve stops at (1, 0) without a certificate (r̂ = 0), and the fallback after that stop
+      # certifies the point: both flags, and no warning.
+      @test res.converged && 0 <= res.gap <= 1e-4
+      @test isempty(logs)
+      # The point (1, 0) has a stored residual of zero. For it L(β, ·) has no minimizing σ > 0 (T6 (a)),
+      # although P(β) is certified; the run says nothing about the joint minimum.
       @test β == T[1, 0]
       @test iszero(y - X * β)
     end
   end
 
-  @testset "T7 (b): a run stopped by maxpasses is uncertified" begin
+  @testset "T7: a run stopped by maxpasses is uncertified" begin
     pr = make_problem(Float64, 2026, 200, 50)
     βc, resc, _ = sqrt_solve(pr.X, pr.y, pr.λ, zeros(50); order = :cyclic, momentum = false)
     @test resc.converged
