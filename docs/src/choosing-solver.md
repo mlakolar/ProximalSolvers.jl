@@ -2,7 +2,7 @@
 
 The three supported algorithms solve the **same dense least-squares lasso**; CD
 also solves a group lasso (see [Group lasso](choosing-solver.md#Group-lasso-with-block-coordinate-descent))
-and the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)`, and all three solve the centered squared norm `alpha/2 * norm(b - s)^2 + lambda * norm(b, 1)` (see [Supported problems](support.md)).
+and the square-root lasso `norm(y - X*beta) + lambda * norm(beta, 1)` (see [Supported problems](support.md)).
 The difference is how they update coefficients, not what objective is minimized.
 For definitions of soft-thresholding, CD and PGD, see [What problem, which algorithm?](concepts.md).
 

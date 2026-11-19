@@ -31,8 +31,7 @@ and its score is `|∇fⱼ(x)|`. Below, `λ` is the ℓ1 level of the
 penalty (`λ` of `NormL1(λ)`, the largest coefficient `T(λ) * maximum(w)` of `NormL1(λ, w)`, `λ1` of `ElasticNet`);
 `λ2` does not enter the bound. The stop counts only if
 `‖G‖∞ < max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `T` the element type and
-`λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`; for `SqrNormL2(α, s)`
-it is `α‖s‖∞`, the gradient norm at `x = 0`). The check
+`λmax = α‖Xᵀy‖∞` for the loss scale `α` (1 for a plain `LeastSquaresLoss`). The check
 also requires that `S = max(λ, λmax)` is finite, that the product
 `max(gradtol, 64 eps(T)) * S`, formed in `T`, is at least `floatmin(T)`, and that `‖G‖∞` is
 finite; it does not require that product to be finite (for a huge `gradtol` it can be

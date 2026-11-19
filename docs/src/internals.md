@@ -53,12 +53,6 @@ unweighted `ElasticNet` and a `NormL1` with weights):
   generic method returns the constant `:converged`, so the least-squares and group models keep the
   change test as their stop; the square-root model runs its duality certificate there and records
   the certified bound in the result's `gap`.
-- **Centered squared norm:** for `SqrNormL2(alpha, s)` with an unweighted `NormL1`, CD uses the
-  `SparseIterate` engine with a private `SquareModel` that holds the borrowed centre and the level and no
-  residual or cache: a coordinate step is the soft threshold of `s[k]` at `lambda/alpha`, with the range rules
-  of the least-squares step for the identity design. PGD and APG use the image model with
-  `Diagonal(ones(T, p))` as the operator, with Diagonal methods of the Frobenius bound and of the initial
-  curvature scan that avoid a scan of `p^2` entries.
 
 Losses, L1 proximal operations and sparse coefficient storage live
 in ProximalBase. Solver orchestration and algorithm-specific results

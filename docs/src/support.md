@@ -21,7 +21,6 @@ as supported in the table is not verified; the sections below give the exact inp
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | — | — | [Group lasso](examples/problems/group_lasso.md) |
 | Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | none yet |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
-| Centered squared norm: `SqrNormL2(alpha, s)`, `NormL1` | Float32, Float64 (h) | Float32, Float64 (h) | — | — | Float32 (a, h), Float64 (h) | Float32 (a, b, h), Float64 (b, h) | [Sparse covariance thresholding](examples/problems/sparse_covariance_soft_thresholding.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 
 `NormL1` and `ElasticNet` are unweighted where they appear in the table, except in the weighted-lasso row,
@@ -29,8 +28,8 @@ where `NormL1(lambda, w)` has one weight per coefficient. `GroupNormL2` takes it
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
 [Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
-row uses the unscaled `SqrtLeastSquaresLoss`. The multi-response row uses `LeastSquaresLoss` (or one positive scalar multiple of it) with a matrix
-response `Y` and `Matrix` coefficients (see [Multi-response group lasso with coordinate descent](@ref)). The centered squared norm row has no design matrix: its loss is `(alpha/2) * norm(b - s)^2` with the centre `s`. The design of the other rows is a dense `Matrix`. For `CDSolver`, `converged = true` is the test on the change of the
+row uses the unscaled `SqrtLeastSquaresLoss`. The multi-response row uses the same loss with a matrix
+response `Y` and `Matrix` coefficients (see [Multi-response group lasso with coordinate descent](@ref)). The design is a dense `Matrix`. For `CDSolver`, `converged = true` is the test on the change of the
 coefficients over a pass and not a certificate of optimality, except for the square-root
 lasso (note e).
 
@@ -42,8 +41,7 @@ lasso (note e).
   options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
   returned point with an independent residual; see [Numerical behavior](numerics.md).
 - **(b)** `AccProxGradDescent` also needs `max(n, p) + 4 < 1/(4 eps(T))` and
-  `n p + 3 < 1/(4 eps(Float64))` (see "What works today?" below). For the centered squared norm
-  the conditions are `p + 4 < 1/(4 eps(T))` and `p + 3 < 1/(4 eps(Float64))`, with `p = length(s)`.
+  `n p + 3 < 1/(4 eps(Float64))` (see "What works today?" below).
 - **(c)** The elastic net is accepted for the least-squares loss with an unweighted
   `ElasticNet(lambda1, lambda2)`. For `CDSolver`, at a visit to a column with a finite
   positive squared norm `a`, where the loss scale times `a`, or its reciprocal, is below
@@ -69,19 +67,6 @@ lasso (note e).
   a `BlockIterate{T}` over `vec(B)` with the row groups of `B`, and `momentum` other than `true`
   ([the rules](@ref "Multi-response group lasso with coordinate descent")). The tests check the `Matrix` and the
   `BlockIterate` coefficients against an independent KKT residual and objective computed from `X` and `Y`.
-- **(h)** The centered squared norm needs a finite centre `s::Vector{T}` of the length of the coefficients,
-  a level `alpha` accepted by the rule of the loss scale below, and an unweighted `NormL1(lambda)`; see
-  [Centered squared norm](@ref centered-sqnorm-support). A `Float32` solve of the gradient methods is judged by the returned point, as in (a).
-  The certified bound of `AccProxGradDescent` is that of a dense product. In a measured fixture (exact identity product,
-  `alpha = 1`, `x` of order 1 and a step of norm about `0.01 sqrt(p)`, so that no product underflows), its fresh-product test
-  accepted a `Float32` curvature `L` from about `1.13 alpha` at `p = 10^4`, `8.6 alpha` at `p = 10^5` and
-  `5 * 10^3 alpha` at `p = 10^6`, and in `Float64` from `(1 + 2.2e-7) alpha` at `p = 10^6`. These are measurements
-  for that fixture, not thresholds that depend on `p` alone: the factor also grows when the step is tiny, through the absolute
-  underflow term of the test. A larger accepted `L` is a shorter step, so a larger `p` can increase the iteration count in `Float32`.
-  A `Float32` level that is subnormal (about `1e-40`) does not by itself make the loss subnormal; it depends on the centre
-  (`alpha = 1f-40`, `s = Float32[1f20]` and `x = 0` give a loss near 0.5). With the centre of the test fixture (entries of order 1)
-  the loss is about `1e-40`, in the subnormal range, `CDSolver` solves the problem to its tolerance, and the gradient methods
-  end at the start with `converged = false`.
 
 **Updating the matrix.** A pull request that adds or removes support for a combination
 changes its cell and its tutorial link in the same pull request, together with the test
@@ -96,7 +81,6 @@ These tutorials apply rows of the matrix to statistical problems and add no solv
 - [Change-point detection](examples/problems/change_point_detection.md): 1D total-variation denoising, rewritten as a lasso on a step design (lasso row, `CDSolver` on a `Vector`, Float64).
 - [Gaussian graph: neighborhood selection](examples/problems/nodewise_gaussian_graph.md): the graph of a Gaussian vector from one lasso regression per variable (lasso row, `CDSolver` on a `Vector`, Float64).
 - [Sparse additive regression](examples/problems/sparse_additive_regression.md): an additive model with one spline block per predictor, fitted as a group lasso (group lasso row, `CDSolver` on a `BlockIterate`, Float64).
-- [Sparse covariance thresholding](examples/problems/sparse_covariance_soft_thresholding.md): soft thresholding of the sample covariance matrix as a centered squared norm with `NormL1` on the entries above the diagonal (centered squared norm row, `CDSolver` on a `Vector`, Float64; the estimate need not be positive semidefinite).
 
 ## What works today?
 
@@ -129,7 +113,6 @@ certificate.
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below) |
 | Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`) |
-| Centered squared norm | `SqrNormL2(alpha, s)` with a finite `s::Vector{T}` of the length of the coefficients, an `alpha` accepted as a loss scale, and an unweighted `NormL1(lambda)` (CD, PGD and APG on a dense vector, CD on a `SparseIterate`; see [Centered squared norm](@ref centered-sqnorm-support)) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` only, with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, on the same dense least-squares loss (see below) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
@@ -295,39 +278,6 @@ coordinate but not `P`. [`CDSolver`](@ref) describes the stopping rule, and
 [The square-root lasso tutorial](examples/problems/square_root_lasso.md) solves a seeded problem, checks it
 independently from the data, and shows two exact fits.
 
-### [Centered squared norm](@id centered-sqnorm-support)
-
-~~~math
-\min_b\quad \frac{\alpha}{2}\|b-s\|_2^2+\lambda\|b\|_1
-~~~
-
-with ProximalBase's `SqrNormL2(alpha, s)` and `NormL1(lambda)`. The minimizer is
-`sign(s_j) * max(abs(s_j) - lambda/alpha, 0)` in each entry. `solve!(x, f, g, method)` accepts it for `CDSolver`
-(`x` a dense `Vector{T}` or a one-dimensional `SparseIterate{T}`), `ProximalGradientDescent` and
-`AccProxGradDescent` (`x` a dense `Vector{T}`), with `T` equal to `Float32` or `Float64`, when
-
-- the centre `s` is a `Vector{T}` with the element type of `x`, finite, nonempty and of the length of `x`, and `x` does not
-  alias it. A `Vector` of the other precision, a view, a matrix or another array type is refused, and so is
-  `SqrNormL2(alpha)` without a centre;
-- `alpha` follows the rule of the loss scale below: a positive finite `Float32` or `Float64` that converts to a finite
-  nonzero number of `T` (a value that is subnormal in `T` is accepted), or a positive fixed-width integer that `T`
-  represents exactly. For other types and for an integer that `T` would round, the error message suggests
-  `SqrNormL2(Float64(alpha), s)` where that conversion is supported;
-- the penalty is an unweighted `NormL1(lambda)` with `lambda` finite, nonnegative and representable in `T`
-  without overflow or underflow.
-
-Refused with an `ArgumentError` (a `DimensionMismatch` for the length), before `x` or `s` changes and before the random
-number generator is used: a weighted `NormL1`, an `ElasticNet` or another penalty, `Scaled(SqrNormL2(alpha, s), c)` (for a
-positive finite `c`, use `SqrNormL2(c * alpha, s)`, the same function in exact arithmetic), a `BlockIterate`, a nonfinite
-centre or starting point, and a start where the loss `f` is not finite for the gradient methods (a start where only the penalty is not finite is accepted, as for least squares). No design matrix is
-stored: a call takes O(p) time per iteration or pass and O(p) storage. For the gradient methods the operator is
-`Diagonal(ones(T, p))`, the curvature estimate before the first iteration is `min(1, alpha p)` (formed from an upper bound of `norm(X)_F`, rounded to `T` and raised to `floatmin(T)` when it is positive and rounds below that) and the stationarity
-check of a stop uses `lambda_max = alpha * norm(s, Inf)`. `CDSolver` takes each coordinate
-step as the soft threshold of `s[k]` at `lambda/alpha`, so a pass reaches the point; `converged` is its change test
-(with `relative = true` the threshold is `tol * sqrt(alpha) * norm(s)`, or `tol` for `s = 0`), not a KKT certificate. See (h)
-for `AccProxGradDescent` in `Float32`. [The sparse covariance thresholding tutorial](examples/problems/sparse_covariance_soft_thresholding.md)
-uses it for covariance thresholding.
-
 The three numerical arrays use one common `T` (`Float32` or
 `Float64`); mixed-element-type `X`, `y` and coefficient arrays
 are not supported. The penalty levels must be finite, nonnegative and
@@ -384,7 +334,6 @@ The current development core intentionally excludes the following:
 | Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
 | Observation weights; infinite penalty weights; penalty weights that are not a `Vector{T}` of the type of the data | Deferred; the penalty weights are refused with an `ArgumentError` |
 | Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
-| `SqrNormL2(alpha)` without a centre, a centre that is not a `Vector{T}` of the type of the coefficients, `Scaled(SqrNormL2(alpha, s), c)`, `SqrNormL2` with a weighted `NormL1`, an `ElasticNet` or another penalty, or with a `BlockIterate` | Refused with an `ArgumentError` (`Scaled` and the penalties deferred; `SqrNormL2(c * alpha, s)` is the scaled loss) |
 | Weighted square-root lasso, `Scaled(SqrtLeastSquaresLoss)`, `SqrtLeastSquaresLoss` with an `ElasticNet` or a `BlockIterate`, or with PGD or APG | Refused with an `ArgumentError` (weights and `Scaled` deferred) |
 | ADMM, Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE, graphical lasso (log-determinant estimation of a precision matrix) | Deferred |
 | Generic workspaces, refitting, reweighting | Deferred |

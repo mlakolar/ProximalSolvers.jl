@@ -31,18 +31,6 @@ decreasing. The estimate before the first iteration is `min(1, α_f ‖X‖_F²)
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
 rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
-For the centered squared norm `SqrNormL2(α, s)` (see [`solve!`](@ref)) the operator is the identity of order
-`p = length(s)`, `Diagonal(ones(T, p))`, and the estimate before the first iteration is `min(1, α p)`, formed from an upper bound of
-`‖X‖_F`, rounded to `T` and raised to `floatmin(T)` when it is positive and rounds below that. The certified bound is that of a dense product, with `‖X‖_F = √p`, and its error terms grow like
-`p^1.5 eps(T)`. In a fixture with an exact identity product, `α = 1`, a step `d = x - y` of norm about `0.01 √p` and `x`
-of order 1 (so that no product underflows), bisection on the fresh-product test found that the smallest accepted curvature
-is `ρ α`, with `ρ` about `1.00015` at `p = 10²`, `1.13` at `p = 10⁴`, `8.6` at `p = 10⁵` and `5.3 × 10³` at `p = 10⁶`
-in `Float32`, and `1 + 2.2 × 10⁻⁷` at `p = 10⁶` in `Float64`. These are measurements for that fixture, not thresholds
-that depend on `p` alone: the test adds an absolute term for underflow of the image (`2 p √p nextfloat(0)`) to the norm of
-the image, so `ρ` also grows when the step `d` is tiny. A larger accepted `L` is a shorter step, so a larger `p` can
-increase the iteration count in `Float32` (a start at the minimizer does not inherit the trend). The size of the problem is
-limited to `p + 4 < 1/(4 eps(T))` and `p + 3 < 1/(4 eps(Float64))` (`p < 2,097,148` for `Float32`).
-
 When an extrapolated step would increase the computed objective, the momentum is
 restarted: the step is repeated from `y = x'` and `k` returns to zero, so the next
 iteration extrapolates with `1/4`. An accepted step that used momentum therefore
@@ -292,14 +280,6 @@ end
 
 # The error bounds of the bound test need k u < 1/8 for k = max(n, p) + 4 in T, and for
 # k = n p + 3 in Float64, where ‖X‖_F is accumulated.
-# The same bounds for the identity of SqrNormL2, whose Frobenius norm is accumulated over p terms and whose
-# image sums have p terms: the number of terms p + 4 in T and p + 3 in Float64, p the length of the centre.
-_bound_size_ok(::Type{T}, p::Integer) where T = (p + 4) * _unit(T) < 1 / 8 && (p + 3) * _unit(Float64) < 1 / 8
-function _check_bound_size(f::SqrNormL2, ::Type{T}) where T
-  _bound_size_ok(T, length(f.y)) ||
-    throw(ArgumentError("AccProxGradDescent with SqrNormL2 needs p + 4 < 1/(4 eps($T)) and p + 3 < 1/(4 eps(Float64)) for its rounding-error bounds, p the length of the centre"))
-  nothing
-end
 function _check_bound_size(f, ::Type{T}) where T
   n, p = size(_image_model(f).X)
   (max(n, p) + 4) * _unit(T) < 1 / 8 && (n * p + 3) * _unit(Float64) < 1 / 8 ||
@@ -326,14 +306,13 @@ end
 """
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
 
-Minimize the same least-squares lasso, elastic net, `NormLinf` or centered squared norm problem as [`ProximalGradientDescent`](@ref) with
+Minimize the same least-squares lasso, elastic net or `NormLinf` problem as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
 `T = Float32` or `Float64`. The inputs, the options and their validation are those
 of `ProximalGradientDescent`; in addition `β` and `α` must satisfy their bounds after
 conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
 `n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
-rounding-error bounds of the line search need; for `SqrNormL2(α, s)` the dimension condition is that of the
-type docstring, `p + 4 < 1/(4 eps(T))` with `p = length(s)`. Every refusal of an input, option or
+rounding-error bounds of the line search need. Every refusal of an input, option or
 method setting happens before `x` is modified. A step error
 restores the last accepted `x` and rethrows, without a transaction guarantee for
 internal counters. The result shares `x`.

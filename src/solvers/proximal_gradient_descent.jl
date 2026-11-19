@@ -12,9 +12,7 @@ level); backtracking adjusts
 the step size.
 The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
-rounds below that; it is `1` when that product is at least 1 or `X = 0`. For `SqrNormL2(α, s)` the matrix is
-the identity of order `p = length(s)`, so `‖X‖_F² = p` and the estimate is `min(1, α p)`, formed from an upper bound of `‖X‖_F`, rounded to `T` and raised
-to `floatmin(T)` when it is positive and rounds below that.
+rounds below that; it is `1` when that product is at least 1 or `X = 0`.
 
 `ProximalGradientDescent()` uses the supported
 `LineSearches.BackTracking()` line search. A trial that it rejects is decided
@@ -165,12 +163,6 @@ function _scanned_initial_curvature(::Type{T}, X, α) where {T}
   _initial_curvature(T, _root_scale(T, α), _frobenius_upper(T, X, s))
 end
 
-# For a Diagonal X: the scan of the p×1 matrix of its diagonal, p entries, in place of the scan of the p² entries.
-# The sum s, the early exit and the bound are those of that scan; ‖X‖_F is the 2-norm of the diagonal, so the
-# bound of `_frobenius_upper` for the vector of the diagonal (p terms) bounds it.
-_scanned_initial_curvature(::Type{T}, X::Diagonal, α) where {T} =
-  _scanned_initial_curvature(T, reshape(X.diag, :, 1), α)
-
 function update_state!(
     f, g,
     state::ProximalGradientDescentState{T},
@@ -297,9 +289,9 @@ end
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
-Minimize a least-squares lasso (with optional weights), elastic net, ℓ∞-penalized problem (the last with
-`ProximalGradientDescent` and `AccProxGradDescent`) or centered squared norm with an `NormL1` (see below), or with
-`CDSolver` a square-root lasso, overwriting `x`. `x` is a dense `Vector{T}`,
+Minimize a least-squares lasso (with optional weights), elastic net or ℓ∞-penalized problem (the last with
+`ProximalGradientDescent` and `AccProxGradDescent`), or with `CDSolver` a square-root lasso, overwriting `x`.
+`x` is a dense `Vector{T}`,
 T=Float32 or Float64; `CDSolver` also accepts a one-dimensional `SparseIterate{T}`
 (see below), while the gradient methods (`ProximalGradientDescent`, `AccProxGradDescent`) refuse it.
 The `BlockIterate` form of `CDSolver` minimizes the group lasso with a `GroupNormL2` penalty on a
@@ -329,25 +321,6 @@ computed KKT residual (for a `NormLinf` penalty, the proximal-gradient residual)
 `converged = true` only when a duality certificate passes (see [`CDSolver`](@ref)). Finite intermediate arithmetic is required. PGD step errors restore
 its last accepted `x` and rethrow, without a transaction guarantee for internal
 counters.
-
-**Centered squared norm.** `solve!(x, SqrNormL2(α, s), NormL1(λ), method)` minimizes `(α/2) ‖b - s‖² + λ ‖b‖₁`
-with `method` a `CDSolver` (`x` a dense `Vector{T}` or a one-dimensional `SparseIterate{T}`), a
-`ProximalGradientDescent` or an `AccProxGradDescent` (`x` a dense `Vector{T}`), `T` being `Float32` or `Float64`. The
-minimizer is `sign(sⱼ) max(|sⱼ| - λ/α, 0)` in each entry. The centre `s` is a `Vector{T}` of the length of `x`, with
-finite entries, which `x` must not alias; the level `α` follows the rule of the scale of a `Scaled` loss (a
-positive `Float32` or `Float64`, or a fixed-width integer that `T` represents exactly, whose conversion to `T` is
-finite and nonzero; a value that is subnormal in `T` is accepted), and the penalty is an unweighted `NormL1(λ)`
-with `λ` finite, nonnegative and representable in `T`. These are refused before `x` or `s` changes: a
-`SqrNormL2(α)` without a centre, a centre that is not a `Vector{T}` (a `Vector{Float64}` with `Float32` data included),
-a length that differs from that of `x`, a weighted `NormL1` or any other penalty, `Scaled(SqrNormL2(α, s), c)` (use
-`SqrNormL2(c α, s)`) and a `BlockIterate`. The loss is read through ProximalBase's `SqrNormL2` oracles; no design
-matrix is stored, and a call takes O(p) time per iteration or pass and O(p) storage. For the gradient methods the
-operator is the identity `Diagonal(ones(T, p))`, the curvature estimate before the first iteration is
-`min(1, α p)` with the upper bound, rounding and `floatmin(T)` floor stated above, and `λmax` of
-[`ProximalOptions`](@ref) is `α ‖s‖∞`. `converged` has the meaning that it has for
-least squares (see [`CDSolver`](@ref)). In `Float32` the certified bound of `AccProxGradDescent` is that of a
-dense product; [`AccProxGradDescent`](@ref) lists the factors by which it can accept a curvature above `α` in a
-measured fixture, the dependence on the step size, and the limit on `p`.
 
 **CD on a dense vector.** A numerical error, including a nonfinite final
 objective, leaves `x` unchanged.
