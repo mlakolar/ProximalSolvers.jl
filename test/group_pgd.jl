@@ -437,7 +437,10 @@ end
   @test err !== nothing && occursin("CDSolver on a BlockIterate", message(err))
   @test isequal(Vector(xs), before)
   for method in METHODS
-    refused(ArgumentError, "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported", start(), f, ProximalBase.NormL2(λ), method)
+    allowed = method isa PGD ?
+      "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported" :
+      "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"
+    refused(ArgumentError, allowed, start(), f, ProximalBase.NormL2(λ), method)
   end
   refused(ArgumentError, "SqrtLeastSquaresLoss", start(), SqrtLeastSquaresLoss(y, X), GroupNormL2(λ, gs))
 end

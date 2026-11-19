@@ -160,7 +160,10 @@ end
     f = LeastSquaresLoss(y, X)
     for method in METHODS
       refused(copy(x), f, NormLinf(T(Inf)), method, "penalty lambda must be finite and nonnegative")
-      refused(copy(x), f, Scaled(NormLinf(T(.1)), 2), method, "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported")
+      generic = method isa ProximalGradientDescent ?
+        "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported" :
+        "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"
+      refused(copy(x), f, Scaled(NormLinf(T(.1)), 2), method, generic)
       T === Float32 && refused(copy(x), f, NormLinf(1e300), method,
                                "penalty lambda is not representable without overflow or underflow in Float32")
     end

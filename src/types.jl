@@ -20,6 +20,12 @@ PGD stops when **any** of the iterate-change (`xtol`), objective-change
 (`ftol`), or gradient/proximal-residual (`gradtol`) criteria proposes a stop and
 the stationarity check below passes.
 
+For unweighted `NormL1Nonneg(λ)`, supported only by dense `ProximalGradientDescent`,
+the stationarity check uses `abs(∇f(x)[j] + T(λ))` at positive coefficients and
+`max(-(∇f(x)[j] + T(λ)), 0)` at zero coefficients, with scale
+`max(T(λ), α‖Xᵀy‖∞)` and tolerance `max(gradtol, 64 eps(T))`.
+An infeasible starting point is rejected before writes.
+
 **The stationarity check.** At an iteration at which one of the three tests
 holds, the solver computes the minimal-norm KKT residual `G` at the accepted
 iterate `x`: the element of `∇f(x) + λ ∂‖x‖₁` of least infinity norm for

@@ -1065,10 +1065,11 @@ end
     @test (label, err isa E) == (label, true)
     err isa E || continue
     text = err.msg
-    # a weighted ElasticNet and a scaled penalty get the generic refusal: CDSolver's message, or for PGD and APG the
-    # gradient gate's, which also names NormLinf (#338) and GroupNormL2 (#395)
+    # A weighted ElasticNet and a scaled penalty get each solver's supported-penalty list.
     generic = s.kind === :cd ? "only NormL1 or unweighted ElasticNet is supported" :
-                               "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"
+              method isa ProximalGradientDescent ?
+                "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported" :
+                "only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"
     expected = g isa Union{ElasticNet, Scaled} ? generic : msg
     @test (label, occursin(expected, text)) == (label, true)
     @test isequal(snapshot(), before) && rng == rng_before
