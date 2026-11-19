@@ -99,7 +99,7 @@ ordinary_signal = X * beta_ordinary
 #!jl   color=:crimson, markershape=:xcross, markersize=7, markerstrokewidth=2)
 #!jl correctionplot = bar(1:n, outlier_hat; label="Estimated correction", color=:royalblue,
 #!jl   xlabel="Original observation number", ylabel="Correction amplitude",
-#!jl   title="Sparse corrections locate unusual responses", legend=:bottomleft, ylims=(-18, 18))
+#!jl   title="Sparse corrections locate unusual responses", legend=:outerright, ylims=(-18, 18))
 #!jl scatter!(correctionplot, contaminated, outlier_true[contaminated]; label="True contamination",
 #!jl   color=:crimson, markershape=:xcross, markersize=7, markerstrokewidth=2)
 #!jl robust_figure = plot(signalplot, correctionplot; layout=(2, 1), size=(1000, 750),
