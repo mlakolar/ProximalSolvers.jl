@@ -1,8 +1,7 @@
-using TOML
-
 const FULL_SHA = r"\A[0-9a-f]{40}\z"
 full_sha(value) = value isa String && occursin(FULL_SHA, value)
 nonempty_string(value) = value isa String && !isempty(strip(value))
+valid_path(value) = nonempty_string(value) && !occursin('\0', value)
 lookup(table, key) = table isa AbstractDict ? get(table, key, nothing) : nothing
 
 function git_state(dir, file)
@@ -10,6 +9,8 @@ function git_state(dir, file)
     git === nothing && return "Git state unknown"
     function code(args...)
         cmd = `$git --no-optional-locks -C $dir $args`
+        cmd = addenv(cmd, "GIT_DIR" => nothing, "GIT_WORK_TREE" => nothing,
+                     "GIT_COMMON_DIR" => nothing, "GIT_INDEX_FILE" => nothing)
         return run(pipeline(ignorestatus(cmd); stdout=devnull, stderr=devnull)).exitcode
     end
     file = "." * Base.Filesystem.path_separator * file
@@ -23,18 +24,19 @@ end
 
 function read_toml(file)
     try
-        return TOML.tryparsefile(file)
+        # Use the loader's built-in TOML parser to avoid writing precompile caches.
+        return Base.parsed_toml(file)
     catch err
-        err isa SystemError || err isa Base.IOError || rethrow()
+        err isa Base.TOML.ParserError || err isa SystemError || err isa Base.IOError || rethrow()
         return nothing
     end
 end
 
 function pb_entry(manifest, uuid)
     # Format 2 nests package entries under deps. Format 1 lists them at the top level.
-    format = get(manifest, "manifest_format", "1.0")
-    format == "1.0" || format == "2.0" || return nothing
-    table = format == "2.0" ? get(manifest, "deps", nothing) : manifest
+    format = get(manifest, "manifest_format", nothing)
+    format in (nothing, "2.0", "2.1") || return nothing
+    table = format === nothing ? manifest : get(manifest, "deps", nothing)
     table isa AbstractDict || return nothing
     entries = get(table, "ProximalBase", nothing)
     entries isa Vector && length(entries) == 1 || return nothing
@@ -63,9 +65,13 @@ function check_local_pb_pin(io, dir)
     expected, url = lookup(source, "rev"), lookup(source, "url")
     full_sha(expected) && println(io, "  Expected revision: ", expected)
     uuid = lookup(lookup(parsed_project, "deps"), "ProximalBase")
-    source isa AbstractDict && length(source) == 2 && full_sha(expected) &&
-        nonempty_string(url) && uuid isa String && tryparse(Base.UUID, uuid) !== nothing ||
-        return finish("UNVERIFIABLE", "Expected a ProximalBase dependency and a Git source with a full 40-character revision.")
+    uuid isa String && tryparse(Base.UUID, uuid) !== nothing ||
+        return finish("UNVERIFIABLE", "Project.toml has no valid ProximalBase dependency UUID.")
+    project_path = lookup(source, "path")
+    pinned = source isa AbstractDict && length(source) == 2 && full_sha(expected) && nonempty_string(url)
+    path_source = source isa AbstractDict && length(source) == 1 && valid_path(project_path)
+    pinned || path_source ||
+        return finish("UNVERIFIABLE", "Expected a ProximalBase Git source with a full 40-character revision or an explicit path source.")
 
     # Use Julia's loader to honor minor-specific precedence and workspace selection.
     manifest = try
@@ -91,16 +97,22 @@ function check_local_pb_pin(io, dir)
 
     revision = lookup(entry, "repo-rev")
     revision isa String && println(io, "  Manifest revision: ", repr(revision))
+    haskey(entry, "entryfile") &&
+        return finish("UNVERIFIABLE", "The ProximalBase manifest entry overrides the package entry file.")
 
     if haskey(entry, "path")
         path = entry["path"]
-        nonempty_string(path) && !any(key -> haskey(entry, key), ("repo-url", "repo-rev", "repo-subdir", "git-tree-sha1")) ||
+        valid_path(path) && !any(key -> haskey(entry, key), ("repo-url", "repo-rev", "repo-subdir", "git-tree-sha1")) ||
             return finish("UNVERIFIABLE", "The ProximalBase path entry is malformed or has conflicting Git metadata.")
-        finish("PATH / DEV WORKSPACE", "ProximalBase uses $(repr(path)) in place of the frozen pin.")
+        if path_source && normpath(joinpath(dir, project_path)) != normpath(joinpath(dirname(manifest), path))
+            return finish("UNVERIFIABLE", "The ProximalBase path differs between Project.toml and the manifest.")
+        end
+        finish("PATH / DEV WORKSPACE", "ProximalBase uses the local path $(repr(path)).")
         println(io, "  For an intentional Pkg.develop workspace, use --strict --allow-path.")
         return "PATH / DEV WORKSPACE"
     end
 
+    pinned || return finish("UNVERIFIABLE", "The manifest has a Git entry but the project declares a ProximalBase path.")
     ordinary || return finish("UNVERIFIABLE", "The selected manifest is outside the ordinary local manifest names.")
     get(entry, "repo-url", nothing) == url && full_sha(revision) &&
         full_sha(lookup(entry, "git-tree-sha1")) && !haskey(entry, "repo-subdir") ||

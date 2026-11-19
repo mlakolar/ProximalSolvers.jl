@@ -14,6 +14,7 @@ const PROJECT = """
     ProximalBase = {rev = "$PIN", url = "$URL"}
     """
 const HEADER = "manifest_format = \"2.0\"\n\n"
+const HEADER_V21 = "manifest_format = \"2.1\"\n\n"
 const PB = "[[deps.ProximalBase]]\nuuid = \"$UUID\"\n"
 
 git_source(rev) = PB * """
@@ -22,7 +23,8 @@ git_source(rev) = PB * """
     git-tree-sha1 = "1b6dab757300df2569e65bb09ec39e16b37ddc4f"
     """
 
-function fixture(args...; project=PROJECT, ordinary=nothing, versioned=nothing, track_versioned=false)
+function fixture(args...; project=PROJECT, ordinary=nothing, versioned=nothing,
+                 track_versioned=false, alternate_index=false)
     return mktempdir() do tmp
         dir = mkdir(joinpath(tmp, "checkout"))
         files = Dict("Project.toml" => project,
@@ -36,18 +38,21 @@ function fixture(args...; project=PROJECT, ordinary=nothing, versioned=nothing, 
         # Use a private depot and exclude user Git configuration and repository overrides.
         config = joinpath(tmp, "empty.gitconfig")
         write(config, "")
-        env = ("PATH" => ENV["PATH"], "JULIA_DEPOT_PATH" => joinpath(tmp, "depot"),
+        depot = mkdir(joinpath(tmp, "depot"))
+        env = ("PATH" => ENV["PATH"], "HOME" => tmp, "JULIA_DEPOT_PATH" => depot,
                "GIT_CONFIG_GLOBAL" => config, "GIT_CONFIG_NOSYSTEM" => "1")
         run(setenv(`git init -q --template= $dir`, env))
         if track_versioned
             run(setenv(`git -C $dir add -- $VERSIONED`, env))
         end
+        alternate_index && (env = (env..., "GIT_INDEX_FILE" => joinpath(tmp, "alternate-index")))
         cmd = `$(Base.julia_cmd()) --startup-file=no --project=@stdlib $CHECKER $args`
         out = IOBuffer()
         process = run(pipeline(ignorestatus(setenv(Cmd(cmd; dir), env)); stdout=out, stderr=out))
 
         @test Set(readdir(dir)) == union(keys(files), [".git"])
         @test all(read(joinpath(dir, name), String) == content for (name, content) in files)
+        @test isempty(readdir(depot))
         return process.exitcode, String(take!(out))
     end
 end
@@ -67,6 +72,8 @@ end
     expect("MISSING", 0, "--strict")
     match_output = expect("MATCH", 0, "--strict"; ordinary=matching)
     @test occursin(PIN, match_output) && occursin("[Git-ignored]", match_output)
+    expect("MATCH", 0, "--strict"; ordinary=HEADER_V21 * git_source(PIN))
+    expect("STALE", 1, "--strict"; ordinary=HEADER_V21 * git_source(OLD))
 
     stale_output = expect("STALE", 0; ordinary=stale)
     @test occursin(PIN, stale_output) && occursin(OLD, stale_output)
@@ -79,13 +86,21 @@ end
     expect("PATH / DEV WORKSPACE", 0; ordinary=path)
     expect("PATH / DEV WORKSPACE", 1, "--strict"; ordinary=path)
     expect("PATH / DEV WORKSPACE", 0, "--strict", "--allow-path"; ordinary=path)
+    dev_project = replace(PROJECT, "{rev = \"$PIN\", url = \"$URL\"}" => "{path = \"../ProximalBase.jl\"}")
+    expect("PATH / DEV WORKSPACE", 0, "--strict", "--allow-path"; project=dev_project, ordinary=path)
+    expect("UNVERIFIABLE", 1, "--strict", "--allow-path"; project=dev_project, ordinary=matching)
     expect("UNVERIFIABLE", 1, "--strict", "--allow-path"; ordinary=HEADER * PB * "path = 42\n")
+    expect("UNVERIFIABLE", 1, "--strict", "--allow-path";
+           ordinary=HEADER * PB * "path = \"../ProximalBase.jl\\u0000\"\n")
 
     expect("UNVERIFIABLE", 0; ordinary="[[deps.ProximalBase\n")
     expect("UNVERIFIABLE", 1, "--strict"; ordinary=HEADER * git_source(PIN) * git_source(PIN))
     expect("UNVERIFIABLE", 1, "--strict"; ordinary=HEADER * PB)
     expect("UNVERIFIABLE", 1, "--strict"; ordinary=replace(stale, "repo-url = \"$URL\"\n" => ""))
     expect("UNVERIFIABLE", 1, "--strict"; ordinary=replace(matching, PIN => PIN * "\\n"))
+    expect("UNVERIFIABLE", 1, "--strict"; ordinary=matching * "entryfile = 42\n")
+    bogus_v1 = replace(matching, "2.0" => "1.0", "deps.ProximalBase" => "ProximalBase")
+    expect("UNVERIFIABLE", 1, "--strict"; ordinary=bogus_v1 * "\n" * git_source(OLD))
     expect("UNVERIFIABLE", 1, "--strict"; project=replace(PROJECT, "rev = \"$PIN\", " => ""),
            ordinary=matching)
 
@@ -93,6 +108,7 @@ end
     state = VERSIONED == "Manifest-v1.10.toml" ? "MISSING" : "MATCH"
     baseline = expect(state, 0, "--strict"; ordinary=stale, versioned=matching, track_versioned=true)
     @test occursin("$VERSIONED [tracked]", baseline)
-    tracked = expect("STALE", 1, "--strict"; versioned=stale, track_versioned=true)
+    tracked = expect("STALE", 1, "--strict"; versioned=stale, track_versioned=true, alternate_index=true)
+    @test occursin("$VERSIONED [tracked]", tracked)
     @test !occursin("Back up the manifest", tracked)
 end
