@@ -1,7 +1,16 @@
+# A monitoring series may stay near a constant level until a process changes. Fitting each
+# time point separately follows measurement noise; fitting one global mean misses changes.
+# Total-variation denoising balances these extremes by charging for jumps between levels.
+#
+#md # ![Noisy series with true and fitted levels, and aligned true and estimated breakpoint locations](change_point_detection.svg)
+#
 # Change-point detection in a piecewise-constant signal by total-variation denoising. For data
 # `y ∈ Rⁿ` the fitted signal `μ` minimizes
 #
-#     (1/(2n)) Σᵢ (yᵢ − μᵢ)² + λ Σ_{i≥2} |μᵢ − μᵢ₋₁|.
+# ```math
+# \min_{\mu\in\mathbb R^n}\;\frac{1}{2n}\sum_{i=1}^n(y_i-\mu_i)^2
+# +\lambda\sum_{i=2}^n|\mu_i-\mu_{i-1}|.
+# ```
 #
 # The penalty is the total variation of `μ`, and a jump `μᵢ ≠ μᵢ₋₁` in the fit is a detected change
 # point. This page rewrites the problem as an ordinary lasso on a step-function design and solves
@@ -33,6 +42,8 @@
 # starts at observation `j + 1`. For the data `y = [0, 0, 0, 1, 1, 1]`, for example, the jump is
 # between observations 3 and 4. For `λ < 1/4`, such as `λ = 0.1` below, the fit has `θ̂₃ ≠ 0` and a
 # second segment that starts at 4; for `λ ≥ 1/4` (the `λmax` of these data) the fit is the constant 0.5.
+#
+
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -214,9 +225,11 @@ function segments(μ, θ)
   last_obs = [first_obs[2:end] .- 1; length(μ)]
   [(first = a, last = b, level = μ[a]) for (a, b) in zip(first_obs, last_obs)]
 end
+fits_for_plot = Dict()
 for fraction in (0.4, 0.15, 0.05)
   λ = fraction * λmax
   fit = tv_solve(data, λ)
+  fits_for_plot[fraction] = fit
   checks = verify(data, λ, fit.θ, fit.μ)
   est_starts = findall(!iszero, fit.θ) .+ 1
   distance = [isempty(est_starts) ? nothing : minimum(abs.(est_starts .- t)) for t in starts_true[2:end]]
@@ -231,6 +244,34 @@ for fraction in (0.4, 0.15, 0.05)
           round(sum(abs2, fit.μ .- μ_true) / n; digits = 4), "; KKT residual = ", checks.kkt,
           "; objective difference = ", checks.objective_gap, "; passes = ", fit.result.passes)
 end
+
+
+# ## Reading the figure
+#
+# The fitted levels follow the broad changes while shrinking neighboring levels together.
+# The lower panel marks the first observation after each fitted jump, using the same indexing
+# convention as the printed tables. Nearby extra jumps can accompany one true change; the
+# method need not identify its location exactly. The illustrated penalty is the middle of
+# the three settings above, chosen for demonstration rather than from the known truth.
+#!jl using Plots
+#!jl illustration = fits_for_plot[0.15]
+#!jl level_panel = scatter(1:n, y; label="Observations", color=:gray, markersize=2,
+#!jl   markerstrokewidth=0, ylabel="Signal level", title="Piecewise-constant signal")
+#!jl plot!(level_panel, 1:n, μ_true; label="True levels", color=:black, linestyle=:dash,
+#!jl   linewidth=2, seriestype=:steppost)
+#!jl plot!(level_panel, 1:n, illustration.μ; label="TV fit: 0.15 λmax", color=:darkorange,
+#!jl   linewidth=2, seriestype=:steppost)
+#!jl estimated_starts = findall(!iszero, illustration.θ) .+ 1
+#!jl breakpoint_panel = scatter(starts_true[2:end], fill(2.0, length(starts_true)-1);
+#!jl   label="True changes", color=:black, markershape=:vline, markersize=10,
+#!jl   yticks=([1, 2], ["Estimated", "True"]), ylims=(0.5, 2.5), xlabel="Observation index",
+#!jl   title="First observation after each change")
+#!jl scatter!(breakpoint_panel, estimated_starts, ones(length(estimated_starts));
+#!jl   label="Estimated changes", color=:darkorange, markershape=:vline, markersize=10)
+#!jl plot(level_panel, breakpoint_panel; layout=(2, 1), link=:x, xlims=(1, n), size=(940, 570),
+#!jl   legend=:outertop, left_margin=8Plots.mm, bottom_margin=5Plots.mm)
+#!jl savefig("change_point_detection.svg")
+#!jl nothing
 
 # ## Limitations
 #
@@ -252,3 +293,13 @@ end
 #
 # See [Supported problems](../../support.md) for the supported combinations and [Lasso](lasso.md)
 # for the lasso on its own.
+
+# ## What we learned
+#
+# A penalty on first differences encourages constant stretches, and a step-function design
+# expresses that problem as a lasso. The level plot describes estimation of the signal; the
+# aligned breakpoint plot describes the inferred segmentation. Independent reconstruction,
+# objective and KKT checks validate the computation without promising exact change recovery.
+#
+# The figure is generated from this script during the documentation build. Run the script
+# alone for the same seeded calculations and checks without loading Plots.

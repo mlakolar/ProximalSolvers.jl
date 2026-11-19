@@ -1,10 +1,20 @@
+# A predictor can matter even when its relationship to the response is curved rather than
+# linear. Additive regression fits one curve per predictor; sparsity selects which curves to
+# keep. Grouping the basis coefficients allows the estimator to remove a whole predictor
+# instead of retaining isolated pieces of its curve.
+#
+#md # ![Six centered component panels comparing true nonlinear effects with fitted group-lasso curves](sparse_additive_regression.svg)
+#
 # Sparse additive regression with a finite spline basis, fitted as a group lasso. The model is
 # `y = a + Σⱼ fⱼ(xⱼ) + ε` with one unknown function `fⱼ` per predictor, and the aim is to select
 # the predictors whose functions are not zero. Each `fⱼ` is written in a small fixed basis on
 # `[0, 1]`, `fⱼ(x) = Σₖ bⱼₖ Bₖ(x)`, and the coefficients `bⱼ` of one predictor form one group.
 # The fit minimizes
 #
-# `(1/(2n)) ‖z − Z b‖² + λ Σⱼ wⱼ ‖b[Gⱼ]‖₂`,  `wⱼ = √|Gⱼ|`,
+# ```math
+# \min_b\;\frac{1}{2n}\|z-Zb\|_2^2+\lambda\sum_{j=1}^p w_j\|b_{G_j}\|_2,
+# \qquad w_j=\sqrt{|G_j|},
+# ```
 #
 # where `z = y − mean(y)` and `Z` has one centered, orthonormalized block of columns per
 # predictor. The squared loss is `(1/n)` times ProximalBase's `LeastSquaresLoss(z, Z)`, which is
@@ -23,6 +33,8 @@
 # component nonparametrically, with smoothers in backfitting, while here each component is
 # confined to the span of a fixed set of four piecewise-linear functions. The page shows what the
 # group lasso does on such a basis, on one simulated data set.
+#
+
 using LinearAlgebra, Random
 using ProximalBase, ProximalSolvers
 
@@ -262,6 +274,29 @@ nonzero_per_group = [count(!iszero, mid.b[groups[j]]) for j in 1:p]
 println("nonzero coefficients per group: ", nonzero_per_group)
 @assert all(nonzero_per_group[j] == (j in mid.active ? K : 0) for j in 1:p)
 
+
+# ## Reading the figure
+#
+# The dashed curves are the generating functions centered on the training sample; the
+# orange curves are the fit at `0.1 λmax`, the middle level. Comparing curves on this common
+# scale separates shape approximation from the arbitrary intercept allocation. A flat zero
+# fitted curve means the entire predictor block was removed. Piecewise-linear curves cannot
+# reproduce all of the generating curvature, and regularization shrinks their amplitudes.
+#!jl using Plots
+#!jl plot_grid = collect(range(0.0, 1.0; length=151))
+#!jl component_panels = map(1:p) do j
+#!jl   centered_truth = truth[j].(plot_grid) .- avg(truth[j].(X[:, j]))
+#!jl   panel = plot(plot_grid, centered_truth; color=:black, linestyle=:dash, linewidth=2,
+#!jl     label="True component", title="Predictor $j: $(j in true_groups ? "signal" : "noise")",
+#!jl     xlabel="Predictor value", ylabel="Centered component", ylims=(-2.7, 2.7))
+#!jl   plot!(panel, plot_grid, component(j, mid.b, plot_grid); color=:darkorange,
+#!jl     linewidth=2, label="Fitted component")
+#!jl end
+#!jl plot(component_panels...; layout=(2, 3), size=(1050, 650), legend=:outertop,
+#!jl   left_margin=5Plots.mm, bottom_margin=5Plots.mm)
+#!jl savefig("sparse_additive_regression.svg")
+#!jl nothing
+
 # ## Limitations
 #
 # - The fit is a group lasso on a fixed finite basis with fixed knots. The number and place of
@@ -283,3 +318,13 @@ println("nonzero coefficients per group: ", nonzero_per_group)
 # - `CDSolver`'s `converged` is a test of the change over a pass. The optimality statements on
 #   this page come from `violations`, which is computed from `Z` and `z`.
 # - The data are dense `Float64`; no other element type or iterate is run here.
+
+# ## What we learned
+#
+# A small basis expansion turns nonlinear predictor selection into a group lasso. Centering
+# identifies the intercept, and block orthonormalization makes the group norm equal to the
+# fitted component’s empirical size. The component plots reveal both curve approximation and
+# selection; independent reconstruction, objective and group KKT checks validate the fit.
+#
+# The figure is generated from this script during the documentation build. Run the script
+# alone for the same seeded calculations and checks without loading Plots.

@@ -16,7 +16,7 @@ Use the current development version if you want to study lasso algorithms, contr
 | Install into a Julia project and solve your first lasso | **[Getting started](getting-started.md)** |
 | Understand proximal operators, soft-thresholding, CD and PGD | [What problem, which algorithm?](concepts.md) |
 | See coefficients become zero and verify KKT conditions | [Sparsity and an optimality check](sparsity-and-kkt.md) |
-| Follow a complete tutorial for one problem | [Lasso](examples/problems/lasso.md), [Weighted lasso](examples/problems/weighted_lasso.md), [Elastic net](examples/problems/elastic_net.md), [Group lasso](examples/problems/group_lasso.md), [Square-root lasso](examples/problems/square_root_lasso.md) |
+| Browse runnable statistical tutorials and their figures | [Examples Gallery](examples/index.md) |
 | Compare solvers at equal accuracy | [Lasso: solvers at equal accuracy](examples/comparisons/lasso_solvers.md) |
 | Choose solver settings | [Choosing a solver](choosing-solver.md) |
 | Understand results and common errors | [Results and troubleshooting](working-with-results.md) |

@@ -1,3 +1,10 @@
+# A network of measurements asks which pairs remain related after accounting for the other
+# variables. Marginal correlations alone cannot answer that question: two variables may be
+# correlated through an intermediate one. Under a Gaussian model, sparse conditional
+# relationships can be estimated by regressing each variable on all the others.
+#
+#md # ![Binary heatmaps comparing the true Gaussian adjacency matrix with recovered OR and AND graphs](nodewise_gaussian_graph.svg)
+#
 # The conditional-independence graph of a Gaussian vector `x ~ N(0, Σ)` has an edge between
 # variables `j` and `k` when the entry `Ω[j, k]` of the precision matrix `Ω = Σ⁻¹` is nonzero:
 # the two variables are dependent given all the others. Neighborhood selection by
@@ -5,7 +12,9 @@
 # estimates the neighbors of each variable `j` by a lasso regression of column `j` on the other
 # columns,
 #
-# ``\hat b^{(j)} \in \arg\min_{b \in \mathbb{R}^{p-1}} \; \frac{1}{2n}\|X_j - X_{-j} b\|_2^2 + \lambda_j \|b\|_1``,
+# ```math
+# \hat b^{(j)} \in \arg\min_{b \in \mathbb{R}^{p-1}} \; \frac{1}{2n}\|X_j - X_{-j} b\|_2^2 + \lambda_j \|b\|_1,
+# ```
 #
 # and puts the variables with a nonzero coefficient into the neighborhood of `j`. This page
 # runs `p` independent lasso fits, one per variable, with `CDSolver` on a dense `Vector`. Each
@@ -20,6 +29,8 @@
 # objective, both computed from the data of each regression (see
 # [Sparsity and an optimality check](../../sparsity-and-kkt.md)), and on a control with a known
 # solution.
+#
+
 using LinearAlgebra, Random, ProximalBase, ProximalSolvers
 
 # ## Index bookkeeping
@@ -248,6 +259,26 @@ println("pairs selected by one node only (OR but not AND): ", setdiff(or_edges, 
 # the graph is recovered: whether an edge is found depends on the sample, on `n`, on the strength of
 # the edge and on `λ`.
 #
+
+# ## Reading the figure
+#
+# Orange squares are edges; white squares are absent edges. The blank diagonal excludes
+# self-edges, and the symmetry repeats each undirected edge twice. The OR rule retains an
+# edge if either node selects the other; AND requires agreement. Comparing both with the
+# true adjacency shows the sensitivity to this choice. These are adjacency matrices, not
+# precision-matrix estimates, and their entries carry no estimated edge strength.
+#!jl using Plots
+#!jl true_adjacency = [j != k && !iszero(Ω[j, k]) for j in 1:p, k in 1:p]
+#!jl graph_panels = [heatmap(1:p, 1:p, Float64.(graph); title=title,
+#!jl   color=cgrad([:white, :darkorange]), clims=(0, 1), colorbar=false, aspect_ratio=1,
+#!jl   yflip=true, xlabel="Variable", ylabel="Variable", xticks=1:p, yticks=1:p)
+#!jl   for (title, graph) in (("True graph", true_adjacency), ("Recovered: OR", G_or),
+#!jl                         ("Recovered: AND", G_and))]
+#!jl plot(graph_panels...; layout=(1, 3), size=(1050, 360),
+#!jl   left_margin=5Plots.mm, bottom_margin=5Plots.mm)
+#!jl savefig("nodewise_gaussian_graph.svg")
+#!jl nothing
+
 # ## Limitations
 #
 # - One seed, one level. The edge counts above are one outcome. Recovery of the graph by
@@ -263,3 +294,13 @@ println("pairs selected by one node only (OR but not AND): ", setdiff(or_edges, 
 #   size; no timing claim is made for larger `p`.
 # - `converged` is the change test of the solver. The accepted fits are the ones whose KKT
 #   residual is small, computed here from the data.
+
+# ## What we learned
+#
+# Gaussian neighborhood selection converts conditional-dependence learning into ordinary
+# lasso fits with careful variable indexing. Symmetrizing those selections gives an OR or AND
+# graph. Objective and KKT checks establish accuracy of the regressions; the sampling model,
+# sample size and penalty determine how well their edges represent the population graph.
+#
+# The figure is generated from this script during the documentation build. Run the script
+# alone for the same seeded calculations and checks without loading Plots.
