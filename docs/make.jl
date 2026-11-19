@@ -21,6 +21,7 @@ const EXAMPLES = [
   (section = "Statistical applications", path = "problems/nodewise_gaussian_graph.jl", title = "Gaussian graph: neighborhood selection", notebook = false),
   (section = "Statistical applications", path = "problems/sparse_additive_regression.jl", title = "Sparse additive regression", notebook = false),
   (section = "Statistical applications", path = "problems/multitask_group_lasso.jl", title = "Multi-task group lasso", notebook = false),
+  (section = "Statistical applications", path = "problems/categorical_group_selection.jl", title = "Categorical factor selection", notebook = false),
   (section = "Statistical applications", path = "problems/sparse_covariance_soft_thresholding.jl", title = "Sparse covariance thresholding", notebook = false),
   (section = "Solver comparisons", path = "comparisons/lasso_solvers.jl",
    title = "Lasso: solvers at equal accuracy", notebook = true),
