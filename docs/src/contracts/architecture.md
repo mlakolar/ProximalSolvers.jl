@@ -19,11 +19,16 @@ search. The separation is intentional; no untested common CD/gradient engine is
 introduced.
 
 Small native helpers support the separately cached algorithms and existing result
-types. The source tree has the `ProximalSolvers.jl` module, shared `types`, `blocks`,
-`line_searches`, `solve`, `utils` and `precompile` files, the three gradient files
-under `solvers/`, and CD files for models, the engine, least squares, matrix
-responses and square-root lasso. The older thirteen-file inventory is retained
-under [Unreconciled](@ref ARCH-UNRECONCILED).
+types. The source snapshot reconciled in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) contains **15**
+`.jl` files: the `src/ProximalSolvers.jl` module; six shared files
+(`types.jl`, `blocks.jl`, `line_searches.jl`, `solve.jl`, `utils.jl`,
+`precompile.jl`); three gradient files under `src/solvers/`
+(`image_models.jl`, `proximal_gradient_descent.jl`,
+`accelerated_proximal_gradient_descent.jl`); and five CD files under `src/cd/`
+(`models.jl`, `solver.jl`, `leastsquares.jl`, `multiresponse.jl`,
+`sqrtlasso.jl`). This is a dated source inventory, not a permanent file-count
+guarantee. The superseded thirteen-file list is preserved as
+[retired historical evidence](@ref ARCH-UNRECONCILED).
 
 ProximalBase supplies losses, L1 proximal operations and sparse coefficient
 storage; ProximalSolvers owns orchestration and algorithm-specific results. CD
@@ -114,13 +119,15 @@ CI policy remain governed by the repository's contributor guidance.
 
 **Sources.** `docs/src/internals.md:L62`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/developer/implementation-notes.md:L456`.
 
-## [ARCH-UNRECONCILED Unreconciled: historical source inventory](@id ARCH-UNRECONCILED)
+## [ARCH-UNRECONCILED Retired: historical source inventory](@id ARCH-UNRECONCILED)
 
-Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
+**Retired by [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).** [ARCH-01](@ref) gives the authoritative
+description of the 15-file source snapshot, including the two CD files omitted
+from this earlier list.
 
 **Statement.**
 
-**Historical wording retained for review; not a current file-count claim.** The
+**Original wording retained verbatim for provenance; not a current file-count claim.** The
 baseline implementation notes state:
 
 > The thirteen active files are module/types/blocks/line_searches/solve/utils/precompile,
@@ -129,9 +136,8 @@ baseline implementation notes state:
 
 The immutable baseline source tree already contains fifteen `.jl` files, including
 `src/cd/multiresponse.jl` and `src/cd/sqrtlasso.jl`, which this older list omits.
-The main module file is `src/ProximalSolvers.jl`. The migration records the
-discrepancy without treating the old inventory as a support restriction or
-removing either implementation.
+The main module file is `src/ProximalSolvers.jl`. The reconciliation retires the obsolete list without treating it as a support
+restriction or removing either implementation.
 
 **Applies to.** Provenance of the source inventory in the baseline implementation notes.
 

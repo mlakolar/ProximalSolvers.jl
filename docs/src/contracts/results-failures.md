@@ -19,6 +19,15 @@ certified optimum. The solvers stop on three kinds of evidence:
 | `ProximalGradientDescent`, `AccProxGradDescent`, `NormLinf` | the same | the generic check | a test proposed a stop and the proximal-gradient residual is below `max(gradtol, 64 eps(T)) * max(‖∇f(0)‖∞, ‖∇f(x)‖∞)` (see [the generic check](@ref STOP-07)) | a working-precision indication; weaker when the accepted `L` is small |
 | `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
 
+For PGD/APG, the products displayed in the stopping rows are formed in the working
+type `T`, not evaluated as unrounded real-number inequalities. In particular,
+[STOP-04](@ref) specifies the finite-scale/finite-residual guards, the lower
+bound on the computed threshold and the strict product comparison for dedicated
+KKT checks; [STOP-07](@ref) adds guards for the generic mapping check. A computed
+threshold can overflow to `Inf`. Thus `converged = true` does **not** guarantee
+that an independently divided normalized residual is below the unrounded
+tolerance, nor does it certify coefficient accuracy.
+
 In the CD rows, `h_k` is the change of coordinate (or group) `k` in the pass and `s` the loss scale.
 In the first two rows the changes are computed from the solver's cached residual, and the flag does not
 say that this cache is close to `y − Xx` at the returned point (see
@@ -158,13 +167,14 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 **Sources.** `docs/src/numerics.md:L921`, `docs/src/numerics.md:L923`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/developer/implementation-notes.md:L205`, `docstring:src/solvers/proximal_gradient_descent.jl:L334`. The later caught-stage refusal follows [the fallback at f573224f](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/sqrtlasso.jl#L602-L665) and its unchanged outer finite-objective commit boundary.
 
-## [RES-UNRECONCILED Unreconciled: historical normalized-residual guarantee](@id RES-UNRECONCILED)
+## [RES-UNRECONCILED Retired: historical normalized-residual guarantee](@id RES-UNRECONCILED)
 
-Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).
+**Retired by [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).** The authoritative arithmetic and guards
+are [STOP-04](@ref); [RES-01](@ref) explains the result-flag interpretation.
 
 **Statement.**
 
-**Historical wording retained for review; not an active guarantee.** The baseline
+**Original wording retained verbatim for provenance; not an active guarantee.** The baseline
 `OptimizationResults` docstring said:
 
 > It is a working-precision value, not an exact-arithmetic certificate; it guarantees
@@ -172,13 +182,12 @@ Owner reconciliation is tracked in [issue #416](https://github.com/mlakolar/Prox
 > `max(gradtol, 64 eps(T))` (the threshold is formed in `T`, see `ProximalOptions`),
 > not coefficient accuracy on ill-conditioned designs.
 
-That normalization statement does not in general follow from the implemented
-rounded product-threshold comparison and its underflow/overflow behavior. The
-current arithmetic and guards are specified in [STOP-04](@ref); the related
-baseline claims are collected in [STOP-UNRECONCILED](@ref). This documentation
-migration preserves the contradiction without changing solver behavior. The
-qualification about coefficient accuracy on ill-conditioned designs remains valid
-as a limit; the normalized inequality is not promoted to a guarantee.
+That normalization statement does not generally follow from the implemented
+rounded product-threshold comparison and its underflow/overflow behavior.
+It was explicitly retired by [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) without changing solver
+behavior. The other original claims remain in [STOP-UNRECONCILED](@ref),
+also retired. The caution about coefficient accuracy on ill-conditioned designs
+remains valid; the normalized inequality is not a public guarantee.
 
 **Applies to.** Provenance of the baseline PGD/APG `OptimizationResults` documentation.
 

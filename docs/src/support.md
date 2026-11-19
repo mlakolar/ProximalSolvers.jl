@@ -42,9 +42,9 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
-  `Float32`-sized tolerances, and (except for the weighted lasso, see (f), and selected
-  nonnegative-lasso checks, see (i)) do not require
-  `converged = true`, because a `Float32` solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
+  `Float32`-sized tolerances. Except for the weighted lasso (see (f)), selected
+  nonnegative-lasso checks (see (i)), and the ℓ∞ reference fixtures in `test/linf.jl`,
+  the tests do not require `converged = true`, because a `Float32` solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
   numerical stagnation with `stagnated = true` and `converged = false`, and with the default
   options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
   returned point with an independent residual; see [Numerical behavior](numerics.md).
@@ -316,6 +316,7 @@ The current development core intentionally excludes the following:
 | PGD or APG with `SparseIterate` coefficients | Deferred |
 | PGD or APG with `BlockIterate` or `Matrix` coefficients or a matrix response | Deferred; refused with an `ArgumentError` |
 | `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
+| `NormL0` with `solve!` | The [ℓ₀ sparse-regression tutorial](examples/problems/l0_sparse_regression.md) runs its own IHT routine with the ProximalBase prox. |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
 | Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |
 | CD `anderson>0`, `gaptol>0`, `gapsafe=true` | Rejected; not implemented |
