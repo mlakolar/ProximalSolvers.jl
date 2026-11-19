@@ -54,11 +54,14 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
+# NormL1Nonneg is accepted only under :pgd, unweighted, with a nonnegative feasible start
+# checked by _check_problem. :gradient retains the APG gate.
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
-# :gradient (PGD and APG) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
-# without `kind`) both accept a NormL1, with or without weights, and an unweighted ElasticNet; :gradient also
-# accepts a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
-# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. The levels must pass _scalar_parameter for the data type T (finite, nonnegative,
+# :gradient (APG), :pgd (PGD) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
+# without `kind`) accept a NormL1, with or without weights, and an unweighted ElasticNet; both gradient kinds also
+# accept a NormLinf, which :cd refuses with a message of its own (this CDSolver needs a separable penalty for
+# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
+# pointer to the supported alternatives. The levels must pass _scalar_parameter for T (finite, nonnegative,
 # representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
 # weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
 # Scaled(NormLinf(λ)) is refused as any other penalty.
@@ -68,12 +71,20 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa ElasticNet && g.w === nothing
     _scalar_parameter(g.λ1, T, "penalty lambda1")
     _scalar_parameter(g.λ2, T, "penalty lambda2")
-  elseif g isa NormLinf && kind === :gradient
+  elseif g isa NormLinf && kind in (:gradient, :pgd)
     _scalar_parameter(g.λ, T, "penalty lambda")
   elseif g isa NormLinf
     throw(ArgumentError("CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"))
-  elseif g isa GroupNormL2 && kind === :gradient
+  elseif g isa GroupNormL2 && kind in (:gradient, :pgd)
     _check_dense_group_penalty(g, x, T)
+  elseif g isa GroupNormL2
+    throw(ArgumentError("CDSolver does not support GroupNormL2 (the group lasso) on a dense Vector or a SparseIterate; use CDSolver on a BlockIterate, or ProximalGradientDescent or AccProxGradDescent on a dense Vector"))
+  elseif g isa NormL1Nonneg
+    kind === :pgd || throw(ArgumentError("NormL1Nonneg is supported only by ProximalGradientDescent on a dense Vector"))
+    g.w === nothing || throw(ArgumentError("weighted NormL1Nonneg is not supported"))
+    _scalar_parameter(g.λ0, T, "penalty lambda")
+  elseif kind === :pgd
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2 or unweighted NormL1Nonneg is supported"))
   elseif kind === :gradient
     throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf or GroupNormL2 is supported"))
   else
@@ -177,6 +188,9 @@ end
 @noinline _layout_error() =
   throw(ArgumentError("the groups of GroupNormL2 differ from the layout it was constructed with (they were changed after construction); construct the penalty again"))
 
+# The declared GroupNormL2 parameter type, which may differ from the runtime type of the level.
+_group_parameter_type(::GroupNormL2{P}) where P = P
+
 # The type, level and weights of a group penalty for data of type T: a GroupNormL2 with Float32 or Float64
 # parameters, whose level and weights convert to T without overflow, or underflow to 0 from a nonzero value.
 # `holder` names the coefficient storage in the message.
@@ -193,6 +207,10 @@ end
 # The penalty of group coordinate descent on a BlockIterate: a GroupNormL2 as above, whose groups are those
 # of x, in the same order and with the same ordered members.
 function _check_penalty(g, x::BlockIterate, ::Type{T}) where T
+  g isa GroupNormL2 ||
+    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty (got $(nameof(typeof(g))))"))
+  g isa GroupNormL2{<:Union{Float32, Float64}} ||
+    throw(ArgumentError("a BlockIterate needs a GroupNormL2 penalty with Float32 or Float64 parameters (got $(_group_parameter_type(g)) parameters)"))
   _check_group_penalty(g, T, "a BlockIterate")
   ncoordinates(x) == length(g.groups) ||
     throw(DimensionMismatch("x has $(ncoordinates(x)) groups but the penalty has $(length(g.groups))"))
@@ -219,7 +237,7 @@ end
 
 # Loss, data, shape, penalty and alias checks shared by the dense gate, the CD owner gate and the
 # block gate; `x` is the caller's original array or owner, of length `length(x)`. `kind` (:gradient,
-# :cd or :block) is passed to _check_penalty.
+# :cd, :pgd or :block) is passed to _check_penalty.
 function _check_data(x, f, g, ::Type{T}, kind::Symbol) where T
   base = if f isa LeastSquaresLoss
     f
@@ -254,7 +272,7 @@ _is_sqrt_loss(f) = f isa SqrtLeastSquaresLoss || (f isa Scaled && f.f isa SqrtLe
 function _check_sqrt_data(x, f, g, ::Type{T}, kind::Symbol) where T
   kind === :block &&
     throw(ArgumentError("SqrtLeastSquaresLoss does not support a BlockIterate (there is no group square-root lasso); use a dense Vector or a one-dimensional SparseIterate"))
-  kind === :gradient &&
+  kind in (:gradient, :pgd) &&
     throw(ArgumentError("ProximalBase provides no gradient for SqrtLeastSquaresLoss (for X ≠ 0 it is not differentiable where y = X*x), so ProximalGradientDescent and AccProxGradDescent do not support it; use CDSolver"))
   f isa Scaled &&
     throw(ArgumentError("Scaled(SqrtLeastSquaresLoss, alpha) is not supported; for a positive finite alpha, use the unscaled SqrtLeastSquaresLoss with the penalty level lambda/alpha, which has the same minimizers (the scaled objective is alpha times the unscaled one)"))
@@ -287,15 +305,19 @@ function _check_sqrt_penalty(g, ::Type{T}) where T
   nothing
 end
 
-# The dense gate. `kind` is :cd for CDSolver and :gradient, the default, for PGD and APG. Under
-# :gradient `_check_sqrt_data` refuses the square-root loss and `_check_penalty` accepts a NormLinf and a GroupNormL2,
-# which it refuses under :cd.
+# The dense gate: :cd for CDSolver, :pgd for PGD and :gradient (the default) for APG.
+# Both gradient kinds refuse square-root loss and accept NormLinf and GroupNormL2;
+# only :pgd also accepts unweighted NormL1Nonneg, with a feasible start.
 function _check_problem(x, f, g, kind::Symbol = :gradient)
   x isa Vector && eltype(x) in (Float32, Float64) ||
     throw(ArgumentError("x must be a dense Vector{Float32} or Vector{Float64}"))
   base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), kind) : _check_data(x, f, g, eltype(x), kind)
   _allfinite(x) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))
+  if g isa NormL1Nonneg
+    all(>=(zero(eltype(x))), x) ||
+      throw(ArgumentError("NormL1Nonneg requires a feasible starting point: x must be nonnegative"))
+  end
   nothing
 end
 

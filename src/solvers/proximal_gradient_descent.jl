@@ -3,14 +3,19 @@
                              debias=0, preconditioner=:none)
 
 Proximal gradient descent (PGD) for least squares with a `NormL1` (lasso, with optional weights), `ElasticNet`,
-`NormLinf` or `GroupNormL2` (group lasso) penalty and a dense `Vector{Float32}` or `Vector{Float64}` coefficient
+`NormLinf`, `NormL1Nonneg` (unweighted nonnegative lasso) or `GroupNormL2` (group lasso) penalty and a dense `Vector{Float32}` or `Vector{Float64}` coefficient
 iterate. Each iteration takes a gradient step for the smooth least-squares loss and applies the
 proximal operator of the penalty (ProximalBase's `value_and_prox!`): soft thresholding for `NormL1` (at the level
 `λ wⱼ` of entry `j` for `NormL1(λ, w)`), soft thresholding followed by the ridge weight for `ElasticNet`, for
 `NormLinf`, the point minus its projection onto the ℓ1 ball of radius `λ/L` (a clip of the entries at a common
 level), and for `GroupNormL2` the block soft threshold (each group block `v_G` of the input scaled by
 `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at the step `γ`; a zero block stays zero); backtracking adjusts
-the step size.
+the step size. For `NormL1Nonneg(λ)`, the proximal step is `max(v - λ/L, 0)`;
+the start must be nonnegative, and a negative start is refused before writes.
+APG, coordinate descent, weighted penalties and sparse iterates are not supported for this penalty.
+Its point-aware KKT residual uses `abs(grad[j] + λ)` at positive coefficients and
+`max(-(grad[j] + λ), 0)` at zero coefficients, with the same scale
+`max(λ, α‖Xᵀy‖∞)` and tolerance floor described below.
 The curvature estimate before the first iteration is `min(1, α_f ‖X‖_F²)` for the loss scale
 `α_f`, with `‖X‖_F` an upper bound, rounded to `T` and raised to `floatmin(T)` when it is positive and
 rounds below that; it is `1` when that product is at least 1 or `X = 0`.
@@ -319,6 +324,13 @@ its unnormalized meaning. One positive finite scalar LS wrapper is supported. `C
 ProximalBase's `SqrtLeastSquaresLoss(y, X)` with an unweighted `NormL1(λ)`, `λ > 0`, on a dense `Vector`
 or a `SparseIterate` (see [`CDSolver`](@ref)); the gradient methods refuse it, and `CDSolver` refuses it with a weighted `NormL1`.
 
+**Nonnegative lasso with `ProximalGradientDescent`.** `NormL1Nonneg(λ)` is supported only with
+this method, dense same-type data and a feasible nonnegative `Vector{T}` start. The level is finite,
+nonnegative and representable in `T` without overflow or underflow to zero. Weighted `NormL1Nonneg`,
+APG, coordinate descent and sparse or block iterates are refused before writes. Its stationarity check
+uses the point-aware constrained KKT residual and scale `max(T(λ), α‖Xᵀy‖∞)`, with
+`max(gradtol, 64 eps(T))` as the relative tolerance.
+
 **Group lasso with `ProximalGradientDescent`.** On a dense `Vector{T}` with the least-squares loss above,
 `ProximalGradientDescent` accepts `g = GroupNormL2(λ, groups, w)` (or with the default weights) when `g` is a
 `GroupNormL2{T}` (its level and weights have the element type of the data; convert with
@@ -383,7 +395,7 @@ advanced. The result's `minimizer` is `x` itself.
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_problem(x, f, g)
+  _check_problem(x, f, g, :pgd)
   t0 = time()
   state = initial_state(method, options, f, g, x)
   _solve_gradient!(state, f, g, method, options, t0)
