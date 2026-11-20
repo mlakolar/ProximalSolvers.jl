@@ -14,10 +14,48 @@ function _image_model(f)
 end
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
+# The image model of PGD for a raw LogisticLoss, which the gate of solve! accepts with PGD only and
+# without observation weights or offset (IN-09): Y = f.y, X = f.X and the image z = X x. α is not a
+# loss scale but the factor 1/4 of the Hessian bound ∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX (a formula
+# in exact arithmetic), read where least squares reads its scale: the initial curvature min(1, α B²), with B the
+# upper estimate of ‖X‖_F from _frobenius_upper (PGD-02, with its floor and its fallback for X = 0), and the
+# recheck c = m α ‖fl(X d̂)‖²/‖d̂‖² of an eligible rejected trial (LS-03, _step_curvature). In exact arithmetic the bound gives, for a trial x and
+# the step d = x - u from the last accepted point u, f(x) ≤ f(u) + ⟨∇f(u), d⟩ + ⅛‖X d‖² and
+# ⟨∇f(x) - ∇f(u), d⟩ ≤ ¼‖X d‖²; so c ≤ L (m = 1 in function-value mode, m = 2 in gradient mode) implies
+# the acceptance test of that mode, and after a rejection c ≥ L̂, TFOCS's estimate, so c in place of L̂ gives a
+# retry L at least TFOCS's (IN-09 has the argument in full). In the code, a finite computed c replaces L̂ only
+# when the recheck ran and rejected the trial again; the computed c carries no such guarantee.
+struct _LogisticImage{TY<:AbstractVector, TX<:AbstractMatrix}
+  Y::TY
+  X::TX
+  α::Float64
+end
+_image_model(f::LogisticLoss) = _LogisticImage(f.y, f.X, 0.25)
+_image_buffer(m::_LogisticImage) = zeros(eltype(m.X), length(m.Y))
+_image!(z, m::_LogisticImage, x) = mul!(z, m.X, x)
+
 # The loss value at x: the image z = X x is formed here and the value is ProximalBase's.
 _value!(x, f, m, z) = (_image!(z, m, x); convert(_eltype(x), value_from_predictor(f, z)))
-# The value at the image z, with d = z - Y and G the gradient, both written by ProximalBase.
+# The value at the image z, with G the gradient and d its observation derivative, both written by
+# ProximalBase: d = z - Y for least squares and, for a logistic loss, d = σ(z) - Y in exact arithmetic
+# (ProximalBase evaluates it without cancellation in the saturated tails).
 _value_and_gradient!(G, x, f, z, d) = convert(_eltype(x), value_and_gradient_from_predictor!(G, d, f, z))
+
+# A logistic image with a nonfinite entry gives the value Inf: the guard skips ProximalBase's predictor
+# oracle, which gives a row with an infinite predictor on the side of its label the contribution zero. In a
+# trial, backtrack! then takes its nonfinite-value branch (LS-02), before its zero-step, curvature and Lexact
+# exits, and retries with L/β when that is a finite increase of L (next_curvature raises an error otherwise,
+# and _solve_gradient! restores the last accepted point); at the start, initial_state refuses the point
+# through _check_start. The gradient refresh after an accepted trial
+# and the refreshes inside backtrack! run only on a trial whose value is finite, so on an image that passed
+# this check. A finite image goes to ProximalBase's loss.
+function _value!(x, f, m::_LogisticImage, z)
+  _image!(z, m, x)
+  _allfinite(z) || return convert(_eltype(x), Inf)
+  convert(_eltype(x), value_from_predictor(f, z))
+end
+_value_and_gradient!(G, x, f::LogisticLoss, z, d) =
+  _allfinite(z) ? convert(_eltype(x), value_and_gradient_from_predictor!(G, d, f, z)) : convert(_eltype(x), Inf)
 
 # ---- The accelerated method's certified backtracking test ----------------------------
 #

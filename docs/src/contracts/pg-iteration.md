@@ -49,11 +49,13 @@ For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`.
 
 For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref).
 
+For a raw `LogisticLoss` with `NormL1`, the same sequence forms the logistic image and value; [IN-09](@ref) specifies the inputs and the oracles.
+
 **Applies to.** ProximalGradientDescent; dense Vector{T}; T = Float32 or Float64.
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/solve.jl: _solve_gradient!`.
 
-**Tests.** test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions.
+**Tests.** test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L286`, `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`, `docs/src/numerics.md:L928`. The later nonnegative-lasso addition is documented in [upstream `fd45a427`, PGD docstring](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/solvers/proximal_gradient_descent.jl#L5-L18).
 
@@ -63,13 +65,13 @@ For the box and ball indicators in [IN-08](@ref), the proximal step projects ont
 
 When the positive Frobenius bound is below one, it exceeds the spectral curvature `s ‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²`, at most the rank of `X`, up to rounding and the floor. A positive bound far below one therefore starts below one; a bound at least one starts at one. For example, `X = I(256)/16` with `s = 1` has curvature `1/256` and starts at `1`. The line search multiplies this estimate by its decrease factor (default `0.9`) before each iteration and raises it on rejected trials. Historical extreme-scale measurements are retained in [ORACLE-01](@ref).
 
-PGD obtains the same initialization through a column-wise scan, with the Frobenius-bound calculation when required; APG uses the shared bound machinery directly. This is an initial estimate, not a change to the subsequent acceptance tests. A finite starting loss is required; penalty overflow at a finite starting point follows [RES-01](@ref).
+PGD obtains the same initialization through a column-wise scan, with the Frobenius-bound calculation when required; APG uses the shared bound machinery directly. For a raw `LogisticLoss`, PGD uses the factor `¼` in place of `s` ([IN-09](@ref)). This is an initial estimate, not a change to the subsequent acceptance tests. A finite starting loss is required; penalty overflow at a finite starting point follows [RES-01](@ref).
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: _scanned_initial_curvature; src/solvers/image_models.jl: _initial_curvature, _frobenius_upper`.
 
-**Tests.** test/initial_curvature.jl: initial scale, floor, wide-scale and zero-design testsets.
+**Tests.** test/initial_curvature.jl: initial scale, floor, wide-scale and zero-design testsets; test/logistic_pgd.jl: the start `min(1, ¼‖X‖_F²)` for a logistic loss.
 
 **Sources.** `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docs/src/numerics.md:L168`, `docs/src/numerics.md:L833`.
 

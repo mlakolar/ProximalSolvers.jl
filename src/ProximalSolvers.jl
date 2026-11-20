@@ -17,6 +17,8 @@ over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradie
 [`AccProxGradDescent`](@ref) accept a dense `Vector` for these least-squares problems, all through [`solve!`](@ref);
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the group lasso with a `GroupNormL2` penalty on it.
 [`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
+[`ProximalGradientDescent`](@ref) also fits sparse logistic regression with a raw `LogisticLoss` (binary
+response, no observation weights or offset), dense `Float64` data and `NormL1`.
 [`ADMMSolver`](@ref) solves centered `SqrNormL2` with unweighted `NormL1` on dense vectors.
 [`ADMMSolver`](@ref) also solves the lasso with a raw `LeastSquaresLoss` and unweighted `NormL1` for `Float64` data with a tall or square design, specified in [ADM-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-05).
 [`ADMMSolver`](@ref) also supports the graphical-lasso combination of `LogDetLoss` and matrix-weighted `NormL1` on a dense `Matrix` specified in [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
@@ -28,7 +30,7 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   prox!, value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")

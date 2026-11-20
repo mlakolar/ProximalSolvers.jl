@@ -270,6 +270,13 @@ such as zeros. The [NNLS example](examples/problems/nonnegative_least_squares.md
 compares the two models. See [IN-07](@ref) for input rules and [STOP-16](@ref)
 for the constrained KKT check.
 
+For sparse logistic regression with a binary response, use `ProximalGradientDescent`
+with a raw `LogisticLoss(y, X)` without observation weights or offset, a dense
+`Matrix{Float64}` design, `Vector{Float64}` coefficients and `NormL1`; a zero penalty
+weight leaves an intercept column unpenalized. APG and CD refuse this loss. The
+[logistic regression example](examples/problems/logistic_regression.md) explains
+the summed loss and the scaling of the level. See [IN-09](@ref) for input rules.
+
 CD solves group lasso on a `BlockIterate` with `GroupNormL2`, as in the
 [group example above](#Group-lasso-with-block-coordinate-descent).
 It also supports one-dimensional
