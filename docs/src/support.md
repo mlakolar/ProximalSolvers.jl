@@ -233,11 +233,15 @@ an exact box check and a Cholesky test, reports a numerical estimate of the dual
 Use the same `LogDetLoss` and zero-diagonal `NormL1` weights with
 `ProximalGradientDescent()`. Each committed iterate passes Cholesky in its
 element type, and the convergence flag requires a normalized KKT check. For a positive
-diagonal penalty `λdiag`, pass `LogDetLoss(S + λdiag*I)` with zero-diagonal weights: for
-every symmetric positive-definite `Θ`, this objective equals the one with diagonal weight
-`λdiag`, up to the rounding of the stored shifted covariance. See
-[PGD-06](@ref) and the [solver comparison](examples/comparisons/graphical_lasso_solvers.md),
-which judges each estimate from the original `S`.
+diagonal penalty, pass zero-diagonal weights and `LogDetLoss(S + T(λdiag)*I)`. Here `λdiag`
+denotes the effective diagonal penalty, which in the `NormL1(λ₀, Λ)` notation is `λ₀ Λᵢᵢ`
+and must be the same for every `i`. For every symmetric positive-definite `Θ`, this
+objective equals the one with that diagonal penalty, up to the rounding of the stored shifted
+covariance. Form the shifted covariance in the element type `T` of the start and the weights,
+and check that it is finite and exactly symmetric: a `Float64` `λdiag` promotes a `Float32`
+`S`, and [PGD-06](@ref) then rejects it. See [PGD-06](@ref) and the
+[solver comparison](examples/comparisons/graphical_lasso_solvers.md), which judges each
+estimate from the original `S`.
 
 ### [Weighted lasso](@id weighted-lasso-support)
 

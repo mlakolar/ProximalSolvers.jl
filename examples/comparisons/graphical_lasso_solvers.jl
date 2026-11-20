@@ -25,7 +25,7 @@
 # Different `λdiag` define different estimators, so their objective values are not a measure of
 # quality. Only the two solvers at the same `λdiag` are compared with each other.
 #
-# ## One Gaussian sample
+# ## One Gaussian sample and one penalty
 #
 # Rows of `randn(n, p) * U` have covariance `U' * U = inv(Θ_true)`, where `Θ_true` is tridiagonal
 # with `p - 1` edges. The centered sample covariance uses divisor `n`. The penalty sums over the
@@ -109,11 +109,11 @@ end;
 #
 # Each fit starts from a fresh copy of the identity. ADMM uses `abstol = reltol = t`, and PGD uses
 # `gradtol = t` with `ftol = 0`. For each policy and solver, `t` runs from loose to tight on a grid
-# with half-decade steps near the target. The target is a normalized KKT violation of `1e-8`
-# computed independently as above. The matched fit is the first setting in a sweep that reaches it,
-# so each matched fit is at or below the target, though the solvers' tolerance settings differ.
-# The script prints `not reached` for a sweep that does not, and then fails. `converged` is
-# printed but is not the criterion, and neither solver's own stopping test is this score.
+# with approximately half-decade steps near the target. The target is a normalized KKT violation
+# of `1e-8` computed independently as above. The matched fit is the first setting in a sweep that
+# reaches it, so each matched fit is at or below the target, though the solvers' tolerance settings
+# differ. The script prints `not reached` for a sweep that does not, and then fails. `converged`
+# is printed but is not the criterion, and neither solver's own stopping test is this score.
 function fit(route, policy, t)
   f, g, method, options = route === :ADMM ?
     (LogDetLoss(S), NormL1(1.0, policy.Λfull), ADMMSolver(; abstol=t, reltol=t),
@@ -125,6 +125,7 @@ function fit(route, policy, t)
   (; route, t, Θ, result, elapsed, d=diagnostics(Θ, policy.λdiag))
 end
 
+println("start: identity matrix of size ", p, ", a fresh copy for each fit")
 target = 1e-8
 tolerances = (ADMM=[1e-4, 1e-5, 1e-6, 1e-7, 3e-8, 1e-8, 3e-9, 1e-9, 3e-10, 1e-10, 3e-11, 1e-11],
               PGD=[1e-4, 1e-5, 1e-6, 1e-7, 3e-8, 1e-8, 3e-9, 1e-9, 3e-10, 1e-10])
@@ -144,45 +145,53 @@ cases = map(sweeps, indices) do s, k
    tightest=(ADMM=last(s.ADMM), PGD=last(s.PGD)))
 end;
 
-# Every fit must be a finite positive-definite matrix whose reported `minimum` agrees with the
-# original objective: within a relative `1e-12` for ADMM, which received the original problem,
-# and within the allowance for PGD, which received the shifted one.
-for s in sweeps, route in (:ADMM, :PGD), run in s[route]
+# Every fit, including the timed reruns below, must be a finite positive-definite matrix whose
+# reported `minimum` agrees with the original objective: within a relative `1e-12` for ADMM, which
+# received the original problem, and within the allowance for PGD, which received the shifted one.
+function check_fit(run)
   @assert run.d.eigmin > 0
-  @assert route === :ADMM ? isapprox(run.result.minimum, run.d.primal; rtol=1e-12) :
-                            abs(run.result.minimum - run.d.primal) <= run.d.allowance
+  @assert run.route === :ADMM ? isapprox(run.result.minimum, run.d.primal; rtol=1e-12) :
+                                abs(run.result.minimum - run.d.primal) <= run.d.allowance
 end
+foreach(check_fit, (run for s in sweeps for route in (:ADMM, :PGD) for run in s[route]))
 
 # ## Compare the two solvers at the same accuracy
 #
 # At the matched and the tightest fits, the dual candidate must be certified, and its gap must lie
 # between minus the allowance and the target scaled by `max(1, |P|)`. The lower bound is weak
-# duality up to rounding in the Float64 objective. At each policy, the objectives of the matched
+# duality up to rounding in the Float64 objective. A candidate that is not certified prints
+# `not certified` with its policy, solver and stage before the assertion fails. At each policy, the objectives of the matched
 # fits must agree within that scaled target. Their largest entrywise difference is bounded from
 # the KKT violations. For positive-definite `A` and `B`,
 # `⟨inv(B) - inv(A), A - B⟩ ≥ ‖A - B‖_F² / (λmax(A) λmax(B))`, and the subgradient of the penalty is
 # monotone, so in exact arithmetic `‖A - B‖_F ≤ λmax(A) λmax(B) (‖R_A‖_F + ‖R_B‖_F)`. Here `R` is
-# the matrix of entrywise KKT violations, with `‖R‖_F ≤ p * max|R|`, and the script evaluates the
-# bound in Float64. The tightest fits must agree entrywise to `1e-8 * max(1, largest entry)` and
-# have the same graph.
+# `G` plus a selected subgradient of the penalty, a signed matrix whose entry magnitudes equal the
+# KKT violations, so `‖R‖_F ≤ p * max|R|`. The script evaluates the bound in Float64. The tightest
+# fits must agree entrywise to `1e-8 * max(1, largest entry of the PGD estimate)` and have the
+# same graph.
 #
 # The graph has an edge for each pair `i < j` with `|Θᵢⱼ| > display_threshold`. This display
 # threshold is distinct from the exact zeros that the penalty produces. Its true graph has the
 # `p - 1` tridiagonal edges. The true positives, false positives and false negatives below
-# describe this one sample. Different policies fit different estimators, while the two solvers at
-# one policy should agree up to the accuracy target. No recovery is asserted.
+# describe this one sample, and no recovery is asserted. Different policies fit different
+# estimators. The two solvers at one policy have the same graph at the tightest fits, which the
+# script asserts. The graph counts at the matched fits are descriptive: two matched entries can
+# straddle the display threshold even when they differ by less than the bound.
 display_threshold = 1e-6
 true_graph = Set((i, i + 1) for i in 1:p-1)
 graph(Θ) = Set((i, j) for j in 2:p for i in 1:j-1 if abs(Θ[i, j]) > display_threshold)
 
-function certified_gap(run, λdiag)
+function certified_gap(run, λdiag, stage)
   gap = dual_gap(run.Θ, λdiag, run.d.primal)
+  ismissing(gap) && @printf("λdiag = %.2f %s %s: not certified\n", λdiag, run.route, stage)
   @assert !ismissing(gap) && -run.d.allowance <= gap <= target * max(1, abs(run.d.primal))
   gap
 end
 
 for case in cases
-  foreach(run -> certified_gap(run, case.policy.λdiag), (case.matched..., case.tightest...))
+  for (stage, pair) in pairs((matched=case.matched, tightest=case.tightest)), run in pair
+    certified_gap(run, case.policy.λdiag, stage)
+  end
   a, b = case.matched
   Δobjective, Δentry = abs(a.d.primal - b.d.primal), maximum(abs, a.Θ - b.Θ)
   bound = a.d.eigmax * b.d.eigmax * p * (a.d.kkt_abs + b.d.kkt_abs)
@@ -193,24 +202,30 @@ for case in cases
           case.policy.λdiag, Δobjective, Δentry, bound, maximum(abs, ta.Θ - tb.Θ))
 end
 
-# ## Work at the matched accuracy
+# ## Compare work at the same accuracy
 #
 # One ADMM iteration makes two proximal calls: the logdet proximal operator, which needs an
 # eigendecomposition, and the ℓ₁ proximal operator. One PGD trial step makes one ℓ₁ proximal call
-# and evaluates the logdet value of its proposal, which needs a Cholesky factorization. An
-# accepted step also takes a gradient, which needs an inverse. Proximal calls are therefore not
-# equal units of work. The times are the minimum of three warmed solves of the matched setting,
-# each from a fresh start. They illustrate one machine and one problem, and they do not show a
-# speedup.
+# at a finite trial argument. The solver evaluates the logdet value, which needs a Cholesky
+# factorization, only if the proposal is positive definite, and an accepted step also takes a
+# gradient, which needs an inverse. A trial can therefore end without a value call. Proximal
+# calls are not equal units of work. The times are the minimum of three warmed solves of the
+# matched setting, each from a fresh start and checked like the sweep fits. They illustrate one
+# machine and one problem, and they do not show a speedup.
+function timed(route, policy, t)
+  runs = [fit(route, policy, t) for _ in 1:3]
+  foreach(check_fit, runs)
+  1000 * minimum(run.elapsed for run in runs)
+end
 rows = [(; case.policy.λdiag, route, run=case.matched[route],
-         ms=1000 * minimum(fit(route, case.policy, case.matched[route].t).elapsed for _ in 1:3))
+         ms=timed(route, case.policy, case.matched[route].t))
         for case in cases for route in (:ADMM, :PGD)]
 println("\nλdiag  solver  setting  converged  KKT(norm)  KKT(abs)   objective       |minimum - objective|  gap        eigmin")
 for (; λdiag, route, run) in rows
   r, d = run.result, run.d
   @printf("%.2f   %-6s  %.0e    %-9s  %.2e   %.2e   %.10f  %.2e               %10.2e  %.4f\n",
           λdiag, route, run.t, r.converged, d.kkt, d.kkt_abs, d.primal, abs(r.minimum - d.primal),
-          certified_gap(run, λdiag), d.eigmin)
+          certified_gap(run, λdiag, :matched), d.eigmin)
 end
 println("\nλdiag  solver  iterations  prox_calls  f_calls  grad_calls  backtracks  r_norm    s_norm    illustrative_ms")
 for (; λdiag, route, run, ms) in rows
@@ -237,9 +252,10 @@ end
 # its proximal calls, and the dashed line marks the target. The three panels share their
 # vertical limits. Values below `eps()` are drawn at `eps()`. Each heatmap shows ADMM's matched
 # estimate above the diagonal and PGD's below it, with the diagonal set to zero for display. The
-# three heatmaps share one symmetric color scale. The figure uses only solver output, and the
-# documentation build runs the plotting lines. The script alone runs the same calculations and
-# checks without loading Plots.
+# three heatmaps share one symmetric color scale. The fit markers and the off-diagonal heatmap
+# entries come from the solvers; the script adds the target line and the zeroed display diagonal.
+# The documentation build runs the plotting lines. The script alone runs the same calculations
+# and checks without loading Plots.
 #!jl using Plots
 #!jl labels = ("λdiag = 0", "λdiag = λoff/2", "λdiag = λoff")
 #!jl ylimits = extrema(max(run.d.kkt, eps()) for s in sweeps for route in (:ADMM, :PGD) for run in s[route])
@@ -255,9 +271,11 @@ end
 #!jl shown = [[i < j ? case.matched.ADMM.Θ[i, j] : i > j ? case.matched.PGD.Θ[i, j] : 0.0 for i in 1:p, j in 1:p]
 #!jl          for case in cases]
 #!jl limit = maximum(A -> maximum(abs, A), shown)
-#!jl estimates = [heatmap(A; title=labels[k] * ": ADMM above, PGD below", color=:RdBu, clims=(-limit, limit),
-#!jl                      yflip=true, aspect_ratio=1, colorbar=k == 3, xlabel="Variable",
-#!jl                      ylabel=k == 1 ? "Variable" : "") for (k, A) in enumerate(shown)]
+#!jl ticks = [1, 4, 7, 10, 12]
+#!jl estimates = [heatmap(1:p, 1:p, A; title=labels[k] * ": ADMM above, PGD below", color=:RdBu,
+#!jl                      clims=(-limit, limit), yflip=true, aspect_ratio=1, colorbar=true,
+#!jl                      xlabel="Variable", ylabel=k == 1 ? "Variable" : "", xticks=ticks, yticks=ticks)
+#!jl              for (k, A) in enumerate(shown)]
 #!jl figure = plot(work..., estimates...; layout=(2, 3), size=(1150, 720), titlefontsize=10,
 #!jl               left_margin=5Plots.mm, bottom_margin=4Plots.mm)
 #!jl savefig(figure, "graphical_lasso_solvers.svg")
