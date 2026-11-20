@@ -26,12 +26,31 @@ target(::Type{Float32}) = 5e-4
 target(::Type{Float64}) = 1e-8
 pg_options() = ProximalOptions(; maxiter=20000, gradtol=5e-10, ftol=0)
 
+# Symmetric Gaussian elimination without pivoting on the upper triangle of a symmetric
+# rational matrix. The matrix is positive definite if and only if every pivot is positive.
+function positive_definite_exactly(M)
+  M = copy(M)
+  p = size(M, 1)
+  for k in 1:p
+    M[k, k] > 0 || return false
+    for j in k+1:p
+      factor = M[k, j] / M[k, k]
+      for i in k+1:j
+        M[i, j] -= M[k, i] * factor
+      end
+    end
+  end
+  true
+end
+
 # Use BigFloat independently of PB and the solver's working-precision gradient.
-# The dual candidate W has Wᵢᵢ = Sᵢᵢ + Cᵢᵢ and, off the diagonal, Wᵢⱼ = Sᵢⱼ +
-# clamp((Θ⁻¹ - S)ᵢⱼ, -Cᵢⱼ, Cᵢⱼ). The symmetry of W and the constraints
-# |Wᵢⱼ - Sᵢⱼ| ≤ Cᵢⱼ are checked on its BigFloat entries in rational arithmetic, and a
-# BigFloat Cholesky check must pass, before logdet(W) + p is reported as a dual lower
-# bound. Otherwise the gap is NaN and the tests' bounds on the gap fail.
+# The dual candidate W is built in BigFloat with Wᵢᵢ = Sᵢᵢ + Cᵢᵢ and, off the diagonal,
+# Wᵢⱼ = Sᵢⱼ + clamp((Θ⁻¹ - S)ᵢⱼ, -Cᵢⱼ, Cᵢⱼ). A symmetric W ≻ 0 with
+# |Wᵢⱼ - Sᵢⱼ| ≤ Cᵢⱼ for all entries, diagonal included, gives logdet(W) + p as a lower
+# bound on the objective over Θ ≻ 0. The stored candidate's symmetry, box and positive definiteness are
+# checked in rational arithmetic. The reported gap then uses a BigFloat logdet, a
+# numerical estimate of that bound. Otherwise the gap is NaN and the tests' bounds on
+# the gap fail.
 function independent(Θ, S, g)
   X, A, C = BigFloat.(Θ), BigFloat.(S), effective(g)
   p = size(X, 1)
@@ -52,15 +71,16 @@ function independent(Θ, S, g)
     W[i, j] = W[j, i] = A[i, j] + clamp(inverse[i, j] - A[i, j], -C[i, j], C[i, j])
   end
   exact(x) = Rational{BigInt}(x)
-  feasible = W == W' && all(abs(exact(W[i, j]) - exact(A[i, j])) <= exact(C[i, j])
-                            for j in 1:p for i in 1:p)
-  dual_factor = feasible ? cholesky(Symmetric(W); check=false) : nothing
-  gap = feasible && issuccess(dual_factor) ? primal - (logdet(dual_factor) + p) : big(NaN)
+  certified = W == W' && all(abs(exact(W[i, j]) - exact(A[i, j])) <= exact(C[i, j])
+                             for j in 1:p for i in 1:p) &&
+              positive_definite_exactly(exact.(W))
+  dual_factor = certified ? cholesky(Symmetric(W); check=false) : nothing
+  gap = certified && issuccess(dual_factor) ? primal - (logdet(dual_factor) + p) : big(NaN)
   (; score, primal, gap, scale_objective=1 + abs(trace) + abs(ld) + penalty)
 end
 
-# With `original=(S0, g0)`, the point solves (S, g) but is judged by the independent
-# reference against (S0, g0).
+# Θ is the point that solve! returns for (S, g). With `original=(S0, g0)`, the
+# independent reference judges it against (S0, g0) instead.
 function check_solution!(Θ, S, g; method=ProximalGradientDescent(), reference=nothing, original=nothing)
   f = LogDetLoss(S)
   S_snapshot, W_snapshot = copy(f.S), copy(g.w)
@@ -81,8 +101,8 @@ function check_solution!(Θ, S, g; method=ProximalGradientDescent(), reference=n
   @test isnan(r.gap) && isempty(r.trace)
   d = independent(Θ, original === nothing ? S : original[1], original === nothing ? g : original[2])
   @test d.score <= target(T)
-  # The reported score is normalized by the solved S and weights, so it is compared
-  # with the reference score for the same problem.
+  # The score comparison runs only when `original` is omitted. The reported score is
+  # normalized by the solved problem's S and weights, which can differ from the original's.
   original === nothing && @test abs(d.score - r.g_residual) <= 32eps(T)
   @test abs(r.minimum - d.primal) <= 32 * size(Θ, 1) * eps(T) * d.scale_objective
   @test -big"1e-60" <= d.gap <= target(T) * max(1, abs(d.primal))
@@ -141,7 +161,7 @@ end
       @test all(iszero(Θ[i, j]) for (i, j) in offdiagonal(4))
 
       # p = 2: W*ᵢᵢ = Sᵢᵢ + Cᵢᵢ, W*₁₂ = soft(S₁₂, C₁₂) and Θ* = inv(W*), with C₁₂ = 1/4
-      # and S₁₂ below, at and above the threshold, for two (λ₀, Λ) decompositions of C.
+      # and |S₁₂| below, at or above the threshold C₁₂, for two (λ₀, Λ) decompositions of C.
       Λ = T[1/8 1/4; 1/4 3/8]
       for (name, s12) in (("below", 1/8), ("at", 1/4), ("above, positive", 3/4), ("above, negative", -3/4))
         S = T[1 s12; s12 2]
@@ -177,7 +197,8 @@ end
       Λ = T[1/4 1/4 3/8; 1/4 1/2 0; 3/8 0 3/4]
       check_solution!(identity_matrix(T, 3), S, NormL1(1/2, Λ))
 
-      # Off-diagonal weights above the largest |Sᵢⱼ|: Θ* = diag(1 ./ (Sᵢᵢ + Cᵢᵢ)).
+      # Off-diagonal effective weights above the largest off-diagonal |Sᵢⱼ|, so that
+      # Θ* = diag(1 ./ (Sᵢᵢ + Cᵢᵢ)).
       S = T[2 1/2 1/4; 1/2 3/2 1/8; 1/4 1/8 1]
       g = NormL1(1, full_weights(T, 3, 5/8, T[1/8, 1/4, 3/8]))
       Θ = identity_matrix(T, 3)
@@ -187,11 +208,24 @@ end
   end
 end
 
-# The dual bound is withheld when its candidate is not certified.
+# The gap is withheld when the dual candidate is not certified.
 @testset "Matrix PGD independent reference withholds an uncertified gap" begin
-  # W = S + C = -3/2 fails the Cholesky check, so no bound is reported.
+  # Exact positive definiteness: a positive-definite matrix, a singular one, and one
+  # whose determinant 1 - (1 + ε)² is negative for ε = 2⁻³⁰⁰.
+  rational(M) = Rational{BigInt}.(M)
+  ε = 1 // big(2)^300
+  @test positive_definite_exactly(rational([2 1 0; 1 2 1; 0 1 2]))
+  @test !positive_definite_exactly(rational([5 5; 5 5]))
+  @test !positive_definite_exactly([one(ε) 1+ε; 1+ε one(ε)])
+  # W = S + C = -3/2 is not positive definite, so no bound is reported.
   d = independent(ones(1, 1), fill(-2.0, 1, 1), NormL1(1, fill(0.5, 1, 1)))
   @test isfinite(d.primal) && isnan(d.gap)
+  # S = [9/2 5; 5 9/2] and C = I/2 give W = fill(5, 2, 2), which is singular. A BigFloat
+  # Cholesky factorization of it can succeed on rounded pivots. The objective P is
+  # unbounded below along Θ = I + t[1 -1; -1 1], where P = 10 - log(1 + 2t), so no
+  # finite lower bound exists.
+  d = independent(Matrix(1.0I, 2, 2), [4.5 5; 5 4.5], NormL1(1.0, [0.5 0.0; 0.0 0.5]))
+  @test d.primal == 10 && isnan(d.gap)
   # W = 3/2 is positive definite, and Θ = 2/3 is within rounding of the minimizer.
   d = independent(fill(2/3, 1, 1), ones(1, 1), NormL1(1, fill(0.5, 1, 1)))
   @test -big"1e-60" <= d.gap <= big"1e-30"

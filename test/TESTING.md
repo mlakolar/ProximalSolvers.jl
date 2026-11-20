@@ -47,15 +47,20 @@ intermediate iterate, a logdet prox output that fails Cholesky, warm starts,
 and bitwise rollback on refusals and numerical failures.
 
 The `pgd_graphical_lasso` tests cover matrix PGD for the same problem in Float32 and
-Float64, with zero and positive diagonal weights. Analytic optima (1×1 with two
-level and weight decompositions of one effective weight, diagonal, 2×2 below, at and above
-the edge threshold, zero level, zero off-diagonal weights and large penalty) and seeded
-problems check the original BigFloat objective and KKT score. The dual candidate has
-`Wᵢᵢ = Sᵢᵢ + Cᵢᵢ`, and the reported gap is `NaN` unless its affine constraints,
-checked in rational arithmetic, and a BigFloat Cholesky check pass. Seeded problems
-compare direct PGD, PGD on the shifted covariance and ADMM against the original data.
-The tests also cover refusals and nonmutation, a diagonal threshold that zeroes a
-proposal, counters, limits, rounded stagnation and rollback.
+Float64, with zero and positive diagonal weights. Analytic fixtures (1×1 with two
+level and weight decompositions of one effective weight, diagonal, 2×2 on both sides of
+the edge threshold and at it with positive diagonal weights, zero level, zero off-diagonal
+weights and large off-diagonal penalty) compare direct PGD with closed-form optima. One
+heterogeneous full-weight case has no closed-form comparison. Each analytic and
+seeded fixture is checked against an independent BigFloat objective and KKT score, and a
+numerical (BigFloat) estimate of the dual lower bound `logdet(W) + p`. The candidate `W`
+is built with `Wᵢᵢ = Sᵢᵢ + Cᵢᵢ`. The estimate is reported only after rational-arithmetic
+checks of its symmetry, its box `|Wᵢⱼ - Sᵢⱼ| ≤ Cᵢⱼ` and its positive definiteness;
+otherwise the gap is `NaN`. The seeded fixtures with positive diagonal weights at
+`(p, n) = (10, 150)` and `(30, 20)` compare direct PGD with PGD on the shifted covariance,
+and direct ADMM is compared at `(10, 150)` only. The tests also cover refusals and
+nonmutation, a diagonal threshold that zeroes a proposal, counters, limits, rounded
+stagnation and rollback.
 
 The separately approved Linux-only matrix and required gate graph remain
 unchanged: stable Julia1 Linux x64 for every tier, full master checks, coverage,

@@ -111,9 +111,12 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   with diagonal weights permitted, and starts from a dense
   symmetric positive-definite matrix. It uses bounded
   backtracking and a normalized KKT check. The [matrix PGD contract](@ref PGD-06) gives
-  the input and option rules. The tests check each element type against analytic optima
-  and seeded problems, with direct and covariance-shifted weights, using an independently
-  computed objective, KKT score and dual lower bound. The
+  the input and option rules. The tests check each element type with an independent
+  BigFloat objective, KKT score and numerical estimate of a dual lower bound. Analytic
+  fixtures compare direct PGD with closed-form optima, except one heterogeneous
+  full-weight case. The seeded fixtures with positive diagonal weights at
+  `(p, n) = (10, 150)` and `(30, 20)` compare direct PGD with PGD on the shifted
+  covariance, and direct ADMM is compared at `(10, 150)` only. The
   [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
   fits the same estimator with ADMM and PGD.
 - **(n)** Sparse logistic regression needs `X::Matrix{Float64}`, a response `y::Vector{Float64}`

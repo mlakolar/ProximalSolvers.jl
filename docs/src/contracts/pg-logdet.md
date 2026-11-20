@@ -138,16 +138,23 @@ the iteration, time or call limit returns `converged=false`.
 rounding-stall checks. `_solve_gradient!` in `src/solve.jl` handles limit exits
 and constructs `OptimizationResults`.
 
-**Tests.** `test/pgd_graphical_lasso.jl` independently checks SPD, primal
-objective, KKT and a feasible dual lower bound for analytic and seeded
-problems with zero and positive diagonal weights. The dual candidate has
-`Wᵢᵢ = Sᵢᵢ + Cᵢᵢ`, and the reported gap is `NaN` unless its affine
-constraints, checked in rational arithmetic, and a BigFloat Cholesky check pass.
-Seeded problems compare direct PGD, PGD on the shifted covariance and ADMM
-against the original BigFloat data. The tests also check reported counters,
-the diagonal KKT score at a start with a positive diagonal weight, a verified
-fixed point, a rounded Float32 stall outside the threshold and limit precedence.
-A call limit during a rejected trial checks that the shared driver keeps the last
-accepted point and its diagnostics.
+**Tests.** `test/pgd_graphical_lasso.jl` checks, in Float32 and Float64, the
+returned point of analytic and seeded problems with zero and positive diagonal
+weights. It tests positive definiteness and compares the primal objective and the
+KKT score with independent BigFloat values. It also computes a numerical (BigFloat)
+estimate of the dual lower bound `logdet(W) + p`. The test builds `W` with
+`Wᵢᵢ = Sᵢᵢ + Cᵢᵢ` and clipped off-diagonal entries. It reports the estimate only
+after rational-arithmetic checks of the symmetry of `W`, the box
+`|Wᵢⱼ - Sᵢⱼ| ≤ Cᵢⱼ` and the positive definiteness of `W`. Otherwise the gap is
+`NaN` and the test's bounds on it fail. Analytic fixtures compare direct PGD
+with closed-form optima, except one heterogeneous full-weight case without a
+closed-form comparison. The seeded fixtures with positive diagonal weights
+at `(p, n) = (10, 150)` and `(30, 20)` compare direct PGD with PGD on the shifted
+covariance, each judged against the original data. Direct ADMM is compared at
+`(10, 150)` only. The tests also check reported counters, the diagonal KKT score
+at a start with a positive diagonal weight, a verified fixed point, a rounded
+Float32 stall outside the threshold and limit precedence. A call limit during a
+rejected trial checks that the shared driver keeps the last accepted point and
+its diagnostics.
 
 **Sources.** [Approved graphical-lasso PGD stopping rule](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
