@@ -158,7 +158,9 @@ apgruns = gradientruns(AccProxGradDescent());
 #
 # A setting reaches the target when its relative objective gap is at most `gaptarget` and its KKT
 # violation divided by `lambda` is at most `kkttarget`; the time to target of a solver is that of the
-# first such setting in its sweep, from the loosest to the tightest.
+# first such setting in its sweep, ordered from the loosest to the tightest. That time is not
+# necessarily the shortest among the settings that meet both targets: a tighter setting can be timed
+# faster, for example through timing noise.
 gaptarget = 1e-6
 kkttarget = 1e-4
 reached(run) = run.gap <= gaptarget && run.kkt <= kkttarget
@@ -191,13 +193,22 @@ for (name, (runs, parameter, unit)) in sweeps
   @assert any(reached, runs) "$name does not reach the target in its sweep"
 end
 
+# A relative gap below `-1e-10` would mean that a configuration found a lower objective than the
+# reference, so the reference would not be the optimum from which the gaps are measured. The bound is
+# far above the rounding of the objective and far below `gaptarget`. The check covers every setting of
+# every sweep, and the script prints the smallest gap observed.
+for (name, (runs, parameter, unit)) in sweeps, run in runs
+  @assert run.gap >= -1e-10 "$name, $parameter = $(run.setting): objective gap $(run.gap) is below the reference"
+end
+println("smallest objective gap over all runs: ", minimum(run.gap for (_, (runs, _, _)) in sweeps for run in runs))
+
 # ## Reproduce and interpret the figure
 #
 # The left panel plots the independent weighted KKT residual divided by `lambda`; the right plots the
 # relative objective gap. Both use logarithmic time and accuracy scales. Values below `1e-16` are drawn
 # at that floor so they can appear on a logarithmic axis; the table and assertions use the original
-# values. A small or negative objective gap can reflect rounding or the finite accuracy of the numerical
-# reference. Plot generation runs in the documentation environment. Ordinary script execution and the
+# values. A small objective gap can reflect rounding or the finite accuracy of the numerical reference;
+# a negative gap, if any, is at most `1e-10` in magnitude by the assertion above. Plot generation runs in the documentation environment. Ordinary script execution and the
 # examples test runner compute the table and assertions without loading Plots.
 #!jl using Plots
 #!jl plotfloor(v) = max(v, 1e-16)
