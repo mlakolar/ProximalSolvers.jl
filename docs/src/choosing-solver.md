@@ -227,6 +227,15 @@ chooses a penalty parameter, reports the residual diagnostics, and checks the
 answer by soft thresholding and stationarity. See [the ADMM contract](@ref ADM-01)
 for input requirements, limits and warm starts.
 
+`ADMMSolver` also solves the lasso with the raw `LeastSquaresLoss(y, X)` and
+`NormL1(n * λ)` for a tall or square `Float64` design (`n ≥ p`), with `Vector{Float64}`
+coefficients ([ADM-05](@ref)). It pays for a thin SVD of `X` on the first proximal call,
+kept in the loss object, and then each iteration is cheap. Several fits with the same `X`
+and `y`, at other penalty levels or `ρ`, share that setup. A single fit recoups it only if the
+iterations save more time than the setup costs. The
+[solver comparison](examples/comparisons/lasso_solvers.md) reports the setup separately,
+and it is the evidence to consult, not a general rule.
+
 `ADMMSolver` also applies to the graphical lasso, `LogDetLoss(S)` with
 `NormL1(λ₀, Λ)`, for the inputs in [ADM-04](@ref), which include a dense
 `Matrix{Float32}` or `Matrix{Float64}` start, same-type weights `Λ` that are

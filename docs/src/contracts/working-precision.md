@@ -35,7 +35,9 @@ caller holds” in the pinned
 [ProximalBase smooth-function guide](https://github.com/mlakolar/ProximalBase.jl/blob/7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e/docs/src/smooth.md).
 ADMM's use of proximal operators and working-precision diagnostics is specified
 in [ADM-02](@ref), and its Cholesky checks in `T` for the graphical lasso in
-[ADM-04](@ref).
+[ADM-04](@ref). For the least-squares lasso, [ADM-05](@ref) specifies the `Float64`
+arithmetic, the proximal operator that ProximalBase computes from a cached SVD and the
+stationarity score. It states that no cutoff on `ρ`, the penalty or the coefficients applies.
 
 `converged` has the algorithm-specific meaning in [RES-01](@ref). Independently
 evaluate the objective and [KKT residual](../sparsity-and-kkt.md) when accuracy

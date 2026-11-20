@@ -28,9 +28,11 @@ The following remain deferred:
 - monotone or active-set acceleration, APG diagonal preconditioning, Newton,
   primal-dual methods, SLOPE and direct precision-matrix solvers other than the
   graphical-lasso routes in [ADM-04](@ref) and [PGD-06](@ref);
-- ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref)
+- ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref),
+  the least-squares lasso with a tall or square `Float64` design in [ADM-05](@ref)
   and the graphical lasso in [ADM-04](@ref), including arbitrary function pairs,
-  product spaces, linear constraints, custom norms, and over-relaxation or the
+  product spaces, linear constraints, custom norms, scaled or `Float32`
+  least-squares losses, wide designs (`n < p`), and over-relaxation or the
   adaptive penalty on a matrix;
 - paths, screening, public workspaces, refitting, reweighting, and certificates
   other than the square-root-lasso CD duality certificate;

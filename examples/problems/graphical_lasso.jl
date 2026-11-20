@@ -7,17 +7,18 @@
 #
 # ```math
 # \min_{\Theta=\Theta^\top\succ0}\; P(\Theta) = -\log\det\Theta+\operatorname{tr}(S\Theta)
-# +\lambda\sum_{i\ne j}|\Theta_{ij}|.
+# +\lambda_{\rm off}\sum_{i\ne j}|\Theta_{ij}|+\lambda_{\rm diag}\sum_i|\Theta_{ii}|.
 # ```
 #
-#md # ![True and estimated precision matrices on a common color scale, and the true and estimated edges](graphical_lasso.svg)
+#md # ![True and estimated off-diagonal precision matrices on a shared color scale, with diagonal errors for three penalty weights](graphical_lasso.svg)
 #
-# The sum runs over the full matrix, so each off-diagonal pair is penalized twice, and the diagonal
-# is not penalized. ProximalBase writes the first two terms as `LogDetLoss(S)` and the penalty as
-# `NormL1(1.0, Λ)` with the weight matrix `Λ` equal to `λ` off the diagonal and zero on it.
-# `ADMMSolver` applies to this problem with a supported dense `Matrix{Float64}` or
-# `Matrix{Float32}` start; [Supported problems](../../support.md) and the
-# [graphical-lasso contract](@ref ADM-04) give the remaining requirements.
+# The off-diagonal sum runs over the full matrix, so each undirected pair is penalized twice.
+# Positive definiteness gives `Θᵢᵢ > 0` for every `i`. The diagonal penalty equals
+# `λdiag * tr(Θ)` and can change the scale and bias of the estimate. Its diagonal entries stay
+# positive throughout the domain. Setting `Sshift = S + λdiag*I` absorbs this term into
+# `LogDetLoss(Sshift)` for every positive-definite `Θ`. Use `NormL1(1.0, Λ)` with `Λ` equal
+# to `λoff` off the diagonal and zero on it. [Supported problems](../../support.md) and
+# [ADM-04](@ref) give the requirements for matrix ADMM.
 #
 # Two related pages solve different problems. [Neighborhood selection](nodewise_gaussian_graph.md)
 # fits one lasso regression per variable; that page reports a graph and does not assemble a
@@ -60,161 +61,176 @@ S = Matrix(Symmetric(X' * X / n))
 
 # ## The solve
 #
-# The penalty level is `λ = 0.12` on each off-diagonal entry. ADMM splits the objective into the
-# log-determinant part, updated by its proximal operator (computed by ProximalBase from an
-# eigendecomposition; the solver requires the result to be finite, exactly symmetric and to pass a
-# Cholesky factorization), and the penalty, updated by soft thresholding. The consensus iterate
-# after soft thresholding can be indefinite during the iteration. The returned matrix is the
-# consensus iterate, and `solve!` returns it only if it is exactly symmetric and its Cholesky
-# factorization succeeds in Float64. The identity is an exactly symmetric start whose Cholesky
-# factorization succeeds.
-λ = 0.12
-Λ = fill(λ, p, p)
-Λ[diagind(Λ)] .= 0
-f = LogDetLoss(S)
-g = NormL1(1.0, Λ)
-Θ = Matrix(1.0I, p, p)
-method = ADMMSolver(ρ = 1.0, abstol = 1e-10, reltol = 1e-10)
-result = solve!(Θ, f, g, method, ProximalOptions(maxiter = 5000))
-@assert result.converged && result.minimizer === Θ
-@assert result.r_norm <= result.eps_pri && result.s_norm <= result.eps_dual
-println((status = result.status, iterations = result.iterations,
-         primal = result.r_norm, primal_tolerance = result.eps_pri,
-         dual = result.s_norm, dual_tolerance = result.eps_dual))
+# Use `λoff = 0.12` and compare `λdiag = 0`, `λoff/2` and `λoff`. Each fit starts at its own
+# identity matrix and uses the same fixed ADMM penalty parameter `ρ = 1` and absolute and relative
+# stopping tolerances of `1e-10`. The shifted covariance and penalty weights are built anew for
+# each fit. The checks below use the original sample covariance for all three.
+function graphical_lasso_inputs(S::Matrix{T}, λoff::T, λdiag::T) where {T<:Union{Float32, Float64}}
+  isfinite(λoff) && λoff >= 0 || throw(ArgumentError("λoff must be finite and nonnegative"))
+  isfinite(λdiag) && λdiag >= 0 || throw(ArgumentError("λdiag must be finite and nonnegative"))
+  Sshift = copy(S)
+  Sshift[diagind(Sshift)] .+= λdiag
+  all(isfinite, Sshift) && issymmetric(Sshift) ||
+    throw(ArgumentError("S + λdiag*I must be finite and exactly symmetric"))
+  Λ = fill(λoff, size(S))
+  Λ[diagind(Λ)] .= zero(T)
+  return Sshift, Λ
+end
 
-# The penalty parameter `ρ` changes the iterations, not the problem. The loop below solves the same
-# problem with two other values. Compare the printed iteration counts; the estimates agree with `Θ`
-# within `1e-6`.
-for ρ in (0.25, 4.0)
-  other = Matrix(1.0I, p, p)
-  r = solve!(other, f, g, ADMMSolver(ρ = ρ, abstol = 1e-10, reltol = 1e-10), ProximalOptions(maxiter = 5000))
-  @assert r.converged && maximum(abs, other - Θ) <= 1e-6
-  println((ρ = ρ, iterations = r.iterations, largest_difference = maximum(abs, other - Θ)))
+λoff = 0.12
+diagonal_weights = (0.0, λoff / 2, λoff)
+options = ProximalOptions(maxiter = 5000)
+method = ADMMSolver(ρ = 1.0, α = 1.0, adaptive = false, abstol = 1e-10, reltol = 1e-10)
+fits = map(diagonal_weights) do λdiag
+  Sshift, Λ = graphical_lasso_inputs(S, λoff, λdiag)
+  Θ = Matrix(1.0I, p, p)
+  result = solve!(Θ, LogDetLoss(Sshift), NormL1(1.0, Λ), method, options)
+  return (; λdiag, Θ, Sshift, Λ, result)
 end
 
 # ## Check the estimate independently
 #
-# For this fit, the checks below confirm exact symmetry, `isposdef` and a positive smallest
-# eigenvalue, and the objective recomputed from `S`, `Λ` and `Θ` agrees with `result.minimum`.
-@assert Θ == Θ' && isposdef(Θ)
-smallest_eigenvalue = eigmin(Symmetric(Θ))
-@assert smallest_eigenvalue > 0
-objective = -logdet(cholesky(Symmetric(Θ))) + dot(S, Θ) + sum(Λ .* abs.(Θ))
-@assert abs(result.minimum - objective) <= 1e-10 * max(1, abs(objective))
-
-# With `G = S - Θ⁻¹`, the KKT conditions are `Gᵢᵢ = 0` on the diagonal,
-# `Gᵢⱼ = -Λᵢⱼ sign(Θᵢⱼ)` at a nonzero off-diagonal entry and `|Gᵢⱼ| ≤ Λᵢⱼ` at a zero. The violation
-# below takes the largest of `|Gᵢᵢ|`, `|Gᵢⱼ + Λᵢⱼ sign(Θᵢⱼ)|` and `max(|Gᵢⱼ| - Λᵢⱼ, 0)` over the
-# entries, divided by `max(1, maximum(abs, S))`. The solver's residual tests do not bound this
-# violation; the assertion below is a separate check of this fit.
-G = S - inv(Θ)
-kkt = maximum(i == j ? abs(G[i, i]) :
-              iszero(Θ[i, j]) ? max(abs(G[i, j]) - Λ[i, j], 0) : abs(G[i, j] + Λ[i, j] * sign(Θ[i, j]))
-              for i in 1:p, j in 1:p) / max(1, maximum(abs, S))
-@assert kkt <= 1e-8
-
-# The dual problem maximizes `log det W + p` over symmetric `W = S + U ≻ 0` with `Uᵢᵢ = 0` and
-# `|Uᵢⱼ| ≤ Λᵢⱼ` (the level of `g` is one). Below, `U` has a zero diagonal and its off-diagonal
-# entries are those of `Θ⁻¹ - S` clipped into `[-Λᵢⱼ, Λᵢⱼ]`. The sum `W = S + U` is rounded, so the
-# code checks the stored floats in exact rational arithmetic: `Wᵢᵢ = Sᵢᵢ` and
-# `|Wᵢⱼ - Sᵢⱼ| ≤ Λᵢⱼ`, the right side being the exact value of the stored weight. It then applies the
-# Float64 Cholesky test to `W`, which is a working-precision test rather than a proof that `W ≻ 0`.
-# For an exactly feasible `W ≻ 0`, weak duality bounds the objective error by the gap
-# `P(Θ) - (log det W + p)`. After both checks, the script reports that gap evaluated in Float64, as a
-# numerical estimate. If a check fails, it reports "not certified".
-inverse = inv(Θ)
-U_dual = zeros(p, p)
-for j in 2:p, i in 1:j-1
-  U_dual[i, j] = U_dual[j, i] = clamp(inverse[i, j] - S[i, j], -Λ[i, j], Λ[i, j])
+# Evaluate the two objectives from the stored data. The original calculation uses `S` and the
+# two absolute-entry sums. The shifted calculation uses `Sshift` and the zero-diagonal weight
+# matrix. The comparison allows for rounding, including the addition on the covariance diagonal.
+function check_objectives(Θ, factor, S, λoff, λdiag, Sshift, Λ, minimum)
+  p = size(Θ, 1)
+  ld = logdet(factor)
+  off_penalty = λoff * sum((abs(Θ[i, j]) for i in 1:p, j in 1:p if i != j); init = zero(eltype(Θ)))
+  diag_penalty = λdiag * sum(abs, diag(Θ))
+  trace_original = dot(S, Θ)
+  trace_shifted = dot(Sshift, Θ)
+  shifted_penalty = sum(Λ .* abs.(Θ))
+  original = -ld + trace_original + off_penalty + diag_penalty
+  shifted = -ld + trace_shifted + shifted_penalty
+  @assert all(isfinite, (original, shifted, minimum))
+  scale = 1 + abs(ld) + abs(trace_original) + off_penalty + diag_penalty
+  tol = 32p * eps(eltype(Θ)) * scale
+  @assert abs(original - shifted) <= tol
+  @assert abs(original - minimum) <= tol && abs(shifted - minimum) <= tol
+  return original, shifted
 end
-W = S + U_dual
-exact(x) = Rational{BigInt}(x)
-in_box = all(exact(W[i, i]) == exact(S[i, i]) for i in 1:p) &&
-         all(abs(exact(W[i, j]) - exact(S[i, j])) <= exact(Λ[i, j]) for i in 1:p, j in 1:p if i != j)
-certified = in_box && isposdef(Symmetric(W))
-gap = certified ? objective - (logdet(cholesky(Symmetric(W))) + p) : NaN
-certified && @assert -1e-10 <= gap <= 1e-8
-println((objective = objective, max_kkt_violation = kkt, smallest_eigenvalue = smallest_eigenvalue,
-         duality_gap_estimate = certified ? gap : "not certified"))
+
+# Set `G = S - inv(Θ)`. The KKT violation is `|Gᵢᵢ + λdiag|` on the diagonal,
+# `|Gᵢⱼ + λoff*sign(Θᵢⱼ)|` at a nonzero off-diagonal entry, and
+# `max(|Gᵢⱼ| - λoff, 0)` at an exact off-diagonal zero. Divide the maximum by
+# `max(1, maximum(abs, S), λoff, λdiag)`. The check uses its own accuracy bound.
+function original_kkt(Θ, S, λoff, λdiag)
+  G = S - inv(Θ)
+  p = size(Θ, 1)
+  violation = maximum(Iterators.product(1:p, 1:p)) do (i, j)
+    if i == j
+      abs(G[i, i] + λdiag)
+    elseif iszero(Θ[i, j])
+      max(abs(G[i, j]) - λoff, 0)
+    else
+      abs(G[i, j] + λoff * sign(Θ[i, j]))
+    end
+  end
+  return violation / max(1, maximum(abs, S), λoff, λdiag)
+end
+
+# The dual maximizes `logdet(W) + p` over symmetric positive-definite `W` with
+# `Wᵢᵢ = Sᵢᵢ + λdiag` and `|Wᵢⱼ - Sᵢⱼ| ≤ λoff` off the diagonal. Start from the
+# fitted inverse and clip its off-diagonal deviations from `S` to this box. Use BigFloat
+# for the candidate so that the fixed diagonal can retain the sum of the two stored Float64
+# values. Verify the diagonal and the box exactly on the stored values using rational
+# arithmetic. After a successful BigFloat Cholesky test, weak duality gives a numerical
+# gap estimate. The Cholesky test and value evaluation use rounded arithmetic.
+function dual_value(Θ, S, λoff, λdiag)
+  p = size(S, 1)
+  Sb, off, diagonal = BigFloat.(S), BigFloat(λoff), BigFloat(λdiag)
+  inverse = inv(BigFloat.(Θ))
+  W = copy(Sb)
+  W[diagind(W)] .+= diagonal
+  for j in 2:p, i in 1:j-1
+    W[i, j] = W[j, i] = Sb[i, j] + clamp(inverse[i, j] - Sb[i, j], -off, off)
+  end
+
+  exact(x) = Rational{BigInt}(x)
+  in_box = all(exact(W[i, i]) == exact(S[i, i]) + exact(λdiag) for i in 1:p) &&
+           all(abs(exact(W[i, j]) - exact(S[i, j])) <= exact(λoff) for j in 2:p for i in 1:j-1)
+  in_box || return nothing
+  factor = cholesky(Symmetric(W); check = false)
+  return issuccess(factor) ? Float64(logdet(factor) + p) : nothing
+end
 
 # ## Compare with the true graph
 #
-# An edge is an unordered pair `i < j` with a nonzero entry, so each pair is counted once. True
-# positives are estimated edges of the true graph, false positives estimated edges outside it and
-# false negatives true edges that the estimate sets to zero.
+# An edge is an unordered pair `i < j` with an exact nonzero entry. We also compare the
+# diagonals and the full precision matrices with their population values. The diagonal error
+# is the Euclidean norm of the difference and the diagonal bias shown for each variable is
+# its signed estimation error on this sample. The unpenalized diagonal fit retains the
+# original sample's checks on edge recovery, sparsity and Frobenius error.
 edge_pairs = [(i, j) for j in 2:p for i in 1:j-1]
-true_edges = count(e -> Θ_true[e...] != 0, edge_pairs)
-estimated_edges = count(e -> Θ[e...] != 0, edge_pairs)
-tp = count(e -> Θ_true[e...] != 0 && Θ[e...] != 0, edge_pairs)
-fp = count(e -> Θ_true[e...] == 0 && Θ[e...] != 0, edge_pairs)
-fn = count(e -> Θ_true[e...] != 0 && Θ[e...] == 0, edge_pairs)
-@assert true_edges == 14 && tp + fn == true_edges && tp + fp == estimated_edges
-largest_false_positive = fp == 0 ? "none" :
-  maximum(abs(Θ[e...]) for e in edge_pairs if Θ_true[e...] == 0 && Θ[e...] != 0)
-smallest_true_positive = tp == 0 ? "none" :
-  minimum(abs(Θ[e...]) for e in edge_pairs if Θ_true[e...] != 0 && Θ[e...] != 0)
-println((pairs = length(edge_pairs), true_edges = true_edges, estimated_edges = estimated_edges,
-         true_positives = tp, false_positives = fp, false_negatives = fn,
-         largest_false_positive = largest_false_positive, smallest_true_positive = smallest_true_positive))
+true_edges = count(e -> !iszero(Θ_true[e...]), edge_pairs)
+@assert true_edges == 14
 
-# The errors of `Θ` against `Θ_true` are compared with those of `inv(S)`, which minimizes the
-# objective at `λ = 0` when `S` is positive definite.
-errors = (frobenius = norm(Θ - Θ_true), spectral = opnorm(Θ - Θ_true),
-          frobenius_inv_S = norm(inv(S) - Θ_true), spectral_inv_S = opnorm(inv(S) - Θ_true))
-println(errors)
+for fit in fits
+  (; λdiag, Θ, Sshift, Λ, result) = fit
+  @assert result.converged && result.minimizer === Θ
+  @assert result.r_norm <= result.eps_pri && result.s_norm <= result.eps_dual
+  @assert all(isfinite, Θ) && issymmetric(Θ)
+  factor = cholesky(Symmetric(Θ))
+  smallest_eigenvalue = eigmin(Symmetric(Θ))
+  @assert smallest_eigenvalue > 0
 
-# These numbers describe one simulated sample. The assertions check statistical sanity rather than
-# exact draws: at least 10 of the 14 true edges are found, some pairs are zero, and the Frobenius
-# error is at most half of `norm(Θ_true)`.
-@assert tp >= 10 && estimated_edges < length(edge_pairs)
-@assert errors.frobenius <= norm(Θ_true) / 2
+  original, shifted = check_objectives(Θ, factor, S, λoff, λdiag, Sshift, Λ, result.minimum)
+  kkt = original_kkt(Θ, S, λoff, λdiag)
+  @assert kkt <= 1e-8
+  dual = dual_value(Θ, S, λoff, λdiag)
+  gap = isnothing(dual) ? nothing : original - dual
+  isnothing(gap) || @assert -1e-10 <= gap <= 1e-8
 
-# Small nonzero entries and finite-sample graph errors are normal. With `n = 200` observations the
-# sample covariance differs from `Σ_true`, and the estimate can have nonzero entries for pairs that
-# are conditionally independent in the population (the false positives printed above, with the
-# largest of their magnitudes, or `"none"` when there are none). The edge counts and magnitudes
-# are observations for this sample and this `λ`. At exact minimizers, a larger `λ` gives a total
-# off-diagonal ℓ₁ norm `Σᵢ≠ⱼ |Θᵢⱼ|` that is no larger, but the number of zeros and the individual
-# entries need not change monotonically with `λ`. Regularization changes the fitted magnitudes and
-# can bias them; the errors printed above are differences on this one sample.
+  diagonal_error = norm(diag(Θ) - diag(Θ_true))
+  frobenius_error = norm(Θ - Θ_true)
+  estimated_edges = count(e -> !iszero(Θ[e...]), edge_pairs)
+  tp = count(e -> !iszero(Θ_true[e...]) && !iszero(Θ[e...]), edge_pairs)
+  println((; λdiag, status = result.status, iterations = result.iterations,
+           original_objective = original, shifted_objective = shifted, solver_objective = result.minimum,
+           max_kkt_violation = kkt, smallest_eigenvalue, diagonal_error, frobenius_error,
+           estimated_edges, true_positives = tp, false_positives = estimated_edges - tp,
+           false_negatives = true_edges - tp, dual_objective = something(dual, "not certified"),
+           duality_gap_estimate = something(gap, "not certified")))
+  if iszero(λdiag)
+    @assert tp >= 10 && estimated_edges < length(edge_pairs)
+    @assert frobenius_error <= norm(Θ_true) / 2
+  end
+end
 
 # ## Reading the figure
 #
-# The first two heatmaps share one symmetric color scale. Their diagonals are hidden (displayed as
-# zero) to make the off-diagonal structure visible; the estimate's diagonal is not penalized. The
-# third panel compares the graphs: above the diagonal, the true edges; below it, the estimated
-# edges, so a symmetric pattern means agreement.
+# The four heatmaps share one symmetric color scale. Their diagonals are displayed as zero
+# to show the off-diagonal structure. The lower panel shows the signed error in each
+# diagonal entry, with zero denoting the true value.
 #!jl using Plots
-#!jl shown = [copy(Θ_true), copy(Θ)]
+#!jl labels = ("λdiag = 0", "λdiag = λoff/2", "λdiag = λoff")
+#!jl shown = [copy(Θ) for Θ in (Θ_true, (fit.Θ for fit in fits)...)]
 #!jl for matrix in shown
 #!jl   matrix[diagind(matrix)] .= 0.0
 #!jl end
 #!jl limit = maximum(maximum(abs, matrix) for matrix in shown)
-#!jl panels = [heatmap(1:p, 1:p, matrix; title = title, color = :RdBu, clims = (-limit, limit),
-#!jl   aspect_ratio = 1, yflip = true, xlabel = "Variable", ylabel = "Variable", xticks = 1:p, yticks = 1:p)
-#!jl   for (title, matrix) in zip(("True precision (off-diagonal)", "Estimate (off-diagonal)"), shown)]
-#!jl edges = [i < j ? Float64(Θ_true[i, j] != 0) : i > j ? Float64(Θ[i, j] != 0) : 0.0 for i in 1:p, j in 1:p]
-#!jl push!(panels, heatmap(1:p, 1:p, edges; title = "Edges: upper true,\nlower estimated",
-#!jl   color = cgrad([:white, :darkorange]), clims = (0, 1), colorbar = false, aspect_ratio = 1,
-#!jl   yflip = true, xlabel = "Variable", ylabel = "Variable", xticks = 1:p, yticks = 1:p))
-#!jl figure = plot(panels...; layout = (1, 3), size = (1200, 420), titlefontsize = 12,
-#!jl   left_margin = 4Plots.mm, bottom_margin = 5Plots.mm, top_margin = 3Plots.mm)
+#!jl ticks = [1, 4, 7, 10, 12]
+#!jl panels = [heatmap(1:p, 1:p, matrix; title, color = :RdBu, clims = (-limit, limit),
+#!jl   colorbar = i == length(shown), aspect_ratio = 1, yflip = true, xlabel = "Variable",
+#!jl   ylabel = i == 1 ? "Variable" : "", xticks = ticks, yticks = ticks)
+#!jl   for (i, (title, matrix)) in enumerate(zip(("True precision", labels...), shown))]
+#!jl errors = hcat((diag(fit.Θ) - diag(Θ_true) for fit in fits)...)
+#!jl bias = plot(1:p, errors; label = reshape(collect(labels), 1, :), marker = :circle, xlabel = "Variable",
+#!jl   ylabel = "Diagonal error", xticks = 1:p, legend = :outerright)
+#!jl hline!(bias, [0.0]; label = "", linestyle = :dash, color = :gray)
+#!jl figure = plot(panels..., bias; layout = @layout([a b c d{0.34w}; e]), size = (1200, 640),
+#!jl   titlefontsize = 12, left_margin = 4Plots.mm, bottom_margin = 4Plots.mm)
 #!jl savefig(figure, "graphical_lasso.svg")
 #!jl nothing
 
 # ## What we learned
 #
-# On this sample, the graphical lasso fit has zero entries, is exactly symmetric and passes the
-# checks `isposdef` and a positive smallest eigenvalue. In general, a normal return of `solve!` on
-# this graphical-lasso path gives an exactly symmetric matrix whose Cholesky factorization succeeds
-# in its element type; this working-precision test does not prove positive definiteness of a
-# matrix close to singular, and a small penalty can give a dense estimate. The checks on this page
-# come from the data: the recomputed objective, the KKT violation, the smallest eigenvalue and,
-# when the stored dual matrix passes the exact box check and the Cholesky test, a numerical
-# estimate of the duality gap. `converged` reports the ADMM residual tests, with a stationarity
-# check when both computed residuals are zero; it is not by itself a certificate, and the residual
-# tests do not enforce the normalized `1e-8` KKT bound asserted above. The edge counts and errors
-# depend on the sample, on `n` and on `λ`; this page does not choose `λ` from the data.
+# Changing the diagonal penalty changes the objective. Compare the fitted errors and edge
+# counts for this one sample at fixed `λoff`. The residual tests behind the solver's convergence
+# flag and the independently computed KKT violation describe different quantities. A numerical
+# duality gap is reported when the dual candidate passes both the exact affine constraints and
+# the BigFloat Cholesky test.
 #
 # The figure is generated from this script during the documentation build. Run the script alone
 # for the same seeded calculations and checks without loading Plots.

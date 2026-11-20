@@ -15,7 +15,7 @@ as supported in the table is not verified; the sections below give the exact inp
 
 | Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `CDSolver` on a `Matrix` | `ProximalGradientDescent` on a `Vector` | `ProximalGradientDescent` on a `Matrix` | `AccProxGradDescent` on a `Vector` | `ADMMSolver` on a `Vector` | `ADMMSolver` on a `Matrix` | Tutorial |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | [Lasso](examples/problems/lasso.md) |
+| Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | Float64 (l) | — | [Lasso](examples/problems/lasso.md) |
 | Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | [Weighted lasso](examples/problems/weighted_lasso.md) |
 | Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
 | Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
@@ -27,7 +27,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | — | Float32, Float64 | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 | Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
-| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric zero-diagonal `Matrix` weights | — | — | — | — | — | Float32, Float64 (l) | — | — | Float32, Float64 (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
+| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric zero-diagonal `Matrix` weights | — | — | — | — | — | Float32, Float64 (m) | — | — | Float32, Float64 (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
 
 `ElasticNet` is unweighted where it appears in the table. `NormL1` is unweighted except in two rows: in the
 weighted-lasso row, `NormL1(lambda, w)` has one weight per coefficient, and in the graphical-lasso row,
@@ -99,7 +99,13 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   objective and KKT scores, and, on those fixtures, a candidate dual matrix that must pass a
   Cholesky check, with its gap compared against a roundoff allowance. See
   [Graphical lasso with consensus ADMM](@ref).
-- **(l)** Matrix PGD starts from a dense symmetric positive-definite matrix and uses bounded
+- **(l)** `ADMMSolver` solves the lasso only with the raw `LeastSquaresLoss(y, X)`, an unweighted
+  `NormL1(n * lambda)` for the normalized lasso, a `Vector{Float64}` iterate, a `Matrix{Float64}`
+  design, a `Vector{Float64}` response and a tall or square design (`n ≥ p`). A `Float32` or mixed
+  type, a scaled loss, a weighted penalty and a wide design (`n < p`) are refused with an
+  `ArgumentError`. The tests and the lasso tutorials check the returned point against an
+  independent objective and KKT violation. See [Lasso with consensus ADMM](@ref) and [ADM-05](@ref).
+- **(m)** Matrix PGD starts from a dense symmetric positive-definite matrix and uses bounded
   backtracking and a normalized KKT check. The [matrix PGD contract](@ref PGD-06) gives
   the input and option rules. The [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
   fits the same estimator with ADMM and PGD.
@@ -157,6 +163,27 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Nonnegative least squares and lasso | `ProximalGradientDescent` only, with `IndNonnegative()` or unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
 
+### Lasso with consensus ADMM
+
+~~~math
+\min_\beta\quad \frac12\|y-X\beta\|_2^2+n\lambda\|\beta\|_1,
+~~~
+
+which is the normalized lasso with `s = 1/n`, multiplied by `n`. Use the raw `LeastSquaresLoss(y, X)`
+without a scale and `NormL1(n * lambda)`; the reported `minimum` is `n` times the normalized
+objective. The iterate, design and response are `Vector{Float64}`, `Matrix{Float64}` and
+`Vector{Float64}`, with `n ≥ p`. A wide design is refused with an `ArgumentError` and is not part of
+the supported surface; its support is a follow-up that depends on ProximalBase.
+
+The proximal step of the loss uses an SVD of `X` that the loss object caches on its first call. The
+solver reuses that cache for every iteration and for later solves with the same loss, which must
+therefore be used by one solve at a time. The first call is expensive and the later ones are cheap,
+so compare the time to a given accuracy with and without the setup, as the
+[solver comparison](examples/comparisons/lasso_solvers.md) does. `converged = true` reports the
+ADMM residual tests, with a stationarity check when both residuals are zero; it is not an optimality
+certificate. See [ADM-05](@ref) for the exact rules and the
+[lasso tutorial](examples/problems/lasso.md#Consensus-ADMM) for an independently checked fit.
+
 ### Sparse signal denoising with consensus ADMM
 
 Use `SqrNormL2(λ, c)` and unweighted `NormL1(τ)` with `ADMMSolver` to fit a
@@ -177,6 +204,10 @@ is a finite, nonnegative, exactly symmetric `Matrix` with a zero diagonal, with 
 a dense, exactly symmetric `Matrix` start whose Cholesky factorization succeeds, such as the
 identity. The data, weights, start and optional scaled dual share one `Float32` or `Float64`
 element type. The penalty runs over the full matrix, so each off-diagonal pair counts twice.
+To add a finite nonnegative diagonal penalty `λdiag * sum(abs, diag(Θ))`, pass
+`S + λdiag*I` to `LogDetLoss` and keep `Λ` zero on the diagonal. For positive-definite `Θ`,
+every diagonal entry is positive and the penalty equals `λdiag * tr(Θ)`. The shifted
+covariance must be finite and exactly symmetric.
 
 Use a fixed `ρ`, an `α` stored as 1 by the `ADMMSolver` constructor and `adaptive = false`.
 On a normal return the matrix is exactly symmetric and passes a Cholesky factorization in its
@@ -365,7 +396,8 @@ The current development core intentionally excludes the following:
 | Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
 | Weighted square-root lasso, `Scaled(SqrtLeastSquaresLoss)`, `SqrtLeastSquaresLoss` with an `ElasticNet` or a `BlockIterate`, or with PGD or APG | Refused with an `ArgumentError` (weights and `Scaled` deferred) |
 | Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE; graphical lasso (log-determinant estimation of a precision matrix) with QUIC or other solvers outside [ADM-04](@ref) and [PGD-06](@ref) | Deferred |
-| ADMM with other functions or storage than the two supported problems, product spaces, general linear constraints, custom norms, or over-relaxation or the adaptive penalty on a `Matrix` | Deferred |
+| ADMM with other functions or storage than the supported problems ([ADM-01](@ref), [ADM-05](@ref), [ADM-04](@ref)), product spaces, general linear constraints, custom norms, or over-relaxation or the adaptive penalty on a `Matrix` | Deferred |
+| ADMM with `LeastSquaresLoss` and a wide design (`n < p`), `Float32` or mixed types, a scaled loss or a weighted penalty | Refused with an `ArgumentError`; wide designs are an upstream follow-up |
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |
 | PGD or APG with `BlockIterate` coefficients or a matrix response, and matrix coefficients outside [PGD-06](@ref) | Deferred; refused with an `ArgumentError` |
