@@ -1,7 +1,7 @@
 module PGDGraphicalLassoTests
 
-using LinearAlgebra: Diagonal, I, Symmetric, SymTridiagonal, cholesky, diagind, dot, eigmin, issuccess, logdet, norm
-using ProximalBase: LogDetLoss, NormL1, NormLinf, prox!
+using LinearAlgebra: Diagonal, I, Symmetric, SymTridiagonal, cholesky, diagind, dot, eigmin, issuccess, logdet
+using ProximalBase: LogDetLoss, NormL1, NormLinf
 using ProximalSolvers: ADMMSolver, AccProxGradDescent, LineSearches, OptimizationResults, ProximalGradientDescent, ProximalOptions, solve!
 using Random: Xoshiro, randn
 using Test
@@ -36,10 +36,10 @@ function independent(Θ, S, g)
   (; score, primal, gap, scale_objective=1 + abs(trace) + abs(ld) + penalty)
 end
 
-function check_solution!(Θ, S, g; reference=nothing, expected_backtracks=nothing)
+function check_solution!(Θ, S, g; method=ProximalGradientDescent(), reference=nothing)
   f = LogDetLoss(S)
   S_snapshot, W_snapshot = copy(f.S), copy(g.w)
-  r = solve!(Θ, f, g, ProximalGradientDescent(), pg_options())
+  r = solve!(Θ, f, g, method, pg_options())
   T = eltype(Θ)
   @test r isa OptimizationResults && r.minimizer === Θ
   @test r.converged && r.grad_converged && !r.stagnated && !r.call_limit_reached
@@ -54,7 +54,6 @@ function check_solution!(Θ, S, g; reference=nothing, expected_backtracks=nothin
   @test r.backtrack_steps <= 64 * r.iterations
   @test isfinite(r.x_residual) && isfinite(r.f_residual)
   @test isnan(r.gap) && isempty(r.trace)
-  expected_backtracks === nothing || @test r.backtrack_steps == expected_backtracks
   d = independent(Θ, S, g)
   @test d.score <= target(T)
   @test abs(d.score - r.g_residual) <= 32eps(T)
@@ -103,21 +102,27 @@ end
     X .-= sum(X; dims=1) ./ n
     S64 = Matrix(Symmetric(X' * X / n))
     for T in (Float32, Float64)
-      S = T.(S64)
-      g = NormL1(one(T), weights(T, p, n < p ? 0.25 : 0.12))
-      Θ = identity_matrix(T, p)
-      d = check_solution!(Θ, S, g)
-      if p == 10
-        other = identity_matrix(T, p)
-        tol = T === Float32 ? 1e-6 : 1e-11
-        result = solve!(other, LogDetLoss(S), g, ADMMSolver(; abstol=tol, reltol=tol),
-                        ProximalOptions(; maxiter=5000))
-        @test result.converged && all(isfinite, other) && other == other'
-        ref = independent(other, S, g)
-        @test ref.score <= target(T)
-        @test -big"1e-60" <= ref.gap <= target(T) * max(1, abs(ref.primal))
-        @test abs(d.primal - ref.primal) <= target(T) * max(1, abs(d.primal))
-        @test maximum(abs, Θ - other) <= target(T) * max(1, maximum(abs, other))
+      @testset "p=$p, n=$n, $T" begin
+        S = T.(S64)
+        g = NormL1(one(T), weights(T, p, n < p ? 0.25 : 0.12))
+        Θ = identity_matrix(T, p)
+        # At the larger sizes, hold the accepted step between iterations.
+        # The smaller fixture exercises step growth with the default settings.
+        method = p == 10 ? ProximalGradientDescent() :
+                 ProximalGradientDescent(; ls=LineSearches.BackTracking(α=1))
+        d = check_solution!(Θ, S, g; method)
+        if p == 10
+          other = identity_matrix(T, p)
+          tol = T === Float32 ? 1e-6 : 1e-11
+          result = solve!(other, LogDetLoss(S), g, ADMMSolver(; abstol=tol, reltol=tol),
+                          ProximalOptions(; maxiter=5000))
+          @test result.converged && all(isfinite, other) && other == other'
+          ref = independent(other, S, g)
+          @test ref.score <= target(T)
+          @test -big"1e-60" <= ref.gap <= target(T) * max(1, abs(ref.primal))
+          @test abs(d.primal - ref.primal) <= target(T) * max(1, abs(d.primal))
+          @test maximum(abs, Θ - other) <= target(T) * max(1, maximum(abs, other))
+        end
       end
     end
   end
@@ -214,15 +219,15 @@ end
     f = LogDetLoss(array(2))
     accepted = start - (f.S - inv.(start))
     z = copy(start)
-    @test_throws "matrix PGD line search failed after 64 trials" solve!(z, f, g, ProximalGradientDescent(; ls), pg_options())
+    @test_throws ErrorException("matrix PGD line search failed after 64 trials") solve!(z, f, g, ProximalGradientDescent(; ls), pg_options())
     @test z ≈ accepted && z != start && eigmin(Symmetric(z)) > 0
 
     f = LogDetLoss(array(4))
     z = array(1)
-    @test_throws "matrix PGD line search failed after 64 trials" solve!(z, f, g, ProximalGradientDescent(; ls), pg_options())
+    @test_throws ErrorException("matrix PGD line search failed after 64 trials") solve!(z, f, g, ProximalGradientDescent(; ls), pg_options())
     @test z == array(1)
     tiny = LineSearches.BackTracking(α=one(T), β=nextfloat(zero(T)))
-    @test_throws "finite positive step and reciprocal" solve!(z, f, g, ProximalGradientDescent(; ls=tiny), pg_options())
+    @test_throws ErrorException("matrix PGD line search requires a finite positive step and reciprocal") solve!(z, f, g, ProximalGradientDescent(; ls=tiny), pg_options())
     @test z == array(1)
 
     # The first proposal is SPD and the logdet term is finite, but the smooth

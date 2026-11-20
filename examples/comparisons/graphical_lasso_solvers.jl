@@ -79,7 +79,7 @@ for (name, attempts) in pairs(runs)
   @assert r.converged && d.eigmin > 0 && d.kkt <= target
   @assert isapprox(r.minimum, d.primal; rtol=1e-12)
   @assert !ismissing(d.gap) && -1e-12 <= d.gap <= target * max(1, abs(d.primal))
-  println((solver=name, status=name === :ADMM ? r.status : :converged,
+  println((; solver=name, status=name === :ADMM ? r.status : :converged,
            d.eigmin, d.primal, d.kkt, d.gap, r.iterations,
            f_calls=name === :ADMM ? missing : r.f_calls,
            grad_calls=name === :ADMM ? missing : r.grad_calls,
