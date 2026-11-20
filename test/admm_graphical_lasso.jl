@@ -26,42 +26,45 @@ function gl_objective(Θ, S, Λ)
   (; value = trace - ld + penalty, logdet = ld, trace, penalty)
 end
 
-# With G = S - inv(Θ): |Gᵢᵢ| on the diagonal, |Gᵢⱼ + Λᵢⱼ sign(Θᵢⱼ)| at a nonzero
-# off-diagonal entry and max(|Gᵢⱼ| - Λᵢⱼ, 0) at an exact zero. The relative score
-# divides the largest score by max(1, maximum(abs, S)).
+# With G = S - inv(Θ), the violation is |Gᵢⱼ + Λᵢⱼ sign(Θᵢⱼ)| at a nonzero entry
+# and max(|Gᵢⱼ| - Λᵢⱼ, 0) at an exact zero. The relative score divides the largest
+# violation by max(1, maximum(abs, S), maximum(Λ)).
 function kkt_scores(Θ, S, Λ)
   Sb, Λb = BigFloat.(S), BigFloat.(Λ)
   G = Sb - inv(BigFloat.(Θ))
   p = size(Θ, 1)
   worst = big(0.0)
   for j in 1:p, i in 1:p
-    score = if i == j
-      abs(G[i, i])
-    elseif iszero(Θ[i, j])
+    score = if iszero(Θ[i, j])
       max(abs(G[i, j]) - Λb[i, j], 0)
     else
       abs(G[i, j] + Λb[i, j] * sign(Θ[i, j]))
     end
     worst = max(worst, score)
   end
-  (; abs = Float64(worst), rel = Float64(worst / max(1, maximum(abs, Sb))))
+  (; abs = Float64(worst), rel = Float64(worst / max(1, maximum(abs, Sb), maximum(Λb))))
 end
 
-# A candidate dual W = S + U, formed in BigFloat, with Uᵢᵢ = 0 and off-diagonal
-# entries of inv(Θ) - S clipped into [-Λᵢⱼ, Λᵢⱼ]. When W passes a BigFloat Cholesky
-# factorization, the gap P(Θ) - D(W) with D(W) = logdet W + p is returned; in exact
-# arithmetic weak duality makes it nonnegative for a feasible W ≻ 0. Otherwise the
-# point is not certified.
+# Fix Wᵢᵢ = Sᵢᵢ + Λᵢᵢ and clip the off-diagonal deviations of inv(Θ) from S.
+# Check the affine constraints exactly on the stored candidate before evaluating
+# D(W) = logdet W + p by BigFloat Cholesky.
 function dual_certificate(Θ, S, Λ)
   Sb, Λb = BigFloat.(S), BigFloat.(Λ)
   inverse = inv(BigFloat.(Θ))
   p = size(Θ, 1)
-  U = zeros(BigFloat, p, p)
+  W = copy(Sb)
+  W[diagind(W)] .+= diag(Λb)
   for j in 2:p, i in 1:j-1
-    U[i, j] = U[j, i] = clamp(inverse[i, j] - Sb[i, j], -Λb[i, j], Λb[i, j])
+    W[i, j] = W[j, i] = Sb[i, j] + clamp(inverse[i, j] - Sb[i, j], -Λb[i, j], Λb[i, j])
   end
-  factor = cholesky(Symmetric(Sb + U); check = false)
-  issuccess(factor) || return (; certified = false, gap = big(NaN), dual = big(NaN))
+  uncertified = (; certified = false, gap = big(NaN), dual = big(NaN))
+  exact(x) = Rational{BigInt}(x)
+  in_box = W == W' &&
+           all(exact(W[i, i]) == exact(S[i, i]) + exact(Λ[i, i]) for i in 1:p) &&
+           all(abs(exact(W[i, j]) - exact(S[i, j])) <= exact(Λ[i, j]) for j in 2:p for i in 1:j-1)
+  in_box || return uncertified
+  factor = cholesky(Symmetric(W); check = false)
+  issuccess(factor) || return uncertified
   dual = logdet(factor) + p
   (; certified = true, gap = gl_objective(Θ, S, Λ).value - dual, dual)
 end
@@ -139,6 +142,47 @@ function check_accurate(result, Θ, S, Λ, method; reference = nothing)
   end
   reference === nothing || @test within(Θ, reference, T)
   (; terms, scores, certificate)
+end
+
+function compare_full_weight_routes(name, S::Matrix{T}, λ0::T, Λ::Matrix{T}; reference = nothing) where T
+  p = size(S, 1)
+  S0, Λ0 = copy(S), copy(Λ)
+  C = effective(λ0, Λ)
+  Sshift, Λzero = copy(S), copy(Λ)
+  # The control rounds the effective weight and then the covariance addition
+  # in T. The independent checks below use the original stored coefficients.
+  for i in 1:p
+    Sshift[i, i] += T(λ0 * Λ[i, i])
+    Λzero[i, i] = zero(T)
+  end
+  shifted0, zero0 = copy(Sshift), copy(Λzero)
+  method = accurate_method(T)
+  Θ, control = Matrix{T}(I, p, p), Matrix{T}(I, p, p)
+  u, control_u = zeros(T, p, p), zeros(T, p, p)
+  direct = solve!(Θ, LogDetLoss(S), NormL1(λ0, Λ), method, LONG; u)
+  shifted = solve!(control, LogDetLoss(Sshift), NormL1(λ0, Λzero), method, LONG; u = control_u)
+  @test direct.u === u && shifted.u === control_u
+  @test samebits(S, S0) && samebits(Λ, Λ0)
+  @test samebits(Sshift, shifted0) && samebits(Λzero, zero0)
+  a = check_accurate(direct, Θ, S, C, method; reference)
+  b = check_accurate(shifted, control, S, C, method; reference)
+  @test within(Θ, control, T)
+  objective_difference = abs(a.terms.value - b.terms.value)
+  @test objective_difference <= accuracy(T) * max(1, abs(a.terms.value))
+  optimum = reference === nothing ? nothing : gl_objective(reference, S, C).value
+  for (route, point, result, check) in ((:direct, Θ, direct, a), (:shifted, control, shifted, b))
+    objective_error = optimum === nothing ? nothing : abs(check.terms.value - optimum)
+    if objective_error !== nothing
+      @test objective_error <= accuracy(T) * max(1, abs(optimum))
+    end
+    println((; fixture = name, precision = T, route, result.status, result.iterations,
+             analytic_error = reference === nothing ? nothing : maximum(abs, BigFloat.(point) - reference),
+             objective = Float64(check.terms.value), objective_error, objective_difference,
+             solution_difference = maximum(abs, BigFloat.(Θ) - BigFloat.(control)),
+             kkt_absolute = check.scores.abs, kkt_normalized = check.scores.rel,
+             dual_feasible = check.certificate.certified, gap = Float64(check.certificate.gap)))
+  end
+  Θ, control
 end
 
 @testset "Graphical lasso: analytic references" begin
@@ -326,6 +370,73 @@ using .DiagonalPenaltyExample: graphical_lasso_inputs
   end
 end
 
+@testset "Graphical lasso: full weights and covariance-shift control" begin
+  for T in (Float32, Float64)
+    @testset "$T" begin
+      S = fill(T(1.1), 1, 1)
+      for (λ0, weight) in ((one(T), T(0.12)), (T(1/2), T(0.24)))
+        Λ = fill(weight, 1, 1)
+        reference = inv.(BigFloat.(S) + effective(λ0, Λ))
+        compare_full_weight_routes("scalar", S, λ0, Λ; reference)
+      end
+
+      S = Matrix(Diagonal(T[1/2, 1, 2, 4]))
+      Λ = fill(T(1/4), 4, 4)
+      Λ[diagind(Λ)] .= T[1/8, 0, 1/4, 3/8]
+      reference = Diagonal(inv.(BigFloat.(diag(S)) + BigFloat.(diag(Λ))))
+      direct, shifted = compare_full_weight_routes("diagonal", S, one(T), Λ; reference)
+      @test all(iszero(point[i, j]) for point in (direct, shifted) for (i, j) in offdiagonal(4))
+
+      Λ = T[1/8 1/4; 1/4 3/8]
+      for (name, s12) in (("zero edge", 1/8), ("boundary", 1/4), ("active positive", 3/4), ("active negative", -3/4))
+        S = T[1 s12; s12 2]
+        @test isposdef(Symmetric(S))
+        W = BigFloat.(S) + Diagonal(BigFloat.(diag(Λ)))
+        W[1, 2] = W[2, 1] = soft_threshold(W[1, 2], BigFloat(Λ[1, 2]))
+        @test isposdef(Symmetric(W))
+        direct, shifted = compare_full_weight_routes(name, S, one(T), Λ; reference = inv(W))
+        for point in (direct, shifted)
+          if iszero(W[1, 2])
+            @test abs(point[1, 2]) <= accuracy(T)
+          else
+            @test sign(point[1, 2]) == -sign(s12)
+          end
+        end
+      end
+
+      S = T[2 1/2 1/4; 1/2 3/2 1/8; 1/4 1/8 1]
+      Λdiag = Matrix(Diagonal(T[1/8, 1/4, 3/8]))
+      Λ = Λdiag + T[0 5/8 5/8; 5/8 0 5/8; 5/8 5/8 0]
+      compare_full_weight_routes("zero level with stored full weights", S, zero(T), Λ; reference = inv(BigFloat.(S)))
+      compare_full_weight_routes("zero off-diagonal level", S, one(T), Λdiag; reference = inv(BigFloat.(S) + BigFloat.(Λdiag)))
+      reference = Diagonal(inv.(BigFloat.(diag(S)) + BigFloat.(diag(Λ))))
+      direct, shifted = compare_full_weight_routes("large off-diagonal level", S, one(T), Λ; reference)
+      @test all(iszero(point[i, j]) for point in (direct, shifted) for (i, j) in offdiagonal(3))
+
+      S = T[2 5/8 1/16; 5/8 3/2 0; 1/16 0 1]
+      Λ = T[1/4 1/4 3/8; 1/4 1/2 0; 3/8 0 3/4]
+      W = BigFloat[17/8 1/2 0; 1/2 7/4 0; 0 0 11/8]
+      compare_full_weight_routes("heterogeneous full weights", S, T(1/2), Λ; reference = inv(W))
+
+      S = T.(DiagonalPenaltyExample.S)
+      off = T(DiagonalPenaltyExample.λoff)
+      for diagonal in (zero(T), off / 2, off)
+        Λ = fill(off, size(S))
+        Λ[diagind(Λ)] .= diagonal
+        compare_full_weight_routes("tutorial diagonal level $diagonal", S, one(T), Λ)
+      end
+    end
+  end
+
+  # An indefinite candidate and a rounded fixed diagonal both preclude a certificate.
+  Θ = ones(1, 1)
+  for (S, C) in ((fill(-2.0, 1, 1), fill(0.5, 1, 1)),
+                 (ones(1, 1), fill(big(2.0)^(-300), 1, 1)))
+    certificate = dual_certificate(Θ, S, C)
+    @test !certificate.certified && isnan(certificate.gap) && isnan(certificate.dual)
+  end
+end
+
 # A sparse symmetric positive-definite precision matrix for the seeded p = 16 fixture:
 # a chain with three extra edges.
 function sparse_precision(p)
@@ -370,6 +481,10 @@ end
       @test shifted.minimum === result.minimum && shifted.iterations == result.iterations
       @test shifted.status === result.status
 
+      weights = copy(Λ)
+      weights[diagind(weights)] .= T(λ / 2)
+      compare_full_weight_routes("seeded sparse precision with diagonal penalty", S, one(T), weights)
+
       # Statistical sanity, not exact draws: each unordered pair counted once.
       tp = count(e -> Θ_true[e...] != 0 && Θ[e...] != 0, edges)
       fp = count(e -> Θ_true[e...] == 0 && Θ[e...] != 0, edges)
@@ -386,11 +501,15 @@ end
 end
 
 @testset "Graphical lasso: one step, residuals and tolerances" begin
-  for T in (Float32, Float64)
+  for T in (Float32, Float64), penalized_diagonal in (false, true)
     S = T[2 1/2 0; 1/2 3/2 1/4; 0 1/4 1]
     Λ = T[0 1/5 1/5; 1/5 0 1/5; 1/5 1/5 0]
     start = T[1 1/8 0; 1/8 1 1/4; 0 1/4 1]
     dual = T[0 1/16 0; 1/16 0 -1/16; 0 -1/16 0]
+    if penalized_diagonal
+      Λ[diagind(Λ)] .= T[1/8, 1/4, 3/8]
+      dual[diagind(dual)] .= T[1/16, -1/16, 1/8]
+    end
     rho, abstol, abstol_dual, reltol = T(2), T(1/32), T(1/64), T(1/16)
     γ = inv(Float64(rho))
     # Independent replay of one iteration in Float64 from the stored data.
@@ -425,11 +544,12 @@ end
 end
 
 @testset "Graphical lasso: limits and statuses" begin
-  for T in (Float32, Float64)
+  for T in (Float32, Float64), penalized_diagonal in (false, true)
     S = T[2 1/2 0; 1/2 3/2 1/4; 0 1/4 1]
     Λ = T[0 1/5 1/5; 1/5 0 1/5; 1/5 1/5 0]
     start = T[1 1/8 0; 1/8 1 1/4; 0 1/4 1]
     dual = T[0 1/16 0; 1/16 0 -1/16; 0 -1/16 0]
+    penalized_diagonal && (Λ[diagind(Λ)] .= T[1/8, 1/4, 3/8])
     f, g = LogDetLoss(S), NormL1(one(T), Λ)
     method = ADMMSolver(; abstol = 0, reltol = 0)
     # ProximalOptions requires maxiter ≥ 2; in this testset zero iterations come
@@ -474,6 +594,19 @@ end
     @test result.iterations == 1 && result.r_norm == result.s_norm == 0 && Θ == ones(T, 1, 1)
     @test ProximalSolvers.f_calls(result) == 1 && ProximalSolvers.grad_calls(result) == 0
 
+    # With S = 3/4 and C = 1/4 the exact fixed point has G = -1/4.
+    # The explicit dual makes both prox updates and both residuals exact.
+    Θ, u = ones(T, 1, 1), fill(T(1/4), 1, 1)
+    S, Λ = fill(T(3/4), 1, 1), fill(T(1/4), 1, 1)
+    method = ADMMSolver(; ρ = 1, abstol = 0, reltol = 0)
+    result = solve!(Θ, LogDetLoss(S), NormL1(one(T), Λ), method; u)
+    @test result.converged && result.status === :converged
+    @test result.iterations == 1 && result.prox_calls == 2
+    @test result.r_norm == result.s_norm == 0 && kkt_scores(Θ, S, Λ).abs == 0
+    @test result.minimizer === Θ && samebits(Θ, ones(T, 1, 1))
+    @test result.u === u && samebits(u, fill(T(1/4), 1, 1))
+    check_solution(result, Θ, S, effective(1, Λ), method)
+
     # At this penalty the logdet prox rounds back to Θ = 1 and the zero-weight
     # penalty copies its input, although the stationarity score |S₁₁ - 1/Θ₁₁| is 1.
     Θ, S = ones(T, 1, 1), fill(T(2), 1, 1)
@@ -481,6 +614,15 @@ end
     @test Θ == ones(T, 1, 1) && result.r_norm == result.s_norm == 0
     @test kkt_scores(Θ, S, zeros(T, 1, 1)).abs == 1
     @test !result.converged && result.status === :stagnated && ProximalSolvers.stagnated(result)
+    @test result.iterations == 1 && result.prox_calls == 2
+
+    # Positive diagonal shrinkage can also round away at large ρ.
+    Θ, u = ones(T, 1, 1), zeros(T, 1, 1)
+    S = fill(T(2), 1, 1)
+    result = solve!(Θ, LogDetLoss(S), NormL1(one(T), Λ), ADMMSolver(; ρ = T(2)^100); u)
+    @test Θ == ones(T, 1, 1) && result.r_norm == result.s_norm == 0
+    @test kkt_scores(Θ, S, Λ).abs == 5/4 > result.eps_dual
+    @test !result.converged && result.status === :stagnated
     @test result.iterations == 1 && result.prox_calls == 2
 
     # An off-diagonal score: from the start diag(1, 4), the logdet prox returns the
@@ -498,9 +640,10 @@ end
 end
 
 @testset "Graphical lasso: indefinite intermediate consensus iterate" begin
-  for T in (Float32, Float64)
+  for T in (Float32, Float64), penalized_diagonal in (false, true)
     S = T[2 1/2; 1/2 1]
     Λ = T[0 1/10; 1/10 0]
+    penalized_diagonal && (Λ[diagind(Λ)] .= T[1/8, 1/4])
     rho = T(1/4)
     start, dual = Matrix{T}(I, 2, 2), T[-50 0; 0 -50]
     # Replay the two prox calls of the first iteration independently.
@@ -528,10 +671,10 @@ end
 end
 
 @testset "Graphical lasso: warm starts" begin
-  for T in (Float32, Float64)
+  for T in (Float32, Float64), penalized_diagonal in (false, true)
     S = T[2 1/2 1/4 0; 1/2 3/2 1/4 1/8; 1/4 1/4 1 3/8; 0 1/8 3/8 5/4]
     Λ = fill(T(1/10), 4, 4)
-    Λ[diagind(Λ)] .= 0
+    Λ[diagind(Λ)] .= penalized_diagonal ? T[1/8, 1/4, 0, 3/8] : zero(T)
     f, g = LogDetLoss(S), NormL1(one(T), Λ)
     method = accurate_method(T)
     fresh = solve!(Matrix{T}(I, 4, 4), f, g, method, LONG)
@@ -559,9 +702,13 @@ end
 @testset "Graphical lasso: refusals leave caller buffers unchanged" begin
   function refuses(E, Θ, f, g, method = ADMMSolver(), options = ProximalOptions(); u = nothing, kwargs...)
     Θ0, u0 = deepcopy(Θ), deepcopy(u)
+    S0 = f isa LogDetLoss ? copy(f.S) : nothing
+    Λ0 = g isa NormL1 && g.w isa Array ? copy(g.w) : nothing
     @test_throws E solve!(Θ, f, g, method, options; u, kwargs...)
     @test samebits(Θ, Θ0)
     u === nothing || @test samebits(u, u0)
+    S0 === nothing || @test samebits(f.S, S0)
+    Λ0 === nothing || @test samebits(g.w, Λ0)
   end
 
   for T in (Float32, Float64)
@@ -579,18 +726,23 @@ end
         broken.S[index...] = value
         refuses(ArgumentError, Θ, broken, g; u)
       end
-      # Weights: asymmetric, nonzero diagonal, infinite, then negative and NaN
-      # after a valid construction (NormL1 retains the weights by reference).
-      for (index, value) in (((1, 2), T(1/4)), ((2, 2), T(1/10)), ((1, 3), T(Inf)))
+      # Unequal diagonal weights are valid.
+      weights = Λ + Diagonal(T[1/8, 1/4, 0])
+      compare_full_weight_routes("accepted diagonal weights", S, one(T), weights)
+
+      # Asymmetric off-diagonal weights and infinite entries are refused.
+      for (index, value) in (((1, 2), T(1/4)), ((2, 2), T(Inf)), ((1, 3), T(Inf)))
         weights = copy(Λ)
         weights[index...] = value
         index == (1, 3) && (weights[3, 1] = value)
         refuses(ArgumentError, Θ, f, NormL1(one(T), weights); u)
       end
-      for value in (T(-1/10), T(NaN))
+      # NormL1 retains weights by reference, so preflight must catch
+      # invalid entries introduced after construction.
+      for value in (T(-1/10), T(NaN), T(Inf)), (i, j) in ((1, 1), (1, 2))
         weights = copy(Λ)
         penalty = NormL1(one(T), weights)
-        weights[1, 2] = weights[2, 1] = value
+        weights[i, j] = weights[j, i] = value
         refuses(ArgumentError, Θ, f, penalty; u)
       end
       # The start and the dual.
@@ -631,9 +783,9 @@ end
       refuses(ArgumentError, Θ, f, g; u = g.w)
       refuses(ArgumentError, Θ, f, g; u = f.S)
       refuses(ArgumentError, f.S, f, g)
-      # Weights identical to Θ are refused by the zero-diagonal check before the
-      # alias check; the overlapping storage below reaches the alias check.
-      refuses(ArgumentError, Θ, f, NormL1(one(T), Θ))
+      # The weight values are valid in both the identical and overlapping cases.
+      alias_error = ArgumentError("z must not alias S or the NormL1 weights")
+      refuses(alias_error, Θ, f, NormL1(one(T), Θ); u)
       graph = LogDetLoss(T[0 1; 1 0])
       refuses(ArgumentError, Matrix{T}(I, 2, 2), graph, NormL1(one(T), graph.S))
       backing = T[1, 0, 0, 2, 2, 0]
@@ -642,7 +794,7 @@ end
         start = unsafe_wrap(Matrix{T}, pointer(backing), (2, 2))
         weights = unsafe_wrap(Matrix{T}, pointer(backing, 3), (2, 2))
         @test start == T[1 0; 0 2] && weights == T[0 2; 2 0]
-        refuses(ArgumentError, start, LogDetLoss(T[2 0; 0 1]), NormL1(one(T), weights))
+        refuses(alias_error, start, LogDetLoss(T[2 0; 0 1]), NormL1(one(T), weights))
         @test backing == T[1, 0, 0, 2, 2, 0]
       end
       # Methods, settings and options.
@@ -694,6 +846,12 @@ end
     @test_throws logdet_error(T) solve!(Θ, LogDetLoss(fill(T(2), 1, 1)), NormL1(one(T), zeros(T, 1, 1)),
                                         ADMMSolver(; ρ = floatmax(T)); u)
     @test samebits(Θ, ones(T, 1, 1)) && samebits(u, fill(floatmax(T), 1, 1))
+    # Finite level and weight can give an overflowing objective at the start.
+    Θ, u = ones(T, 1, 1), fill(-zero(T), 1, 1)
+    @test_throws ErrorException("ADMM produced a nonfinite objective at the return point") solve!(
+      Θ, LogDetLoss(ones(T, 1, 1)), NormL1(floatmax(T), fill(T(2), 1, 1)), ADMMSolver(),
+      ProximalOptions(prox_calls_limit = 1); u)
+    @test samebits(Θ, ones(T, 1, 1)) && samebits(u, fill(-zero(T), 1, 1))
   end
 end
 

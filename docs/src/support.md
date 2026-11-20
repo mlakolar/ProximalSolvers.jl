@@ -27,12 +27,13 @@ as supported in the table is not verified; the sections below give the exact inp
 | Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | — | Float32, Float64 | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 | Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
-| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric zero-diagonal `Matrix` weights | — | — | — | — | — | Float32, Float64 (m) | — | — | Float32, Float64 (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
+| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric `Matrix` weights | — | — | — | — | — | Float32, Float64, zero diagonal (m) | — | — | Float32, Float64, full weights (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
 | Sparse logistic regression: raw `LogisticLoss` with a binary response, `NormL1` or `NormL1(lambda, w)` | — | — | — | — | Float64 (n) | — | — | — | — | [Sparse logistic regression](examples/problems/logistic_regression.md) |
 
 `ElasticNet` is unweighted where it appears in the table. `NormL1` is unweighted except in three rows: in the
 weighted-lasso and sparse logistic regression rows, `NormL1(lambda, w)` has one weight per coefficient, and in the graphical-lasso row,
-`NormL1(λ₀, Λ)` has a symmetric zero-diagonal weight matrix ([ADM-04](@ref), [PGD-06](@ref)). `GroupNormL2` takes its group
+`NormL1(λ₀, Λ)` has a symmetric weight matrix. ADMM permits nonnegative diagonal
+weights ([ADM-04](@ref)). PGD requires a zero diagonal ([PGD-06](@ref)). `GroupNormL2` takes its group
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
 [Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
@@ -92,9 +93,9 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   all-zero center, are refused; so are `SqrNormL2` with PGD, APG, block or matrix
   coefficients, or square-root loss. See [supported calls](@ref IN-01),
   [scalar levels](@ref IN-02) and [coordinate range rules](@ref CD-04).
-- **(k)** The graphical lasso needs an exactly symmetric `Matrix{T}` start whose Cholesky
+- **(k)** Matrix ADMM needs an exactly symmetric `Matrix{T}` start whose Cholesky
   factorization succeeds in `T`, `LogDetLoss(S)` with weight one and `NormL1(λ₀, Λ)` with finite,
-  nonnegative, exactly symmetric, zero-diagonal `Matrix{T}` weights, a fixed `ρ`, a stored `α`
+  nonnegative, exactly symmetric full `Matrix{T}` weights, a fixed `ρ`, a stored `α`
   equal to 1 and `adaptive = false` ([ADM-04](@ref) lists all conditions). The tests check
   each element type against analytic optima and a seeded problem with an independently computed
   objective and KKT scores, and, on those fixtures, a candidate dual matrix that must pass a
@@ -106,7 +107,8 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   type, a scaled loss, a weighted penalty and a wide design (`n < p`) are refused with an
   `ArgumentError`. The tests and the lasso tutorials check the returned point against an
   independent objective and KKT violation. See [Lasso with consensus ADMM](@ref) and [ADM-05](@ref).
-- **(m)** Matrix PGD starts from a dense symmetric positive-definite matrix and uses bounded
+- **(m)** Matrix PGD requires zero-diagonal weights and starts from a dense
+  symmetric positive-definite matrix. It uses bounded
   backtracking and a normalized KKT check. The [matrix PGD contract](@ref PGD-06) gives
   the input and option rules. The [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
   fits the same estimator with ADMM and PGD.
@@ -202,18 +204,19 @@ and [ADM-02](@ref) for the residual tests and limits.
 ### Graphical lasso with consensus ADMM
 
 ~~~math
-\min_{\Theta=\Theta^\top\succ0}\quad -\log\det\Theta+\operatorname{tr}(S\Theta)+\lambda_0\sum_{i\ne j}\Lambda_{ij}|\Theta_{ij}|,
+\min_{\Theta=\Theta^\top\succ0}\quad -\log\det\Theta+\operatorname{tr}(S\Theta)+\lambda_0\sum_{i,j}\Lambda_{ij}|\Theta_{ij}|,
 ~~~
 
 where `S` is typically a sample covariance. Use `LogDetLoss(S)` and `NormL1(λ₀, Λ)`, where `Λ`
-is a finite, nonnegative, exactly symmetric `Matrix` with a zero diagonal, with `ADMMSolver` on
+is a finite, nonnegative, exactly symmetric `Matrix` with diagonal weights permitted. Run `ADMMSolver` on
 a dense, exactly symmetric `Matrix` start whose Cholesky factorization succeeds, such as the
 identity. The data, weights, start and optional scaled dual share one `Float32` or `Float64`
 element type. The penalty runs over the full matrix, so each off-diagonal pair counts twice.
-To add a finite nonnegative diagonal penalty `λdiag * sum(abs, diag(Θ))`, pass
-`S + λdiag*I` to `LogDetLoss` and keep `Λ` zero on the diagonal. For positive-definite `Θ`,
-every diagonal entry is positive and the penalty equals `λdiag * tr(Θ)`. The shifted
-covariance must be finite and exactly symmetric.
+On positive-definite `Θ`, the diagonal penalty is linear because `Θ[i,i] > 0`.
+An equivalent formulation adds `λ₀ * Λ[i,i]` to each covariance diagonal entry
+and uses a separate weight matrix with its diagonal set to zero. The shifted
+covariance must be finite and exactly symmetric. Forming the shift in working
+precision can round the effective weight and the sum.
 
 Use a fixed `ρ`, an `α` stored as 1 by the `ADMMSolver` constructor and `adaptive = false`.
 On a normal return the matrix is exactly symmetric and passes a Cholesky factorization in its
@@ -422,7 +425,7 @@ The current development core intentionally excludes the following:
 | Generalized losses other than the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent` in [IN-09](@ref); automatic intercept handling and offsets (a column of ones can be supplied as an unpenalized coordinate, with penalty weight zero, under the input rules of a weighted `NormL1`); matrix responses other than least squares with `CDSolver`, a row-group `GroupNormL2` and a `Matrix` or `BlockIterate` coefficient | Deferred |
 | `LogisticLoss` with `AccProxGradDescent`, `CDSolver` or `ADMMSolver`, with observation weights or an offset, `Scaled(LogisticLoss)`, `Float32` data, a sparse design or a penalty other than `NormL1` | Refused with an `ArgumentError` (deferred) |
 | Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
-| Observation weights; infinite penalty weights; penalty weight storage or types outside the solver's contract (for example, the graphical lasso accepts only the symmetric zero-diagonal `Matrix{T}` weights of [ADM-04](@ref) and [PGD-06](@ref)) | Deferred; each solver's contract lists the weights it accepts |
+| Observation weights; infinite penalty weights; penalty weight storage or types outside the solver's contract, including graphical-lasso weights outside [ADM-04](@ref) or [PGD-06](@ref) | Deferred; each solver's contract lists the weights it accepts |
 | Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
 | Weighted square-root lasso, `Scaled(SqrtLeastSquaresLoss)`, `SqrtLeastSquaresLoss` with an `ElasticNet` or a `BlockIterate`, or with PGD or APG | Refused with an `ArgumentError` (weights and `Scaled` deferred) |
 | Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE; graphical lasso (log-determinant estimation of a precision matrix) with QUIC or other solvers outside [ADM-04](@ref) and [PGD-06](@ref) | Deferred |
