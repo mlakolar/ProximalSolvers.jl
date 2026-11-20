@@ -418,7 +418,8 @@ end
     end
     # Exit 2: complete records with a non-ok case (PGD in Float32 misses its target).
     @test code in (0, 2)
-    meta = H.TOML.parsefile(only(filter(endswith("-metadata.toml"), readdir(out; join = true))))
+    metafile = only(filter(endswith("-metadata.toml"), readdir(out; join = true)))
+    meta = H.TOML.parsefile(metafile)
     @test meta["finished"] && meta["cases"] == length(ids) && meta["proximalbase_rev"] == PB_REV
     @test meta["proximalbase_source"] == "git" && meta["case_filter"] == selected
     @test meta["harness_hash"] == call(H.fingerprint, BENCHMARK,
@@ -429,7 +430,30 @@ end
       get(ENV, "CI", "") == "true" ? @test(python !== nothing) : @test_skip "validate.py needs Python 3.11"
     else
       report = joinpath(dir, "validation.json")
-      @test success(pipeline(`$python -B $(joinpath(BENCHMARK, "validate.py")) $out $report`; stdout = devnull))
+      validate = `$python -B $(joinpath(BENCHMARK, "validate.py")) $out $report`
+      if meta["proximalsolvers_sha"] == "unavailable"
+        # The record has no Git identity for the package when `git rev-parse HEAD` fails at the loaded
+        # package root (a copy without `.git`, no Git executable, a safe.directory refusal), and the
+        # validator then rejects it at its first provenance check. The rejection is asserted exactly, so
+        # a different validator issue still fails. Only the acceptance assertion is skipped outside CI;
+        # with CI=true the test fails instead.
+        prefix = chopsuffix(basename(metafile), "-metadata.toml")
+        expected = "$prefix: malformed provenance hash: proximalsolvers_sha"
+        # A plain command run with explicit stdio returns the Process itself (a pipeline would not).
+        @test run(ignorestatus(validate), stdin, devnull, stderr).exitcode == 2
+        check = "import json, sys; issues = json.load(open(sys.argv[1]))['issues']; " *
+                "sys.exit(0 if issues == [sys.argv[2]] else 1)"
+        issues_match = success(pipeline(`$python -I -c $check $report $expected`; stderr = devnull))
+        @test issues_match
+        issues_match || println(stderr, "validate.py issues: ", read(report, String))
+        if get(ENV, "CI", "") == "true"
+          @test meta["proximalsolvers_sha"] != "unavailable"
+        else
+          @test_skip "validate.py acceptance needs a Git identity for ProximalSolvers (git rev-parse HEAD failed)"
+        end
+      else
+        @test success(pipeline(validate; stdout = devnull))
+      end
     end
   end
 end
