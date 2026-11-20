@@ -213,6 +213,119 @@ end
   end
 end
 
+# Load the standalone script in its own module to exercise the actual example's
+# input preparation with both precisions. The plotting lines are Literate-only.
+module DiagonalPenaltyExample
+include(joinpath(@__DIR__, "..", "examples", "problems", "graphical_lasso.jl"))
+end
+using .DiagonalPenaltyExample: graphical_lasso_inputs
+
+@testset "Graphical lasso: covariance shift for a diagonal penalty" begin
+  for T in (Float32, Float64)
+    @testset "$T" begin
+      # Each tuple supplies the original data, the two penalty weights, and the
+      # off-diagonal part of the analytic dual maximizer W*. For p = 2 its
+      # off-diagonal entry is soft_threshold(S[1, 2], λoff).
+      diag_S = Matrix(Diagonal(T[1/2, 1, 2, 4]))
+      full_S = T[2 1/2 1/4; 1/2 3/2 1/8; 1/4 1/8 1]
+      fixtures = [
+        ("scalar", fill(T(1.1), 1, 1), T(0.12), T(0.12), zeros(T, 1, 1)),
+        ("diagonal", diag_S, T(1/4), T(1/8), zeros(T, 4, 4)),
+        ("2×2, below the threshold", T[1 1/8; 1/8 2], T(1/4), T(1/8), zeros(T, 2, 2)),
+        ("2×2, zero at the threshold", T[1 1/4; 1/4 2], T(1/4), T(1/8), zeros(T, 2, 2)),
+        ("2×2, positive covariance", T[1 3/4; 3/4 2], T(1/4), T(1/8), T[0 1/2; 1/2 0]),
+        ("2×2, negative covariance", T[1 -3/4; -3/4 2], T(1/4), T(1/8), T[0 -1/2; -1/2 0]),
+        ("zero off-diagonal penalty", full_S, zero(T), T(1/8), full_S - Diagonal(diag(full_S))),
+        ("large off-diagonal penalty", full_S, T(5/8), T(1/8), zeros(T, 3, 3)),
+      ]
+
+      for (name, S, λoff, λdiag, Woff) in fixtures
+        @testset "$name" begin
+          p = size(S, 1)
+          edges = offdiagonal(p)
+          S0 = copy(S)
+          Sshift, Λ = graphical_lasso_inputs(S, λoff, λdiag)
+          shifted0, Λ0 = copy(Sshift), copy(Λ)
+          @test !Base.mightalias(S, Sshift) && !Base.mightalias(Λ, Sshift) && !Base.mightalias(S, Λ)
+          @test diag(Sshift) == diag(S) .+ λdiag
+          @test all(Sshift[i, j] == S[i, j] && Λ[i, j] == λoff for (i, j) in edges)
+          @test all(iszero, diag(Λ))
+
+          Θ = Matrix{T}(I, p, p)
+          f, g = LogDetLoss(Sshift), NormL1(one(T), Λ)
+          method = accurate_method(T)
+          result = solve!(Θ, f, g, method, LONG)
+          shifted = check_solution(result, Θ, Sshift, Λ, method)
+          @test result.converged && all(isfinite, Θ)
+          @test samebits(S, S0) && samebits(Sshift, shifted0) && samebits(Λ, Λ0)
+          @test samebits(f.S, shifted0) && !Base.mightalias(f.S, Sshift) && g.w === Λ
+          @test all(!Base.mightalias(buf, coefficients) for buf in (Θ, result.u)
+                    for coefficients in (S, Sshift, f.S, Λ))
+
+          # Recompute the original objective and KKT from S and the two weights.
+          Θb, Sb = BigFloat.(Θ), BigFloat.(S)
+          off, diagonal = BigFloat(λoff), BigFloat(λdiag)
+          ld = logdet(cholesky(Symmetric(Θb)))
+          trace = dot(Sb, Θb)
+          off_penalty = off * sum((abs(Θb[i, j]) for (i, j) in edges); init = big(0.0))
+          diag_penalty = diagonal * sum(abs, diag(Θb))
+          original = trace - ld + off_penalty + diag_penalty
+          @test all(isfinite, (ld, trace, off_penalty, diag_penalty, original, shifted.value))
+          objective_tol = 32p * eps(T) * (1 + abs(ld) + abs(trace) + off_penalty + diag_penalty)
+          @test abs(original - shifted.value) <= objective_tol
+          @test abs(original - result.minimum) <= objective_tol
+          G = Sb - inv(Θb)
+          worst = maximum(abs(G[i, i] + diagonal) for i in 1:p)
+          for (i, j) in edges
+            violation = iszero(Θ[i, j]) ? max(abs(G[i, j]) - off, 0) :
+                        abs(G[i, j] + off * sign(Θ[i, j]))
+            worst = max(worst, violation)
+          end
+          kkt = worst / max(1, maximum(abs, Sb), off, diagonal)
+          @test kkt <= accuracy(T)
+
+          # Use exact arithmetic for the affine dual constraints. A decimal
+          # fixture exercises the difference between Sii + λdiag and its native
+          # rounding in LogDetLoss. Check the stored BigFloat entries before
+          # using the Cholesky factorization to compute the dual objective.
+          W = BigFloat.(Woff)
+          W[diagind(W)] .= diag(Sb) .+ diagonal
+          exact(x) = Rational{BigInt}(x)
+          @test W == W'
+          @test all(exact(W[i, i]) == exact(S[i, i]) + exact(λdiag) for i in 1:p)
+          @test all(abs(exact(W[i, j]) - exact(S[i, j])) <= exact(λoff) for (i, j) in edges)
+          factor = cholesky(Symmetric(W))
+          reference = inv(factor)
+          @test within(Θ, reference, T)
+          if all(iszero, Woff)
+            @test all(iszero(Θ[i, j]) for (i, j) in edges)
+          end
+          dual = logdet(factor) + p
+          gap = original - dual
+          @test -big"1e-60" <= gap <= accuracy(T) * max(1, abs(original))
+          println((; fixture = name, precision = T, original = Float64(original), shifted = Float64(shifted.value),
+                   kkt = Float64(kkt), dual = Float64(dual), gap = Float64(gap)))
+        end
+      end
+
+      S = T[2 1/2; 1/2 1]
+      S0 = copy(S)
+      for bad in T[-1, NaN, Inf]
+        @test_throws ArgumentError graphical_lasso_inputs(S, T(1/4), bad)
+        @test_throws ArgumentError graphical_lasso_inputs(S, bad, T(1/4))
+        @test samebits(S, S0)
+      end
+      for (bad_S, diagonal) in ((fill(floatmax(T), 1, 1), floatmax(T)),
+                                 (T[2 0; 1/2 1], zero(T)), (fill(T(Inf), 1, 1), zero(T)))
+        before = copy(bad_S)
+        @test_throws ArgumentError graphical_lasso_inputs(bad_S, zero(T), diagonal)
+        @test samebits(bad_S, before)
+      end
+      @test isnothing(DiagonalPenaltyExample.dual_value(ones(T, 1, 1), fill(-one(T), 1, 1), zero(T), zero(T)))
+    end
+  end
+end
+
 # A sparse symmetric positive-definite precision matrix for the seeded p = 16 fixture:
 # a chain with three extra edges.
 function sparse_precision(p)
@@ -249,6 +362,13 @@ end
       Θ = Matrix{T}(I, p, p)
       result = solve!(Θ, LogDetLoss(S), NormL1(one(T), Λ), method, LONG)
       check_accurate(result, Θ, S, effective(1, Λ), method)
+
+      Sshift, zero_diag_weights = graphical_lasso_inputs(S, T(λ), zero(T))
+      control = Matrix{T}(I, p, p)
+      shifted = solve!(control, LogDetLoss(Sshift), NormL1(one(T), zero_diag_weights), method, LONG)
+      @test samebits(S, Sshift) && samebits(Λ, zero_diag_weights) && samebits(Θ, control)
+      @test shifted.minimum === result.minimum && shifted.iterations == result.iterations
+      @test shifted.status === result.status
 
       # Statistical sanity, not exact draws: each unordered pair counted once.
       tp = count(e -> Θ_true[e...] != 0 && Θ[e...] != 0, edges)
