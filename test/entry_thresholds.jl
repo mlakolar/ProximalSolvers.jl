@@ -10,7 +10,7 @@ module EntryThresholds
 # converged = true is checked against every entry's own bound, with a first-order allowance for the rounding of the
 # computed gradient (`check_entries`); the fixtures from #464 also check accuracy against analytic minimizers.
 # The stop rule itself is checked at fixed points against a rule formed here from ProximalBase's per-entry scores
-# (`rule_verdict`), and ordinary controls check that the earlier single threshold still decides whenever no
+# (`verdicts`), and ordinary controls check that the earlier single threshold still decides whenever no
 # coefficient exceeds λmax.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
