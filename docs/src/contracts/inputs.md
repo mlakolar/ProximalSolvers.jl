@@ -534,17 +534,15 @@ checks of [STOP-01](@ref) and [STOP-03](@ref), and it is not evidence that a min
 exists or that the returned point is accurate.
 
 **Entry thresholds.** With weights, each coordinate is also held to its own threshold
-`τ max(cⱼ, λmax)` ([STOP-03](@ref)), so an extreme weight on one coordinate does not
-loosen the test of the others. A free intercept is held to `τ λmax`. For
-`X = [fill(1e150, 5) zeros(5)]`, `y = [0.0, 1.0, 1.0, 1.0, 1.0]`,
-`NormL1(1e300, [0.0, 1.0])` and the start `b = zeros(2)`, the minimizer is
-`b = [log(4)/1e150, 0.0]`, with the predictor `log 4 ≈ 1.386` in every row. Before
-[#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464), the single scale
-`S = 1e300` let PGD stop after one iteration at the predictor `1.2`, with an objective
-about `0.014` above the minimum. With the entry thresholds it stops after six iterations
-at the minimizer, to a relative objective excess of about `2e-11`. The thresholds still
-use `λmax = ‖∇f(0)‖∞`, which a free intercept can inflate when the response is far from
-balanced ([STOP-12](@ref)).
+`τ max(cⱼ, λmax)` when the largest coefficient exceeds `λmax` ([STOP-03](@ref)), so an
+extreme weight on one coordinate does not loosen the test of the others. A free
+intercept is held to `τ λmax`. The fixture `X = [fill(1e150, 5) zeros(5)]`,
+`y = [0.0, 1.0, 1.0, 1.0, 1.0]`, `NormL1(1e300, [0.0, 1.0])` has the minimizer
+`b = [log(4)/1e150, 0.0]`. A single scale `S = 1e300` admitted a stop far from it; the
+measured outcomes before and after [#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464)
+are in the [entry-threshold evidence](@ref evidence-entry-thresholds-464). The thresholds
+still use `λmax = ‖∇f(0)‖∞`, which a free intercept can inflate when the response is far
+from balanced ([STOP-12](@ref)).
 
 **Applies to.** `ProximalGradientDescent` with a raw `LogisticLoss{Float64}` and `NormL1` on a dense `Vector{Float64}`; the logistic refusals of `AccProxGradDescent`, `CDSolver` and `ADMMSolver`. The deferred logistic combinations are listed in [DEF-01](@ref).
 

@@ -15,7 +15,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 | --- | --- | --- | --- | --- |
 | `CDSolver`, least squares with `NormL1` or `ElasticNet` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
-| `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level (for `NormL1(λ, w)`, the largest coefficient `maxⱼ cⱼ` with `cⱼ = T(λ) wⱼ`; each entry of `G` is scored with its own `cⱼ`, and when `maxⱼ cⱼ > λmax` each entry must also be below `max(gradtol, 64 eps(T)) * max(cⱼ, λmax)`; for `GroupNormL2` with PGD, the group residual and the group scale; see [the stationarity check](@ref STOP-03)) | a residual formed in working precision |
+| `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level (for `NormL1(λ, w)`, the largest coefficient `maxⱼ cⱼ` with `cⱼ = T(λ) wⱼ`; each entry of `G` is scored with its own `cⱼ`, and when `maxⱼ cⱼ > λmax` each entry must also be below `max(gradtol, 64 eps(T)) * max(cⱼ, λmax)`, see [STOP-03](@ref); for `GroupNormL2`, the group residual and the group scale `Λ`, with each group below `max(gradtol, 64 eps(T)) * max(cₖ, Λ)` when `maxₖ cₖ > Λ`, see [STOP-05](@ref); guards in [STOP-04](@ref)) | a residual formed in working precision |
 | `ProximalGradientDescent`, `AccProxGradDescent`, `NormLinf` | the same | the generic check | a test proposed a stop and the proximal-gradient residual is below `max(gradtol, 64 eps(T)) * max(‖∇f(0)‖∞, ‖∇f(x)‖∞)` (see [the generic check](@ref STOP-07)) | a working-precision indication; weaker when the accepted `L` is small |
 | `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
 
@@ -56,7 +56,8 @@ that later fallback qualification: an initial uncertified stop need not be the
 final result. A square-root certificate at an exact fit supplies no positive
 scaled-lasso noise-scale minimizer; see [CDQ-06](@ref).
 
-The criterion table above is preserved from the baseline. Its PGD/APG entries describe
+The criterion table above derives from the baseline; its weighted PGD/APG conditions were amended by
+[#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464). Its PGD/APG entries describe
 a product-threshold comparison in working precision; [STOP-04](@ref) defines its
 formation and guards. The historical normalized-residual assertion discussed under
 [Unreconciled](@ref RES-UNRECONCILED) must not be inferred from that comparison.

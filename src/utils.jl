@@ -124,12 +124,13 @@ end
 # Rounding is monotone, so T(λ0) maximum(w) is maxᵢ cᵢ. The weights are not converted or copied. A proposed
 # stop adds to the O(p) pass of kkt_violation one O(p) scan of w for `maximum` and one in the constructor of
 # the NormL1 that holds the converted level; for w ≡ 1 the coefficients and S are those of NormL1(λ0).
-# With weights, each entry is also held to its own scale (#464): the score sᵢ of entry i must be below
-# τ max(cᵢ, λmax). That threshold is at most τ S, so the comparison with τ S above is necessary; when maxᵢ cᵢ ≤ λmax
-# every entry threshold equals τ S and nothing more is done. Otherwise _entry_thresholds_hold compares each score
-# (ProximalBase's kkt_violation(h, ∇f(x), x, i)) with its threshold, which must be at least floatmin(T), in one more
-# O(p) pass. Without it a coefficient far above λmax (a large weight, or one that excludes a column) would loosen the
-# test of every other entry, of a zero-weight entry in particular, by the factor maxᵢ cᵢ / λmax.
+# With weights, each entry is also held to its own scale (#464): the signed score sᵢ of entry i (ProximalBase's
+# kkt_violation(h, ∇f(x), x, i), negative at a zero entry with |∇fᵢ| < cᵢ) must be below τ max(cᵢ, λmax). That
+# threshold is at most τ S, so the comparison with τ S above is necessary; when maxᵢ cᵢ ≤ λmax every entry threshold
+# equals τ S and nothing more is done. Otherwise _entry_thresholds_hold compares each score with its threshold, which
+# must be at least floatmin(T), in one more pass that ends at the first failure. Without it, a coefficient far above
+# λmax (a large weight, or one that excludes a column) would set the threshold of entry i to τ maxⱼ cⱼ instead of
+# τ max(cᵢ, λmax), larger by the factor maxⱼ cⱼ / max(cᵢ, λmax) (maxⱼ cⱼ / λmax at a zero-weight entry).
 # An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
@@ -163,8 +164,9 @@ function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, E
 end
 
 # Each entry (each group) of a weighted penalty against its own threshold τ max(cᵢ, λmax), when the largest
-# coefficient exceeds λmax (see above). A penalty with one coefficient for every entry needs no such pass: there
-# every entry threshold is τ S.
+# coefficient exceeds λmax (see above). The penalties without weights (unweighted NormL1, NormL1Nonneg, IndNonnegative,
+# ElasticNet) take this method, since all their entry thresholds are τ S; a weight vector of ones takes the pass, with
+# every threshold equal to τ S.
 _entry_thresholds_hold(g, grad, x, τ, λmax) = true
 function _entry_thresholds_hold(g::NormL1{T, Vector{T}}, grad, x, τ::T, λmax::T) where T
   @inbounds for i in eachindex(x, grad, g.w)

@@ -2,11 +2,12 @@ module EntryThresholds
 # Per-entry stopping thresholds of PGD and APG for weighted penalties (#464, STOP-03, STOP-05). A proposed stop
 # with NormL1(λ0, w) is kept only if every entry score sᵢ is below τ max(cᵢ, λmax), cᵢ = T(λ0) wᵢ, and with
 # GroupNormL2 only if every group score is below τ max(cₖ, Λ); before #464 every entry was compared with the single
-# threshold τ max(maxᵢ cᵢ, λmax), so one large coefficient loosened the test of every other entry.
+# threshold τ max(maxᵢ cᵢ, λmax), so one large coefficient raised the threshold of entry i by the factor
+# maxⱼ cⱼ / max(cᵢ, λmax).
 #
 # Independent references, computed here in 256-bit BigFloat from the stored data and the returned coefficients,
 # without ProximalBase's kkt_violation or the solvers' helpers: the gradient, the per-entry (per-group) minimal-norm
-# KKT scores, the objective, analytic minimizers where they exist, and λmax. Each solve that reports
+# KKT scores, the objective, analytic minimizers where they exist, and λmax. Each trajectory solve that reports
 # converged = true is checked against every entry's own bound, with a first-order allowance for the rounding of the
 # computed gradient (`check_entries`); the fixtures from #464 also check accuracy against analytic minimizers.
 # The stop rule itself is checked at fixed points against a rule formed here from ProximalBase's per-entry scores
@@ -38,12 +39,13 @@ groupscores(g, c, G, b) = [iszero(norm(b[Gk])) ? max(norm(g[Gk]) - c[k], big(0))
   norm(g[Gk] + c[k] * b[Gk] / norm(b[Gk])) for (k, Gk) in enumerate(G)]
 
 # The rounding allowance of the computed gradient entry j, |α| γ |Xⱼ|ᵀ(|X||x| + |y|) with γ = 4(n + p + 4) u (least
-# squares), and the same with |σ| + |y| ≤ 2 in place of the residual for the logistic loss: a first-order estimate
-# with slack, not a bound for the BLAS kernel in use.
+# squares), and for the logistic loss γ |Xⱼ|ᵀ(2 + |X||x|/4): |σ| + |y| ≤ 2, and the rounding of the predictor passed
+# through σ, whose Lipschitz constant is 1/4. A first-order estimate with slack (the group norms add a block-size
+# factor it does not model), not a bound for the BLAS kernel in use.
 function allowance(loss, α, X, y, x, ::Type{T}) where T
   A, xb = abs.(big.(X)), abs.(big.(x))
   γ = 4 * (size(X, 1) + size(X, 2) + 4) * big(eps(T)) / 2
-  r = loss === :ls ? A * xb + abs.(big.(y)) : A * xb .* 0 .+ 2
+  r = loss === :ls ? A * xb + abs.(big.(y)) : 2 .+ (A * xb) ./ 4
   abs(big(α)) * γ * (A' * r)
 end
 
@@ -131,13 +133,17 @@ end
     X, y, λ, w, xstar = b4_ls(T, nfree)
     x = zeros(T, size(X, 2))
     r = solve!(x, LeastSquaresLoss(y, X), NormL1(λ, w), method)
-    # Float32 with the two correlated free columns can end by an objective increase without a stop, at a point as
-    # accurate as the bound below
-    (T === Float64 || nfree == 1) && @test r.converged
+    # with the two correlated free columns a solve can end by an objective increase (Float32) or reach maxiter (seen
+    # with Float64 on another OpenBLAS kernel) without a stop, at a point as accurate as the bound below
+    nfree == 1 && @test r.converged
     @test x[end] == 0
-    r.converged && @test check_entries(:ls, 1, X, y, λ, w, x, T) <= 1
+    @test !r.converged || check_entries(:ls, 1, X, y, λ, w, x, T) <= 1
     # the free coefficients are those of least squares on the free columns, to the accuracy of the default options
     @test objective_excess(:ls, 1, X, y, coefficients(λ, w), x, xstar) <= (T === Float64 ? 1e-6 : 1e-4)
+    # at the midpoint between zero and the minimizer the single threshold τ maxᵢ cᵢ accepts, and the free entries'
+    # own thresholds τ λmax reject
+    v = verdicts(method, LeastSquaresLoss(y, X), NormL1(λ, w), T.(xstar ./ 2), T)
+    @test v.single && !v.rule && !v.verdict
   end
 end
 
@@ -166,7 +172,7 @@ end
           kind === :free ? vcat(zero(T), ones(T, 8), W) : vcat(T(1e-6), ones(T, 8), W)
       x = zeros(T, size(X, 2))
       r = solve!(x, LeastSquaresLoss(y, X), NormL1(λ, w), method)
-      r.converged && @test check_entries(:ls, 1, X, y, λ, w, x, T) <= 1
+      @test !r.converged || check_entries(:ls, 1, X, y, λ, w, x, T) <= 1
       @test x[end] == 0
       # the coefficient that W excludes stays at zero, so the solution is that of the problem without it; the
       # Float64 solves reach the stop (Float32 PGD can end by an objective increase, as without the column)
@@ -216,7 +222,7 @@ end
   for method in METHODS, x0 in ([292000.4, -0.73], Float64.(xstar) .* (1 .+ [1e-9, -1e-6]), zeros(2))
     x = copy(x0)
     r = solve!(x, f, g, method, ProximalOptions(maxiter = 2000))
-    r.converged && @test check_entries(:ls, 1, X, y, λ0, w, x, Float64) <= 1
+    @test !r.converged || check_entries(:ls, 1, X, y, λ0, w, x, Float64) <= 1
     # near the minimizer the solves stop at a near-optimal point
     if !iszero(x0)
       @test r.converged
@@ -232,7 +238,7 @@ end
     X, y, λ, w = T[1 M; 0 1], T[1, -M], T(M / 10), T[0, 1]
     x = zeros(T, 2)
     r = solve!(x, LeastSquaresLoss(y, X), NormL1(λ, w), method, ProximalOptions(maxiter = 500))
-    r.converged && @test check_entries(:ls, 1, X, y, λ, w, x, T) <= 1
+    @test !r.converged || check_entries(:ls, 1, X, y, λ, w, x, T) <= 1
   end
 end
 
@@ -240,12 +246,13 @@ end
   for T in (Float64, Float32), method in METHODS
     X, y = design(T, 30, 5)
     λ = T(0.1 * norm(Float64.(X)' * Float64.(y), Inf))
-    # a free coordinate whose ∇f(0) entry is 0: it is held to τ λmax with the global λmax
+    # a free coordinate whose ∇f(0) entry is nearly 0 (the response is projected off its column in T): it is held to
+    # τ λmax with the global λmax
     yo = y .- X[:, 1] .* (dot(X[:, 1], y) / dot(X[:, 1], X[:, 1]))
     w = T[0, 1, 1, 1, 1e6]
     x = zeros(T, 5)
     r = solve!(x, LeastSquaresLoss(yo, X), NormL1(λ, w), method)
-    r.converged && @test check_entries(:ls, 1, X, yo, λ, w, x, T) <= 1
+    @test !r.converged || check_entries(:ls, 1, X, yo, λ, w, x, T) <= 1
     T === Float64 && @test r.converged
     # y = 0 with a zero weight: λmax = 0, so a zero-weight entry has a zero threshold and no stop is kept (as for
     # all-zero weights, STOP-04), although x = 0 is the minimizer
@@ -257,8 +264,10 @@ end
     v = verdicts(method, LeastSquaresLoss(zeros(T, 30), X), NormL1(λ, T[0, 1, 1, 1, 1]), zeros(T, 5), T)
     @test !v.verdict && !v.rule && v.single     # the single threshold τ maxᵢ cᵢ kept it before #464
     # all weights positive with y = 0: every threshold is positive and x = 0 stops
-    r = solve!(zeros(T, 5), LeastSquaresLoss(zeros(T, 30), X), NormL1(λ, T[1, 1, 1, 1, 1e6]), method)
+    x = zeros(T, 5)
+    r = solve!(x, LeastSquaresLoss(zeros(T, 30), X), NormL1(λ, T[1, 1, 1, 1, 1e6]), method)
     @test r.converged
+    @test all(iszero, x)
   end
 end
 
@@ -279,7 +288,12 @@ end
       end
       x = zeros(T, 8)
       r = solve!(x, f, g, method)
-      r.converged && @test check_entries(:ls, 1, X, y, T(λfac * lm), w, x, T) <= 1
+      @test !r.converged || check_entries(:ls, 1, X, y, T(λfac * lm), w, x, T) <= 1
+      # the returned point of a converged solve is an accepting point of the same rule
+      if r.converged
+        v = verdicts(method, f, g, x, T)
+        @test v.verdict && v.rule && v.single
+      end
     end
     # unit weights decide exactly as the unweighted penalty
     for x in pts
@@ -326,7 +340,7 @@ end
     # Float32 APG can end by an objective increase without a stop (seen with the bounds checks of Pkg.test on
     # Julia 1.10), at a point that meets every group bound and the accuracy below
     T === Float64 && @test r.converged
-    r.converged && @test check_entries(:ls, 1, X, y, λ, w, x, T; groups) <= 1
+    @test !r.converged || check_entries(:ls, 1, X, y, λ, w, x, T; groups) <= 1
     @test all(iszero, x[9:10]) || w[5] < 2
     big256() do
       c = coefficients(λ, w)
