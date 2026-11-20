@@ -426,7 +426,7 @@ or to a supplied `u`: on a `Vector`, through the loss check that admits a raw
 `LeastSquaresLoss` ([ADM-05](@ref)) or its quadratic ([ADM-01](@ref)); on a `Matrix`,
 through the check that requires a `LogDetLoss` ([ADM-04](@ref)). `ProximalGradientDescent`
 on a `Matrix` coefficient has a method only for a `LogDetLoss` ([PGD-06](@ref)); a
-logistic loss there reaches the checks below and is refused. `Scaled(LogisticLoss(y, X), a)` is refused because ProximalBase
+logistic loss there reaches the gate described above and is refused. `Scaled(LogisticLoss(y, X), a)` is refused because ProximalBase
 provides no predictor oracles for it. For a positive finite `a`, the raw loss with the
 level `lambda / a` has the same minimizers in exact arithmetic, and is accepted when
 the penalty with that level passes [IN-02](@ref) and, with weights, all of
