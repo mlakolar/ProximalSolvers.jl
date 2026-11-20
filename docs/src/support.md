@@ -111,7 +111,8 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   symmetric positive-definite matrix. It uses bounded
   backtracking and a normalized KKT check. The [matrix PGD contract](@ref PGD-06) gives
   the input and option rules. The [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
-  fits the same estimator with ADMM and PGD.
+  fits the same estimator with ADMM and PGD. It reaches a positive diagonal penalty on the PGD side
+  through the covariance shift `S + λdiag*I` with zero-diagonal weights.
 - **(n)** Sparse logistic regression needs `X::Matrix{Float64}`, a response `y::Vector{Float64}`
   whose entries are 0 or 1, a `Vector{Float64}` coefficient and a raw `LogisticLoss(y, X)`
   without observation weights or offset ([IN-09](@ref); see also [Sparse logistic regression with proximal gradient descent](@ref)).
@@ -231,8 +232,12 @@ an exact box check and a Cholesky test, reports a numerical estimate of the dual
 
 Use the same `LogDetLoss` and zero-diagonal `NormL1` weights with
 `ProximalGradientDescent()`. Each committed iterate passes Cholesky in its
-element type, and the convergence flag requires a normalized KKT check. See
-[PGD-06](@ref) and the [solver comparison](examples/comparisons/graphical_lasso_solvers.md).
+element type, and the convergence flag requires a normalized KKT check. For a positive
+diagonal penalty `λdiag`, pass `LogDetLoss(S + λdiag*I)` with zero-diagonal weights: for
+every symmetric positive-definite `Θ`, this objective equals the one with diagonal weight
+`λdiag`, up to the rounding of the stored shifted covariance. See
+[PGD-06](@ref) and the [solver comparison](examples/comparisons/graphical_lasso_solvers.md),
+which judges each estimate from the original `S`.
 
 ### [Weighted lasso](@id weighted-lasso-support)
 

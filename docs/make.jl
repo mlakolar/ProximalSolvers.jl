@@ -87,7 +87,7 @@ const EXAMPLES = [
    gallery = "Solver comparisons", description = "Compare coordinate and gradient methods on one group-lasso problem."),
   (section = "Solver comparisons", path = "comparisons/graphical_lasso_solvers.jl",
    title = "Graphical lasso: ADMM and proximal gradient", notebook = false,
-   gallery = "Covariance and graphs", description = "Compare two solvers for the same sparse precision estimate at matched accuracy.")]
+   gallery = "Covariance and graphs", description = "Compare two solvers for the same sparse precision estimate at three diagonal penalties and matched accuracy.")]
 
 # The set of scripts under `examples/`, in subfolders too, equals the registry.
 let root = joinpath(@__DIR__, "..", "examples"), found = String[]
