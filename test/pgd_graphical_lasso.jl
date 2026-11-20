@@ -47,10 +47,11 @@ end
 # The dual candidate W is built in BigFloat with Wᵢᵢ = Sᵢᵢ + Cᵢᵢ and, off the diagonal,
 # Wᵢⱼ = Sᵢⱼ + clamp((Θ⁻¹ - S)ᵢⱼ, -Cᵢⱼ, Cᵢⱼ). A symmetric W ≻ 0 with
 # |Wᵢⱼ - Sᵢⱼ| ≤ Cᵢⱼ for all entries, diagonal included, gives logdet(W) + p as a lower
-# bound on the objective over Θ ≻ 0. The stored candidate's symmetry, box and positive definiteness are
-# checked in rational arithmetic. The reported gap then uses a BigFloat logdet, a
-# numerical estimate of that bound. Otherwise the gap is NaN and the tests' bounds on
-# the gap fail.
+# bound on the objective over Θ ≻ 0. The helper returns a gap only when W == W' holds for
+# the stored BigFloat entries, the box and positive definiteness hold in rational
+# arithmetic, and the BigFloat Cholesky factorization of W succeeds. The gap then uses
+# the BigFloat logdet, a numerical estimate of that bound. Otherwise the gap is NaN,
+# which fails the gap assertions of the accuracy fixtures.
 function independent(Θ, S, g)
   X, A, C = BigFloat.(Θ), BigFloat.(S), effective(g)
   p = size(X, 1)
@@ -101,7 +102,7 @@ function check_solution!(Θ, S, g; method=ProximalGradientDescent(), reference=n
   @test isnan(r.gap) && isempty(r.trace)
   d = independent(Θ, original === nothing ? S : original[1], original === nothing ? g : original[2])
   @test d.score <= target(T)
-  # The score comparison runs only when `original` is omitted. The reported score is
+  # The score comparison runs when `original === nothing`. The reported score is
   # normalized by the solved problem's S and weights, which can differ from the original's.
   original === nothing && @test abs(d.score - r.g_residual) <= 32eps(T)
   @test abs(r.minimum - d.primal) <= 32 * size(Θ, 1) * eps(T) * d.scale_objective
@@ -198,7 +199,7 @@ end
       check_solution!(identity_matrix(T, 3), S, NormL1(1/2, Λ))
 
       # Off-diagonal effective weights above the largest off-diagonal |Sᵢⱼ|, so that
-      # Θ* = diag(1 ./ (Sᵢᵢ + Cᵢᵢ)).
+      # Θ* = diag(1 ./ (Sᵢᵢ + Cᵢᵢ)) with Sᵢᵢ + Cᵢᵢ > 0.
       S = T[2 1/2 1/4; 1/2 3/2 1/8; 1/4 1/8 1]
       g = NormL1(1, full_weights(T, 3, 5/8, T[1/8, 1/4, 3/8]))
       Θ = identity_matrix(T, 3)
