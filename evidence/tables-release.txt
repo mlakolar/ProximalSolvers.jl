@@ -1,0 +1,36 @@
+== weighted NormL1 Float64: options x weights: n conv | contract-viol | false(obj) | conv&unique coef>1e-4 | missed | max kkt/bound
+  default     pgd  none 334/372|0|39|15|4|1.00   unit 334/372|0|39|15|4|1.00   spread 332/372|0|39|15|4|0.99   zeros 320/372|0|74|47|6|1.00
+  default     apg  none 342/372|0|34|16|4|0.99   unit 342/372|0|34|16|4|0.99   spread 338/372|0|38|16|7|0.99   zeros 332/372|0|72|49|4|1.00
+  ftol0       pgd  none 236/372|0|31|16|126|1.00   unit 238/372|0|31|16|124|1.00   spread 234/372|0|28|16|124|0.91   zeros 339/372|0|61|36|13|1.00
+  ftol0       apg  none 236/372|0|37|20|130|1.00   unit 238/372|0|37|20|128|1.00   spread 238/372|0|37|24|128|1.00   zeros 342/372|0|74|48|24|1.00
+  gradtol1e-8 pgd  none 336/372|0|24|15|26|0.99   unit 336/372|0|24|15|26|0.99   spread 336/372|0|24|15|22|1.00   zeros 322/372|0|45|23|20|1.00
+  gradtol1e-8 apg  none 346/372|0|24|16|16|0.99   unit 346/372|0|24|16|16|0.99   spread 352/372|0|24|16|10|1.00   zeros 333/372|0|49|28|13|1.00
+  strict      pgd  none 197/372|0|12|0|151|0.91   unit 197/372|0|12|0|151|0.91   spread 209/372|0|12|0|141|0.91   zeros 308/372|0|14|0|26|0.91
+  strict      apg  none 204/372|0|14|0|148|1.00   unit 204/372|0|14|0|148|1.00   spread 210/372|0|14|0|146|0.99   zeros 302/372|0|16|0|34|0.99
+== NormLinf sweep Float64: options x solver: conv/n | false(obj) | conv&unique coef>1e-4 | missed | kkt2/bound med,max | kktinf/bound max
+  default     pgd 256/312 | 50 | 16 | 10 | 4.06e-09,3.03 | 0.993 | {'converged': 256, 'maxiter': 52, 'increase': 4}
+  default     apg 271/312 | 59 | 20 | 10 | 1.4e-06,2.64 | 0.996 | {'converged': 271, 'maxiter': 37, 'increase': 4}
+  ftol0       pgd 229/312 | 42 | 27 | 67 | 0.0446,1.91 | 0.914 | {'converged': 229, 'maxiter': 77, 'increase': 6}
+  ftol0       apg 236/312 | 58 | 32 | 70 | 0.122,2.34 | 1 | {'converged': 236, 'maxiter': 72, 'increase': 4}
+  gradtol1e-8 pgd 257/312 | 26 | 16 | 25 | 4.06e-06,3.63 | 0.999 | {'converged': 257, 'increase': 21, 'maxiter': 34}
+  gradtol1e-8 apg 284/312 | 26 | 16 | 18 | 0.257,3.13 | 1 | {'converged': 284, 'increase': 12, 'maxiter': 16}
+  strict      pgd 182/312 | 12 | 0 | 90 | 0.15,1.98 | 0.909 | {'maxiter': 130, 'converged': 182}
+  strict      apg 200/312 | 14 | 0 | 94 | 0.139,3.29 | 1 | {'converged': 200, 'maxiter': 112}
+== weighted NormL1 Float32: options x weights: n conv | contract-viol | false(obj) | conv&unique coef>1e-4 | missed | max kkt/bound
+  default     pgd  none 288/372|0|18|23|44|0.94   unit 287/372|0|18|23|45|0.94   spread 293/372|0|18|23|35|0.99   zeros 274/372|0|54|46|44|0.99
+  default     apg  none 306/372|0|23|24|44|1.00   unit 305/372|0|23|24|45|1.00   spread 308/372|0|25|24|35|0.99   zeros 296/372|0|62|54|38|0.99
+  ftol0       pgd  none 124/372|0|17|21|213|0.49   unit 124/372|0|17|21|213|0.49   spread 129/372|0|17|20|208|0.75   zeros 206/372|0|53|39|117|0.47
+  ftol0       apg  none 139/372|0|23|23|216|1.00   unit 138/372|0|23|23|217|1.00   spread 142/372|0|21|24|211|0.93   zeros 213/372|0|64|47|133|0.94
+  gradtol1e-8 pgd  none 272/372|0|5|19|53|0.97   unit 271/372|0|5|19|54|0.97   spread 279/372|0|5|19|46|1.00   zeros 252/372|0|38|36|56|1.00
+  gradtol1e-8 apg  none 285/372|0|10|20|57|0.99   unit 284/372|0|10|20|58|0.99   spread 294/372|0|10|20|46|0.99   zeros 266/372|0|38|38|54|1.00
+  strict      pgd  none 0/372|0|0|0|336|0.00   unit 0/372|0|0|0|336|0.00   spread 0/372|0|0|0|334|0.00   zeros 2/372|0|2|0|284|0.00
+  strict      apg  none 154/372|0|5|17|187|0.31   unit 154/372|0|5|17|187|0.31   spread 153/372|0|5|16|188|0.31   zeros 175/372|0|10|3|119|0.40
+== NormLinf sweep Float32: options x solver: conv/n | false(obj) | conv&unique coef>1e-4 | missed | kkt2/bound med,max | kktinf/bound max
+  default     pgd 200/312 | 20 | 22 | 60 | 0.0078,2.51 | 0.996 | {'converged': 200, 'increase': 61, 'maxiter': 51}
+  default     apg 231/312 | 25 | 26 | 53 | 0.00849,2.57 | 1 | {'converged': 231, 'increase': 53, 'maxiter': 28}
+  ftol0       pgd 102/312 | 17 | 17 | 166 | 0.0246,1.68 | 0.77 | {'converged': 102, 'increase': 136, 'maxiter': 69, 'stagnated': 5}
+  ftol0       apg 132/312 | 25 | 22 | 156 | 0.032,2.19 | 0.974 | {'converged': 132, 'increase': 107, 'maxiter': 73}
+  gradtol1e-8 pgd 180/312 | 6 | 17 | 76 | 0.00714,2.78 | 0.995 | {'converged': 180, 'increase': 119, 'maxiter': 13}
+  gradtol1e-8 apg 213/312 | 14 | 21 | 62 | 0.00708,2.63 | 0.98 | {'converged': 213, 'increase': 85, 'maxiter': 14}
+  strict      pgd 1/312 | 0 | 1 | 267 | 0.00418,0.00418 | 0.00197 | {'maxiter': 185, 'stagnated': 126, 'converged': 1}
+  strict      apg 88/312 | 5 | 1 | 191 | 0.00606,0.397 | 0.318 | {'maxiter': 224, 'converged': 88}

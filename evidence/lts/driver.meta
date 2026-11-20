@@ -1,0 +1,7 @@
+start 2026-11-20T13:20:44Z julia 1.10.13 jobs wl1:Float32 wl1:Float64 linf-sweep:Float32 linf-sweep:Float64 linf-traj:Float32 linf-traj:Float64 smoke - host-cpu Intel Skylake-SP
+wl1:Float32 exit 0 after 203.8 s
+wl1:Float64 exit 0 after 203.7 s
+linf-sweep:Float32 exit 0 after 203.7 s
+linf-sweep:Float64 exit 0 after 203.7 s
+linf-traj:Float32 exit 0 after 203.7 s
+linf-traj:Float64 exit 0 after 220.4 s

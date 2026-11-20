@@ -1,0 +1,7 @@
+start 2026-11-20T13:18:21Z julia 1.13.4 jobs wl1:Float32 wl1:Float64 linf-sweep:Float32 linf-sweep:Float64 linf-traj:Float32 linf-traj:Float64 smoke - host-cpu AMD Zen 3
+wl1:Float32 exit 0 after 63.2 s
+wl1:Float64 exit 0 after 63.2 s
+linf-sweep:Float32 exit 0 after 63.2 s
+linf-sweep:Float64 exit 0 after 63.2 s
+linf-traj:Float32 exit 0 after 66.4 s
+linf-traj:Float64 exit 0 after 70.4 s

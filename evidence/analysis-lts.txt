@@ -1,0 +1,2027 @@
+====================================================================================================
+WEIGHTED NormL1 Float64 out/full-lts/wl1_Float64.tsv
+  # julia 1.10.13
+  # ProximalSolvers dir <PS checkout>
+  # ProximalBase dir <depot>/packages/ProximalBase/Vu5iv (slug dir Vu5iv)
+  # ProximalBase pkgversion 0.6.0-DEV
+  # BLAS threads 1 Julia threads 1
+  # CPU Intel Skylake-SP
+  # active project <PS checkout>/Project.toml
+  # manifest ProximalBase entry Manifest-v1.10.toml: version=0.6.0-DEV repo-rev=e03c6d9659365d54f4e0fba1a9cd54490631eea6 git-tree-sha1=8de7a696d89a10022bb40f0941745939e4087fd4 repo-url=https://github.com/mlakolar/ProximalBase.jl
+solves ok: 11904  errors: 0 []
+references tight: 11328 of 11904
+converged: 9306
+CONTRACT converged with independent ||G||inf/S >= bound: 0
+  max kkt_rel/bound over converged: 1
+FALSE CONVERGENCE (objective lower bound above target 1e-08): 1057
+    apg default colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.322..0.596
+    apg default colscale zeros 1.01 pert 2 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.359..0.401
+    apg default colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.162..0.301
+    apg default colscale zeros 2 pert 2 subopt_lo 8.88e-05..8.88e-05 kkt/bound 0.624..0.679
+    apg default corr95 zeros 2 cold 1 subopt_lo 1.11e-08..1.11e-08 kkt/bound 0.728..0.728
+    apg default corr95 zeros 2 pert 2 subopt_lo 1.09e-08..1.93e-08 kkt/bound 0.848..0.96
+    apg default gauss none 0 pert 1 subopt_lo 1.08e-08..1.08e-08 kkt/bound 0.952..0.952
+    apg default gauss spread 0 pert 1 subopt_lo 1.08e-08..1.08e-08 kkt/bound 0.952..0.952
+    apg default gauss unit 0 pert 1 subopt_lo 1.08e-08..1.08e-08 kkt/bound 0.952..0.952
+    apg default gauss zeros 0 pert 1 subopt_lo 1.08e-08..1.08e-08 kkt/bound 0.952..0.952
+    apg default gauss zeros 2 pert 1 subopt_lo 2.25e-08..2.25e-08 kkt/bound 0.868..0.868
+    apg default offset none 0 cold 2 subopt_lo 166..737 kkt/bound 0.23..0.535
+    apg default offset none 0 pert 2 subopt_lo 0.414..1.84 kkt/bound 0.0115..0.0268
+    apg default offset none 0.001 pert 1 subopt_lo 3.15e-08..3.15e-08 kkt/bound 0.793..0.793
+    apg default offset spread 0 cold 2 subopt_lo 166..737 kkt/bound 0.23..0.535
+    apg default offset spread 0 pert 2 subopt_lo 0.414..1.84 kkt/bound 0.0115..0.0268
+    apg default offset spread 0.001 cold 1 subopt_lo 4.21e-08..4.21e-08 kkt/bound 0.917..0.917
+    apg default offset unit 0 cold 2 subopt_lo 166..737 kkt/bound 0.23..0.535
+    apg default offset unit 0 pert 2 subopt_lo 0.414..1.84 kkt/bound 0.0115..0.0268
+    apg default offset unit 0.001 pert 1 subopt_lo 3.15e-08..3.15e-08 kkt/bound 0.793..0.793
+    apg default offset zeros 0 cold 2 subopt_lo 166..737 kkt/bound 0.23..0.535
+    apg default offset zeros 0 pert 2 subopt_lo 0.414..1.84 kkt/bound 0.0115..0.0268
+    apg default offset zeros 0.001 cold 2 subopt_lo 0.00742..1.42 kkt/bound 0.0274..0.272
+    apg default offset zeros 0.001 pert 2 subopt_lo 7.16e-05..0.000717 kkt/bound 0.0024..0.00652
+    apg default offset zeros 0.1 cold 2 subopt_lo 0.974..2.19 kkt/bound 0.249..0.459
+    apg default offset zeros 0.1 pert 2 subopt_lo 0.00256..0.00321 kkt/bound 0.0122..0.0172
+    apg default offset zeros 0.5 cold 2 subopt_lo 0.18..0.228 kkt/bound 0.0693..0.0797
+    apg default offset zeros 0.5 pert 2 subopt_lo 0.00256..0.00321 kkt/bound 0.00749..0.0106
+    apg default offset zeros 1.01 cold 2 subopt_lo 1.02..1.28 kkt/bound 0.0742..0.105
+    apg default offset zeros 1.01 pert 2 subopt_lo 0.00256..0.00321 kkt/bound 0.00371..0.00525
+    apg default offset zeros 2 cold 2 subopt_lo 1.02..1.28 kkt/bound 0.0375..0.053
+    apg default offset zeros 2 pert 2 subopt_lo 0.00256..0.00321 kkt/bound 0.00187..0.00265
+    apg default rankdef none 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.564..0.715
+    apg default rankdef spread 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.564..0.715
+    apg default rankdef spread 0.001 pert 2 subopt_lo 1.95e-08..2.04e-08 kkt/bound 0.653..0.829
+    apg default rankdef unit 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.564..0.715
+    apg default rankdef zeros 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.564..0.715
+    apg default rankdef zeros 0.001 pert 1 subopt_lo 3.55e-08..3.55e-08 kkt/bound 0.928..0.928
+    apg default tall_exact none 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt/bound 0.549..0.757
+    apg default tall_exact none 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt/bound 0.00799..0.0271
+    apg default tall_exact none 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-12..2.3e-12
+    apg default tall_exact none 0.001 pert 1 subopt_lo 1.32e-08..1.32e-08 kkt/bound 0.674..0.674
+    apg default tall_exact spread 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt/bound 0.549..0.757
+    apg default tall_exact spread 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt/bound 0.00799..0.0271
+    apg default tall_exact spread 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-12..2.3e-12
+    apg default tall_exact unit 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt/bound 0.549..0.757
+    apg default tall_exact unit 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt/bound 0.00799..0.0271
+    apg default tall_exact unit 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-12..2.3e-12
+    apg default tall_exact unit 0.001 pert 1 subopt_lo 1.32e-08..1.32e-08 kkt/bound 0.674..0.674
+    apg default tall_exact zeros 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt/bound 0.549..0.757
+    apg default tall_exact zeros 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt/bound 0.00799..0.0271
+    apg default tall_exact zeros 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-12..2.3e-12
+    apg default tall_exact zeros 0.001 cold 2 subopt_lo 1.16e-08..1.82e-08 kkt/bound 0.608..0.708
+    apg default tall_exact zeros 0.001 pert 1 subopt_lo 2.99e-08..2.99e-08 kkt/bound 0.787..0.787
+    apg default wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.439..0.446
+    apg default wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0264..0.0387
+    apg default wide none 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-11..1.59e-11
+    apg default wide none 0.001 pert 2 subopt_lo 2.23e-06..3.77e-06 kkt/bound 0.687..0.953
+    apg default wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.439..0.446
+    apg default wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0264..0.0387
+    apg default wide spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-11..1.59e-11
+    apg default wide spread 0.001 pert 2 subopt_lo 2.52e-05..2.61e-05 kkt/bound 0.854..0.928
+    apg default wide spread 0.1 cold 2 subopt_lo 1.12e-08..1.19e-08 kkt/bound 0.858..0.933
+    apg default wide spread 0.1 pert 1 subopt_lo 1.04e-08..1.04e-08 kkt/bound 0.964..0.964
+    apg default wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.439..0.446
+    apg default wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0264..0.0387
+    apg default wide unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-11..1.59e-11
+    apg default wide unit 0.001 pert 2 subopt_lo 2.23e-06..3.77e-06 kkt/bound 0.687..0.953
+    apg default wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.439..0.446
+    apg default wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0264..0.0387
+    apg default wide zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-11..1.59e-11
+    apg default wide zeros 0.001 pert 2 subopt_lo 4.5e-06..5.38e-06 kkt/bound 0.636..0.82
+    apg default wide zeros 0.1 cold 1 subopt_lo 1.19e-08..1.19e-08 kkt/bound 0.976..0.976
+    apg default wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.485..0.615
+    apg default wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0163..0.0282
+    apg default wide_exact none 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-11..1.51e-11
+    apg default wide_exact none 0.001 pert 2 subopt_lo 7.86e-08..1.92e-07 kkt/bound 0.753..0.924
+    apg default wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.485..0.615
+    apg default wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0163..0.0282
+    apg default wide_exact spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-11..1.51e-11
+    apg default wide_exact spread 0.001 pert 2 subopt_lo 1.62e-07..2.99e-07 kkt/bound 0.827..0.91
+    apg default wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.485..0.615
+    apg default wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0163..0.0282
+    apg default wide_exact unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-11..1.51e-11
+    apg default wide_exact unit 0.001 pert 2 subopt_lo 7.86e-08..1.92e-07 kkt/bound 0.753..0.924
+    apg default wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.485..0.615
+    apg default wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0163..0.0282
+    apg default wide_exact zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-11..1.51e-11
+    apg default wide_exact zeros 0.001 pert 2 subopt_lo 1.22e-06..1.7e-06 kkt/bound 0.936..0.958
+    apg default yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 8.27e-05..0.00172
+    apg default zerocol none 0 cold 2 subopt_lo 1.91e-08..2.16e-08 kkt/bound 0.931..0.936
+    apg default zerocol none 0 pert 1 subopt_lo 1e-08..1e-08 kkt/bound 0.678..0.678
+    apg default zerocol spread 0 cold 2 subopt_lo 1.91e-08..2.16e-08 kkt/bound 0.931..0.936
+    apg default zerocol spread 0 pert 1 subopt_lo 1e-08..1e-08 kkt/bound 0.678..0.678
+    apg default zerocol unit 0 cold 2 subopt_lo 1.91e-08..2.16e-08 kkt/bound 0.931..0.936
+    apg default zerocol unit 0 pert 1 subopt_lo 1e-08..1e-08 kkt/bound 0.678..0.678
+    apg default zerocol zeros 0 cold 2 subopt_lo 1.91e-08..2.16e-08 kkt/bound 0.931..0.936
+    apg default zerocol zeros 0 pert 1 subopt_lo 1e-08..1e-08 kkt/bound 0.678..0.678
+    apg default zerocol zeros 0.001 cold 1 subopt_lo 1.07e-08..1.07e-08 kkt/bound 0.906..0.906
+    apg ftol0 colscale none 0 cold 2 subopt_lo 0.0875..0.0875 kkt/bound 1..1
+    apg ftol0 colscale none 0 pert 2 subopt_lo 0.000225..0.000225 kkt/bound 0.998..0.999
+    apg ftol0 colscale none 0.001 cold 1 subopt_lo 1.4e-08..1.4e-08 kkt/bound 0.815..0.815
+    apg ftol0 colscale none 0.001 pert 2 subopt_lo 1.91e-08..2.03e-08 kkt/bound 0.945..0.974
+    apg ftol0 colscale spread 0 cold 2 subopt_lo 0.0875..0.0875 kkt/bound 1..1
+    apg ftol0 colscale spread 0 pert 2 subopt_lo 0.000225..0.000225 kkt/bound 0.998..0.999
+    apg ftol0 colscale spread 0.001 cold 2 subopt_lo 1.72e-06..1.74e-06 kkt/bound 0.982..0.988
+    apg ftol0 colscale spread 0.001 pert 2 subopt_lo 1.69e-06..1.69e-06 kkt/bound 0.999..0.999
+    apg ftol0 colscale unit 0 cold 2 subopt_lo 0.0875..0.0875 kkt/bound 1..1
+    apg ftol0 colscale unit 0 pert 2 subopt_lo 0.000225..0.000225 kkt/bound 0.998..0.999
+    apg ftol0 colscale unit 0.001 cold 1 subopt_lo 1.4e-08..1.4e-08 kkt/bound 0.815..0.815
+    apg ftol0 colscale unit 0.001 pert 2 subopt_lo 1.91e-08..2.03e-08 kkt/bound 0.945..0.974
+    apg ftol0 colscale zeros 0 cold 2 subopt_lo 0.0875..0.0875 kkt/bound 1..1
+    apg ftol0 colscale zeros 0 pert 2 subopt_lo 0.000225..0.000225 kkt/bound 0.998..0.999
+    apg ftol0 colscale zeros 0.001 cold 2 subopt_lo 0.0557..0.0557 kkt/bound 0.978..0.987
+    apg ftol0 colscale zeros 0.001 pert 2 subopt_lo 0.000141..0.000141 kkt/bound 0.999..1
+    apg ftol0 colscale zeros 0.1 cold 2 subopt_lo 0.0511..0.0511 kkt/bound 0.555..0.86
+    apg ftol0 colscale zeros 0.1 pert 2 subopt_lo 0.000128..0.000128 kkt/bound 0.999..1
+    apg ftol0 colscale zeros 0.5 cold 2 subopt_lo 0.0449..0.0449 kkt/bound 0.194..0.421
+    apg ftol0 colscale zeros 0.5 pert 2 subopt_lo 0.000112..0.000112 kkt/bound 0.987..0.994
+    apg ftol0 colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.173..0.322
+    apg ftol0 colscale zeros 1.01 pert 2 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.359..0.401
+    apg ftol0 colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0874..0.162
+    apg ftol0 colscale zeros 2 pert 2 subopt_lo 8.85e-05..8.86e-05 kkt/bound 0.212..0.263
+    apg ftol0 offset none 0 cold 2 subopt_lo 166..737 kkt/bound 0.23..0.535
+    apg ftol0 offset none 0 pert 2 subopt_lo 0.414..1.84 kkt/bound 0.0115..0.0268
+    apg ftol0 offset spread 0 cold 2 subopt_lo 166..737 kkt/bound 0.23..0.535
+    apg ftol0 offset spread 0 pert 2 subopt_lo 0.414..1.84 kkt/bound 0.0115..0.0268
+    apg ftol0 offset unit 0 cold 2 subopt_lo 166..737 kkt/bound 0.23..0.535
+    apg ftol0 offset unit 0 pert 2 subopt_lo 0.414..1.84 kkt/bound 0.0115..0.0268
+    apg ftol0 offset zeros 0 cold 2 subopt_lo 166..737 kkt/bound 0.23..0.535
+    apg ftol0 offset zeros 0 pert 2 subopt_lo 0.414..1.84 kkt/bound 0.0115..0.0268
+    apg ftol0 offset zeros 0.001 cold 2 subopt_lo 0.00742..1.42 kkt/bound 0.0274..0.272
+    apg ftol0 offset zeros 0.001 pert 2 subopt_lo 7.16e-05..0.000717 kkt/bound 0.0024..0.00652
+    apg ftol0 offset zeros 0.1 cold 2 subopt_lo 0.974..2.19 kkt/bound 0.249..0.459
+    apg ftol0 offset zeros 0.1 pert 2 subopt_lo 0.00256..0.00321 kkt/bound 0.0122..0.0172
+    apg ftol0 offset zeros 0.5 cold 2 subopt_lo 0.18..0.228 kkt/bound 0.0693..0.0797
+    apg ftol0 offset zeros 0.5 pert 2 subopt_lo 0.00256..0.00321 kkt/bound 0.00749..0.0106
+    apg ftol0 offset zeros 1.01 cold 2 subopt_lo 1.02..1.28 kkt/bound 0.0742..0.105
+    apg ftol0 offset zeros 1.01 pert 2 subopt_lo 0.00256..0.00321 kkt/bound 0.00371..0.00525
+    apg ftol0 offset zeros 2 cold 2 subopt_lo 1.02..1.28 kkt/bound 0.0375..0.053
+    apg ftol0 offset zeros 2 pert 2 subopt_lo 0.00256..0.00321 kkt/bound 0.00187..0.00265
+    apg ftol0 rankdef none 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.564..0.715
+    apg ftol0 rankdef spread 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.564..0.715
+    apg ftol0 rankdef unit 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.564..0.715
+    apg ftol0 rankdef zeros 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.564..0.715
+    apg ftol0 tall_exact none 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt/bound 0.549..0.757
+    apg ftol0 tall_exact none 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt/bound 0.00799..0.0271
+    apg ftol0 tall_exact none 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-12..2.3e-12
+    apg ftol0 tall_exact spread 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt/bound 0.549..0.757
+    apg ftol0 tall_exact spread 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt/bound 0.00799..0.0271
+    apg ftol0 tall_exact spread 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-12..2.3e-12
+    apg ftol0 tall_exact unit 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt/bound 0.549..0.757
+    apg ftol0 tall_exact unit 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt/bound 0.00799..0.0271
+    apg ftol0 tall_exact unit 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-12..2.3e-12
+    apg ftol0 tall_exact zeros 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt/bound 0.549..0.757
+    apg ftol0 tall_exact zeros 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt/bound 0.00799..0.0271
+    apg ftol0 tall_exact zeros 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-12..2.3e-12
+    apg ftol0 wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.439..0.446
+    apg ftol0 wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0264..0.0387
+    apg ftol0 wide none 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-11..1.59e-11
+    apg ftol0 wide none 0.001 cold 2 subopt_lo 0.000103..0.000111 kkt/bound 0.881..0.883
+    apg ftol0 wide none 0.001 pert 2 subopt_lo 3.03e-08..6.35e-08 kkt/bound 0.0464..0.072
+    apg ftol0 wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.439..0.446
+    apg ftol0 wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0264..0.0387
+    apg ftol0 wide spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-11..1.59e-11
+    apg ftol0 wide spread 0.001 cold 2 subopt_lo 6.09e-06..6.26e-06 kkt/bound 0.933..0.969
+    apg ftol0 wide spread 0.001 pert 1 subopt_lo 1.04e-08..1.04e-08 kkt/bound 0.0459..0.0459
+    apg ftol0 wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.439..0.446
+    apg ftol0 wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0264..0.0387
+    apg ftol0 wide unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-11..1.59e-11
+    apg ftol0 wide unit 0.001 cold 2 subopt_lo 0.000103..0.000111 kkt/bound 0.881..0.883
+    apg ftol0 wide unit 0.001 pert 2 subopt_lo 3.03e-08..6.35e-08 kkt/bound 0.0464..0.072
+    apg ftol0 wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.439..0.446
+    apg ftol0 wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0264..0.0387
+    apg ftol0 wide zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-11..1.59e-11
+    apg ftol0 wide zeros 0.001 cold 2 subopt_lo 4.02e-06..5.35e-06 kkt/bound 0.669..0.971
+    apg ftol0 wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.485..0.615
+    apg ftol0 wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0163..0.0282
+    apg ftol0 wide_exact none 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-11..1.51e-11
+    apg ftol0 wide_exact none 0.001 cold 2 subopt_lo 1.36e-08..9.71e-08 kkt/bound 0.319..0.722
+    apg ftol0 wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.485..0.615
+    apg ftol0 wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0163..0.0282
+    apg ftol0 wide_exact spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-11..1.51e-11
+    apg ftol0 wide_exact spread 0.001 cold 2 subopt_lo 3.73e-07..4.79e-07 kkt/bound 0.83..0.944
+    apg ftol0 wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.485..0.615
+    apg ftol0 wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0163..0.0282
+    apg ftol0 wide_exact unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-11..1.51e-11
+    apg ftol0 wide_exact unit 0.001 cold 2 subopt_lo 1.36e-08..9.71e-08 kkt/bound 0.319..0.722
+    apg ftol0 wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.485..0.615
+    apg ftol0 wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0163..0.0282
+    apg ftol0 wide_exact zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-11..1.51e-11
+    apg ftol0 wide_exact zeros 0.001 cold 2 subopt_lo 9.68e-07..2.35e-06 kkt/bound 0.643..0.923
+    apg ftol0 yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 8.27e-05..0.00172
+    apg gradtol1e-8 colscale zeros 1.01 pert 2 subopt_lo 1.17e-05..1.17e-05 kkt/bound 1..1
+    apg gradtol1e-8 colscale zeros 2 pert 2 subopt_lo 4.57e-05..4.57e-05 kkt/bound 1..1
+    apg gradtol1e-8 offset none 0 cold 2 subopt_lo 0.000403..0.000438 kkt/bound 0.248..0.316
+    apg gradtol1e-8 offset none 0 pert 2 subopt_lo 4.1e-05..8.03e-05 kkt/bound 0.119..0.184
+    apg gradtol1e-8 offset spread 0 cold 2 subopt_lo 0.000403..0.000438 kkt/bound 0.248..0.316
+    apg gradtol1e-8 offset spread 0 pert 2 subopt_lo 4.1e-05..8.03e-05 kkt/bound 0.119..0.184
+    apg gradtol1e-8 offset unit 0 cold 2 subopt_lo 0.000403..0.000438 kkt/bound 0.248..0.316
+    apg gradtol1e-8 offset unit 0 pert 2 subopt_lo 4.1e-05..8.03e-05 kkt/bound 0.119..0.184
+    apg gradtol1e-8 offset zeros 0 cold 2 subopt_lo 0.000403..0.000438 kkt/bound 0.248..0.316
+    apg gradtol1e-8 offset zeros 0 pert 2 subopt_lo 4.1e-05..8.03e-05 kkt/bound 0.119..0.184
+    apg gradtol1e-8 offset zeros 0.001 cold 1 subopt_lo 1.5e-06..1.5e-06 kkt/bound 0.317..0.317
+    apg gradtol1e-8 offset zeros 0.001 pert 2 subopt_lo 8.73e-07..3.94e-06 kkt/bound 0.238..0.59
+    apg gradtol1e-8 offset zeros 0.1 cold 2 subopt_lo 5.71e-07..1.04e-06 kkt/bound 0.193..0.249
+    apg gradtol1e-8 offset zeros 0.1 pert 2 subopt_lo 3.83e-07..1.25e-06 kkt/bound 0.155..0.272
+    apg gradtol1e-8 offset zeros 0.5 cold 2 subopt_lo 1.73e-07..1.54e-05 kkt/bound 0.0723..0.578
+    apg gradtol1e-8 offset zeros 0.5 pert 2 subopt_lo 3.83e-07..1.25e-06 kkt/bound 0.0953..0.168
+    apg gradtol1e-8 offset zeros 1.01 cold 2 subopt_lo 1.4e-07..2.43e-07 kkt/bound 0.0251..0.0446
+    apg gradtol1e-8 offset zeros 1.01 pert 2 subopt_lo 3.83e-07..1.25e-06 kkt/bound 0.0472..0.083
+    apg gradtol1e-8 offset zeros 2 cold 2 subopt_lo 1.4e-07..2.43e-07 kkt/bound 0.0127..0.0225
+    apg gradtol1e-8 offset zeros 2 pert 2 subopt_lo 3.83e-07..1.25e-06 kkt/bound 0.0238..0.0419
+    apg gradtol1e-8 rankdef none 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.765..0.871
+    apg gradtol1e-8 rankdef spread 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.765..0.871
+    apg gradtol1e-8 rankdef unit 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.765..0.871
+    apg gradtol1e-8 rankdef zeros 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.765..0.871
+    apg gradtol1e-8 tall_exact none 0 cold 2 subopt_lo 7.56e+15..4.52e+16 kkt/bound 0.372..0.925
+    apg gradtol1e-8 tall_exact none 0 pert 2 subopt_lo 9e+15..1.61e+16 kkt/bound 0.317..0.576
+    apg gradtol1e-8 tall_exact none 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-09..2.3e-09
+    apg gradtol1e-8 tall_exact spread 0 cold 2 subopt_lo 7.56e+15..4.52e+16 kkt/bound 0.372..0.925
+    apg gradtol1e-8 tall_exact spread 0 pert 2 subopt_lo 9e+15..1.61e+16 kkt/bound 0.317..0.576
+    apg gradtol1e-8 tall_exact spread 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-09..2.3e-09
+    apg gradtol1e-8 tall_exact unit 0 cold 2 subopt_lo 7.56e+15..4.52e+16 kkt/bound 0.372..0.925
+    apg gradtol1e-8 tall_exact unit 0 pert 2 subopt_lo 9e+15..1.61e+16 kkt/bound 0.317..0.576
+    apg gradtol1e-8 tall_exact unit 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-09..2.3e-09
+    apg gradtol1e-8 tall_exact zeros 0 cold 2 subopt_lo 7.56e+15..4.52e+16 kkt/bound 0.372..0.925
+    apg gradtol1e-8 tall_exact zeros 0 pert 2 subopt_lo 9e+15..1.61e+16 kkt/bound 0.317..0.576
+    apg gradtol1e-8 tall_exact zeros 0 ref 2 subopt_lo 0.104..0.106 kkt/bound 2.29e-09..2.3e-09
+    apg gradtol1e-8 wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.649..0.898
+    apg gradtol1e-8 wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.716..0.936
+    apg gradtol1e-8 wide none 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-08..1.59e-08
+    apg gradtol1e-8 wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.649..0.898
+    apg gradtol1e-8 wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.716..0.936
+    apg gradtol1e-8 wide spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-08..1.59e-08
+    apg gradtol1e-8 wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.649..0.898
+    apg gradtol1e-8 wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.716..0.936
+    apg gradtol1e-8 wide unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-08..1.59e-08
+    apg gradtol1e-8 wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.649..0.898
+    apg gradtol1e-8 wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.716..0.936
+    apg gradtol1e-8 wide zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.28e-08..1.59e-08
+    apg gradtol1e-8 wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.685..0.69
+    apg gradtol1e-8 wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.747..0.959
+    apg gradtol1e-8 wide_exact none 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-08..1.51e-08
+    apg gradtol1e-8 wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.685..0.69
+    apg gradtol1e-8 wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.747..0.959
+    apg gradtol1e-8 wide_exact spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-08..1.51e-08
+    apg gradtol1e-8 wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.685..0.69
+    apg gradtol1e-8 wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.747..0.959
+    apg gradtol1e-8 wide_exact unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-08..1.51e-08
+    apg gradtol1e-8 wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.685..0.69
+    apg gradtol1e-8 wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.747..0.959
+    apg gradtol1e-8 wide_exact zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.07e-08..1.51e-08
+    apg gradtol1e-8 yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 0.0827..0.817
+    apg strict tall_exact none 0 cold 2 subopt_lo 1.65e+10..1.81e+10 kkt/bound 0.483..0.568
+    apg strict tall_exact none 0 pert 2 subopt_lo 1.38e+07..4.83e+07 kkt/bound 0.0279..0.0295
+    apg strict tall_exact spread 0 cold 2 subopt_lo 1.65e+10..1.81e+10 kkt/bound 0.483..0.568
+    apg strict tall_exact spread 0 pert 2 subopt_lo 1.38e+07..4.83e+07 kkt/bound 0.0279..0.0295
+    apg strict tall_exact unit 0 cold 2 subopt_lo 1.65e+10..1.81e+10 kkt/bound 0.483..0.568
+    apg strict tall_exact unit 0 pert 2 subopt_lo 1.38e+07..4.83e+07 kkt/bound 0.0279..0.0295
+    apg strict tall_exact zeros 0 cold 2 subopt_lo 1.65e+10..1.81e+10 kkt/bound 0.483..0.568
+    apg strict tall_exact zeros 0 pert 2 subopt_lo 1.38e+07..4.83e+07 kkt/bound 0.0279..0.0295
+    apg strict wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.545..0.566
+    apg strict wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0282..0.0443
+    apg strict wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.545..0.566
+    apg strict wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0282..0.0443
+    apg strict wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.545..0.566
+    apg strict wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0282..0.0443
+    apg strict wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.545..0.566
+    apg strict wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0282..0.0443
+    apg strict wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.443..0.563
+    apg strict wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0245..0.0355
+    apg strict wide_exact none 0 ref 1 subopt_lo inf..inf kkt/bound 3.26e-05..3.26e-05
+    apg strict wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.443..0.563
+    apg strict wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0245..0.0355
+    apg strict wide_exact spread 0 ref 1 subopt_lo inf..inf kkt/bound 3.26e-05..3.26e-05
+    apg strict wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.443..0.563
+    apg strict wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0245..0.0355
+    apg strict wide_exact unit 0 ref 1 subopt_lo inf..inf kkt/bound 3.26e-05..3.26e-05
+    apg strict wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.443..0.563
+    apg strict wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0245..0.0355
+    apg strict wide_exact zeros 0 ref 1 subopt_lo inf..inf kkt/bound 3.26e-05..3.26e-05
+    apg strict yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 0.000122..0.00247
+    pgd default colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0551..0.0551
+    pgd default colscale zeros 1.01 pert 2 subopt_lo 8.86e-05..8.86e-05 kkt/bound 0.799..0.829
+    pgd default colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0278..0.0278
+    pgd default colscale zeros 2 pert 2 subopt_lo 8.91e-05..8.92e-05 kkt/bound 0.938..0.963
+    pgd default corr95 zeros 2 cold 1 subopt_lo 2e-08..2e-08 kkt/bound 0.952..0.952
+    pgd default corr95 zeros 2 pert 2 subopt_lo 1.52e-08..1.63e-08 kkt/bound 0.91..0.994
+    pgd default gauss zeros 2 pert 1 subopt_lo 1.57e-08..1.57e-08 kkt/bound 0.774..0.774
+    pgd default offset none 0 cold 2 subopt_lo 67.5..175 kkt/bound 0.142..0.21
+    pgd default offset none 0 pert 2 subopt_lo 0.439..1.52 kkt/bound 0.0105..0.0169
+    pgd default offset none 0.001 cold 1 subopt_lo 1.35e-08..1.35e-08 kkt/bound 0.519..0.519
+    pgd default offset none 0.001 pert 1 subopt_lo 2.01e-08..2.01e-08 kkt/bound 0.634..0.634
+    pgd default offset spread 0 cold 2 subopt_lo 67.5..175 kkt/bound 0.142..0.21
+    pgd default offset spread 0 pert 2 subopt_lo 0.439..1.52 kkt/bound 0.0105..0.0169
+    pgd default offset spread 0.001 pert 1 subopt_lo 2.02e-08..2.02e-08 kkt/bound 0.636..0.636
+    pgd default offset unit 0 cold 2 subopt_lo 67.5..175 kkt/bound 0.142..0.21
+    pgd default offset unit 0 pert 2 subopt_lo 0.439..1.52 kkt/bound 0.0105..0.0169
+    pgd default offset unit 0.001 cold 1 subopt_lo 1.35e-08..1.35e-08 kkt/bound 0.519..0.519
+    pgd default offset unit 0.001 pert 1 subopt_lo 2.01e-08..2.01e-08 kkt/bound 0.634..0.634
+    pgd default offset zeros 0 cold 2 subopt_lo 67.5..175 kkt/bound 0.142..0.21
+    pgd default offset zeros 0 pert 2 subopt_lo 0.439..1.52 kkt/bound 0.0105..0.0169
+    pgd default offset zeros 0.001 cold 2 subopt_lo 0.0171..0.133 kkt/bound 0.0324..0.09
+    pgd default offset zeros 0.001 pert 2 subopt_lo 0.000719..0.0117 kkt/bound 0.00666..0.027
+    pgd default offset zeros 0.1 cold 2 subopt_lo 0.0422..0.591 kkt/bound 0.0512..0.191
+    pgd default offset zeros 0.1 pert 2 subopt_lo 5.65e-07..0.00044 kkt/bound 0.000255..0.00522
+    pgd default offset zeros 0.5 cold 2 subopt_lo 0.00034..0.223 kkt/bound 0.00388..0.0725
+    pgd default offset zeros 0.5 pert 2 subopt_lo 5.65e-07..0.00044 kkt/bound 0.000157..0.00321
+    pgd default offset zeros 1.01 cold 2 subopt_lo 0.000226..0.176 kkt/bound 0.00155..0.0318
+    pgd default offset zeros 1.01 pert 2 subopt_lo 5.65e-07..0.00044 kkt/bound 7.76e-05..0.00159
+    pgd default offset zeros 2 cold 2 subopt_lo 0.000226..0.176 kkt/bound 0.000783..0.0161
+    pgd default offset zeros 2 pert 2 subopt_lo 5.65e-07..0.00044 kkt/bound 3.92e-05..0.000804
+    pgd default rankdef none 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.817..0.817
+    pgd default rankdef none 0.001 pert 2 subopt_lo 1.4e-08..2.47e-08 kkt/bound 0.704..0.89
+    pgd default rankdef spread 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.817..0.817
+    pgd default rankdef spread 0.001 pert 2 subopt_lo 1.72e-08..2.67e-08 kkt/bound 0.956..0.98
+    pgd default rankdef unit 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.817..0.817
+    pgd default rankdef unit 0.001 pert 2 subopt_lo 1.4e-08..2.47e-08 kkt/bound 0.704..0.89
+    pgd default rankdef zeros 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.817..0.817
+    pgd default rankdef zeros 0.001 pert 2 subopt_lo 4.04e-08..5.3e-08 kkt/bound 0.886..0.97
+    pgd default tall_exact none 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt/bound 0.38..0.381
+    pgd default tall_exact none 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt/bound 0.0209..0.0215
+    pgd default tall_exact none 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-12..2.74e-12
+    pgd default tall_exact none 0.001 cold 2 subopt_lo 1.1e-08..2.09e-08 kkt/bound 0.624..0.867
+    pgd default tall_exact none 0.001 pert 1 subopt_lo 2.02e-08..2.02e-08 kkt/bound 0.835..0.835
+    pgd default tall_exact spread 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt/bound 0.38..0.381
+    pgd default tall_exact spread 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt/bound 0.0209..0.0215
+    pgd default tall_exact spread 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-12..2.74e-12
+    pgd default tall_exact spread 0.001 cold 1 subopt_lo 1.02e-08..1.02e-08 kkt/bound 0.902..0.902
+    pgd default tall_exact spread 0.001 pert 1 subopt_lo 1.04e-08..1.04e-08 kkt/bound 0.916..0.916
+    pgd default tall_exact unit 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt/bound 0.38..0.381
+    pgd default tall_exact unit 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt/bound 0.0209..0.0215
+    pgd default tall_exact unit 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-12..2.74e-12
+    pgd default tall_exact unit 0.001 cold 2 subopt_lo 1.1e-08..2.09e-08 kkt/bound 0.624..0.867
+    pgd default tall_exact unit 0.001 pert 1 subopt_lo 2.02e-08..2.02e-08 kkt/bound 0.835..0.835
+    pgd default tall_exact zeros 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt/bound 0.38..0.381
+    pgd default tall_exact zeros 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt/bound 0.0209..0.0215
+    pgd default tall_exact zeros 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-12..2.74e-12
+    pgd default tall_exact zeros 0.001 cold 2 subopt_lo 2.38e-08..3.12e-08 kkt/bound 0.796..0.918
+    pgd default wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.197..0.289
+    pgd default wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0143..0.0143
+    pgd default wide none 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-11..1.55e-11
+    pgd default wide none 0.1 pert 2 subopt_lo 1.12e-08..1.17e-08 kkt/bound 0.962..0.966
+    pgd default wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.197..0.289
+    pgd default wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0143..0.0143
+    pgd default wide spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-11..1.55e-11
+    pgd default wide spread 0.1 cold 2 subopt_lo 1.16e-08..1.41e-08 kkt/bound 0.952..0.986
+    pgd default wide spread 0.1 pert 2 subopt_lo 1.04e-08..1.11e-08 kkt/bound 0.946..0.981
+    pgd default wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.197..0.289
+    pgd default wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0143..0.0143
+    pgd default wide unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-11..1.55e-11
+    pgd default wide unit 0.1 pert 2 subopt_lo 1.12e-08..1.17e-08 kkt/bound 0.962..0.966
+    pgd default wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.197..0.289
+    pgd default wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0143..0.0143
+    pgd default wide zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-11..1.55e-11
+    pgd default wide zeros 0.1 cold 2 subopt_lo 1.4e-08..1.41e-08 kkt/bound 0.896..0.973
+    pgd default wide zeros 0.1 pert 1 subopt_lo 1.38e-08..1.38e-08 kkt/bound 0.947..0.947
+    pgd default wide zeros 2 cold 1 subopt_lo 1.17e-08..1.17e-08 kkt/bound 0.98..0.98
+    pgd default wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.228..0.228
+    pgd default wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0113..0.0113
+    pgd default wide_exact none 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-12..1.09e-11
+    pgd default wide_exact none 0.001 pert 2 subopt_lo 9.3e-08..1.35e-07 kkt/bound 0.682..0.979
+    pgd default wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.228..0.228
+    pgd default wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0113..0.0113
+    pgd default wide_exact spread 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-12..1.09e-11
+    pgd default wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.228..0.228
+    pgd default wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0113..0.0113
+    pgd default wide_exact unit 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-12..1.09e-11
+    pgd default wide_exact unit 0.001 pert 2 subopt_lo 9.3e-08..1.35e-07 kkt/bound 0.682..0.979
+    pgd default wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.228..0.228
+    pgd default wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0113..0.0113
+    pgd default wide_exact zeros 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-12..1.09e-11
+    pgd default wide_exact zeros 2 cold 2 subopt_lo 1.7e-08..4.68e-08 kkt/bound 0.51..0.89
+    pgd default wide_exact zeros 2 pert 1 subopt_lo 2.48e-08..2.48e-08 kkt/bound 0.617..0.617
+    pgd default yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 8.13e-05..0.000285
+    pgd default zerocol none 0 cold 2 subopt_lo 1.25e-08..1.4e-08 kkt/bound 0.645..0.682
+    pgd default zerocol none 0 pert 1 subopt_lo 2.95e-08..2.95e-08 kkt/bound 0.834..0.834
+    pgd default zerocol none 0.001 cold 2 subopt_lo 2.61e-08..2.61e-08 kkt/bound 0.942..0.942
+    pgd default zerocol none 0.001 pert 1 subopt_lo 2.53e-08..2.53e-08 kkt/bound 0.828..0.828
+    pgd default zerocol spread 0 cold 2 subopt_lo 1.25e-08..1.4e-08 kkt/bound 0.645..0.682
+    pgd default zerocol spread 0 pert 1 subopt_lo 2.95e-08..2.95e-08 kkt/bound 0.834..0.834
+    pgd default zerocol spread 0.001 cold 2 subopt_lo 1.01e-08..1.01e-08 kkt/bound 0.618..0.618
+    pgd default zerocol spread 0.001 pert 2 subopt_lo 2.05e-08..2.95e-08 kkt/bound 0.787..0.962
+    pgd default zerocol unit 0 cold 2 subopt_lo 1.25e-08..1.4e-08 kkt/bound 0.645..0.682
+    pgd default zerocol unit 0 pert 1 subopt_lo 2.95e-08..2.95e-08 kkt/bound 0.834..0.834
+    pgd default zerocol unit 0.001 cold 2 subopt_lo 2.61e-08..2.61e-08 kkt/bound 0.942..0.942
+    pgd default zerocol unit 0.001 pert 1 subopt_lo 2.53e-08..2.53e-08 kkt/bound 0.828..0.828
+    pgd default zerocol zeros 0 cold 2 subopt_lo 1.25e-08..1.4e-08 kkt/bound 0.645..0.682
+    pgd default zerocol zeros 0 pert 1 subopt_lo 2.95e-08..2.95e-08 kkt/bound 0.834..0.834
+    pgd default zerocol zeros 0.001 cold 2 subopt_lo 2.04e-08..2.04e-08 kkt/bound 0.842..0.842
+    pgd default zerocol zeros 0.001 pert 2 subopt_lo 2.09e-08..3.22e-08 kkt/bound 0.75..0.965
+    pgd ftol0 colscale none 0.001 cold 2 subopt_lo 2.08e-08..2.12e-08 kkt/bound 0.989..0.998
+    pgd ftol0 colscale none 0.001 pert 2 subopt_lo 2.02e-08..2.07e-08 kkt/bound 0.973..0.987
+    pgd ftol0 colscale unit 0.001 cold 2 subopt_lo 2.08e-08..2.12e-08 kkt/bound 0.989..0.998
+    pgd ftol0 colscale unit 0.001 pert 2 subopt_lo 2.02e-08..2.07e-08 kkt/bound 0.973..0.987
+    pgd ftol0 colscale zeros 0.1 pert 2 subopt_lo 0.000128..0.000128 kkt/bound 1..1
+    pgd ftol0 colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0551..0.0551
+    pgd ftol0 colscale zeros 1.01 pert 2 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.0157..0.0174
+    pgd ftol0 colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0278..0.0278
+    pgd ftol0 colscale zeros 2 pert 2 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.00792..0.00876
+    pgd ftol0 offset none 0 cold 2 subopt_lo 67.5..175 kkt/bound 0.142..0.21
+    pgd ftol0 offset none 0 pert 2 subopt_lo 0.439..1.52 kkt/bound 0.0105..0.0169
+    pgd ftol0 offset none 0.001 cold 1 subopt_lo 1.35e-08..1.35e-08 kkt/bound 0.519..0.519
+    pgd ftol0 offset spread 0 cold 2 subopt_lo 67.5..175 kkt/bound 0.142..0.21
+    pgd ftol0 offset spread 0 pert 2 subopt_lo 0.439..1.52 kkt/bound 0.0105..0.0169
+    pgd ftol0 offset unit 0 cold 2 subopt_lo 67.5..175 kkt/bound 0.142..0.21
+    pgd ftol0 offset unit 0 pert 2 subopt_lo 0.439..1.52 kkt/bound 0.0105..0.0169
+    pgd ftol0 offset unit 0.001 cold 1 subopt_lo 1.35e-08..1.35e-08 kkt/bound 0.519..0.519
+    pgd ftol0 offset zeros 0 cold 2 subopt_lo 67.5..175 kkt/bound 0.142..0.21
+    pgd ftol0 offset zeros 0 pert 2 subopt_lo 0.439..1.52 kkt/bound 0.0105..0.0169
+    pgd ftol0 offset zeros 0.001 cold 2 subopt_lo 0.0171..0.133 kkt/bound 0.0324..0.09
+    pgd ftol0 offset zeros 0.001 pert 2 subopt_lo 0.000719..0.0117 kkt/bound 0.00666..0.027
+    pgd ftol0 offset zeros 0.1 cold 2 subopt_lo 0.0422..0.591 kkt/bound 0.0512..0.191
+    pgd ftol0 offset zeros 0.1 pert 2 subopt_lo 5.65e-07..0.00044 kkt/bound 0.000255..0.00522
+    pgd ftol0 offset zeros 0.5 cold 2 subopt_lo 0.00034..0.223 kkt/bound 0.00388..0.0725
+    pgd ftol0 offset zeros 0.5 pert 2 subopt_lo 5.65e-07..0.00044 kkt/bound 0.000157..0.00321
+    pgd ftol0 offset zeros 1.01 cold 2 subopt_lo 0.000226..0.176 kkt/bound 0.00155..0.0318
+    pgd ftol0 offset zeros 1.01 pert 2 subopt_lo 5.65e-07..0.00044 kkt/bound 7.76e-05..0.00159
+    pgd ftol0 offset zeros 2 cold 2 subopt_lo 0.000226..0.176 kkt/bound 0.000783..0.0161
+    pgd ftol0 offset zeros 2 pert 2 subopt_lo 5.65e-07..0.00044 kkt/bound 3.92e-05..0.000804
+    pgd ftol0 rankdef none 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.429..0.429
+    pgd ftol0 rankdef spread 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.429..0.429
+    pgd ftol0 rankdef unit 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.429..0.429
+    pgd ftol0 rankdef zeros 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.429..0.429
+    pgd ftol0 tall_exact none 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt/bound 0.38..0.381
+    pgd ftol0 tall_exact none 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt/bound 0.0209..0.0215
+    pgd ftol0 tall_exact none 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-12..2.74e-12
+    pgd ftol0 tall_exact spread 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt/bound 0.38..0.381
+    pgd ftol0 tall_exact spread 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt/bound 0.0209..0.0215
+    pgd ftol0 tall_exact spread 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-12..2.74e-12
+    pgd ftol0 tall_exact unit 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt/bound 0.38..0.381
+    pgd ftol0 tall_exact unit 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt/bound 0.0209..0.0215
+    pgd ftol0 tall_exact unit 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-12..2.74e-12
+    pgd ftol0 tall_exact zeros 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt/bound 0.38..0.381
+    pgd ftol0 tall_exact zeros 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt/bound 0.0209..0.0215
+    pgd ftol0 tall_exact zeros 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-12..2.74e-12
+    pgd ftol0 wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.197..0.289
+    pgd ftol0 wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0143..0.0143
+    pgd ftol0 wide none 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-11..1.55e-11
+    pgd ftol0 wide none 0.001 cold 2 subopt_lo 1.04e-06..1.05e-06 kkt/bound 0.279..0.292
+    pgd ftol0 wide none 0.001 pert 1 subopt_lo 1.66e-08..1.66e-08 kkt/bound 0.0265..0.0265
+    pgd ftol0 wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.197..0.289
+    pgd ftol0 wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0143..0.0143
+    pgd ftol0 wide spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-11..1.55e-11
+    pgd ftol0 wide spread 0.001 cold 2 subopt_lo 7.37e-07..7.51e-07 kkt/bound 0.298..0.298
+    pgd ftol0 wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.197..0.289
+    pgd ftol0 wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0143..0.0143
+    pgd ftol0 wide unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-11..1.55e-11
+    pgd ftol0 wide unit 0.001 cold 2 subopt_lo 1.04e-06..1.05e-06 kkt/bound 0.279..0.292
+    pgd ftol0 wide unit 0.001 pert 1 subopt_lo 1.66e-08..1.66e-08 kkt/bound 0.0265..0.0265
+    pgd ftol0 wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.197..0.289
+    pgd ftol0 wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0143..0.0143
+    pgd ftol0 wide zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-11..1.55e-11
+    pgd ftol0 wide zeros 0.001 cold 2 subopt_lo 7.89e-07..8.05e-07 kkt/bound 0.291..0.296
+    pgd ftol0 wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.228..0.228
+    pgd ftol0 wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0113..0.0113
+    pgd ftol0 wide_exact none 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-12..1.09e-11
+    pgd ftol0 wide_exact none 0.001 cold 1 subopt_lo 3.93e-08..3.93e-08 kkt/bound 0.531..0.531
+    pgd ftol0 wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.228..0.228
+    pgd ftol0 wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0113..0.0113
+    pgd ftol0 wide_exact spread 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-12..1.09e-11
+    pgd ftol0 wide_exact spread 0.001 cold 2 subopt_lo 1.01e-07..1.12e-07 kkt/bound 0.22..0.232
+    pgd ftol0 wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.228..0.228
+    pgd ftol0 wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0113..0.0113
+    pgd ftol0 wide_exact unit 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-12..1.09e-11
+    pgd ftol0 wide_exact unit 0.001 cold 1 subopt_lo 3.93e-08..3.93e-08 kkt/bound 0.531..0.531
+    pgd ftol0 wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.228..0.228
+    pgd ftol0 wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0113..0.0113
+    pgd ftol0 wide_exact zeros 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-12..1.09e-11
+    pgd ftol0 wide_exact zeros 0.001 cold 2 subopt_lo 1.94e-07..2.32e-07 kkt/bound 0.229..0.233
+    pgd ftol0 yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 8.13e-05..0.000285
+    pgd gradtol1e-8 offset none 0 cold 2 subopt_lo 1.34e-05..0.000196 kkt/bound 0.0521..0.234
+    pgd gradtol1e-8 offset none 0 pert 2 subopt_lo 0.00013..0.000326 kkt/bound 0.243..0.297
+    pgd gradtol1e-8 offset spread 0 cold 2 subopt_lo 1.34e-05..0.000196 kkt/bound 0.0521..0.234
+    pgd gradtol1e-8 offset spread 0 pert 2 subopt_lo 0.00013..0.000326 kkt/bound 0.243..0.297
+    pgd gradtol1e-8 offset unit 0 cold 2 subopt_lo 1.34e-05..0.000196 kkt/bound 0.0521..0.234
+    pgd gradtol1e-8 offset unit 0 pert 2 subopt_lo 0.00013..0.000326 kkt/bound 0.243..0.297
+    pgd gradtol1e-8 offset zeros 0 cold 2 subopt_lo 1.34e-05..0.000196 kkt/bound 0.0521..0.234
+    pgd gradtol1e-8 offset zeros 0 pert 2 subopt_lo 0.00013..0.000326 kkt/bound 0.243..0.297
+    pgd gradtol1e-8 offset zeros 0.001 cold 2 subopt_lo 2e-07..6.34e-07 kkt/bound 0.111..0.198
+    pgd gradtol1e-8 offset zeros 0.001 pert 1 subopt_lo 1.43e-08..1.43e-08 kkt/bound 0.0296..0.0296
+    pgd gradtol1e-8 offset zeros 0.1 cold 2 subopt_lo 5.18e-07..6.72e-07 kkt/bound 0.179..0.204
+    pgd gradtol1e-8 offset zeros 0.1 pert 2 subopt_lo 1.8e-07..5.65e-07 kkt/bound 0.105..0.255
+    pgd gradtol1e-8 offset zeros 0.5 cold 2 subopt_lo 1.73e-07..1.49e-06 kkt/bound 0.0638..0.182
+    pgd gradtol1e-8 offset zeros 0.5 pert 2 subopt_lo 1.8e-07..5.65e-07 kkt/bound 0.0647..0.157
+    pgd gradtol1e-8 offset zeros 1.01 cold 2 subopt_lo 1.26e-06..1.42e-06 kkt/bound 0.0832..0.0904
+    pgd gradtol1e-8 offset zeros 1.01 pert 2 subopt_lo 1.8e-07..5.65e-07 kkt/bound 0.032..0.0776
+    pgd gradtol1e-8 offset zeros 2 cold 2 subopt_lo 1.26e-06..1.42e-06 kkt/bound 0.042..0.0456
+    pgd gradtol1e-8 offset zeros 2 pert 2 subopt_lo 1.8e-07..5.65e-07 kkt/bound 0.0162..0.0392
+    pgd gradtol1e-8 rankdef none 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.678..0.678
+    pgd gradtol1e-8 rankdef spread 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.678..0.678
+    pgd gradtol1e-8 rankdef unit 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.678..0.678
+    pgd gradtol1e-8 rankdef zeros 0 cold 2 subopt_lo 0.109..0.109 kkt/bound 0.678..0.678
+    pgd gradtol1e-8 tall_exact none 0 cold 2 subopt_lo 1.33e+16..2.06e+16 kkt/bound 0.541..0.577
+    pgd gradtol1e-8 tall_exact none 0 pert 2 subopt_lo 1.79e+16..6.15e+16 kkt/bound 0.673..0.921
+    pgd gradtol1e-8 tall_exact none 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-09..2.74e-09
+    pgd gradtol1e-8 tall_exact spread 0 cold 2 subopt_lo 1.33e+16..2.06e+16 kkt/bound 0.541..0.577
+    pgd gradtol1e-8 tall_exact spread 0 pert 2 subopt_lo 1.79e+16..6.15e+16 kkt/bound 0.673..0.921
+    pgd gradtol1e-8 tall_exact spread 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-09..2.74e-09
+    pgd gradtol1e-8 tall_exact unit 0 cold 2 subopt_lo 1.33e+16..2.06e+16 kkt/bound 0.541..0.577
+    pgd gradtol1e-8 tall_exact unit 0 pert 2 subopt_lo 1.79e+16..6.15e+16 kkt/bound 0.673..0.921
+    pgd gradtol1e-8 tall_exact unit 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-09..2.74e-09
+    pgd gradtol1e-8 tall_exact zeros 0 cold 2 subopt_lo 1.33e+16..2.06e+16 kkt/bound 0.541..0.577
+    pgd gradtol1e-8 tall_exact zeros 0 pert 2 subopt_lo 1.79e+16..6.15e+16 kkt/bound 0.673..0.921
+    pgd gradtol1e-8 tall_exact zeros 0 ref 2 subopt_lo 0.111..0.163 kkt/bound 2.28e-09..2.74e-09
+    pgd gradtol1e-8 wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.609..0.642
+    pgd gradtol1e-8 wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.826..0.826
+    pgd gradtol1e-8 wide none 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-08..1.55e-08
+    pgd gradtol1e-8 wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.609..0.642
+    pgd gradtol1e-8 wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.826..0.826
+    pgd gradtol1e-8 wide spread 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-08..1.55e-08
+    pgd gradtol1e-8 wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.609..0.642
+    pgd gradtol1e-8 wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.826..0.826
+    pgd gradtol1e-8 wide unit 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-08..1.55e-08
+    pgd gradtol1e-8 wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.609..0.642
+    pgd gradtol1e-8 wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.826..0.826
+    pgd gradtol1e-8 wide zeros 0 ref 2 subopt_lo inf..inf kkt/bound 1.38e-08..1.55e-08
+    pgd gradtol1e-8 wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.579..0.579
+    pgd gradtol1e-8 wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.723..0.723
+    pgd gradtol1e-8 wide_exact none 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-09..1.09e-08
+    pgd gradtol1e-8 wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.579..0.579
+    pgd gradtol1e-8 wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.723..0.723
+    pgd gradtol1e-8 wide_exact spread 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-09..1.09e-08
+    pgd gradtol1e-8 wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.579..0.579
+    pgd gradtol1e-8 wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.723..0.723
+    pgd gradtol1e-8 wide_exact unit 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-09..1.09e-08
+    pgd gradtol1e-8 wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.579..0.579
+    pgd gradtol1e-8 wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.723..0.723
+    pgd gradtol1e-8 wide_exact zeros 0 ref 2 subopt_lo inf..inf kkt/bound 9.92e-09..1.09e-08
+    pgd gradtol1e-8 yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 0.047..0.0813
+    pgd strict tall_exact none 0 cold 2 subopt_lo 8.07e+09..1.21e+10 kkt/bound 0.349..0.425
+    pgd strict tall_exact none 0 pert 2 subopt_lo 1.75e+07..2.72e+07 kkt/bound 0.016..0.0201
+    pgd strict tall_exact spread 0 cold 2 subopt_lo 8.07e+09..1.21e+10 kkt/bound 0.349..0.425
+    pgd strict tall_exact spread 0 pert 2 subopt_lo 1.75e+07..2.72e+07 kkt/bound 0.016..0.0201
+    pgd strict tall_exact unit 0 cold 2 subopt_lo 8.07e+09..1.21e+10 kkt/bound 0.349..0.425
+    pgd strict tall_exact unit 0 pert 2 subopt_lo 1.75e+07..2.72e+07 kkt/bound 0.016..0.0201
+    pgd strict tall_exact zeros 0 cold 2 subopt_lo 8.07e+09..1.21e+10 kkt/bound 0.349..0.425
+    pgd strict tall_exact zeros 0 pert 2 subopt_lo 1.75e+07..2.72e+07 kkt/bound 0.016..0.0201
+    pgd strict wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.207..0.212
+    pgd strict wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0149..0.015
+    pgd strict wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.207..0.212
+    pgd strict wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0149..0.015
+    pgd strict wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.207..0.212
+    pgd strict wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0149..0.015
+    pgd strict wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.207..0.212
+    pgd strict wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0149..0.015
+    pgd strict wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.223..0.223
+    pgd strict wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.011..0.011
+    pgd strict wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.223..0.223
+    pgd strict wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.011..0.011
+    pgd strict wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.223..0.223
+    pgd strict wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.011..0.011
+    pgd strict wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.223..0.223
+    pgd strict wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.011..0.011
+    pgd strict yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 0.000244..0.00493
+converged, unique reference, coef error > 1e-4: 531
+    apg default colscale zeros 1.01 4 coef_err 35..700 xref_inf 700..700 kkt/bound 0.322..0.596
+    apg default colscale zeros 2 4 coef_err 35..700 xref_inf 700..700 kkt/bound 0.162..0.679
+    apg default corr95 zeros 0.5 2 coef_err 0.000127..0.000146 xref_inf 1.82..1.82 kkt/bound 0.869..0.872
+    apg default corr95 zeros 1.01 2 coef_err 0.000148..0.000159 xref_inf 1.62..1.62 kkt/bound 0.888..0.954
+    apg default corr95 zeros 2 3 coef_err 0.00024..0.000318 xref_inf 1.62..1.62 kkt/bound 0.728..0.96
+    apg default gauss zeros 1.01 1 coef_err 0.000147..0.000147 xref_inf 1.28..1.28 kkt/bound 0.773..0.773
+    apg default gauss zeros 2 4 coef_err 0.000122..0.000324 xref_inf 1.28..1.28 kkt/bound 0.327..0.868
+    apg default offset none 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0115..0.535
+    apg default offset none 0.001 4 coef_err 0.67..7.93 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.067..0.793
+    apg default offset none 0.1 4 coef_err 0.0638..4.96 xref_inf 9e+05..9e+05 kkt/bound 0.00638..0.496
+    apg default offset none 0.5 4 coef_err 0.0354..5.3 xref_inf 5e+05..5e+05 kkt/bound 0.00354..0.53
+    apg default offset spread 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0115..0.535
+    apg default offset spread 0.001 4 coef_err 1.11..9.17 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.111..0.917
+    apg default offset spread 0.1 4 coef_err 0.0638..12.8 xref_inf 9e+05..9e+05 kkt/bound 0.00399..0.802
+    apg default offset spread 0.5 4 coef_err 0.709..35 xref_inf 5e+05..5e+05 kkt/bound 0.00886..0.438
+    apg default offset unit 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0115..0.535
+    apg default offset unit 0.001 4 coef_err 0.67..7.93 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.067..0.793
+    apg default offset unit 0.1 4 coef_err 0.0638..4.96 xref_inf 9e+05..9e+05 kkt/bound 0.00638..0.496
+    apg default offset unit 0.5 4 coef_err 0.0354..5.3 xref_inf 5e+05..5e+05 kkt/bound 0.00354..0.53
+    apg default offset zeros 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0115..0.535
+    apg default offset zeros 0.001 4 coef_err 0.0297..3.28 xref_inf 1e+06..1e+06 kkt/bound 0.0024..0.272
+    apg default offset zeros 0.1 4 coef_err 0.159..5.46 xref_inf 1e+06..1e+06 kkt/bound 0.0122..0.459
+    apg default offset zeros 0.5 4 coef_err 0.159..1.55 xref_inf 1e+06..1e+06 kkt/bound 0.00749..0.0797
+    apg default offset zeros 1.01 4 coef_err 0.159..3.74 xref_inf 1e+06..1e+06 kkt/bound 0.00371..0.105
+    apg default offset zeros 2 4 coef_err 0.159..3.74 xref_inf 1e+06..1e+06 kkt/bound 0.00187..0.053
+    apg default tall_exact zeros 1.01 2 coef_err 0.000117..0.000121 xref_inf 1.71..1.71 kkt/bound 0.709..1
+    apg default tall_exact zeros 2 3 coef_err 0.000121..0.000244 xref_inf 1.7..1.7 kkt/bound 0.362..0.726
+    apg ftol0 colscale none 0 4 coef_err 43.7..874 xref_inf 874..874 kkt/bound 0.998..1
+    apg ftol0 colscale spread 0 4 coef_err 43.7..874 xref_inf 874..874 kkt/bound 0.998..1
+    apg ftol0 colscale spread 0.001 4 coef_err 0.00155..0.00163 xref_inf 0.082..0.082 kkt/bound 0.982..0.999
+    apg ftol0 colscale unit 0 4 coef_err 43.7..874 xref_inf 874..874 kkt/bound 0.998..1
+    apg ftol0 colscale zeros 0 4 coef_err 43.7..874 xref_inf 874..874 kkt/bound 0.998..1
+    apg ftol0 colscale zeros 0.001 4 coef_err 42.7..854 xref_inf 854..854 kkt/bound 0.978..1
+    apg ftol0 colscale zeros 0.1 4 coef_err 41.1..821 xref_inf 821..821 kkt/bound 0.555..1
+    apg ftol0 colscale zeros 0.5 4 coef_err 39.9..799 xref_inf 799..799 kkt/bound 0.194..0.994
+    apg ftol0 colscale zeros 1.01 4 coef_err 35..700 xref_inf 700..700 kkt/bound 0.173..0.401
+    apg ftol0 colscale zeros 2 4 coef_err 35..700 xref_inf 700..700 kkt/bound 0.0874..0.263
+    apg ftol0 offset none 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0115..0.535
+    apg ftol0 offset none 0.001 4 coef_err 0.0625..0.747 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00625..0.0747
+    apg ftol0 offset none 0.1 4 coef_err 0.0638..2 xref_inf 9e+05..9e+05 kkt/bound 0.00638..0.2
+    apg ftol0 offset none 0.5 4 coef_err 0.0354..1.61 xref_inf 5e+05..5e+05 kkt/bound 0.00354..0.161
+    apg ftol0 offset spread 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0115..0.535
+    apg ftol0 offset spread 0.001 4 coef_err 0.0617..1.11 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00617..0.111
+    apg ftol0 offset spread 0.1 4 coef_err 0.0638..4.24 xref_inf 9e+05..9e+05 kkt/bound 0.00399..0.265
+    apg ftol0 offset spread 0.5 4 coef_err 0.0354..1.61 xref_inf 5e+05..5e+05 kkt/bound 0.000443..0.0202
+    apg ftol0 offset unit 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0115..0.535
+    apg ftol0 offset unit 0.001 4 coef_err 0.0625..0.747 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00625..0.0747
+    apg ftol0 offset unit 0.1 4 coef_err 0.0638..2 xref_inf 9e+05..9e+05 kkt/bound 0.00638..0.2
+    apg ftol0 offset unit 0.5 4 coef_err 0.0354..1.61 xref_inf 5e+05..5e+05 kkt/bound 0.00354..0.161
+    apg ftol0 offset zeros 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0115..0.535
+    apg ftol0 offset zeros 0.001 4 coef_err 0.0297..3.28 xref_inf 1e+06..1e+06 kkt/bound 0.0024..0.272
+    apg ftol0 offset zeros 0.1 4 coef_err 0.159..5.46 xref_inf 1e+06..1e+06 kkt/bound 0.0122..0.459
+    apg ftol0 offset zeros 0.5 4 coef_err 0.159..1.55 xref_inf 1e+06..1e+06 kkt/bound 0.00749..0.0797
+    apg ftol0 offset zeros 1.01 4 coef_err 0.159..3.74 xref_inf 1e+06..1e+06 kkt/bound 0.00371..0.105
+    apg ftol0 offset zeros 2 4 coef_err 0.159..3.74 xref_inf 1e+06..1e+06 kkt/bound 0.00187..0.053
+    apg gradtol1e-8 colscale zeros 1.01 2 coef_err 12.7..12.7 xref_inf 700..700 kkt/bound 1..1
+    apg gradtol1e-8 colscale zeros 2 2 coef_err 25.2..25.2 xref_inf 700..700 kkt/bound 1..1
+    apg gradtol1e-8 offset none 0 4 coef_err 0.00198..0.00489 xref_inf 1e+06..1e+06 kkt/bound 0.119..0.316
+    apg gradtol1e-8 offset none 0.001 4 coef_err 0.00276..0.00778 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.276..0.778
+    apg gradtol1e-8 offset none 0.1 4 coef_err 0.00095..0.00444 xref_inf 9e+05..9e+05 kkt/bound 0.095..0.444
+    apg gradtol1e-8 offset none 0.5 4 coef_err 0.00104..0.00939 xref_inf 5e+05..5e+05 kkt/bound 0.104..0.939
+    apg gradtol1e-8 offset spread 0 4 coef_err 0.00198..0.00489 xref_inf 1e+06..1e+06 kkt/bound 0.119..0.316
+    apg gradtol1e-8 offset spread 0.001 4 coef_err 0.00189..0.00768 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.189..0.768
+    apg gradtol1e-8 offset spread 0.1 4 coef_err 0.00095..0.0112 xref_inf 9e+05..9e+05 kkt/bound 0.0594..0.698
+    apg gradtol1e-8 offset spread 0.5 4 coef_err 0.00247..0.0494 xref_inf 5e+05..5e+05 kkt/bound 0.0308..0.617
+    apg gradtol1e-8 offset unit 0 4 coef_err 0.00198..0.00489 xref_inf 1e+06..1e+06 kkt/bound 0.119..0.316
+    apg gradtol1e-8 offset unit 0.001 4 coef_err 0.00276..0.00778 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.276..0.778
+    apg gradtol1e-8 offset unit 0.1 4 coef_err 0.00095..0.00444 xref_inf 9e+05..9e+05 kkt/bound 0.095..0.444
+    apg gradtol1e-8 offset unit 0.5 4 coef_err 0.00104..0.00939 xref_inf 5e+05..5e+05 kkt/bound 0.104..0.939
+    apg gradtol1e-8 offset zeros 0 4 coef_err 0.00198..0.00489 xref_inf 1e+06..1e+06 kkt/bound 0.119..0.316
+    apg gradtol1e-8 offset zeros 0.001 4 coef_err 0.000327..0.00717 xref_inf 1e+06..1e+06 kkt/bound 0.0258..0.59
+    apg gradtol1e-8 offset zeros 0.1 4 coef_err 0.002..0.00354 xref_inf 1e+06..1e+06 kkt/bound 0.155..0.272
+    apg gradtol1e-8 offset zeros 0.5 4 coef_err 0.00146..0.0123 xref_inf 1e+06..1e+06 kkt/bound 0.0723..0.578
+    apg gradtol1e-8 offset zeros 1.01 4 coef_err 0.0011..0.00354 xref_inf 1e+06..1e+06 kkt/bound 0.0251..0.083
+    apg gradtol1e-8 offset zeros 2 4 coef_err 0.0011..0.00354 xref_inf 1e+06..1e+06 kkt/bound 0.0127..0.0419
+    pgd default colscale zeros 1.01 4 coef_err 35..700 xref_inf 700..700 kkt/bound 0.0551..0.829
+    pgd default colscale zeros 2 4 coef_err 35..700 xref_inf 700..700 kkt/bound 0.0278..0.963
+    pgd default corr95 zeros 1.01 4 coef_err 0.000109..0.000167 xref_inf 1.62..1.62 kkt/bound 0.789..0.988
+    pgd default corr95 zeros 2 4 coef_err 0.000196..0.000324 xref_inf 1.62..1.62 kkt/bound 0.901..0.994
+    pgd default gauss zeros 0.5 1 coef_err 0.000108..0.000108 xref_inf 1.31..1.31 kkt/bound 0.958..0.958
+    pgd default gauss zeros 1.01 2 coef_err 0.000153..0.000184 xref_inf 1.28..1.28 kkt/bound 0.79..0.954
+    pgd default gauss zeros 2 3 coef_err 0.000145..0.000296 xref_inf 1.28..1.28 kkt/bound 0.38..0.774
+    pgd default offset none 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 kkt/bound 0.0105..0.21
+    pgd default offset none 0.001 4 coef_err 1.69..6.34 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.169..0.634
+    pgd default offset none 0.1 4 coef_err 2.14..5.19 xref_inf 9e+05..9e+05 kkt/bound 0.214..0.519
+    pgd default offset none 0.5 3 coef_err 1.44..4.09 xref_inf 5e+05..5e+05 kkt/bound 0.144..0.409
+    pgd default offset spread 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 kkt/bound 0.0105..0.21
+    pgd default offset spread 0.001 4 coef_err 3.11..6.36 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.311..0.636
+    pgd default offset spread 0.1 4 coef_err 2.59..15.8 xref_inf 9e+05..9e+05 kkt/bound 0.162..0.989
+    pgd default offset spread 0.5 3 coef_err 24.4..48.7 xref_inf 5e+05..5e+05 kkt/bound 0.304..0.609
+    pgd default offset unit 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 kkt/bound 0.0105..0.21
+    pgd default offset unit 0.001 4 coef_err 1.69..6.34 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.169..0.634
+    pgd default offset unit 0.1 4 coef_err 2.14..5.19 xref_inf 9e+05..9e+05 kkt/bound 0.214..0.519
+    pgd default offset unit 0.5 3 coef_err 1.44..4.09 xref_inf 5e+05..5e+05 kkt/bound 0.144..0.409
+    pgd default offset zeros 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 kkt/bound 0.0105..0.21
+    pgd default offset zeros 0.001 4 coef_err 0.0861..1.17 xref_inf 1e+06..1e+06 kkt/bound 0.00666..0.09
+    pgd default offset zeros 0.1 4 coef_err 0.00261..2.47 xref_inf 1e+06..1e+06 kkt/bound 0.000255..0.191
+    pgd default offset zeros 0.5 4 coef_err 0.00261..1.52 xref_inf 1e+06..1e+06 kkt/bound 0.000157..0.0725
+    pgd default offset zeros 1.01 4 coef_err 0.00261..1.35 xref_inf 1e+06..1e+06 kkt/bound 7.76e-05..0.0318
+    pgd default offset zeros 2 4 coef_err 0.00261..1.35 xref_inf 1e+06..1e+06 kkt/bound 3.92e-05..0.0161
+    pgd default tall_exact zeros 1.01 1 coef_err 0.000104..0.000104 xref_inf 1.71..1.71 kkt/bound 0.604..0.604
+    pgd default tall_exact zeros 2 2 coef_err 0.000171..0.000195 xref_inf 1.7..1.7 kkt/bound 0.508..0.577
+    pgd ftol0 colscale zeros 0.1 2 coef_err 41.1..41.1 xref_inf 821..821 kkt/bound 1..1
+    pgd ftol0 colscale zeros 1.01 4 coef_err 35..700 xref_inf 700..700 kkt/bound 0.0157..0.0551
+    pgd ftol0 colscale zeros 2 4 coef_err 35..700 xref_inf 700..700 kkt/bound 0.00792..0.0278
+    pgd ftol0 corr95 none 0 1 coef_err 0.000101..0.000101 xref_inf 2.15..2.15 kkt/bound 0.903..0.903
+    pgd ftol0 corr95 spread 0 1 coef_err 0.000101..0.000101 xref_inf 2.15..2.15 kkt/bound 0.903..0.903
+    pgd ftol0 corr95 unit 0 1 coef_err 0.000101..0.000101 xref_inf 2.15..2.15 kkt/bound 0.903..0.903
+    pgd ftol0 corr95 zeros 0 1 coef_err 0.000101..0.000101 xref_inf 2.15..2.15 kkt/bound 0.903..0.903
+    pgd ftol0 corr95 zeros 0.001 1 coef_err 0.000109..0.000109 xref_inf 2.15..2.15 kkt/bound 0.904..0.904
+    pgd ftol0 offset none 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 kkt/bound 0.0105..0.21
+    pgd ftol0 offset none 0.001 4 coef_err 0.0419..5.19 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00419..0.519
+    pgd ftol0 offset none 0.1 4 coef_err 0.12..0.887 xref_inf 9e+05..9e+05 kkt/bound 0.012..0.0887
+    pgd ftol0 offset none 0.5 3 coef_err 0.688..4.09 xref_inf 5e+05..5e+05 kkt/bound 0.0688..0.409
+    pgd ftol0 offset spread 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 kkt/bound 0.0105..0.21
+    pgd ftol0 offset spread 0.001 4 coef_err 0.0558..1.13 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00558..0.113
+    pgd ftol0 offset spread 0.1 4 coef_err 0.368..2.63 xref_inf 9e+05..9e+05 kkt/bound 0.023..0.164
+    pgd ftol0 offset spread 0.5 3 coef_err 0.688..4.09 xref_inf 5e+05..5e+05 kkt/bound 0.0086..0.0511
+    pgd ftol0 offset unit 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 kkt/bound 0.0105..0.21
+    pgd ftol0 offset unit 0.001 4 coef_err 0.0419..5.19 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00419..0.519
+    pgd ftol0 offset unit 0.1 4 coef_err 0.12..0.887 xref_inf 9e+05..9e+05 kkt/bound 0.012..0.0887
+    pgd ftol0 offset unit 0.5 3 coef_err 0.688..4.09 xref_inf 5e+05..5e+05 kkt/bound 0.0688..0.409
+    pgd ftol0 offset zeros 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 kkt/bound 0.0105..0.21
+    pgd ftol0 offset zeros 0.001 4 coef_err 0.0861..1.17 xref_inf 1e+06..1e+06 kkt/bound 0.00666..0.09
+    pgd ftol0 offset zeros 0.1 4 coef_err 0.00261..2.47 xref_inf 1e+06..1e+06 kkt/bound 0.000255..0.191
+    pgd ftol0 offset zeros 0.5 4 coef_err 0.00261..1.52 xref_inf 1e+06..1e+06 kkt/bound 0.000157..0.0725
+    pgd ftol0 offset zeros 1.01 4 coef_err 0.00261..1.35 xref_inf 1e+06..1e+06 kkt/bound 7.76e-05..0.0318
+    pgd ftol0 offset zeros 2 4 coef_err 0.00261..1.35 xref_inf 1e+06..1e+06 kkt/bound 3.92e-05..0.0161
+    pgd gradtol1e-8 offset none 0 4 coef_err 0.00122..0.00692 xref_inf 1e+06..1e+06 kkt/bound 0.0521..0.297
+    pgd gradtol1e-8 offset none 0.001 4 coef_err 0.00069..0.00685 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.069..0.685
+    pgd gradtol1e-8 offset none 0.1 4 coef_err 0.00122..0.00844 xref_inf 9e+05..9e+05 kkt/bound 0.122..0.844
+    pgd gradtol1e-8 offset none 0.5 3 coef_err 0.000445..0.00588 xref_inf 5e+05..5e+05 kkt/bound 0.0445..0.588
+    pgd gradtol1e-8 offset spread 0 4 coef_err 0.00122..0.00692 xref_inf 1e+06..1e+06 kkt/bound 0.0521..0.297
+    pgd gradtol1e-8 offset spread 0.001 4 coef_err 0.000246..0.00903 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.0246..0.903
+    pgd gradtol1e-8 offset spread 0.1 4 coef_err 0.00101..0.0127 xref_inf 9e+05..9e+05 kkt/bound 0.0631..0.794
+    pgd gradtol1e-8 offset spread 0.5 3 coef_err 0.027..0.0579 xref_inf 5e+05..5e+05 kkt/bound 0.338..0.724
+    pgd gradtol1e-8 offset unit 0 4 coef_err 0.00122..0.00692 xref_inf 1e+06..1e+06 kkt/bound 0.0521..0.297
+    pgd gradtol1e-8 offset unit 0.001 4 coef_err 0.00069..0.00685 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.069..0.685
+    pgd gradtol1e-8 offset unit 0.1 4 coef_err 0.00122..0.00844 xref_inf 9e+05..9e+05 kkt/bound 0.122..0.844
+    pgd gradtol1e-8 offset unit 0.5 3 coef_err 0.000445..0.00588 xref_inf 5e+05..5e+05 kkt/bound 0.0445..0.588
+    pgd gradtol1e-8 offset zeros 0 4 coef_err 0.00122..0.00692 xref_inf 1e+06..1e+06 kkt/bound 0.0521..0.297
+    pgd gradtol1e-8 offset zeros 0.001 3 coef_err 0.000383..0.00256 xref_inf 1e+06..1e+06 kkt/bound 0.0296..0.198
+    pgd gradtol1e-8 offset zeros 0.1 4 coef_err 0.00136..0.00264 xref_inf 1e+06..1e+06 kkt/bound 0.105..0.255
+    pgd gradtol1e-8 offset zeros 0.5 4 coef_err 0.00134..0.00385 xref_inf 1e+06..1e+06 kkt/bound 0.0638..0.182
+    pgd gradtol1e-8 offset zeros 1.01 4 coef_err 0.00136..0.00384 xref_inf 1e+06..1e+06 kkt/bound 0.032..0.0904
+    pgd gradtol1e-8 offset zeros 2 4 coef_err 0.00136..0.00384 xref_inf 1e+06..1e+06 kkt/bound 0.0162..0.0456
+MISSED TARGET (not converged, upper bound within target): 1931
+    apg default maxiter none 4
+    apg default maxiter spread 7
+    apg default maxiter unit 4
+    apg default maxiter zeros 4
+    apg ftol0 increase none 3
+    apg ftol0 maxiter none 128
+    apg ftol0 maxiter spread 128
+    apg ftol0 maxiter unit 128
+    apg ftol0 maxiter zeros 28
+    apg gradtol1e-8 increase none 9
+    apg gradtol1e-8 increase spread 6
+    apg gradtol1e-8 increase unit 9
+    apg gradtol1e-8 increase zeros 8
+    apg gradtol1e-8 maxiter none 4
+    apg gradtol1e-8 maxiter spread 4
+    apg gradtol1e-8 maxiter unit 4
+    apg gradtol1e-8 maxiter zeros 4
+    apg strict maxiter none 146
+    apg strict maxiter spread 144
+    apg strict maxiter unit 146
+    apg strict maxiter zeros 36
+    pgd default maxiter none 4
+    pgd default maxiter spread 4
+    pgd default maxiter unit 4
+    pgd default maxiter zeros 6
+    pgd ftol0 increase none 1
+    pgd ftol0 maxiter none 124
+    pgd ftol0 maxiter spread 124
+    pgd ftol0 maxiter unit 124
+    pgd ftol0 maxiter zeros 16
+    pgd gradtol1e-8 increase none 22
+    pgd gradtol1e-8 increase spread 19
+    pgd gradtol1e-8 increase unit 22
+    pgd gradtol1e-8 increase zeros 15
+    pgd gradtol1e-8 maxiter none 4
+    pgd gradtol1e-8 maxiter spread 4
+    pgd gradtol1e-8 maxiter unit 4
+    pgd gradtol1e-8 maxiter zeros 4
+    pgd strict maxiter none 152
+    pgd strict maxiter spread 142
+    pgd strict maxiter unit 152
+    pgd strict maxiter zeros 30
+exit classes by solver x options x wset:
+    apg default none converged 342
+    apg default none increase 4
+    apg default none maxiter 26
+    apg default spread converged 338
+    apg default spread increase 4
+    apg default spread maxiter 30
+    apg default unit converged 342
+    apg default unit increase 4
+    apg default unit maxiter 26
+    apg default zeros converged 332
+    apg default zeros increase 4
+    apg default zeros maxiter 36
+    apg ftol0 none converged 235
+    apg ftol0 none increase 7
+    apg ftol0 none maxiter 130
+    apg ftol0 spread converged 238
+    apg ftol0 spread increase 4
+    apg ftol0 spread maxiter 130
+    apg ftol0 unit converged 238
+    apg ftol0 unit increase 4
+    apg ftol0 unit maxiter 130
+    apg ftol0 zeros converged 338
+    apg ftol0 zeros increase 4
+    apg ftol0 zeros maxiter 30
+    apg gradtol1e-8 none converged 349
+    apg gradtol1e-8 none increase 13
+    apg gradtol1e-8 none maxiter 10
+    apg gradtol1e-8 spread converged 352
+    apg gradtol1e-8 spread increase 10
+    apg gradtol1e-8 spread maxiter 10
+    apg gradtol1e-8 unit converged 349
+    apg gradtol1e-8 unit increase 13
+    apg gradtol1e-8 unit maxiter 10
+    apg gradtol1e-8 zeros converged 334
+    apg gradtol1e-8 zeros increase 12
+    apg gradtol1e-8 zeros maxiter 26
+    apg strict none converged 205
+    apg strict none maxiter 167
+    apg strict spread converged 211
+    apg strict spread maxiter 161
+    apg strict unit converged 205
+    apg strict unit maxiter 167
+    apg strict zeros converged 299
+    apg strict zeros maxiter 73
+    pgd default none converged 334
+    pgd default none increase 4
+    pgd default none maxiter 34
+    pgd default spread converged 332
+    pgd default spread increase 4
+    pgd default spread maxiter 36
+    pgd default unit converged 334
+    pgd default unit increase 4
+    pgd default unit maxiter 34
+    pgd default zeros converged 320
+    pgd default zeros increase 4
+    pgd default zeros maxiter 48
+    pgd ftol0 none converged 237
+    pgd ftol0 none increase 7
+    pgd ftol0 none maxiter 128
+    pgd ftol0 spread converged 234
+    pgd ftol0 spread increase 6
+    pgd ftol0 spread maxiter 132
+    pgd ftol0 unit converged 238
+    pgd ftol0 unit increase 6
+    pgd ftol0 unit maxiter 128
+    pgd ftol0 zeros converged 336
+    pgd ftol0 zeros increase 6
+    pgd ftol0 zeros maxiter 30
+    pgd gradtol1e-8 none converged 336
+    pgd gradtol1e-8 none increase 28
+    pgd gradtol1e-8 none maxiter 8
+    pgd gradtol1e-8 spread converged 335
+    pgd gradtol1e-8 spread increase 25
+    pgd gradtol1e-8 spread maxiter 12
+    pgd gradtol1e-8 unit converged 336
+    pgd gradtol1e-8 unit increase 28
+    pgd gradtol1e-8 unit maxiter 8
+    pgd gradtol1e-8 zeros converged 323
+    pgd gradtol1e-8 zeros increase 21
+    pgd gradtol1e-8 zeros maxiter 28
+    pgd strict none converged 196
+    pgd strict none maxiter 176
+    pgd strict spread converged 208
+    pgd strict spread maxiter 164
+    pgd strict unit converged 196
+    pgd strict unit maxiter 176
+    pgd strict zeros converged 304
+    pgd strict zeros maxiter 68
+control none vs unit: pairs 2976, converged differs 4, iterations differ 23
+zero-weight rows: 2976, converged 2586, max kkt/bound over converged 1, max gap_at_x over converged 1
+====================================================================================================
+NormLinf SWEEP Float64 out/full-lts/linf_sweep_Float64.tsv
+  # julia 1.10.13
+  # ProximalSolvers dir <PS checkout>
+  # ProximalBase dir <depot>/packages/ProximalBase/Vu5iv (slug dir Vu5iv)
+  # ProximalBase pkgversion 0.6.0-DEV
+  # BLAS threads 1 Julia threads 1
+  # CPU Intel Skylake-SP
+  # active project <PS checkout>/Project.toml
+  # manifest ProximalBase entry Manifest-v1.10.toml: version=0.6.0-DEV repo-rev=e03c6d9659365d54f4e0fba1a9cd54490631eea6 git-tree-sha1=8de7a696d89a10022bb40f0941745939e4087fd4 repo-url=https://github.com/mlakolar/ProximalBase.jl
+solves ok: 2496  errors: 0 []
+references tight: 2208 of 2496  unique+tight: 1536
+converged: 1912
+  converged: independent Euclidean KKT / S over bound: median 0.0446 max 3.31; > 10 x bound: 0; > 100 x bound: 0
+FALSE CONVERGENCE (objective lower bound above target 1e-08): 288
+    apg default colscale 0.5 cold 2 subopt_lo 7.16e-07..7.16e-07 kkt2/bound 1.04..2.02
+    apg default colscale 0.5 pert 2 subopt_lo 6.25e-07..6.99e-07 kkt2/bound 0.515..2.64
+    apg default gauss 0 pert 1 subopt_lo 1.08e-08..1.08e-08 kkt2/bound 1.81..1.81
+    apg default offset 0 cold 2 subopt_lo 166..737 kkt2/bound 0.382..0.822
+    apg default offset 0 pert 2 subopt_lo 0.414..1.84 kkt2/bound 0.0191..0.0411
+    apg default offset 0.001 cold 2 subopt_lo 5.4e-08..5.62e-08 kkt2/bound 1.2..1.28
+    apg default offset 0.001 pert 2 subopt_lo 6e-08..1.18e-07 kkt2/bound 1.18..1.83
+    apg default rankdef 0 cold 2 subopt_lo 0.109..0.109 kkt2/bound 0.757..1.06
+    apg default rankdef 0.001 cold 2 subopt_lo 3.06e-07..3.24e-07 kkt2/bound 0.255..1.36
+    apg default rankdef 0.001 pert 2 subopt_lo 4.07e-08..4.38e-08 kkt2/bound 1.6..1.86
+    apg default rankdef 0.1 cold 2 subopt_lo 1.43e-07..1.43e-07 kkt2/bound 1.51..1.78
+    apg default rankdef 0.5 cold 2 subopt_lo 3.43e-08..3.43e-08 kkt2/bound 1.47..1.74
+    apg default tall_exact 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt2/bound 0.871..1.28
+    apg default tall_exact 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt2/bound 0.0144..0.043
+    apg default tall_exact 0 ref 2 subopt_lo 0.104..0.106 kkt2/bound 3.62e-12..3.64e-12
+    apg default tall_exact 0.001 cold 2 subopt_lo 5.32e-08..8.72e-08 kkt2/bound 1.18..1.53
+    apg default tall_exact 0.001 pert 2 subopt_lo 2.96e-08..3.05e-08 kkt2/bound 1.04..1.04
+    apg default wide 0 cold 2 subopt_lo inf..inf kkt2/bound 1.36..1.45
+    apg default wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0769..0.13
+    apg default wide 0 ref 2 subopt_lo inf..inf kkt2/bound 3.6e-11..4.42e-11
+    apg default wide 0.001 pert 2 subopt_lo 1.76e-05..2.2e-05 kkt2/bound 2.01..2.53
+    apg default wide 0.1 cold 2 subopt_lo 4.28e-08..6.54e-08 kkt2/bound 1.87..2.31
+    apg default wide 0.1 pert 2 subopt_lo 5.22e-08..5.49e-08 kkt2/bound 2.08..2.17
+    apg default wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 1.21..1.95
+    apg default wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0435..0.0797
+    apg default wide_exact 0 ref 2 subopt_lo inf..inf kkt2/bound 3.28e-11..4.26e-11
+    apg default wide_exact 0.001 pert 2 subopt_lo 5.25e-06..6.83e-06 kkt2/bound 2.45..2.54
+    apg default wide_exact 0.1 pert 1 subopt_lo 1.15e-08..1.15e-08 kkt2/bound 1.74..1.74
+    apg default zerocol 0 cold 2 subopt_lo 1.91e-08..2.16e-08 kkt2/bound 1.34..1.44
+    apg default zerocol 0 pert 1 subopt_lo 1e-08..1e-08 kkt2/bound 1.21..1.21
+    apg default zerocol 0.001 cold 2 subopt_lo 1.61e-08..1.82e-08 kkt2/bound 1.34..1.44
+    apg ftol0 colscale 0 cold 2 subopt_lo 0.0875..0.0875 kkt2/bound 1.18..1.18
+    apg ftol0 colscale 0 pert 2 subopt_lo 0.000225..0.000225 kkt2/bound 1.01..1.08
+    apg ftol0 colscale 0.001 cold 2 subopt_lo 9.93e-06..9.93e-06 kkt2/bound 0.54..0.71
+    apg ftol0 colscale 0.001 pert 2 subopt_lo 6.21e-07..6.22e-07 kkt2/bound 0.921..1.01
+    apg ftol0 colscale 0.1 cold 2 subopt_lo 3.79e-06..3.79e-06 kkt2/bound 0.622..1.41
+    apg ftol0 colscale 0.1 pert 2 subopt_lo 3.96e-07..4.02e-07 kkt2/bound 0.693..1.01
+    apg ftol0 colscale 0.5 cold 2 subopt_lo 2.27e-07..2.31e-07 kkt2/bound 0.378..0.443
+    apg ftol0 colscale 0.5 pert 2 subopt_lo 6.24e-07..6.99e-07 kkt2/bound 0.508..0.81
+    apg ftol0 offset 0 cold 2 subopt_lo 166..737 kkt2/bound 0.382..0.822
+    apg ftol0 offset 0 pert 2 subopt_lo 0.414..1.84 kkt2/bound 0.0191..0.0411
+    apg ftol0 offset 0.001 cold 1 subopt_lo 2.47e-08..2.47e-08 kkt2/bound 0.82..0.82
+    apg ftol0 rankdef 0 cold 2 subopt_lo 0.109..0.109 kkt2/bound 0.757..1.06
+    apg ftol0 rankdef 0.001 cold 2 subopt_lo 3.06e-07..3.15e-07 kkt2/bound 0.255..1.02
+    apg ftol0 rankdef 0.1 cold 2 subopt_lo 1.42e-07..1.42e-07 kkt2/bound 0.197..0.472
+    apg ftol0 rankdef 0.5 cold 2 subopt_lo 3.41e-08..3.41e-08 kkt2/bound 0.122..0.2
+    apg ftol0 tall_exact 0 cold 2 subopt_lo 1.88e+22..4.06e+22 kkt2/bound 0.871..1.28
+    apg ftol0 tall_exact 0 pert 2 subopt_lo 2.89e+18..4.57e+19 kkt2/bound 0.0144..0.043
+    apg ftol0 tall_exact 0 ref 2 subopt_lo 0.104..0.106 kkt2/bound 3.62e-12..3.64e-12
+    apg ftol0 tall_exact 0.001 cold 1 subopt_lo 5.32e-08..5.32e-08 kkt2/bound 1.18..1.18
+    apg ftol0 wide 0 cold 2 subopt_lo inf..inf kkt2/bound 1.36..1.45
+    apg ftol0 wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0769..0.13
+    apg ftol0 wide 0 ref 2 subopt_lo inf..inf kkt2/bound 3.6e-11..4.42e-11
+    apg ftol0 wide 0.001 cold 2 subopt_lo 0.00118..0.00118 kkt2/bound 2.1..2.15
+    apg ftol0 wide 0.001 pert 2 subopt_lo 1.24e-06..1.27e-06 kkt2/bound 0.0756..0.106
+    apg ftol0 wide 0.1 cold 2 subopt_lo 1.39e-08..1.56e-08 kkt2/bound 1.06..1.13
+    apg ftol0 wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 1.21..1.95
+    apg ftol0 wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0435..0.0797
+    apg ftol0 wide_exact 0 ref 2 subopt_lo inf..inf kkt2/bound 3.28e-11..4.26e-11
+    apg ftol0 wide_exact 0.001 cold 2 subopt_lo 0.000645..0.000649 kkt2/bound 1.85..2.02
+    apg ftol0 wide_exact 0.001 pert 2 subopt_lo 2e-08..2.21e-08 kkt2/bound 0.0942..0.0995
+    apg gradtol1e-8 offset 0 cold 2 subopt_lo 0.000403..0.000438 kkt2/bound 0.559..0.64
+    apg gradtol1e-8 offset 0 pert 2 subopt_lo 4.1e-05..8.03e-05 kkt2/bound 0.188..0.273
+    apg gradtol1e-8 rankdef 0 cold 2 subopt_lo 0.109..0.109 kkt2/bound 1.19..1.43
+    apg gradtol1e-8 rankdef 0.001 cold 2 subopt_lo 3.04e-07..3.04e-07 kkt2/bound 1.19..1.44
+    apg gradtol1e-8 tall_exact 0 cold 2 subopt_lo 7.56e+15..4.52e+16 kkt2/bound 0.57..1.69
+    apg gradtol1e-8 tall_exact 0 pert 2 subopt_lo 9e+15..1.61e+16 kkt2/bound 0.619..0.88
+    apg gradtol1e-8 tall_exact 0 ref 2 subopt_lo 0.104..0.106 kkt2/bound 3.62e-09..3.64e-09
+    apg gradtol1e-8 wide 0 cold 2 subopt_lo inf..inf kkt2/bound 1.82..2.36
+    apg gradtol1e-8 wide 0 pert 2 subopt_lo inf..inf kkt2/bound 1.95..3.06
+    apg gradtol1e-8 wide 0 ref 2 subopt_lo inf..inf kkt2/bound 3.6e-08..4.42e-08
+    apg gradtol1e-8 wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 1.82..2.03
+    apg gradtol1e-8 wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 1.81..2.37
+    apg gradtol1e-8 wide_exact 0 ref 2 subopt_lo inf..inf kkt2/bound 3.28e-08..4.26e-08
+    apg strict tall_exact 0 cold 2 subopt_lo 1.65e+10..1.81e+10 kkt2/bound 0.894..0.91
+    apg strict tall_exact 0 pert 2 subopt_lo 1.38e+07..4.83e+07 kkt2/bound 0.0457..0.0482
+    apg strict wide 0 cold 2 subopt_lo inf..inf kkt2/bound 1.27..1.93
+    apg strict wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0645..0.0914
+    apg strict wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 1.32..1.39
+    apg strict wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.067..0.101
+    apg strict wide_exact 0 ref 1 subopt_lo inf..inf kkt2/bound 7.7e-05..7.7e-05
+    pgd default offset 0 cold 2 subopt_lo 67.5..175 kkt2/bound 0.208..0.34
+    pgd default offset 0 pert 2 subopt_lo 0.439..1.52 kkt2/bound 0.017..0.0328
+    pgd default offset 0.001 cold 2 subopt_lo 3.15e-08..9.21e-08 kkt2/bound 1.01..1.35
+    pgd default offset 0.001 pert 2 subopt_lo 4.45e-08..1.31e-07 kkt2/bound 1.26..1.63
+    pgd default rankdef 0 cold 2 subopt_lo 0.109..0.109 kkt2/bound 1.21..1.21
+    pgd default rankdef 0.001 pert 2 subopt_lo 6.88e-08..8.58e-08 kkt2/bound 1.77..2.04
+    pgd default rankdef 0.1 cold 2 subopt_lo 1.42e-07..1.42e-07 kkt2/bound 1.19..1.19
+    pgd default rankdef 0.5 cold 2 subopt_lo 3.42e-08..3.42e-08 kkt2/bound 0.347..0.347
+    pgd default tall_exact 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt2/bound 0.599..0.624
+    pgd default tall_exact 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt2/bound 0.0346..0.0353
+    pgd default tall_exact 0 ref 2 subopt_lo 0.111..0.163 kkt2/bound 3.71e-12..4.65e-12
+    pgd default tall_exact 0.001 cold 2 subopt_lo 3.56e-08..5.83e-08 kkt2/bound 1.09..1.24
+    pgd default tall_exact 0.001 pert 2 subopt_lo 6.61e-08..9.28e-08 kkt2/bound 1.32..1.56
+    pgd default wide 0 cold 2 subopt_lo inf..inf kkt2/bound 0.643..0.773
+    pgd default wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0446..0.0446
+    pgd default wide 0 ref 2 subopt_lo inf..inf kkt2/bound 3.86e-11..4.31e-11
+    pgd default wide 0.1 pert 2 subopt_lo 6.64e-08..6.76e-08 kkt2/bound 2.51..2.53
+    pgd default wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 0.741..0.741
+    pgd default wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0393..0.0393
+    pgd default wide_exact 0 ref 2 subopt_lo inf..inf kkt2/bound 3.14e-11..3.34e-11
+    pgd default wide_exact 0.001 pert 2 subopt_lo 1.15e-05..1.2e-05 kkt2/bound 2.31..2.42
+    pgd default wide_exact 0.1 pert 2 subopt_lo 1.19e-08..1.27e-08 kkt2/bound 2.04..2.11
+    pgd default zerocol 0 cold 2 subopt_lo 1.25e-08..1.4e-08 kkt2/bound 1.12..1.18
+    pgd default zerocol 0 pert 1 subopt_lo 2.95e-08..2.95e-08 kkt2/bound 1.73..1.73
+    pgd default zerocol 0.001 cold 2 subopt_lo 1.05e-08..1.05e-08 kkt2/bound 1.19..1.19
+    pgd default zerocol 0.001 pert 2 subopt_lo 2.53e-08..3.17e-08 kkt2/bound 1.75..1.85
+    pgd ftol0 colscale 0.001 pert 2 subopt_lo 6.21e-07..6.21e-07 kkt2/bound 0.919..1.05
+    pgd ftol0 colscale 0.1 pert 2 subopt_lo 1.81e-07..1.81e-07 kkt2/bound 1.16..1.19
+    pgd ftol0 colscale 0.5 cold 2 subopt_lo 2.31e-07..2.31e-07 kkt2/bound 0.329..0.342
+    pgd ftol0 colscale 0.5 pert 2 subopt_lo 4.72e-07..4.72e-07 kkt2/bound 0.329..0.333
+    pgd ftol0 offset 0 cold 2 subopt_lo 67.5..175 kkt2/bound 0.208..0.34
+    pgd ftol0 offset 0 pert 2 subopt_lo 0.439..1.52 kkt2/bound 0.017..0.0328
+    pgd ftol0 rankdef 0 cold 2 subopt_lo 0.109..0.109 kkt2/bound 0.633..0.633
+    pgd ftol0 rankdef 0.001 cold 2 subopt_lo 3.09e-07..3.09e-07 kkt2/bound 0.389..0.416
+    pgd ftol0 rankdef 0.1 cold 2 subopt_lo 1.42e-07..1.42e-07 kkt2/bound 0.408..0.408
+    pgd ftol0 rankdef 0.5 cold 2 subopt_lo 3.41e-08..3.41e-08 kkt2/bound 0.174..0.174
+    pgd ftol0 tall_exact 0 cold 2 subopt_lo 8.09e+21..9.74e+21 kkt2/bound 0.599..0.624
+    pgd ftol0 tall_exact 0 pert 2 subopt_lo 2.99e+19..3.12e+19 kkt2/bound 0.0346..0.0353
+    pgd ftol0 tall_exact 0 ref 2 subopt_lo 0.111..0.163 kkt2/bound 3.71e-12..4.65e-12
+    pgd ftol0 tall_exact 0.001 cold 2 subopt_lo 1.06e-08..1.51e-08 kkt2/bound 0.53..0.631
+    pgd ftol0 wide 0 cold 2 subopt_lo inf..inf kkt2/bound 0.643..0.773
+    pgd ftol0 wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0446..0.0446
+    pgd ftol0 wide 0 ref 2 subopt_lo inf..inf kkt2/bound 3.86e-11..4.31e-11
+    pgd ftol0 wide 0.001 cold 2 subopt_lo 0.00086..0.000861 kkt2/bound 0.774..0.787
+    pgd ftol0 wide 0.001 pert 1 subopt_lo 1.19e-06..1.19e-06 kkt2/bound 0.0755..0.0755
+    pgd ftol0 wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 0.741..0.741
+    pgd ftol0 wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0393..0.0393
+    pgd ftol0 wide_exact 0 ref 2 subopt_lo inf..inf kkt2/bound 3.14e-11..3.34e-11
+    pgd gradtol1e-8 offset 0 cold 2 subopt_lo 1.34e-05..0.000196 kkt2/bound 0.096..0.351
+    pgd gradtol1e-8 offset 0 pert 2 subopt_lo 0.00013..0.000326 kkt2/bound 0.317..0.457
+    pgd gradtol1e-8 rankdef 0 cold 2 subopt_lo 0.109..0.109 kkt2/bound 1.16..1.16
+    pgd gradtol1e-8 rankdef 0.001 cold 2 subopt_lo 3.04e-07..3.04e-07 kkt2/bound 1.28..1.83
+    pgd gradtol1e-8 tall_exact 0 cold 2 subopt_lo 1.33e+16..2.06e+16 kkt2/bound 0.921..0.926
+    pgd gradtol1e-8 tall_exact 0 pert 2 subopt_lo 1.79e+16..6.15e+16 kkt2/bound 1.08..1.63
+    pgd gradtol1e-8 tall_exact 0 ref 2 subopt_lo 0.111..0.163 kkt2/bound 3.71e-09..4.65e-09
+    pgd gradtol1e-8 wide 0 cold 2 subopt_lo inf..inf kkt2/bound 1.65..1.91
+    pgd gradtol1e-8 wide 0 pert 2 subopt_lo inf..inf kkt2/bound 2.56..2.56
+    pgd gradtol1e-8 wide 0 ref 2 subopt_lo inf..inf kkt2/bound 3.86e-08..4.31e-08
+    pgd gradtol1e-8 wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 2.06..2.06
+    pgd gradtol1e-8 wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 2.61..2.61
+    pgd gradtol1e-8 wide_exact 0 ref 2 subopt_lo inf..inf kkt2/bound 3.14e-08..3.34e-08
+    pgd strict tall_exact 0 cold 2 subopt_lo 8.07e+09..1.21e+10 kkt2/bound 0.57..0.697
+    pgd strict tall_exact 0 pert 2 subopt_lo 1.75e+07..2.72e+07 kkt2/bound 0.0288..0.033
+    pgd strict wide 0 cold 2 subopt_lo inf..inf kkt2/bound 0.649..0.685
+    pgd strict wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.044..0.0441
+    pgd strict wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 0.649..0.65
+    pgd strict wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0391..0.0392
+converged, unique reference, coef error > 1e-4: 126
+    apg default colscale 0.5 4 coef_err 0.000424..0.000718 xref_inf 0.000426..0.000426 subopt_hi 6.25e-07..7.16e-07
+    apg default offset 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 subopt_hi 0.414..737
+    apg default offset 0.001 4 coef_err 11.4..17.2 xref_inf 9.97e+05..9.97e+05 subopt_hi 5.4e-08..1.18e-07
+    apg default offset 0.1 4 coef_err 7.59..11.9 xref_inf 7.32e+05..7.32e+05 subopt_hi 2.47e-10..7e-10
+    apg default offset 0.5 4 coef_err 3.26..11.7 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.63e-11..1.14e-10
+    apg ftol0 colscale 0 4 coef_err 43.7..874 xref_inf 874..874 subopt_hi 0.000225..0.0875
+    apg ftol0 colscale 0.001 4 coef_err 0.000623..0.00667 xref_inf 0.00687..0.00687 subopt_hi 6.21e-07..9.93e-06
+    apg ftol0 colscale 0.1 4 coef_err 0.000876..0.00229 xref_inf 0.00235..0.00235 subopt_hi 3.96e-07..3.79e-06
+    apg ftol0 colscale 0.5 4 coef_err 0.000358..0.000718 xref_inf 0.000426..0.000426 subopt_hi 2.27e-07..6.99e-07
+    apg ftol0 offset 0 4 coef_err 0.186..9.35 xref_inf 1e+06..1e+06 subopt_hi 0.414..737
+    apg ftol0 offset 0.001 4 coef_err 0.186..9.32 xref_inf 9.97e+05..9.97e+05 subopt_hi 1.39e-11..2.47e-08
+    apg ftol0 offset 0.1 4 coef_err 0.715..5.06 xref_inf 7.32e+05..7.32e+05 subopt_hi 2.78e-12..1.35e-10
+    apg ftol0 offset 0.5 4 coef_err 3.26..11.7 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.63e-11..1.14e-10
+    apg gradtol1e-8 offset 0 4 coef_err 0.00198..0.00489 xref_inf 1e+06..1e+06 subopt_hi 4.1e-05..0.000438
+    apg gradtol1e-8 offset 0.001 4 coef_err 0.00836..0.0161 xref_inf 9.97e+05..9.97e+05 subopt_hi 3.5e-14..9.43e-14
+    apg gradtol1e-8 offset 0.1 4 coef_err 0.00638..0.0192 xref_inf 7.32e+05..7.32e+05 subopt_hi 2.29e-16..1.06e-15
+    apg gradtol1e-8 offset 0.5 4 coef_err 0.00973..0.0169 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.17e-16..4.77e-16
+    pgd default offset 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 subopt_hi 0.439..175
+    pgd default offset 0.001 4 coef_err 9.88..18.1 xref_inf 9.97e+05..9.97e+05 subopt_hi 3.15e-08..1.31e-07
+    pgd default offset 0.1 4 coef_err 11.2..18.1 xref_inf 7.32e+05..7.32e+05 subopt_hi 6.03e-10..1.24e-09
+    pgd default offset 0.5 4 coef_err 11.3..17.9 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.25e-10..5.63e-10
+    pgd ftol0 colscale 0.001 2 coef_err 0.000623..0.000623 xref_inf 0.00687..0.00687 subopt_hi 6.21e-07..6.21e-07
+    pgd ftol0 colscale 0.1 2 coef_err 0.000881..0.000881 xref_inf 0.00235..0.00235 subopt_hi 1.81e-07..1.81e-07
+    pgd ftol0 colscale 0.5 4 coef_err 0.000359..0.000841 xref_inf 0.000426..0.000426 subopt_hi 2.31e-07..4.72e-07
+    pgd ftol0 corr95 0 1 coef_err 0.000101..0.000101 xref_inf 2.15..2.15 subopt_hi 3.88e-09..3.88e-09
+    pgd ftol0 corr95 0.001 1 coef_err 0.0001..0.0001 xref_inf 2.13..2.13 subopt_hi 3.7e-09..3.7e-09
+    pgd ftol0 offset 0 4 coef_err 0.242..4.84 xref_inf 1e+06..1e+06 subopt_hi 0.439..175
+    pgd ftol0 offset 0.001 4 coef_err 0.116..4.82 xref_inf 9.97e+05..9.97e+05 subopt_hi 3.1e-12..5.87e-09
+    pgd ftol0 offset 0.1 4 coef_err 1.88..3.66 xref_inf 7.32e+05..7.32e+05 subopt_hi 1.52e-11..4.2e-11
+    pgd ftol0 offset 0.5 4 coef_err 8.3..14.4 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.1e-10..2.21e-10
+    pgd gradtol1e-8 offset 0 4 coef_err 0.00122..0.00692 xref_inf 1e+06..1e+06 subopt_hi 1.34e-05..0.000326
+    pgd gradtol1e-8 offset 0.001 4 coef_err 0.0139..0.0207 xref_inf 9.97e+05..9.97e+05 subopt_hi 4.55e-14..1.03e-13
+    pgd gradtol1e-8 offset 0.1 4 coef_err 0.0157..0.0253 xref_inf 7.32e+05..7.32e+05 subopt_hi 6.07e-16..1.84e-15
+    pgd gradtol1e-8 offset 0.5 4 coef_err 0.0104..0.0189 xref_inf 1.08e+05..1.08e+05 subopt_hi 9.15e-17..3.23e-16
+MISSED TARGET (not converged, upper bound within target): 386
+    apg default maxiter 10
+    apg ftol0 maxiter 70
+    apg gradtol1e-8 increase 11
+    apg gradtol1e-8 maxiter 10
+    apg strict maxiter 92
+    pgd default maxiter 10
+    pgd ftol0 maxiter 67
+    pgd gradtol1e-8 increase 15
+    pgd gradtol1e-8 maxiter 10
+    pgd strict maxiter 91
+exit classes by solver x options:
+    apg default converged 271
+    apg default increase 4
+    apg default maxiter 37
+    apg ftol0 converged 236
+    apg ftol0 increase 4
+    apg ftol0 maxiter 72
+    apg gradtol1e-8 converged 281
+    apg gradtol1e-8 increase 15
+    apg gradtol1e-8 maxiter 16
+    apg strict converged 201
+    apg strict maxiter 111
+    pgd default converged 256
+    pgd default increase 4
+    pgd default maxiter 52
+    pgd ftol0 converged 229
+    pgd ftol0 increase 6
+    pgd ftol0 maxiter 77
+    pgd gradtol1e-8 converged 257
+    pgd gradtol1e-8 increase 21
+    pgd gradtol1e-8 maxiter 34
+    pgd strict converged 181
+    pgd strict maxiter 131
+  default pgd converged unique: 152, coef_err <= 1e-4: 136, max 18.1
+  default apg converged unique: 159, coef_err <= 1e-4: 139, max 17.2
+====================================================================================================
+NormLinf CRITERIA (trajectories) Float64 out/full-lts/linf_traj_Float64.tsv
+  # julia 1.10.13
+  # ProximalSolvers dir <PS checkout>
+  # ProximalBase dir <depot>/packages/ProximalBase/Vu5iv (slug dir Vu5iv)
+  # ProximalBase pkgversion 0.6.0-DEV
+  # BLAS threads 1 Julia threads 1
+  # CPU Intel Skylake-SP
+  # active project <PS checkout>/Project.toml
+  # manifest ProximalBase entry Manifest-v1.10.toml: version=0.6.0-DEV repo-rev=e03c6d9659365d54f4e0fba1a9cd54490631eea6 git-tree-sha1=8de7a696d89a10022bb40f0941745939e4087fd4 repo-url=https://github.com/mlakolar/ProximalBase.jl
+trajectories: 416  exits: Counter({'maxiter': 416})
+unique+tight trajectories: 256, of which reach coef err <= 1e-4: 236
+crit  tau        n  fired  never |    U:n c<=1e-4  early   late med_ratio | obj_ok obj_bad
+gen   0.001    416    402     14 |    242     61    181      7      0.6 |     83    319
+gen   0.0001   416    396     20 |    240     74    166      8    0.846 |    120    276
+gen   1e-05    416    390     26 |    234    169     65    106        1 |    254    136
+gen   1e-06    416    380     36 |    228    180     48    131     1.25 |    302     78
+gen   1e-07    416    374     42 |    222    190     32    141     1.44 |    324     50
+gen   1e-08    416    370     46 |    222    190     32    141     1.64 |    328     42
+gen   1e-10    416    360     56 |    220    193     27    139     2.18 |    326     34
+gen   1e-12    416    350     66 |    220    220      0    171     2.65 |    324     26
+kkt   0.001    416    396     20 |    240     63    177      6    0.654 |     90    306
+kkt   0.0001   416    394     22 |    238     92    146      8    0.923 |    159    235
+kkt   1e-05    416    386     30 |    232    176     56    120     1.06 |    283    103
+kkt   1e-06    416    374     42 |    222    178     44    129     1.29 |    302     72
+kkt   1e-07    416    372     44 |    220    188     32    139      1.5 |    324     48
+kkt   1e-08    416    368     48 |    220    188     32    139     1.69 |    328     40
+kkt   1e-10    416    358     58 |    218    201     17    139     2.22 |    326     32
+kkt   1e-12    416    348     68 |    218    218      0    169     2.73 |    324     24
+kktl  0.001    416    404     12 |    248     63    185      6    0.519 |     95    309
+kktl  0.0001   416    402     14 |    246     76    170      6    0.769 |    106    296
+kktl  1e-05    416    396     20 |    240    155     85     44        1 |    213    183
+kktl  1e-06    416    390     26 |    234    184     50    123     1.12 |    295     95
+kktl  1e-07    416    380     36 |    228    196     32    139     1.35 |    320     60
+kktl  1e-08    416    376     40 |    228    196     32    139      1.5 |    336     40
+kktl  1e-10    416    366     50 |    226    197     29    137        2 |    334     32
+kktl  1e-12    416    356     60 |    226    226      0    169     2.56 |    332     24
+gap   0.001    328    314     14 |    190     76    113     22    0.833 |    120    194
+gap   0.0001   328    314     14 |    190    107     83     48        1 |    197    117
+gap   1e-05    328    312     16 |    188    138     50     83        1 |    268     44
+gap   1e-06    328    310     18 |    186    142     44     94     1.18 |    277     33
+gap   1e-07    328    300     28 |    182    153     29    102     1.36 |    284     16
+gap   1e-08    328    296     32 |    180    164     16    117     1.52 |    296      0
+gap   1e-10    328    290     38 |    178    171      7    123     2.12 |    290      0
+gap   1e-12    328    284     44 |    178    178      0    131     2.57 |    284      0
+dx    0.001    416    416      0 |    256     79    177     39    0.706 |    115    301
+dx    0.0001   416    416      0 |    256    120    136     66        1 |    188    228
+dx    1e-05    416    416      0 |    256    168     88    136     1.12 |    268    148
+dx    1e-06    416    413      3 |    256    172     82    142     1.33 |    306    107
+dx    1e-07    416    410      6 |    254    186     68    154     1.57 |    320     90
+dx    1e-08    416    400     16 |    250    194     56    162     1.74 |    330     70
+dx    1e-10    416    384     32 |    240    233      7    195        2 |    342     42
+dx    1e-12    416    368     48 |    234    234      0    202     2.53 |    336     32
+df    0.001    416    416      0 |    256     78    178     35      0.5 |     93    323
+df    0.0001   416    416      0 |    256     86    170     42    0.667 |     98    318
+df    1e-05    416    416      0 |    256     92    164     47    0.786 |    107    309
+df    1e-06    416    416      0 |    256    108    148     53    0.919 |    121    295
+df    1e-07    416    416      0 |    256    133    123     78        1 |    156    260
+df    1e-08    416    413      3 |    254    160     94    108        1 |    255    158
+df    1e-10    416    408      8 |    252    179     71    149     1.19 |    314     94
+df    1e-12    416    398     18 |    242    205     37    173      1.5 |    337     61
+  columns: n = trajectories (gap: lambda > 0 only); fired = criterion below tau at some iterate; U:n = fired with a
+  unique certified reference; c<=1e-4 = of those, max coefficient error <= 1e-4 at the first fire; early = fired
+  with coefficient error > 1e-4; late = fired after the oracle iteration; med_ratio = median fire/oracle
+  iteration; obj_ok/obj_bad = fired with the proved objective lower bound within/above the target 1e-08.
+====================================================================================================
+WEIGHTED NormL1 Float32 out/full-lts/wl1_Float32.tsv
+  # julia 1.10.13
+  # ProximalSolvers dir <PS checkout>
+  # ProximalBase dir <depot>/packages/ProximalBase/Vu5iv (slug dir Vu5iv)
+  # ProximalBase pkgversion 0.6.0-DEV
+  # BLAS threads 1 Julia threads 1
+  # CPU Intel Skylake-SP
+  # active project <PS checkout>/Project.toml
+  # manifest ProximalBase entry Manifest-v1.10.toml: version=0.6.0-DEV repo-rev=e03c6d9659365d54f4e0fba1a9cd54490631eea6 git-tree-sha1=8de7a696d89a10022bb40f0941745939e4087fd4 repo-url=https://github.com/mlakolar/ProximalBase.jl
+solves ok: 11904  errors: 0 []
+references tight: 11328 of 11904
+converged: 6308
+CONTRACT converged with independent ||G||inf/S >= bound: 0
+  max kkt_rel/bound over converged: 0.9996
+FALSE CONVERGENCE (objective lower bound above target 1e-05): 613
+    apg default colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.596..0.758
+    apg default colscale zeros 1.01 pert 1 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.4..0.4
+    apg default colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.301..0.383
+    apg default colscale zeros 2 pert 1 subopt_lo 8.88e-05..8.88e-05 kkt/bound 0.68..0.68
+    apg default offset none 0 cold 2 subopt_lo 165..732 kkt/bound 0.233..0.535
+    apg default offset none 0 pert 2 subopt_lo 0.372..1.89 kkt/bound 0.0105..0.0279
+    apg default offset none 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.0017..0.00173
+    apg default offset spread 0 cold 2 subopt_lo 165..732 kkt/bound 0.233..0.535
+    apg default offset spread 0 pert 2 subopt_lo 0.372..1.89 kkt/bound 0.0105..0.0279
+    apg default offset spread 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.0017..0.00173
+    apg default offset unit 0 cold 2 subopt_lo 165..732 kkt/bound 0.233..0.535
+    apg default offset unit 0 pert 2 subopt_lo 0.372..1.89 kkt/bound 0.0105..0.0279
+    apg default offset unit 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.0017..0.00173
+    apg default offset zeros 0 cold 2 subopt_lo 165..732 kkt/bound 0.233..0.535
+    apg default offset zeros 0 pert 2 subopt_lo 0.372..1.89 kkt/bound 0.0105..0.0279
+    apg default offset zeros 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.0017..0.00173
+    apg default offset zeros 0.001 cold 2 subopt_lo 0.00717..1.41 kkt/bound 0.0261..0.27
+    apg default offset zeros 0.001 pert 2 subopt_lo 4.93e-05..0.000921 kkt/bound 0.00154..0.00671
+    apg default offset zeros 0.001 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00167..0.00169
+    apg default offset zeros 0.1 cold 2 subopt_lo 0.975..2.19 kkt/bound 0.25..0.46
+    apg default offset zeros 0.1 pert 2 subopt_lo 0.00229..0.00467 kkt/bound 0.0117..0.0218
+    apg default offset zeros 0.1 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00167..0.00169
+    apg default offset zeros 0.5 cold 2 subopt_lo 0.181..0.228 kkt/bound 0.0698..0.0795
+    apg default offset zeros 0.5 pert 2 subopt_lo 0.00229..0.00467 kkt/bound 0.00722..0.0134
+    apg default offset zeros 0.5 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00103..0.00104
+    apg default offset zeros 1.01 cold 2 subopt_lo 1.02..1.26 kkt/bound 0.0739..0.104
+    apg default offset zeros 1.01 pert 2 subopt_lo 0.00229..0.00467 kkt/bound 0.00357..0.00664
+    apg default offset zeros 1.01 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.000509..0.000516
+    apg default offset zeros 2 cold 2 subopt_lo 1.02..1.26 kkt/bound 0.0373..0.0524
+    apg default offset zeros 2 pert 2 subopt_lo 0.00229..0.00467 kkt/bound 0.0018..0.00335
+    apg default offset zeros 2 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.000257..0.000261
+    apg default tall_exact none 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt/bound 0.548..0.757
+    apg default tall_exact none 0 pert 2 subopt_lo 26.4..176 kkt/bound 0.0117..0.0266
+    apg default tall_exact none 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.0019..0.00192
+    apg default tall_exact spread 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt/bound 0.548..0.757
+    apg default tall_exact spread 0 pert 2 subopt_lo 26.4..176 kkt/bound 0.0117..0.0266
+    apg default tall_exact spread 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.0019..0.00192
+    apg default tall_exact unit 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt/bound 0.548..0.757
+    apg default tall_exact unit 0 pert 2 subopt_lo 26.4..176 kkt/bound 0.0117..0.0266
+    apg default tall_exact unit 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.0019..0.00192
+    apg default tall_exact zeros 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt/bound 0.548..0.757
+    apg default tall_exact zeros 0 pert 2 subopt_lo 26.4..176 kkt/bound 0.0117..0.0266
+    apg default tall_exact zeros 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.0019..0.00192
+    apg default wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.437..0.451
+    apg default wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0243..0.0333
+    apg default wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.437..0.451
+    apg default wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0243..0.0333
+    apg default wide spread 0.001 pert 2 subopt_lo 2.53e-05..2.64e-05 kkt/bound 0.903..0.991
+    apg default wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.437..0.451
+    apg default wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0243..0.0333
+    apg default wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.437..0.451
+    apg default wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0243..0.0333
+    apg default wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.488..0.63
+    apg default wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0178..0.0225
+    apg default wide_exact none 0 ref 1 subopt_lo inf..inf kkt/bound 0.0132..0.0132
+    apg default wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.488..0.63
+    apg default wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0178..0.0225
+    apg default wide_exact spread 0 ref 1 subopt_lo inf..inf kkt/bound 0.0132..0.0132
+    apg default wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.488..0.63
+    apg default wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0178..0.0225
+    apg default wide_exact unit 0 ref 1 subopt_lo inf..inf kkt/bound 0.0132..0.0132
+    apg default wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.488..0.63
+    apg default wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0178..0.0225
+    apg default wide_exact zeros 0 ref 1 subopt_lo inf..inf kkt/bound 0.0132..0.0132
+    apg default yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 8.27e-05..0.00172
+    apg ftol0 colscale zeros 0.1 cold 1 subopt_lo 0.0511..0.0511 kkt/bound 0.758..0.758
+    apg ftol0 colscale zeros 0.5 cold 2 subopt_lo 0.0449..0.0449 kkt/bound 0.0608..0.0824
+    apg ftol0 colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.173..0.314
+    apg ftol0 colscale zeros 1.01 pert 1 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.4..0.4
+    apg ftol0 colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0874..0.159
+    apg ftol0 colscale zeros 2 pert 1 subopt_lo 8.86e-05..8.86e-05 kkt/bound 0.264..0.264
+    apg ftol0 offset none 0 cold 2 subopt_lo 165..732 kkt/bound 0.233..0.535
+    apg ftol0 offset none 0 pert 2 subopt_lo 0.372..1.89 kkt/bound 0.0105..0.0279
+    apg ftol0 offset none 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.0017..0.00173
+    apg ftol0 offset spread 0 cold 2 subopt_lo 165..732 kkt/bound 0.233..0.535
+    apg ftol0 offset spread 0 pert 2 subopt_lo 0.372..1.89 kkt/bound 0.0105..0.0279
+    apg ftol0 offset spread 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.0017..0.00173
+    apg ftol0 offset unit 0 cold 2 subopt_lo 165..732 kkt/bound 0.233..0.535
+    apg ftol0 offset unit 0 pert 2 subopt_lo 0.372..1.89 kkt/bound 0.0105..0.0279
+    apg ftol0 offset unit 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.0017..0.00173
+    apg ftol0 offset zeros 0 cold 2 subopt_lo 165..732 kkt/bound 0.233..0.535
+    apg ftol0 offset zeros 0 pert 2 subopt_lo 0.372..1.89 kkt/bound 0.0105..0.0279
+    apg ftol0 offset zeros 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.0017..0.00173
+    apg ftol0 offset zeros 0.001 cold 2 subopt_lo 0.00717..1.41 kkt/bound 0.0261..0.27
+    apg ftol0 offset zeros 0.001 pert 2 subopt_lo 4.93e-05..0.000921 kkt/bound 0.00154..0.00671
+    apg ftol0 offset zeros 0.001 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00167..0.00169
+    apg ftol0 offset zeros 0.1 cold 2 subopt_lo 0.975..2.19 kkt/bound 0.25..0.46
+    apg ftol0 offset zeros 0.1 pert 2 subopt_lo 0.00229..0.00467 kkt/bound 0.0117..0.0218
+    apg ftol0 offset zeros 0.1 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00167..0.00169
+    apg ftol0 offset zeros 0.5 cold 2 subopt_lo 0.181..0.228 kkt/bound 0.0698..0.0795
+    apg ftol0 offset zeros 0.5 pert 2 subopt_lo 0.00229..0.00467 kkt/bound 0.00722..0.0134
+    apg ftol0 offset zeros 0.5 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00103..0.00104
+    apg ftol0 offset zeros 1.01 cold 2 subopt_lo 1.02..1.26 kkt/bound 0.0739..0.104
+    apg ftol0 offset zeros 1.01 pert 2 subopt_lo 0.00229..0.00467 kkt/bound 0.00357..0.00664
+    apg ftol0 offset zeros 1.01 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.000509..0.000516
+    apg ftol0 offset zeros 2 cold 2 subopt_lo 1.02..1.26 kkt/bound 0.0373..0.0524
+    apg ftol0 offset zeros 2 pert 2 subopt_lo 0.00229..0.00467 kkt/bound 0.0018..0.00335
+    apg ftol0 offset zeros 2 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.000257..0.000261
+    apg ftol0 tall_exact none 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt/bound 0.548..0.757
+    apg ftol0 tall_exact none 0 pert 2 subopt_lo 26.4..176 kkt/bound 0.0117..0.0266
+    apg ftol0 tall_exact none 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.0019..0.00192
+    apg ftol0 tall_exact spread 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt/bound 0.548..0.757
+    apg ftol0 tall_exact spread 0 pert 2 subopt_lo 26.4..176 kkt/bound 0.0117..0.0266
+    apg ftol0 tall_exact spread 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.0019..0.00192
+    apg ftol0 tall_exact unit 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt/bound 0.548..0.757
+    apg ftol0 tall_exact unit 0 pert 2 subopt_lo 26.4..176 kkt/bound 0.0117..0.0266
+    apg ftol0 tall_exact unit 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.0019..0.00192
+    apg ftol0 tall_exact zeros 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt/bound 0.548..0.757
+    apg ftol0 tall_exact zeros 0 pert 2 subopt_lo 26.4..176 kkt/bound 0.0117..0.0266
+    apg ftol0 tall_exact zeros 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.0019..0.00192
+    apg ftol0 wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.437..0.451
+    apg ftol0 wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0243..0.0333
+    apg ftol0 wide none 0.001 cold 2 subopt_lo 0.000111..0.000113 kkt/bound 0.727..0.918
+    apg ftol0 wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.437..0.451
+    apg ftol0 wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0243..0.0333
+    apg ftol0 wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.437..0.451
+    apg ftol0 wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0243..0.0333
+    apg ftol0 wide unit 0.001 cold 2 subopt_lo 0.000111..0.000113 kkt/bound 0.727..0.918
+    apg ftol0 wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.437..0.451
+    apg ftol0 wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0243..0.0333
+    apg ftol0 wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.488..0.63
+    apg ftol0 wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.0178..0.0225
+    apg ftol0 wide_exact none 0 ref 1 subopt_lo inf..inf kkt/bound 0.0132..0.0132
+    apg ftol0 wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.488..0.63
+    apg ftol0 wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.0178..0.0225
+    apg ftol0 wide_exact spread 0 ref 1 subopt_lo inf..inf kkt/bound 0.0132..0.0132
+    apg ftol0 wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.488..0.63
+    apg ftol0 wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.0178..0.0225
+    apg ftol0 wide_exact unit 0 ref 1 subopt_lo inf..inf kkt/bound 0.0132..0.0132
+    apg ftol0 wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.488..0.63
+    apg ftol0 wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.0178..0.0225
+    apg ftol0 wide_exact zeros 0 ref 1 subopt_lo inf..inf kkt/bound 0.0132..0.0132
+    apg ftol0 yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 8.27e-05..0.00172
+    apg gradtol1e-8 colscale zeros 0.1 cold 1 subopt_lo 0.0511..0.0511 kkt/bound 0.994..0.994
+    apg gradtol1e-8 colscale zeros 0.5 cold 2 subopt_lo 0.0449..0.0449 kkt/bound 0.617..0.646
+    apg gradtol1e-8 colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.781..0.993
+    apg gradtol1e-8 colscale zeros 1.01 pert 1 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.525..0.525
+    apg gradtol1e-8 colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.394..0.502
+    apg gradtol1e-8 colscale zeros 2 pert 1 subopt_lo 8.88e-05..8.88e-05 kkt/bound 0.891..0.891
+    apg gradtol1e-8 offset none 0 pert 1 subopt_lo 0.00405..0.00405 kkt/bound 0.00242..0.00242
+    apg gradtol1e-8 offset none 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.00223..0.00226
+    apg gradtol1e-8 offset spread 0 pert 1 subopt_lo 0.00405..0.00405 kkt/bound 0.00242..0.00242
+    apg gradtol1e-8 offset spread 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.00223..0.00226
+    apg gradtol1e-8 offset unit 0 pert 1 subopt_lo 0.00405..0.00405 kkt/bound 0.00242..0.00242
+    apg gradtol1e-8 offset unit 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.00223..0.00226
+    apg gradtol1e-8 offset zeros 0 pert 1 subopt_lo 0.00405..0.00405 kkt/bound 0.00242..0.00242
+    apg gradtol1e-8 offset zeros 0 ref 2 subopt_lo 0.00245..0.00265 kkt/bound 0.00223..0.00226
+    apg gradtol1e-8 offset zeros 0.001 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00219..0.00222
+    apg gradtol1e-8 offset zeros 0.1 cold 1 subopt_lo 2.9e-05..2.9e-05 kkt/bound 0.00215..0.00215
+    apg gradtol1e-8 offset zeros 0.1 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00219..0.00222
+    apg gradtol1e-8 offset zeros 0.5 cold 2 subopt_lo 2.63e-05..4.32e-05 kkt/bound 0.00139..0.00158
+    apg gradtol1e-8 offset zeros 0.5 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.00135..0.00137
+    apg gradtol1e-8 offset zeros 1.01 cold 2 subopt_lo 2.9e-05..0.000173 kkt/bound 0.000654..0.0018
+    apg gradtol1e-8 offset zeros 1.01 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.000667..0.000677
+    apg gradtol1e-8 offset zeros 2 cold 2 subopt_lo 2.9e-05..0.000173 kkt/bound 0.00033..0.000908
+    apg gradtol1e-8 offset zeros 2 ref 2 subopt_lo 2.67e-05..2.74e-05 kkt/bound 0.000337..0.000342
+    apg gradtol1e-8 tall_exact none 0 cold 2 subopt_lo 1.21..1.94 kkt/bound 0.00452..0.00605
+    apg gradtol1e-8 tall_exact none 0 pert 2 subopt_lo 0.401..1.97 kkt/bound 0.00226..0.00613
+    apg gradtol1e-8 tall_exact none 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.00249..0.00252
+    apg gradtol1e-8 tall_exact spread 0 cold 2 subopt_lo 1.21..1.94 kkt/bound 0.00452..0.00605
+    apg gradtol1e-8 tall_exact spread 0 pert 2 subopt_lo 0.401..1.97 kkt/bound 0.00226..0.00613
+    apg gradtol1e-8 tall_exact spread 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.00249..0.00252
+    apg gradtol1e-8 tall_exact unit 0 cold 2 subopt_lo 1.21..1.94 kkt/bound 0.00452..0.00605
+    apg gradtol1e-8 tall_exact unit 0 pert 2 subopt_lo 0.401..1.97 kkt/bound 0.00226..0.00613
+    apg gradtol1e-8 tall_exact unit 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.00249..0.00252
+    apg gradtol1e-8 tall_exact zeros 0 cold 2 subopt_lo 1.21..1.94 kkt/bound 0.00452..0.00605
+    apg gradtol1e-8 tall_exact zeros 0 pert 2 subopt_lo 0.401..1.97 kkt/bound 0.00226..0.00613
+    apg gradtol1e-8 tall_exact zeros 0 ref 2 subopt_lo 0.31..0.321 kkt/bound 0.00249..0.00252
+    apg gradtol1e-8 wide none 0.001 cold 2 subopt_lo 9.81e-05..0.000113 kkt/bound 0.952..0.986
+    apg gradtol1e-8 wide spread 0.001 pert 2 subopt_lo 2.45e-05..2.5e-05 kkt/bound 0.96..0.981
+    apg gradtol1e-8 wide unit 0.001 cold 2 subopt_lo 9.81e-05..0.000113 kkt/bound 0.952..0.986
+    apg gradtol1e-8 wide_exact none 0 pert 1 subopt_lo inf..inf kkt/bound 0.0222..0.0222
+    apg gradtol1e-8 wide_exact none 0 ref 1 subopt_lo inf..inf kkt/bound 0.0173..0.0173
+    apg gradtol1e-8 wide_exact spread 0 pert 1 subopt_lo inf..inf kkt/bound 0.0222..0.0222
+    apg gradtol1e-8 wide_exact spread 0 ref 1 subopt_lo inf..inf kkt/bound 0.0173..0.0173
+    apg gradtol1e-8 wide_exact unit 0 pert 1 subopt_lo inf..inf kkt/bound 0.0222..0.0222
+    apg gradtol1e-8 wide_exact unit 0 ref 1 subopt_lo inf..inf kkt/bound 0.0173..0.0173
+    apg gradtol1e-8 wide_exact zeros 0 pert 1 subopt_lo inf..inf kkt/bound 0.0222..0.0222
+    apg gradtol1e-8 wide_exact zeros 0 ref 1 subopt_lo inf..inf kkt/bound 0.0173..0.0173
+    apg gradtol1e-8 yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 0.000108..0.00226
+    apg strict colscale zeros 0.1 pert 2 subopt_lo 0.000128..0.000128 kkt/bound 0.346..0.378
+    apg strict colscale zeros 1.01 pert 1 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.00361..0.00361
+    apg strict colscale zeros 2 pert 1 subopt_lo 8.85e-05..8.85e-05 kkt/bound 0.00182..0.00182
+    apg strict wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.00288..0.00488
+    apg strict wide none 0 ref 1 subopt_lo inf..inf kkt/bound 0.00796..0.00796
+    apg strict wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.00288..0.00488
+    apg strict wide spread 0 ref 1 subopt_lo inf..inf kkt/bound 0.00796..0.00796
+    apg strict wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.00288..0.00488
+    apg strict wide unit 0 ref 1 subopt_lo inf..inf kkt/bound 0.00796..0.00796
+    apg strict wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.00288..0.00488
+    apg strict wide zeros 0 ref 1 subopt_lo inf..inf kkt/bound 0.00796..0.00796
+    apg strict wide_exact none 0 pert 2 subopt_lo inf..inf kkt/bound 0.019..0.0226
+    apg strict wide_exact spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.019..0.0226
+    apg strict wide_exact unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.019..0.0226
+    apg strict wide_exact zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.019..0.0226
+    apg strict yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 1.61e-10..3.23e-09
+    pgd default colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0551..0.0551
+    pgd default colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0278..0.0278
+    pgd default offset none 0 cold 2 subopt_lo 149..175 kkt/bound 0.209..0.411
+    pgd default offset none 0 pert 2 subopt_lo 0.198..0.441 kkt/bound 0.0082..0.0144
+    pgd default offset none 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00169..0.00169
+    pgd default offset spread 0 cold 2 subopt_lo 149..175 kkt/bound 0.209..0.411
+    pgd default offset spread 0 pert 2 subopt_lo 0.198..0.441 kkt/bound 0.0082..0.0144
+    pgd default offset spread 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00169..0.00169
+    pgd default offset unit 0 cold 2 subopt_lo 149..175 kkt/bound 0.209..0.411
+    pgd default offset unit 0 pert 2 subopt_lo 0.198..0.441 kkt/bound 0.0082..0.0144
+    pgd default offset unit 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00169..0.00169
+    pgd default offset zeros 0 cold 2 subopt_lo 149..175 kkt/bound 0.209..0.411
+    pgd default offset zeros 0 pert 2 subopt_lo 0.198..0.441 kkt/bound 0.0082..0.0144
+    pgd default offset zeros 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00169..0.00169
+    pgd default offset zeros 0.001 cold 2 subopt_lo 0.131..0.388 kkt/bound 0.0899..0.156
+    pgd default offset zeros 0.001 pert 2 subopt_lo 0.000976..0.00102 kkt/bound 0.00674..0.00706
+    pgd default offset zeros 0.001 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00167..0.00169
+    pgd default offset zeros 0.1 cold 2 subopt_lo 0.0408..0.589 kkt/bound 0.0519..0.192
+    pgd default offset zeros 0.1 pert 2 subopt_lo 2.63e-05..0.00036 kkt/bound 0.00174..0.00586
+    pgd default offset zeros 0.1 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00167..0.00169
+    pgd default offset zeros 0.5 cold 2 subopt_lo 0.000166..0.225 kkt/bound 0.0027..0.0724
+    pgd default offset zeros 0.5 pert 2 subopt_lo 2.63e-05..0.00036 kkt/bound 0.00107..0.00361
+    pgd default offset zeros 0.5 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00103..0.00104
+    pgd default offset zeros 1.01 cold 2 subopt_lo 0.000166..0.196 kkt/bound 0.00132..0.0334
+    pgd default offset zeros 1.01 pert 2 subopt_lo 2.63e-05..0.00036 kkt/bound 0.000529..0.00179
+    pgd default offset zeros 1.01 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.000509..0.000515
+    pgd default offset zeros 2 cold 2 subopt_lo 0.000166..0.196 kkt/bound 0.000669..0.0168
+    pgd default offset zeros 2 pert 2 subopt_lo 2.63e-05..0.00036 kkt/bound 0.000267..0.000902
+    pgd default offset zeros 2 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.000257..0.00026
+    pgd default tall_exact none 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt/bound 0.343..0.372
+    pgd default tall_exact none 0 pert 2 subopt_lo 86.6..93.2 kkt/bound 0.0188..0.0198
+    pgd default tall_exact none 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00199..0.00272
+    pgd default tall_exact spread 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt/bound 0.343..0.372
+    pgd default tall_exact spread 0 pert 2 subopt_lo 86.6..93.2 kkt/bound 0.0188..0.0198
+    pgd default tall_exact spread 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00199..0.00272
+    pgd default tall_exact unit 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt/bound 0.343..0.372
+    pgd default tall_exact unit 0 pert 2 subopt_lo 86.6..93.2 kkt/bound 0.0188..0.0198
+    pgd default tall_exact unit 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00199..0.00272
+    pgd default tall_exact zeros 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt/bound 0.343..0.372
+    pgd default tall_exact zeros 0 pert 2 subopt_lo 86.6..93.2 kkt/bound 0.0188..0.0198
+    pgd default tall_exact zeros 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00199..0.00272
+    pgd default wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.23..0.263
+    pgd default wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.00899..0.0128
+    pgd default wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.23..0.263
+    pgd default wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.00899..0.0128
+    pgd default wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.23..0.263
+    pgd default wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.00899..0.0128
+    pgd default wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.23..0.263
+    pgd default wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.00899..0.0128
+    pgd default wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.188..0.475
+    pgd default wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.188..0.475
+    pgd default wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.188..0.475
+    pgd default wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.188..0.475
+    pgd default yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 8.13e-05..0.000285
+    pgd ftol0 colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0551..0.0551
+    pgd ftol0 colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0278..0.0278
+    pgd ftol0 offset none 0 cold 2 subopt_lo 149..175 kkt/bound 0.209..0.411
+    pgd ftol0 offset none 0 pert 2 subopt_lo 0.198..0.441 kkt/bound 0.0082..0.0144
+    pgd ftol0 offset none 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00169..0.00169
+    pgd ftol0 offset spread 0 cold 2 subopt_lo 149..175 kkt/bound 0.209..0.411
+    pgd ftol0 offset spread 0 pert 2 subopt_lo 0.198..0.441 kkt/bound 0.0082..0.0144
+    pgd ftol0 offset spread 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00169..0.00169
+    pgd ftol0 offset unit 0 cold 2 subopt_lo 149..175 kkt/bound 0.209..0.411
+    pgd ftol0 offset unit 0 pert 2 subopt_lo 0.198..0.441 kkt/bound 0.0082..0.0144
+    pgd ftol0 offset unit 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00169..0.00169
+    pgd ftol0 offset zeros 0 cold 2 subopt_lo 149..175 kkt/bound 0.209..0.411
+    pgd ftol0 offset zeros 0 pert 2 subopt_lo 0.198..0.441 kkt/bound 0.0082..0.0144
+    pgd ftol0 offset zeros 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00169..0.00169
+    pgd ftol0 offset zeros 0.001 cold 2 subopt_lo 0.131..0.388 kkt/bound 0.0899..0.156
+    pgd ftol0 offset zeros 0.001 pert 2 subopt_lo 0.000976..0.00102 kkt/bound 0.00674..0.00706
+    pgd ftol0 offset zeros 0.001 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00167..0.00169
+    pgd ftol0 offset zeros 0.1 cold 2 subopt_lo 0.0408..0.589 kkt/bound 0.0519..0.192
+    pgd ftol0 offset zeros 0.1 pert 2 subopt_lo 2.63e-05..0.00036 kkt/bound 0.00174..0.00586
+    pgd ftol0 offset zeros 0.1 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00167..0.00169
+    pgd ftol0 offset zeros 0.5 cold 2 subopt_lo 0.000166..0.225 kkt/bound 0.0027..0.0724
+    pgd ftol0 offset zeros 0.5 pert 2 subopt_lo 2.63e-05..0.00036 kkt/bound 0.00107..0.00361
+    pgd ftol0 offset zeros 0.5 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00103..0.00104
+    pgd ftol0 offset zeros 1.01 cold 2 subopt_lo 0.000166..0.196 kkt/bound 0.00132..0.0334
+    pgd ftol0 offset zeros 1.01 pert 2 subopt_lo 2.63e-05..0.00036 kkt/bound 0.000529..0.00179
+    pgd ftol0 offset zeros 1.01 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.000509..0.000515
+    pgd ftol0 offset zeros 2 cold 2 subopt_lo 0.000166..0.196 kkt/bound 0.000669..0.0168
+    pgd ftol0 offset zeros 2 pert 2 subopt_lo 2.63e-05..0.00036 kkt/bound 0.000267..0.000902
+    pgd ftol0 offset zeros 2 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.000257..0.00026
+    pgd ftol0 tall_exact none 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt/bound 0.343..0.372
+    pgd ftol0 tall_exact none 0 pert 2 subopt_lo 86.6..93.2 kkt/bound 0.0188..0.0198
+    pgd ftol0 tall_exact none 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00199..0.00272
+    pgd ftol0 tall_exact spread 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt/bound 0.343..0.372
+    pgd ftol0 tall_exact spread 0 pert 2 subopt_lo 86.6..93.2 kkt/bound 0.0188..0.0198
+    pgd ftol0 tall_exact spread 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00199..0.00272
+    pgd ftol0 tall_exact unit 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt/bound 0.343..0.372
+    pgd ftol0 tall_exact unit 0 pert 2 subopt_lo 86.6..93.2 kkt/bound 0.0188..0.0198
+    pgd ftol0 tall_exact unit 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00199..0.00272
+    pgd ftol0 tall_exact zeros 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt/bound 0.343..0.372
+    pgd ftol0 tall_exact zeros 0 pert 2 subopt_lo 86.6..93.2 kkt/bound 0.0188..0.0198
+    pgd ftol0 tall_exact zeros 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00199..0.00272
+    pgd ftol0 wide none 0 cold 2 subopt_lo inf..inf kkt/bound 0.23..0.263
+    pgd ftol0 wide none 0 pert 2 subopt_lo inf..inf kkt/bound 0.00899..0.0128
+    pgd ftol0 wide spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.23..0.263
+    pgd ftol0 wide spread 0 pert 2 subopt_lo inf..inf kkt/bound 0.00899..0.0128
+    pgd ftol0 wide unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.23..0.263
+    pgd ftol0 wide unit 0 pert 2 subopt_lo inf..inf kkt/bound 0.00899..0.0128
+    pgd ftol0 wide zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.23..0.263
+    pgd ftol0 wide zeros 0 pert 2 subopt_lo inf..inf kkt/bound 0.00899..0.0128
+    pgd ftol0 wide_exact none 0 cold 2 subopt_lo inf..inf kkt/bound 0.188..0.475
+    pgd ftol0 wide_exact spread 0 cold 2 subopt_lo inf..inf kkt/bound 0.188..0.475
+    pgd ftol0 wide_exact unit 0 cold 2 subopt_lo inf..inf kkt/bound 0.188..0.475
+    pgd ftol0 wide_exact zeros 0 cold 2 subopt_lo inf..inf kkt/bound 0.188..0.475
+    pgd ftol0 yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 8.13e-05..0.000285
+    pgd gradtol1e-8 colscale zeros 1.01 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0722..0.0722
+    pgd gradtol1e-8 colscale zeros 2 cold 2 subopt_lo 0.0354..0.0354 kkt/bound 0.0365..0.0365
+    pgd gradtol1e-8 offset none 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00221..0.00221
+    pgd gradtol1e-8 offset spread 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00221..0.00221
+    pgd gradtol1e-8 offset unit 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00221..0.00221
+    pgd gradtol1e-8 offset zeros 0 ref 1 subopt_lo 0.00289..0.00289 kkt/bound 0.00221..0.00221
+    pgd gradtol1e-8 offset zeros 0.001 cold 2 subopt_lo 2.94e-05..0.000174 kkt/bound 0.00214..0.00549
+    pgd gradtol1e-8 offset zeros 0.001 pert 2 subopt_lo 2.63e-05..2.65e-05 kkt/bound 0.00223..0.00227
+    pgd gradtol1e-8 offset zeros 0.001 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00219..0.00221
+    pgd gradtol1e-8 offset zeros 0.1 cold 2 subopt_lo 2.68e-05..2.72e-05 kkt/bound 0.00222..0.00234
+    pgd gradtol1e-8 offset zeros 0.1 pert 2 subopt_lo 2.63e-05..2.7e-05 kkt/bound 0.0022..0.00228
+    pgd gradtol1e-8 offset zeros 0.1 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00219..0.00221
+    pgd gradtol1e-8 offset zeros 0.5 cold 2 subopt_lo 2.63e-05..2.66e-05 kkt/bound 0.00137..0.00139
+    pgd gradtol1e-8 offset zeros 0.5 pert 2 subopt_lo 2.63e-05..2.7e-05 kkt/bound 0.00136..0.0014
+    pgd gradtol1e-8 offset zeros 0.5 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.00135..0.00136
+    pgd gradtol1e-8 offset zeros 1.01 cold 1 subopt_lo 2.64e-05..2.64e-05 kkt/bound 0.000682..0.000682
+    pgd gradtol1e-8 offset zeros 1.01 pert 2 subopt_lo 2.63e-05..2.7e-05 kkt/bound 0.000672..0.000693
+    pgd gradtol1e-8 offset zeros 1.01 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.000667..0.000675
+    pgd gradtol1e-8 offset zeros 2 cold 1 subopt_lo 2.64e-05..2.64e-05 kkt/bound 0.000344..0.000344
+    pgd gradtol1e-8 offset zeros 2 pert 2 subopt_lo 2.63e-05..2.7e-05 kkt/bound 0.000339..0.00035
+    pgd gradtol1e-8 offset zeros 2 ref 2 subopt_lo 2.68e-05..2.74e-05 kkt/bound 0.000337..0.000341
+    pgd gradtol1e-8 tall_exact none 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00261..0.00356
+    pgd gradtol1e-8 tall_exact spread 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00261..0.00356
+    pgd gradtol1e-8 tall_exact unit 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00261..0.00356
+    pgd gradtol1e-8 tall_exact zeros 0 ref 2 subopt_lo 0.409..0.632 kkt/bound 0.00261..0.00356
+    pgd gradtol1e-8 yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 6.16e-05..0.000107
+    pgd strict yzero zeros 1 pert 2 subopt_lo inf..inf kkt/bound 3.2e-10..6.46e-09
+converged, unique reference, coef error > 1e-4: 693
+    apg default colscale zeros 1.01 3 coef_err 35..700 xref_inf 700..700 kkt/bound 0.4..0.758
+    apg default colscale zeros 2 3 coef_err 35..700 xref_inf 700..700 kkt/bound 0.301..0.68
+    apg default corr95 zeros 2 2 coef_err 0.000257..0.00027 xref_inf 1.62..1.62 kkt/bound 0.807..0.815
+    apg default gauss zeros 1.01 1 coef_err 0.000176..0.000176 xref_inf 1.28..1.28 kkt/bound 0.884..0.884
+    apg default gauss zeros 2 3 coef_err 0.000122..0.000376 xref_inf 1.28..1.28 kkt/bound 0.327..0.967
+    apg default offset none 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0017..0.535
+    apg default offset none 0.001 6 coef_err 0.00102..7.94 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.794
+    apg default offset none 0.1 6 coef_err 0.0278..4.97 xref_inf 9e+05..9e+05 kkt/bound 0.00278..0.497
+    apg default offset none 0.5 5 coef_err 0.00625..9.26 xref_inf 5e+05..5e+05 kkt/bound 0.000625..0.926
+    apg default offset spread 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0017..0.535
+    apg default offset spread 0.001 6 coef_err 0.00102..9.13 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.913
+    apg default offset spread 0.1 6 coef_err 0.0278..13.5 xref_inf 9e+05..9e+05 kkt/bound 0.00174..0.842
+    apg default offset spread 0.5 6 coef_err 0.00625..68.2 xref_inf 5e+05..5e+05 kkt/bound 7.81e-05..0.853
+    apg default offset unit 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0017..0.535
+    apg default offset unit 0.001 6 coef_err 0.00102..7.94 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.794
+    apg default offset unit 0.1 6 coef_err 0.0278..4.97 xref_inf 9e+05..9e+05 kkt/bound 0.00278..0.497
+    apg default offset unit 0.5 5 coef_err 0.00625..9.26 xref_inf 5e+05..5e+05 kkt/bound 0.000625..0.926
+    apg default offset zeros 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0017..0.535
+    apg default offset zeros 0.001 6 coef_err 0.0178..3.28 xref_inf 1e+06..1e+06 kkt/bound 0.00154..0.27
+    apg default offset zeros 0.1 6 coef_err 0.0178..5.46 xref_inf 1e+06..1e+06 kkt/bound 0.00167..0.46
+    apg default offset zeros 0.5 6 coef_err 0.0178..1.55 xref_inf 1e+06..1e+06 kkt/bound 0.00103..0.0795
+    apg default offset zeros 1.01 6 coef_err 0.0178..3.71 xref_inf 1e+06..1e+06 kkt/bound 0.000509..0.104
+    apg default offset zeros 2 6 coef_err 0.0178..3.71 xref_inf 1e+06..1e+06 kkt/bound 0.000257..0.0524
+    apg default tall_exact zeros 1.01 3 coef_err 0.000108..0.000122 xref_inf 1.71..1.71 kkt/bound 0.631..1
+    apg default tall_exact zeros 2 3 coef_err 0.000145..0.000275 xref_inf 1.7..1.7 kkt/bound 0.425..0.831
+    apg ftol0 colscale zeros 0.1 1 coef_err 821..821 xref_inf 821..821 kkt/bound 0.758..0.758
+    apg ftol0 colscale zeros 0.5 2 coef_err 799..799 xref_inf 799..799 kkt/bound 0.0608..0.0824
+    apg ftol0 colscale zeros 1.01 3 coef_err 35..700 xref_inf 700..700 kkt/bound 0.173..0.4
+    apg ftol0 colscale zeros 2 3 coef_err 35..700 xref_inf 700..700 kkt/bound 0.0874..0.264
+    apg ftol0 offset none 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0017..0.535
+    apg ftol0 offset none 0.001 5 coef_err 0.0615..1.31 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00615..0.131
+    apg ftol0 offset none 0.1 6 coef_err 0.0338..1.97 xref_inf 9e+05..9e+05 kkt/bound 0.00337..0.197
+    apg ftol0 offset none 0.5 4 coef_err 0.0375..0.331 xref_inf 5e+05..5e+05 kkt/bound 0.00375..0.0331
+    apg ftol0 offset spread 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0017..0.535
+    apg ftol0 offset spread 0.001 5 coef_err 0.0635..1.06 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00635..0.106
+    apg ftol0 offset spread 0.1 6 coef_err 0.0338..4.22 xref_inf 9e+05..9e+05 kkt/bound 0.00211..0.264
+    apg ftol0 offset spread 0.5 4 coef_err 0.0375..0.331 xref_inf 5e+05..5e+05 kkt/bound 0.000469..0.00414
+    apg ftol0 offset unit 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0017..0.535
+    apg ftol0 offset unit 0.001 5 coef_err 0.0615..1.31 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.00615..0.131
+    apg ftol0 offset unit 0.1 6 coef_err 0.0338..1.97 xref_inf 9e+05..9e+05 kkt/bound 0.00337..0.197
+    apg ftol0 offset unit 0.5 4 coef_err 0.0375..0.331 xref_inf 5e+05..5e+05 kkt/bound 0.00375..0.0331
+    apg ftol0 offset zeros 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 kkt/bound 0.0017..0.535
+    apg ftol0 offset zeros 0.001 6 coef_err 0.0178..3.28 xref_inf 1e+06..1e+06 kkt/bound 0.00154..0.27
+    apg ftol0 offset zeros 0.1 6 coef_err 0.0178..5.46 xref_inf 1e+06..1e+06 kkt/bound 0.00167..0.46
+    apg ftol0 offset zeros 0.5 6 coef_err 0.0178..1.55 xref_inf 1e+06..1e+06 kkt/bound 0.00103..0.0795
+    apg ftol0 offset zeros 1.01 6 coef_err 0.0178..3.71 xref_inf 1e+06..1e+06 kkt/bound 0.000509..0.104
+    apg ftol0 offset zeros 2 6 coef_err 0.0178..3.71 xref_inf 1e+06..1e+06 kkt/bound 0.000257..0.0524
+    apg gradtol1e-8 colscale zeros 0.1 1 coef_err 821..821 xref_inf 821..821 kkt/bound 0.994..0.994
+    apg gradtol1e-8 colscale zeros 0.5 2 coef_err 799..799 xref_inf 799..799 kkt/bound 0.617..0.646
+    apg gradtol1e-8 colscale zeros 1.01 3 coef_err 35..700 xref_inf 700..700 kkt/bound 0.525..0.993
+    apg gradtol1e-8 colscale zeros 2 3 coef_err 35..700 xref_inf 700..700 kkt/bound 0.394..0.891
+    apg gradtol1e-8 corr95 zeros 2 1 coef_err 0.000248..0.000248 xref_inf 1.62..1.62 kkt/bound 0.962..0.962
+    apg gradtol1e-8 gauss zeros 2 2 coef_err 0.000119..0.000122 xref_inf 1.28..1.28 kkt/bound 0.429..0.456
+    apg gradtol1e-8 offset none 0 3 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 kkt/bound 0.00223..0.00242
+    apg gradtol1e-8 offset none 0.001 6 coef_err 0.00102..6.75 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000133..0.885
+    apg gradtol1e-8 offset none 0.1 6 coef_err 0.0278..4.97 xref_inf 9e+05..9e+05 kkt/bound 0.00364..0.651
+    apg gradtol1e-8 offset none 0.5 5 coef_err 0.00625..5.11 xref_inf 5e+05..5e+05 kkt/bound 0.000819..0.67
+    apg gradtol1e-8 offset spread 0 3 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 kkt/bound 0.00223..0.00242
+    apg gradtol1e-8 offset spread 0.001 6 coef_err 0.00102..4.19 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000133..0.549
+    apg gradtol1e-8 offset spread 0.1 6 coef_err 0.0278..8.85 xref_inf 9e+05..9e+05 kkt/bound 0.00227..0.725
+    apg gradtol1e-8 offset spread 0.5 6 coef_err 0.00625..35 xref_inf 5e+05..5e+05 kkt/bound 0.000102..0.574
+    apg gradtol1e-8 offset unit 0 3 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 kkt/bound 0.00223..0.00242
+    apg gradtol1e-8 offset unit 0.001 6 coef_err 0.00102..6.75 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000133..0.885
+    apg gradtol1e-8 offset unit 0.1 6 coef_err 0.0278..4.97 xref_inf 9e+05..9e+05 kkt/bound 0.00364..0.651
+    apg gradtol1e-8 offset unit 0.5 5 coef_err 0.00625..5.11 xref_inf 5e+05..5e+05 kkt/bound 0.000819..0.67
+    apg gradtol1e-8 offset zeros 0 3 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 kkt/bound 0.00223..0.00242
+    apg gradtol1e-8 offset zeros 0.001 2 coef_err 0.0178..0.0178 xref_inf 1e+06..1e+06 kkt/bound 0.00219..0.00222
+    apg gradtol1e-8 offset zeros 0.1 3 coef_err 0.0178..0.0178 xref_inf 1e+06..1e+06 kkt/bound 0.00215..0.00222
+    apg gradtol1e-8 offset zeros 0.5 4 coef_err 0.0178..0.0178 xref_inf 1e+06..1e+06 kkt/bound 0.00135..0.00158
+    apg gradtol1e-8 offset zeros 1.01 4 coef_err 0.0178..0.0447 xref_inf 1e+06..1e+06 kkt/bound 0.000654..0.0018
+    apg gradtol1e-8 offset zeros 2 4 coef_err 0.0178..0.0447 xref_inf 1e+06..1e+06 kkt/bound 0.00033..0.000908
+    apg gradtol1e-8 tall_exact zeros 1.01 2 coef_err 0.000108..0.000122 xref_inf 1.71..1.71 kkt/bound 0.827..0.944
+    apg gradtol1e-8 tall_exact zeros 2 2 coef_err 0.000145..0.000244 xref_inf 1.7..1.7 kkt/bound 0.557..0.952
+    apg strict colscale zeros 0.1 2 coef_err 41.1..41.1 xref_inf 821..821 kkt/bound 0.346..0.378
+    apg strict colscale zeros 1.01 1 coef_err 35..35 xref_inf 700..700 kkt/bound 0.00361..0.00361
+    apg strict colscale zeros 2 1 coef_err 35..35 xref_inf 700..700 kkt/bound 0.00182..0.00182
+    apg strict offset none 0.001 5 coef_err 0.00102..0.0635 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000133..0.00833
+    apg strict offset none 0.1 6 coef_err 0.0912..0.0972 xref_inf 9e+05..9e+05 kkt/bound 0.012..0.0127
+    apg strict offset none 0.5 6 coef_err 0.0124..0.0813 xref_inf 5e+05..5e+05 kkt/bound 0.00163..0.0107
+    apg strict offset spread 0.001 4 coef_err 0.00103..0.0635 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000135..0.00833
+    apg strict offset spread 0.1 6 coef_err 0.0912..0.0972 xref_inf 9e+05..9e+05 kkt/bound 0.00748..0.00797
+    apg strict offset spread 0.5 6 coef_err 0.0124..0.0813 xref_inf 5e+05..5e+05 kkt/bound 0.000204..0.00133
+    apg strict offset unit 0.001 5 coef_err 0.00102..0.0635 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000133..0.00833
+    apg strict offset unit 0.1 6 coef_err 0.0912..0.0972 xref_inf 9e+05..9e+05 kkt/bound 0.012..0.0127
+    apg strict offset unit 0.5 6 coef_err 0.0124..0.0813 xref_inf 5e+05..5e+05 kkt/bound 0.00163..0.0107
+    pgd default colscale zeros 1.01 2 coef_err 700..700 xref_inf 700..700 kkt/bound 0.0551..0.0551
+    pgd default colscale zeros 2 2 coef_err 700..700 xref_inf 700..700 kkt/bound 0.0278..0.0278
+    pgd default gauss zeros 0.5 1 coef_err 0.000108..0.000108 xref_inf 1.31..1.31 kkt/bound 0.958..0.958
+    pgd default gauss zeros 1.01 1 coef_err 0.000184..0.000184 xref_inf 1.28..1.28 kkt/bound 0.954..0.954
+    pgd default gauss zeros 2 2 coef_err 0.000179..0.000296 xref_inf 1.28..1.28 kkt/bound 0.471..0.774
+    pgd default offset none 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 kkt/bound 0.00169..0.411
+    pgd default offset none 0.001 6 coef_err 0.00102..6.31 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.631
+    pgd default offset none 0.1 6 coef_err 0.0338..5.16 xref_inf 9e+05..9e+05 kkt/bound 0.00337..0.516
+    pgd default offset none 0.5 6 coef_err 0.0501..4.14 xref_inf 5e+05..5e+05 kkt/bound 0.00501..0.414
+    pgd default offset spread 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 kkt/bound 0.00169..0.411
+    pgd default offset spread 0.001 6 coef_err 0.00102..6.38 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.638
+    pgd default offset spread 0.1 6 coef_err 0.0338..15.8 xref_inf 9e+05..9e+05 kkt/bound 0.00211..0.99
+    pgd default offset spread 0.5 6 coef_err 0.0501..48.7 xref_inf 5e+05..5e+05 kkt/bound 0.000626..0.609
+    pgd default offset unit 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 kkt/bound 0.00169..0.411
+    pgd default offset unit 0.001 6 coef_err 0.00102..6.31 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.631
+    pgd default offset unit 0.1 6 coef_err 0.0338..5.16 xref_inf 9e+05..9e+05 kkt/bound 0.00337..0.516
+    pgd default offset unit 0.5 6 coef_err 0.0501..4.14 xref_inf 5e+05..5e+05 kkt/bound 0.00501..0.414
+    pgd default offset zeros 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 kkt/bound 0.00169..0.411
+    pgd default offset zeros 0.001 6 coef_err 0.0178..2.01 xref_inf 1e+06..1e+06 kkt/bound 0.00167..0.156
+    pgd default offset zeros 0.1 6 coef_err 0.0178..2.48 xref_inf 1e+06..1e+06 kkt/bound 0.00167..0.192
+    pgd default offset zeros 0.5 6 coef_err 0.0178..1.52 xref_inf 1e+06..1e+06 kkt/bound 0.00103..0.0724
+    pgd default offset zeros 1.01 6 coef_err 0.0178..1.42 xref_inf 1e+06..1e+06 kkt/bound 0.000509..0.0334
+    pgd default offset zeros 2 6 coef_err 0.0178..1.42 xref_inf 1e+06..1e+06 kkt/bound 0.000257..0.0168
+    pgd default tall_exact zeros 1.01 1 coef_err 0.000104..0.000104 xref_inf 1.71..1.71 kkt/bound 0.604..0.604
+    pgd default tall_exact zeros 2 2 coef_err 0.000171..0.000195 xref_inf 1.7..1.7 kkt/bound 0.508..0.577
+    pgd ftol0 colscale zeros 1.01 2 coef_err 700..700 xref_inf 700..700 kkt/bound 0.0551..0.0551
+    pgd ftol0 colscale zeros 2 2 coef_err 700..700 xref_inf 700..700 kkt/bound 0.0278..0.0278
+    pgd ftol0 offset none 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 kkt/bound 0.00169..0.411
+    pgd ftol0 offset none 0.001 4 coef_err 0.00102..0.624 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.0624
+    pgd ftol0 offset none 0.1 6 coef_err 0.0288..0.903 xref_inf 9e+05..9e+05 kkt/bound 0.00287..0.0903
+    pgd ftol0 offset none 0.5 6 coef_err 0.0501..4.14 xref_inf 5e+05..5e+05 kkt/bound 0.00501..0.414
+    pgd ftol0 offset spread 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 kkt/bound 0.00169..0.411
+    pgd ftol0 offset spread 0.001 3 coef_err 0.00102..1.12 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.112
+    pgd ftol0 offset spread 0.1 6 coef_err 0.0288..1.28 xref_inf 9e+05..9e+05 kkt/bound 0.0018..0.0799
+    pgd ftol0 offset spread 0.5 6 coef_err 0.0501..4.14 xref_inf 5e+05..5e+05 kkt/bound 0.000626..0.0518
+    pgd ftol0 offset unit 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 kkt/bound 0.00169..0.411
+    pgd ftol0 offset unit 0.001 4 coef_err 0.00102..0.624 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000102..0.0624
+    pgd ftol0 offset unit 0.1 6 coef_err 0.0288..0.903 xref_inf 9e+05..9e+05 kkt/bound 0.00287..0.0903
+    pgd ftol0 offset unit 0.5 6 coef_err 0.0501..4.14 xref_inf 5e+05..5e+05 kkt/bound 0.00501..0.414
+    pgd ftol0 offset zeros 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 kkt/bound 0.00169..0.411
+    pgd ftol0 offset zeros 0.001 6 coef_err 0.0178..2.01 xref_inf 1e+06..1e+06 kkt/bound 0.00167..0.156
+    pgd ftol0 offset zeros 0.1 6 coef_err 0.0178..2.48 xref_inf 1e+06..1e+06 kkt/bound 0.00167..0.192
+    pgd ftol0 offset zeros 0.5 6 coef_err 0.0178..1.52 xref_inf 1e+06..1e+06 kkt/bound 0.00103..0.0724
+    pgd ftol0 offset zeros 1.01 6 coef_err 0.0178..1.42 xref_inf 1e+06..1e+06 kkt/bound 0.000509..0.0334
+    pgd ftol0 offset zeros 2 6 coef_err 0.0178..1.42 xref_inf 1e+06..1e+06 kkt/bound 0.000257..0.0168
+    pgd gradtol1e-8 colscale zeros 1.01 2 coef_err 700..700 xref_inf 700..700 kkt/bound 0.0722..0.0722
+    pgd gradtol1e-8 colscale zeros 2 2 coef_err 700..700 xref_inf 700..700 kkt/bound 0.0365..0.0365
+    pgd gradtol1e-8 gauss zeros 2 1 coef_err 0.000179..0.000179 xref_inf 1.28..1.28 kkt/bound 0.617..0.617
+    pgd gradtol1e-8 offset none 0 1 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 kkt/bound 0.00221..0.00221
+    pgd gradtol1e-8 offset none 0.001 6 coef_err 0.00102..6.31 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000133..0.828
+    pgd gradtol1e-8 offset none 0.1 6 coef_err 0.0338..5.16 xref_inf 9e+05..9e+05 kkt/bound 0.00442..0.676
+    pgd gradtol1e-8 offset none 0.5 6 coef_err 0.0501..4.14 xref_inf 5e+05..5e+05 kkt/bound 0.00656..0.543
+    pgd gradtol1e-8 offset spread 0 1 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 kkt/bound 0.00221..0.00221
+    pgd gradtol1e-8 offset spread 0.001 6 coef_err 0.00102..6.38 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000133..0.836
+    pgd gradtol1e-8 offset spread 0.1 6 coef_err 0.0338..7.78 xref_inf 9e+05..9e+05 kkt/bound 0.00276..0.637
+    pgd gradtol1e-8 offset spread 0.5 6 coef_err 0.0501..48.7 xref_inf 5e+05..5e+05 kkt/bound 0.00082..0.798
+    pgd gradtol1e-8 offset unit 0 1 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 kkt/bound 0.00221..0.00221
+    pgd gradtol1e-8 offset unit 0.001 6 coef_err 0.00102..6.31 xref_inf 9.99e+05..9.99e+05 kkt/bound 0.000133..0.828
+    pgd gradtol1e-8 offset unit 0.1 6 coef_err 0.0338..5.16 xref_inf 9e+05..9e+05 kkt/bound 0.00442..0.676
+    pgd gradtol1e-8 offset unit 0.5 6 coef_err 0.0501..4.14 xref_inf 5e+05..5e+05 kkt/bound 0.00656..0.543
+    pgd gradtol1e-8 offset zeros 0 1 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 kkt/bound 0.00221..0.00221
+    pgd gradtol1e-8 offset zeros 0.001 6 coef_err 0.0178..0.0447 xref_inf 1e+06..1e+06 kkt/bound 0.00214..0.00549
+    pgd gradtol1e-8 offset zeros 0.1 6 coef_err 0.0178..0.0178 xref_inf 1e+06..1e+06 kkt/bound 0.00219..0.00234
+    pgd gradtol1e-8 offset zeros 0.5 6 coef_err 0.0178..0.0178 xref_inf 1e+06..1e+06 kkt/bound 0.00135..0.0014
+    pgd gradtol1e-8 offset zeros 1.01 5 coef_err 0.0178..0.0178 xref_inf 1e+06..1e+06 kkt/bound 0.000667..0.000693
+    pgd gradtol1e-8 offset zeros 2 5 coef_err 0.0178..0.0178 xref_inf 1e+06..1e+06 kkt/bound 0.000337..0.00035
+    pgd gradtol1e-8 tall_exact zeros 1.01 1 coef_err 0.000104..0.000104 xref_inf 1.71..1.71 kkt/bound 0.792..0.792
+    pgd gradtol1e-8 tall_exact zeros 2 2 coef_err 0.000171..0.000195 xref_inf 1.7..1.7 kkt/bound 0.666..0.756
+MISSED TARGET (not converged, upper bound within target): 4362
+    apg default increase none 44
+    apg default increase spread 37
+    apg default increase unit 43
+    apg default increase zeros 39
+    apg default maxiter none 8
+    apg default maxiter spread 4
+    apg default maxiter unit 8
+    apg default maxiter zeros 4
+    apg ftol0 increase none 105
+    apg ftol0 increase spread 86
+    apg ftol0 increase unit 105
+    apg ftol0 increase zeros 123
+    apg ftol0 maxiter none 129
+    apg ftol0 maxiter spread 129
+    apg ftol0 maxiter unit 129
+    apg ftol0 maxiter zeros 24
+    apg gradtol1e-8 increase none 58
+    apg gradtol1e-8 increase spread 49
+    apg gradtol1e-8 increase unit 58
+    apg gradtol1e-8 increase zeros 56
+    apg gradtol1e-8 maxiter none 4
+    apg gradtol1e-8 maxiter spread 4
+    apg gradtol1e-8 maxiter unit 4
+    apg gradtol1e-8 maxiter zeros 4
+    apg strict maxiter none 192
+    apg strict maxiter spread 191
+    apg strict maxiter unit 188
+    apg strict maxiter zeros 120
+    pgd default increase none 40
+    pgd default increase spread 28
+    pgd default increase unit 39
+    pgd default increase zeros 41
+    pgd default maxiter none 6
+    pgd default maxiter spread 4
+    pgd default maxiter unit 6
+    pgd default maxiter zeros 5
+    pgd ftol0 increase none 82
+    pgd ftol0 increase spread 65
+    pgd ftol0 increase unit 83
+    pgd ftol0 increase zeros 112
+    pgd ftol0 maxiter none 126
+    pgd ftol0 maxiter spread 126
+    pgd ftol0 maxiter unit 126
+    pgd ftol0 maxiter zeros 14
+    pgd ftol0 stagnated none 7
+    pgd ftol0 stagnated spread 4
+    pgd ftol0 stagnated unit 7
+    pgd ftol0 stagnated zeros 5
+    pgd gradtol1e-8 increase none 49
+    pgd gradtol1e-8 increase spread 36
+    pgd gradtol1e-8 increase unit 49
+    pgd gradtol1e-8 increase zeros 51
+    pgd gradtol1e-8 maxiter none 4
+    pgd gradtol1e-8 maxiter spread 4
+    pgd gradtol1e-8 maxiter unit 4
+    pgd gradtol1e-8 maxiter zeros 4
+    pgd strict maxiter none 181
+    pgd strict maxiter spread 180
+    pgd strict maxiter unit 181
+    pgd strict maxiter zeros 79
+    pgd strict stagnated none 155
+    pgd strict stagnated spread 154
+    pgd strict stagnated unit 155
+    pgd strict stagnated zeros 205
+exit classes by solver x options x wset:
+    apg default none converged 298
+    apg default none increase 55
+    apg default none maxiter 19
+    apg default spread converged 301
+    apg default spread increase 51
+    apg default spread maxiter 20
+    apg default unit converged 299
+    apg default unit increase 54
+    apg default unit maxiter 19
+    apg default zeros converged 290
+    apg default zeros increase 56
+    apg default zeros maxiter 26
+    apg ftol0 none converged 123
+    apg ftol0 none increase 118
+    apg ftol0 none maxiter 131
+    apg ftol0 spread converged 139
+    apg ftol0 spread increase 102
+    apg ftol0 spread maxiter 131
+    apg ftol0 unit converged 123
+    apg ftol0 unit increase 118
+    apg ftol0 unit maxiter 131
+    apg ftol0 zeros converged 199
+    apg ftol0 zeros increase 147
+    apg ftol0 zeros maxiter 26
+    apg gradtol1e-8 none converged 285
+    apg gradtol1e-8 none increase 81
+    apg gradtol1e-8 none maxiter 6
+    apg gradtol1e-8 spread converged 291
+    apg gradtol1e-8 spread increase 75
+    apg gradtol1e-8 spread maxiter 6
+    apg gradtol1e-8 unit converged 285
+    apg gradtol1e-8 unit increase 81
+    apg gradtol1e-8 unit maxiter 6
+    apg gradtol1e-8 zeros converged 263
+    apg gradtol1e-8 zeros increase 103
+    apg gradtol1e-8 zeros maxiter 6
+    apg strict none converged 149
+    apg strict none maxiter 223
+    apg strict spread converged 150
+    apg strict spread maxiter 222
+    apg strict unit converged 153
+    apg strict unit maxiter 219
+    apg strict zeros converged 175
+    apg strict zeros maxiter 197
+    pgd default none converged 285
+    pgd default none increase 54
+    pgd default none maxiter 33
+    pgd default spread converged 295
+    pgd default spread increase 44
+    pgd default spread maxiter 33
+    pgd default unit converged 286
+    pgd default unit increase 53
+    pgd default unit maxiter 33
+    pgd default zeros converged 271
+    pgd default zeros increase 64
+    pgd default zeros maxiter 37
+    pgd ftol0 none converged 122
+    pgd ftol0 none increase 116
+    pgd ftol0 none maxiter 127
+    pgd ftol0 none stagnated 7
+    pgd ftol0 spread converged 139
+    pgd ftol0 spread increase 102
+    pgd ftol0 spread maxiter 127
+    pgd ftol0 spread stagnated 4
+    pgd ftol0 unit converged 121
+    pgd ftol0 unit increase 117
+    pgd ftol0 unit maxiter 127
+    pgd ftol0 unit stagnated 7
+    pgd ftol0 zeros converged 192
+    pgd ftol0 zeros increase 160
+    pgd ftol0 zeros maxiter 15
+    pgd ftol0 zeros stagnated 5
+    pgd gradtol1e-8 none converged 270
+    pgd gradtol1e-8 none increase 97
+    pgd gradtol1e-8 none maxiter 5
+    pgd gradtol1e-8 spread converged 280
+    pgd gradtol1e-8 spread increase 87
+    pgd gradtol1e-8 spread maxiter 5
+    pgd gradtol1e-8 unit converged 270
+    pgd gradtol1e-8 unit increase 97
+    pgd gradtol1e-8 unit maxiter 5
+    pgd gradtol1e-8 zeros converged 252
+    pgd gradtol1e-8 zeros increase 115
+    pgd gradtol1e-8 zeros maxiter 5
+    pgd strict none maxiter 217
+    pgd strict none stagnated 155
+    pgd strict spread maxiter 218
+    pgd strict spread stagnated 154
+    pgd strict unit maxiter 217
+    pgd strict unit stagnated 155
+    pgd strict zeros converged 2
+    pgd strict zeros maxiter 159
+    pgd strict zeros stagnated 211
+control none vs unit: pairs 2976, converged differs 25, iterations differ 73
+zero-weight rows: 2976, converged 1644, max kkt/bound over converged 1, max gap_at_x over converged 1
+====================================================================================================
+NormLinf SWEEP Float32 out/full-lts/linf_sweep_Float32.tsv
+  # julia 1.10.13
+  # ProximalSolvers dir <PS checkout>
+  # ProximalBase dir <depot>/packages/ProximalBase/Vu5iv (slug dir Vu5iv)
+  # ProximalBase pkgversion 0.6.0-DEV
+  # BLAS threads 1 Julia threads 1
+  # CPU Intel Skylake-SP
+  # active project <PS checkout>/Project.toml
+  # manifest ProximalBase entry Manifest-v1.10.toml: version=0.6.0-DEV repo-rev=e03c6d9659365d54f4e0fba1a9cd54490631eea6 git-tree-sha1=8de7a696d89a10022bb40f0941745939e4087fd4 repo-url=https://github.com/mlakolar/ProximalBase.jl
+solves ok: 2496  errors: 0 []
+references tight: 2208 of 2496  unique+tight: 1536
+converged: 1113
+  converged: independent Euclidean KKT / S over bound: median 0.00868 max 2.78; > 10 x bound: 0; > 100 x bound: 0
+FALSE CONVERGENCE (objective lower bound above target 1e-05): 110
+    apg default offset 0 cold 2 subopt_lo 165..732 kkt2/bound 0.384..0.822
+    apg default offset 0 pert 2 subopt_lo 0.372..1.89 kkt2/bound 0.0187..0.0417
+    apg default offset 0 ref 2 subopt_lo 0.00245..0.00265 kkt2/bound 0.00206..0.00215
+    apg default tall_exact 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt2/bound 0.871..1.27
+    apg default tall_exact 0 pert 2 subopt_lo 26.4..176 kkt2/bound 0.0221..0.0426
+    apg default tall_exact 0 ref 2 subopt_lo 0.31..0.321 kkt2/bound 0.00298..0.00305
+    apg default wide 0 cold 2 subopt_lo inf..inf kkt2/bound 1.36..1.45
+    apg default wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0663..0.102
+    apg default wide 0.001 pert 2 subopt_lo 1.76e-05..2.2e-05 kkt2/bound 2.01..2.57
+    apg default wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 1.21..1.95
+    apg default wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0601..0.0679
+    apg default wide_exact 0 ref 1 subopt_lo inf..inf kkt2/bound 0.0339..0.0339
+    apg ftol0 offset 0 cold 2 subopt_lo 165..732 kkt2/bound 0.384..0.822
+    apg ftol0 offset 0 pert 2 subopt_lo 0.372..1.89 kkt2/bound 0.0187..0.0417
+    apg ftol0 offset 0 ref 2 subopt_lo 0.00245..0.00265 kkt2/bound 0.00206..0.00215
+    apg ftol0 tall_exact 0 cold 2 subopt_lo 7.39e+04..1.6e+05 kkt2/bound 0.871..1.27
+    apg ftol0 tall_exact 0 pert 2 subopt_lo 26.4..176 kkt2/bound 0.0221..0.0426
+    apg ftol0 tall_exact 0 ref 2 subopt_lo 0.31..0.321 kkt2/bound 0.00298..0.00305
+    apg ftol0 wide 0 cold 2 subopt_lo inf..inf kkt2/bound 1.36..1.45
+    apg ftol0 wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0663..0.102
+    apg ftol0 wide 0.001 cold 2 subopt_lo 0.00118..0.00118 kkt2/bound 2.02..2.19
+    apg ftol0 wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 1.21..1.95
+    apg ftol0 wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0601..0.0679
+    apg ftol0 wide_exact 0 ref 1 subopt_lo inf..inf kkt2/bound 0.0339..0.0339
+    apg ftol0 wide_exact 0.001 cold 2 subopt_lo 0.000645..0.000645 kkt2/bound 1.88..2.18
+    apg gradtol1e-8 offset 0 pert 1 subopt_lo 0.00405..0.00405 kkt2/bound 0.00334..0.00334
+    apg gradtol1e-8 offset 0 ref 2 subopt_lo 0.00245..0.00265 kkt2/bound 0.0027..0.00282
+    apg gradtol1e-8 tall_exact 0 cold 2 subopt_lo 1.21..1.94 kkt2/bound 0.00678..0.0111
+    apg gradtol1e-8 tall_exact 0 pert 2 subopt_lo 0.401..1.97 kkt2/bound 0.00407..0.00969
+    apg gradtol1e-8 tall_exact 0 ref 2 subopt_lo 0.31..0.321 kkt2/bound 0.00391..0.004
+    apg gradtol1e-8 wide 0.001 cold 2 subopt_lo 0.000862..0.000862 kkt2/bound 1.66..1.98
+    apg gradtol1e-8 wide 0.001 pert 2 subopt_lo 1.71e-05..2.06e-05 kkt2/bound 1.98..2.2
+    apg gradtol1e-8 wide_exact 0 pert 1 subopt_lo inf..inf kkt2/bound 0.0795..0.0795
+    apg gradtol1e-8 wide_exact 0 ref 1 subopt_lo inf..inf kkt2/bound 0.0444..0.0444
+    apg gradtol1e-8 wide_exact 0.001 cold 2 subopt_lo 0.000643..0.000643 kkt2/bound 2.12..2.16
+    apg strict wide 0 cold 2 subopt_lo inf..inf kkt2/bound 0.00834..0.0156
+    apg strict wide 0 ref 1 subopt_lo inf..inf kkt2/bound 0.0262..0.0262
+    apg strict wide_exact 0 pert 2 subopt_lo inf..inf kkt2/bound 0.064..0.0713
+    pgd default offset 0 cold 2 subopt_lo 149..175 kkt2/bound 0.34..0.584
+    pgd default offset 0 pert 2 subopt_lo 0.198..0.441 kkt2/bound 0.0117..0.0185
+    pgd default offset 0 ref 1 subopt_lo 0.00289..0.00289 kkt2/bound 0.00222..0.00222
+    pgd default tall_exact 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt2/bound 0.561..0.684
+    pgd default tall_exact 0 pert 2 subopt_lo 86.6..93.2 kkt2/bound 0.0315..0.0334
+    pgd default tall_exact 0 ref 2 subopt_lo 0.409..0.632 kkt2/bound 0.00359..0.0046
+    pgd default wide 0 cold 2 subopt_lo inf..inf kkt2/bound 0.687..0.743
+    pgd default wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0274..0.0453
+    pgd default wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 0.628..1.68
+    pgd default wide_exact 0.001 pert 2 subopt_lo 1.12e-05..1.19e-05 kkt2/bound 1.99..2.41
+    pgd ftol0 offset 0 cold 2 subopt_lo 149..175 kkt2/bound 0.34..0.584
+    pgd ftol0 offset 0 pert 2 subopt_lo 0.198..0.441 kkt2/bound 0.0117..0.0185
+    pgd ftol0 offset 0 ref 1 subopt_lo 0.00289..0.00289 kkt2/bound 0.00222..0.00222
+    pgd ftol0 tall_exact 0 cold 2 subopt_lo 3.1e+04..3.97e+04 kkt2/bound 0.561..0.684
+    pgd ftol0 tall_exact 0 pert 2 subopt_lo 86.6..93.2 kkt2/bound 0.0315..0.0334
+    pgd ftol0 tall_exact 0 ref 2 subopt_lo 0.409..0.632 kkt2/bound 0.00359..0.0046
+    pgd ftol0 wide 0 cold 2 subopt_lo inf..inf kkt2/bound 0.687..0.743
+    pgd ftol0 wide 0 pert 2 subopt_lo inf..inf kkt2/bound 0.0274..0.0453
+    pgd ftol0 wide_exact 0 cold 2 subopt_lo inf..inf kkt2/bound 0.628..1.68
+    pgd gradtol1e-8 offset 0 ref 1 subopt_lo 0.00289..0.00289 kkt2/bound 0.0029..0.0029
+    pgd gradtol1e-8 tall_exact 0 ref 2 subopt_lo 0.409..0.632 kkt2/bound 0.0047..0.00603
+    pgd gradtol1e-8 wide_exact 0.001 pert 1 subopt_lo 1.06e-05..1.06e-05 kkt2/bound 2.78..2.78
+converged, unique reference, coef error > 1e-4: 116
+    apg default colscale 0.5 2 coef_err 0.000672..0.000718 xref_inf 0.000426..0.000426 subopt_hi 6.23e-07..6.99e-07
+    apg default offset 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 subopt_hi 0.00245..732
+    apg default offset 0.001 6 coef_err 0.0274..17.2 xref_inf 9.97e+05..9.97e+05 subopt_hi 1.98e-13..1.18e-07
+    apg default offset 0.1 5 coef_err 0.0106..19.9 xref_inf 7.32e+05..7.32e+05 subopt_hi 8.09e-16..1.19e-09
+    apg default offset 0.5 3 coef_err 0.00921..13.7 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.88e-16..2.87e-10
+    apg ftol0 colscale 0.5 2 coef_err 0.000672..0.000718 xref_inf 0.000426..0.000426 subopt_hi 6.23e-07..6.99e-07
+    apg ftol0 offset 0 6 coef_err 0.0182..9.35 xref_inf 1e+06..1e+06 subopt_hi 0.00245..732
+    apg ftol0 offset 0.001 5 coef_err 0.0274..9.62 xref_inf 9.97e+05..9.97e+05 subopt_hi 1.98e-13..2.59e-08
+    apg ftol0 offset 0.1 5 coef_err 0.0106..2.43 xref_inf 7.32e+05..7.32e+05 subopt_hi 8.09e-16..2.32e-11
+    apg ftol0 offset 0.5 3 coef_err 0.00921..7.52 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.88e-16..7.85e-11
+    apg gradtol1e-8 colscale 0.5 2 coef_err 0.000672..0.000718 xref_inf 0.000426..0.000426 subopt_hi 6.23e-07..6.99e-07
+    apg gradtol1e-8 offset 0 3 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 subopt_hi 0.00245..0.00405
+    apg gradtol1e-8 offset 0.001 6 coef_err 0.0274..12.5 xref_inf 9.97e+05..9.97e+05 subopt_hi 1.98e-13..5.99e-08
+    apg gradtol1e-8 offset 0.1 5 coef_err 0.0106..11.3 xref_inf 7.32e+05..7.32e+05 subopt_hi 8.09e-16..4.94e-10
+    apg gradtol1e-8 offset 0.5 3 coef_err 0.00921..13.7 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.88e-16..2.87e-10
+    apg strict offset 0.5 5 coef_err 0.00703..0.0269 xref_inf 1.08e+05..1.08e+05 subopt_hi 1.39e-16..4.49e-15
+    pgd default offset 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 subopt_hi 0.00289..175
+    pgd default offset 0.001 6 coef_err 0.0276..18.1 xref_inf 9.97e+05..9.97e+05 subopt_hi 4.06e-13..1.31e-07
+    pgd default offset 0.1 5 coef_err 0.0212..18.1 xref_inf 7.32e+05..7.32e+05 subopt_hi 2.49e-15..1.24e-09
+    pgd default offset 0.5 3 coef_err 0.0343..8.35 xref_inf 1.08e+05..1.08e+05 subopt_hi 7.82e-15..1.28e-10
+    pgd ftol0 offset 0 5 coef_err 0.0182..4.83 xref_inf 1e+06..1e+06 subopt_hi 0.00289..175
+    pgd ftol0 offset 0.001 4 coef_err 0.0276..4.8 xref_inf 9.97e+05..9.97e+05 subopt_hi 1.95e-13..5.87e-09
+    pgd ftol0 offset 0.1 4 coef_err 0.0212..3.04 xref_inf 7.32e+05..7.32e+05 subopt_hi 2.49e-15..2.29e-11
+    pgd ftol0 offset 0.5 2 coef_err 0.0343..0.764 xref_inf 1.08e+05..1.08e+05 subopt_hi 7.82e-15..2.74e-12
+    pgd gradtol1e-8 colscale 0.5 1 coef_err 0.000842..0.000842 xref_inf 0.000426..0.000426 subopt_hi 4.74e-07..4.74e-07
+    pgd gradtol1e-8 offset 0 1 coef_err 0.0182..0.0182 xref_inf 1e+06..1e+06 subopt_hi 0.00289..0.00289
+    pgd gradtol1e-8 offset 0.001 6 coef_err 0.0276..9.89 xref_inf 9.97e+05..9.97e+05 subopt_hi 4.06e-13..2.56e-08
+    pgd gradtol1e-8 offset 0.1 5 coef_err 0.0212..16.6 xref_inf 7.32e+05..7.32e+05 subopt_hi 2.49e-15..8.21e-10
+    pgd gradtol1e-8 offset 0.5 2 coef_err 0.0343..0.764 xref_inf 1.08e+05..1.08e+05 subopt_hi 7.82e-15..2.74e-12
+MISSED TARGET (not converged, upper bound within target): 1064
+    apg default increase 52
+    apg default maxiter 12
+    apg ftol0 increase 97
+    apg ftol0 maxiter 70
+    apg gradtol1e-8 increase 59
+    apg gradtol1e-8 maxiter 12
+    apg strict maxiter 190
+    pgd default increase 48
+    pgd default maxiter 12
+    pgd ftol0 increase 94
+    pgd ftol0 maxiter 68
+    pgd ftol0 stagnated 5
+    pgd gradtol1e-8 increase 65
+    pgd gradtol1e-8 maxiter 12
+    pgd strict maxiter 133
+    pgd strict stagnated 135
+exit classes by solver x options:
+    apg default converged 218
+    apg default increase 66
+    apg default maxiter 28
+    apg ftol0 converged 123
+    apg ftol0 increase 117
+    apg ftol0 maxiter 72
+    apg gradtol1e-8 converged 209
+    apg gradtol1e-8 increase 89
+    apg gradtol1e-8 maxiter 14
+    apg strict converged 89
+    apg strict maxiter 223
+    pgd default converged 198
+    pgd default increase 64
+    pgd default maxiter 50
+    pgd ftol0 converged 100
+    pgd ftol0 increase 138
+    pgd ftol0 maxiter 69
+    pgd ftol0 stagnated 5
+    pgd gradtol1e-8 converged 176
+    pgd gradtol1e-8 increase 123
+    pgd gradtol1e-8 maxiter 13
+    pgd strict maxiter 177
+    pgd strict stagnated 135
+  default pgd converged unique: 124, coef_err <= 1e-4: 105, max 18.1
+  default apg converged unique: 130, coef_err <= 1e-4: 108, max 19.9
+====================================================================================================
+NormLinf CRITERIA (trajectories) Float32 out/full-lts/linf_traj_Float32.tsv
+  # julia 1.10.13
+  # ProximalSolvers dir <PS checkout>
+  # ProximalBase dir <depot>/packages/ProximalBase/Vu5iv (slug dir Vu5iv)
+  # ProximalBase pkgversion 0.6.0-DEV
+  # BLAS threads 1 Julia threads 1
+  # CPU Intel Skylake-SP
+  # active project <PS checkout>/Project.toml
+  # manifest ProximalBase entry Manifest-v1.10.toml: version=0.6.0-DEV repo-rev=e03c6d9659365d54f4e0fba1a9cd54490631eea6 git-tree-sha1=8de7a696d89a10022bb40f0941745939e4087fd4 repo-url=https://github.com/mlakolar/ProximalBase.jl
+trajectories: 416  exits: Counter({'maxiter': 332, 'stagnated': 84})
+unique+tight trajectories: 256, of which reach coef err <= 1e-4: 192
+crit  tau        n  fired  never |    U:n c<=1e-4  early   late med_ratio | obj_ok obj_bad
+gen   0.001    416    398     18 |    242     61    181      7    0.643 |    206    192
+gen   0.0001   416    396     20 |    240     73    167      8    0.875 |    324     72
+gen   1e-05    416    380     36 |    224    164     60    103     1.06 |    328     52
+gen   1e-06    416    366     50 |    214    178     36    129      1.4 |    328     38
+gen   1e-07    416    362     54 |    210    178     32    129     1.68 |    324     38
+gen   1e-08    416    326     90 |    187    155     32    113     2.24 |    288     38
+gen   1e-10    416    247    169 |    132    124      8     82     2.07 |    231     16
+gen   1e-12    416    247    169 |    132    124      8     82     2.07 |    231     16
+kkt   0.001    416    396     20 |    240     63    177      6    0.686 |    248    148
+kkt   0.0001   416    394     22 |    238     91    147     10        1 |    324     70
+kkt   1e-05    416    376     40 |    222    176     46    120     1.15 |    332     44
+kkt   1e-06    416    344     72 |    192    160     32    111     1.44 |    308     36
+kkt   1e-07    416    332     84 |    181    149     32    100     1.73 |    296     36
+kkt   1e-08    416    160    256 |     84     62     22     20        1 |    132     28
+kkt   1e-10    416     91    325 |     48     48      0      6        1 |     81     10
+kkt   1e-12    416     91    325 |     48     48      0      6        1 |     81     10
+kktl  0.001    416    404     12 |    248     63    185      6      0.6 |    164    240
+kktl  0.0001   416    402     14 |    246     76    170      6    0.812 |    295    107
+kktl  1e-05    416    386     30 |    230    152     78     47        1 |    334     52
+kktl  1e-06    416    376     40 |    220    184     36    123     1.29 |    326     50
+kktl  1e-07    416    351     65 |    199    167     32    110      1.5 |    315     36
+kktl  1e-08    416    294    122 |    155    123     32     73        2 |    258     36
+kktl  1e-10    416     99    317 |     56     56      0      6        1 |     89     10
+kktl  1e-12    416     99    317 |     56     56      0      6        1 |     89     10
+gap   0.001    328    312     16 |    188     76    112     21        1 |    263     49
+gap   0.0001   328    312     16 |    188    107     81     48        1 |    289     23
+gap   1e-05    328    304     24 |    182    134     48     80     1.15 |    302      2
+gap   1e-06    328    250     78 |    143    113     30     65     1.25 |    250      0
+gap   1e-07    328    195    133 |    112     84     28     60     1.77 |    195      0
+gap   1e-08    328    188    140 |    107     79     28     58      1.9 |    188      0
+gap   1e-10    328    188    140 |    107     79     28     58      1.9 |    188      0
+gap   1e-12    328    188    140 |    107     79     28     58      1.9 |    188      0
+dx    0.001    416    416      0 |    256     79    177     39      0.8 |    248    168
+dx    0.0001   416    416      0 |    256    115    141     64        1 |    298    118
+dx    1e-05    416    416      0 |    256    166     90    134     1.19 |    320     96
+dx    1e-06    416    412      4 |    256    168     88    136      1.5 |    342     70
+dx    1e-07    416    410      6 |    254    178     76    146     1.86 |    348     62
+dx    1e-08    416    391     25 |    244    192     52    160        2 |    341     50
+dx    1e-10    416    260    156 |    149    134     15    102        2 |    234     26
+dx    1e-12    416    246    170 |    141    134      7    102        2 |    230     16
+df    0.001    416    416      0 |    256     78    178     35    0.722 |    117    299
+df    0.0001   416    416      0 |    256     86    170     42      0.8 |    176    240
+df    1e-05    416    416      0 |    256     92    164     47    0.889 |    261    155
+df    1e-06    416    416      0 |    256    107    149     52        1 |    297    119
+df    1e-07    416    416      0 |    256    127    129     88        1 |    313    103
+df    1e-08    416    416      0 |    256    132    124    101     1.11 |    316    100
+df    1e-10    416    416      0 |    256    132    124    101     1.11 |    316    100
+df    1e-12    416    416      0 |    256    132    124    101     1.11 |    316    100
+  columns: n = trajectories (gap: lambda > 0 only); fired = criterion below tau at some iterate; U:n = fired with a
+  unique certified reference; c<=1e-4 = of those, max coefficient error <= 1e-4 at the first fire; early = fired
+  with coefficient error > 1e-4; late = fired after the oracle iteration; med_ratio = median fire/oracle
+  iteration; obj_ok/obj_bad = fired with the proved objective lower bound within/above the target 1e-05.

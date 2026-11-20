@@ -1,0 +1,9 @@
+
+
+julia 1.13.4 CPU AMD Zen 3
+Float64 n=   40 p=   12  median µs: gen-extra      0.09  kkt      0.08  gap(incl. Xx)      0.17  grad      0.25
+Float64 n=  200 p= 1000  median µs: gen-extra      3.76  kkt      2.19  gap(incl. Xx)     27.82  grad     53.27
+Float64 n= 2000 p= 5000  median µs: gen-extra     10.74  kkt     13.07  gap(incl. Xx)   2654.15  grad   5198.33
+Float32 n=   40 p=   12  median µs: gen-extra      0.08  kkt      0.07  gap(incl. Xx)      0.14  grad      0.21
+Float32 n=  200 p= 1000  median µs: gen-extra      3.10  kkt      1.98  gap(incl. Xx)     12.03  grad     23.91
+Float32 n= 2000 p= 5000  median µs: gen-extra      6.55  kkt     10.97  gap(incl. Xx)   1077.56  grad   2293.99
