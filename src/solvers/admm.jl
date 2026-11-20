@@ -1,5 +1,3 @@
-using ProximalBase: gradient!
-
 """
     ADMMSolver(; ρ=1.0, α=1.0, abstol=1e-6, reltol=1e-4, abstol_dual=abstol, adaptive=false)
 
@@ -526,9 +524,11 @@ function _admm_stationary!(tmp, f::SqrNormL2, τ, z, tolerance)
   stationary
 end
 
-# The gradient X'(Xz - y) is formed by ProximalBase in tmp.
+# Form X'(Xz - y) in the validated scratch without calling a gradient oracle.
 function _admm_stationary!(tmp, f::LeastSquaresLoss, τ, z, tolerance)
-  gradient!(tmp, f, z)
+  mul!(f.tmp, f.X, z)
+  f.tmp .-= f.Y
+  mul!(tmp, transpose(f.X), f.tmp)
   stationary = true
   @inbounds for i in eachindex(z, tmp)
     stationary &= _admm_violation(tmp[i], z[i], τ) <= tolerance
