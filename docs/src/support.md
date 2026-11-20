@@ -27,13 +27,13 @@ as supported in the table is not verified; the sections below give the exact inp
 | Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | — | Float32, Float64 | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 | Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
-| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric `Matrix` weights | — | — | — | — | — | Float32, Float64, zero diagonal (m) | — | — | Float32, Float64, full weights (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
+| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric `Matrix` weights | — | — | — | — | — | Float32, Float64, full weights (m) | — | — | Float32, Float64, full weights (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
 | Sparse logistic regression: raw `LogisticLoss` with a binary response, `NormL1` or `NormL1(lambda, w)` | — | — | — | — | Float64 (n) | — | — | — | — | [Sparse logistic regression](examples/problems/logistic_regression.md) |
 
 `ElasticNet` is unweighted where it appears in the table. `NormL1` is unweighted except in three rows: in the
 weighted-lasso and sparse logistic regression rows, `NormL1(lambda, w)` has one weight per coefficient, and in the graphical-lasso row,
-`NormL1(λ₀, Λ)` has a symmetric weight matrix. ADMM permits nonnegative diagonal
-weights ([ADM-04](@ref)). PGD requires a zero diagonal ([PGD-06](@ref)). `GroupNormL2` takes its group
+`NormL1(λ₀, Λ)` has a symmetric weight matrix. ADMM and PGD permit nonnegative diagonal
+weights ([ADM-04](@ref), [PGD-06](@ref)). `GroupNormL2` takes its group
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
 [Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
@@ -107,10 +107,14 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   type, a scaled loss, a weighted penalty and a wide design (`n < p`) are refused with an
   `ArgumentError`. The tests and the lasso tutorials check the returned point against an
   independent objective and KKT violation. See [Lasso with consensus ADMM](@ref) and [ADM-05](@ref).
-- **(m)** Matrix PGD requires zero-diagonal weights and starts from a dense
+- **(m)** Matrix PGD takes finite, nonnegative, exactly symmetric full `Matrix{T}` weights,
+  with diagonal weights permitted, and starts from a dense
   symmetric positive-definite matrix. It uses bounded
   backtracking and a normalized KKT check. The [matrix PGD contract](@ref PGD-06) gives
-  the input and option rules. The [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
+  the input and option rules. The tests check each element type against analytic optima
+  and seeded problems, with direct and covariance-shifted weights, using an independently
+  computed objective, KKT score and dual lower bound. The
+  [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
   fits the same estimator with ADMM and PGD.
 - **(n)** Sparse logistic regression needs `X::Matrix{Float64}`, a response `y::Vector{Float64}`
   whose entries are 0 or 1, a `Vector{Float64}` coefficient and a raw `LogisticLoss(y, X)`
@@ -229,8 +233,9 @@ an exact box check and a Cholesky test, reports a numerical estimate of the dual
 
 ### Graphical lasso with proximal gradient
 
-Use the same `LogDetLoss` and zero-diagonal `NormL1` weights with
-`ProximalGradientDescent()`. Each committed iterate passes Cholesky in its
+Use the same `LogDetLoss` and `NormL1(λ₀, Λ)` weights, with diagonal weights permitted,
+with `ProximalGradientDescent()`. The covariance-shift formulation described in the ADMM
+section above also runs with PGD. Each committed iterate passes Cholesky in its
 element type, and the convergence flag requires a normalized KKT check. See
 [PGD-06](@ref) and the [solver comparison](examples/comparisons/graphical_lasso_solvers.md).
 

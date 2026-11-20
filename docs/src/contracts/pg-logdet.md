@@ -8,8 +8,10 @@ and `g = NormL1(λ₀, Λ)`. The start is a nonempty square `Matrix{T}` for
 `T ∈ {Float32, Float64}`. The stored `S` and `Λ` are `Matrix{T}` of that same
 size. The three matrices have finite entries and exact symmetry by entrywise
 equality. `Θ` must pass Cholesky in `T`. The loss weight must be one, `Λ` must be
-nonnegative with zero diagonal, and `λ₀` must be finite, nonnegative and exactly
-representable in `T`. Each effective weight `Cᵢⱼ = T(λ₀) Λᵢⱼ` must be finite.
+nonnegative, and `λ₀` must be finite, nonnegative and exactly representable in `T`.
+Diagonal weights are permitted. On a positive-definite `Θ`, each `Θᵢᵢ` is positive,
+so the penalty `λ₀Λᵢᵢ|Θᵢᵢ|` is linear in the diagonal. Each effective weight
+`Cᵢⱼ = T(λ₀) Λᵢⱼ`, diagonal included, must be finite.
 Pairwise alias checks include separately wrapped arrays whose memory overlaps.
 The solver borrows the inputs for reads and assumes the caller leaves them
 unchanged while the solve runs.
@@ -30,6 +32,8 @@ validation primitives in `src/solvers/admm.jl`.
 
 **Tests.** `test/pgd_graphical_lasso.jl` exercises both precisions, invalid
 methods, options, dimensions, weights, storage, borrowed buffers and starts.
+It accepts positive diagonal weights. It refuses negative and nonfinite diagonal
+weights and a diagonal effective weight that overflows in `T`.
 
 **Sources.** [Approved graphical-lasso PGD scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
 
@@ -80,18 +84,23 @@ step within `_solve_gradient!` in `src/solve.jl`.
 
 **Tests.** `test/pgd_graphical_lasso.jl` verifies an indefinite first
 trial, a nonfinite objective, finite backtracking and bounded failure,
-invalid reciprocal and rollback after a completed step.
+invalid reciprocal and rollback after a completed step. It also tests a diagonal
+threshold that zeroes a proposal's diagonal, which the Cholesky check rejects
+before the search backtracks to a positive-definite step.
 
 **Sources.** [Approved graphical-lasso PGD iteration](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
 
 ## [PGD-08 KKT stopping, limits and results](@id PGD-08)
 
 **Statement.** At a committed point, the KKT score is the largest
-entrywise violation divided by `max(1, maximum(abs, S), maximum(C))`.
-The violations are `abs(Gᵢᵢ)` on the diagonal,
-`abs(Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ))` at nonzero off-diagonal entries, and
-`max(abs(Gᵢⱼ) - Cᵢⱼ, 0)` at exact zeros. The scale, products and normalized
-score are evaluated in `T`. Nonfinite violations raise an error.
+entrywise violation divided by `max(1, maximum(abs, S), maximum(C))`, with the
+maximum of `C` over all entries, diagonal included. With `G` the symmetrized
+gradient of [PGD-07](@ref), the violations are `abs(Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ))`
+at nonzero entries and `max(abs(Gᵢⱼ) - Cᵢⱼ, 0)` at exact zeros. The start and
+each committed point have passed Cholesky in `T`, so their diagonal entries are
+positive and the diagonal violation is `abs(Gᵢᵢ + Cᵢᵢ)`. With `Cᵢᵢ = 0` it is
+`abs(Gᵢᵢ)`. The scale, products and normalized score are evaluated in `T`.
+Nonfinite violations raise an error.
 After a completed step, convergence requires `g_residual ≤ g_tol`,
 where `g_tol = max(gradtol, 64eps(T))`. The check is independent of the
 trial step and the iterate and objective change tests. An accepted
@@ -131,9 +140,14 @@ and constructs `OptimizationResults`.
 
 **Tests.** `test/pgd_graphical_lasso.jl` independently checks SPD, primal
 objective, KKT and a feasible dual lower bound for analytic and seeded
-problems. It also tests reported counters, a verified fixed point, a
-rounded Float32 stall outside the threshold and limit precedence. A call
-limit during a rejected trial checks that the shared driver keeps the last
+problems with zero and positive diagonal weights. The dual candidate has
+`Wᵢᵢ = Sᵢᵢ + Cᵢᵢ`, and the reported gap is `NaN` unless its affine
+constraints, checked in rational arithmetic, and a BigFloat Cholesky check pass.
+Seeded problems compare direct PGD, PGD on the shifted covariance and ADMM
+against the original BigFloat data. The tests also check reported counters,
+the diagonal KKT score at a start with a positive diagonal weight, a verified
+fixed point, a rounded Float32 stall outside the threshold and limit precedence.
+A call limit during a rejected trial checks that the shared driver keeps the last
 accepted point and its diagnostics.
 
 **Sources.** [Approved graphical-lasso PGD stopping rule](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
