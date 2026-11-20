@@ -16,7 +16,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `CDSolver` on a `Matrix` | `ProximalGradientDescent` on a `Vector` | `ProximalGradientDescent` on a `Matrix` | `AccProxGradDescent` on a `Vector` | `ADMMSolver` on a `Vector` | `ADMMSolver` on a `Matrix` | Tutorial |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | Float64 (l) | — | [Lasso](examples/problems/lasso.md) |
-| Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | [Weighted lasso](examples/problems/weighted_lasso.md) |
+| Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | [Weighted lasso](examples/problems/weighted_lasso.md), [solver comparison](examples/comparisons/weighted_lasso_solvers.md) |
 | Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
 | Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | [Elastic net](examples/problems/elastic_net.md) |
@@ -123,6 +123,7 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 These tutorials apply rows of the matrix to statistical problems and add no solver support.
 
 - [Robust sparse regression](examples/problems/robust_sparse_regression.md): sparse response contamination fitted as a weighted lasso on `[X I]`, with separate penalties for predictors and observation corrections (weighted lasso row, `CDSolver` on a `Vector`, Float64).
+- [Scaled lasso](examples/problems/scaled_lasso.md): the coefficients and the noise level of Sun and Zhang (2012) from one square-root lasso solve, `σ̂ = ‖y − Xβ̂‖₂/√n` (square-root lasso row, `CDSolver` on a `Vector`, Float64).
 - [Change-point detection](examples/problems/change_point_detection.md): 1D total-variation denoising, rewritten as a lasso on a step design (lasso row, `CDSolver` on a `Vector`, Float64).
 - [Stability selection with repeated lasso fits](examples/problems/stability_selection.md) compares a full-data lasso fit with selection frequencies from repeated half-samples (`CDSolver` on a dense `Vector`, Float64).
 - [Gaussian graph: neighborhood selection](examples/problems/nodewise_gaussian_graph.md): the graph of a Gaussian vector from one lasso regression per variable (lasso row, `CDSolver` on a `Vector`, Float64).
@@ -248,7 +249,8 @@ preflight behavior are specified in [the weighted-input contract](@ref IN-03).
 CD, PGD and APG accept this penalty for least squares; weighted square-root
 lasso, weighted elastic net and wrapped penalties remain unsupported.
 [The weighted-lasso example](examples/problems/weighted_lasso.md) demonstrates
-an adaptive fit with a zero weight. The relationship between checked weights
+an adaptive fit with a zero weight, and [the solver comparison](examples/comparisons/weighted_lasso_solvers.md)
+checks four solver configurations against one common accuracy target. The relationship between checked weights
 and proximal thresholds is described in [working precision](@ref FP-01).
 
 ### ℓ∞ penalty with PGD and APG
