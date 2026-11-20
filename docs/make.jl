@@ -88,6 +88,9 @@ const EXAMPLES = [
   (section = "Solver comparisons", path = "comparisons/group_lasso_solvers.jl",
    title = "Group lasso: CD, PGD and APG", notebook = false,
    gallery = "Solver comparisons", description = "Compare coordinate and gradient methods on one group-lasso problem."),
+  (section = "Solver comparisons", path = "comparisons/weighted_lasso_solvers.jl",
+   title = "Weighted lasso: CD, PGD and APG", notebook = false,
+   gallery = "Solver comparisons", description = "Compare coordinate and gradient methods on one weighted-lasso problem with unpenalized coordinates."),
   (section = "Solver comparisons", path = "comparisons/graphical_lasso_solvers.jl",
    title = "Graphical lasso: ADMM and proximal gradient", notebook = false,
    gallery = "Covariance and graphs", description = "Compare two solvers for the same sparse precision estimate at matched accuracy.")]
