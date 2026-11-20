@@ -1,6 +1,6 @@
 # Suppose two algorithms fit the same sparse regression model. One returns quickly,
 # but its coefficients are still far from satisfying the optimization conditions.
-# Calling it faster would confuse speed with accuracy. This tutorial compares three
+# Calling it faster would confuse speed with accuracy. This tutorial compares four
 # solver configurations after checking their answers on a common scale.
 #
 # We observe ``y = X\beta^\star + \varepsilon`` with a sparse coefficient vector and
@@ -12,13 +12,16 @@
 # The penalty encourages a small model. Changing the algorithm should change how we
 # compute its estimate, rather than change the statistical objective.
 #
-#md # ![Independent KKT violation and relative objective gap versus measured wall time for three lasso solver configurations; dashed lines mark common accuracy targets.](lasso_solvers.svg)
+#md # ![Independent KKT violation and relative objective gap versus measured wall time for four lasso solver configurations, with consensus ADMM drawn as unconnected markers for three penalty parameters; dashed lines mark common accuracy targets.](lasso_solvers.svg)
 #
 # In the figure, each marker is a **separate solve from zero** at one tolerance setting,
-# not a point in one solver's iteration history. The left panel checks stationarity;
-# the right checks objective accuracy against a tightly solved reference. A setting
-# must lie below both dashed lines to reach the common target. The measured times
-# illustrate this experiment; they do not establish a general speed ranking.
+# not a point in one solver's iteration history. Consensus ADMM has two settings, a
+# tolerance and a penalty parameter `ρ`; its markers are separate solves for each pair,
+# drawn without lines, because no single history joins solves that use different `ρ`.
+# The left panel checks stationarity; the right checks objective accuracy against a
+# tightly solved reference. A setting must lie below both dashed lines to reach the
+# common target. The measured times illustrate this experiment; they do not establish
+# a general speed ranking.
 #
 #md # [Download this example as a Jupyter notebook](@__NAME__.ipynb)
 #nb # Plotting cells need Plots in the active environment; the figure appears after the sweep.
@@ -33,7 +36,8 @@
 # coefficients from the data, and report the first setting meeting both accuracy
 # targets. The configurations are cyclic coordinate descent without momentum,
 # random-order coordinate descent with default momentum and a seeded generator,
-# and dense proximal gradient descent.
+# dense proximal gradient descent, and consensus ADMM, which compares a primal and a
+# dual residual with absolute-plus-relative tolerances ([ADM-02](@ref)).
 #
 # ## A reproducible correlated-regression experiment
 #
@@ -62,6 +66,17 @@ lambda_max = maximum(abs, X' * y) / n
 lambda = lambda_max / 100
 f = (1 / n) * LeastSquaresLoss(y, X)
 g = NormL1(lambda);
+
+# ## The same problem for ADMM
+#
+# `ADMMSolver` takes the raw loss `LeastSquaresLoss(y, X)` without the factor `1/n`. Multiplying
+# the objective above by `n` gives `‖y - Xβ‖²/2 + (n * lambda)‖β‖₁`, so ADMM minimizes the same
+# statistical problem with the penalty `NormL1(n * lambda)` and reports an objective that is `n`
+# times the one above. The design is tall (`n > p`) with exact `Float64` data, which is what this
+# solver path accepts ([ADM-05](@ref)). The loss `f_raw` below is created once and used by every
+# ADMM solve of this page, one solve at a time, because the cache of its SVD lives in the loss.
+f_raw = LeastSquaresLoss(y, X)
+g_raw = NormL1(n * lambda);
 
 # ## What counts as an accurate answer?
 #
@@ -94,6 +109,28 @@ fstar = objective(reference)
 @assert kktviolation(reference) / lambda <= 1e-10
 @assert isapprox(fstar, refresult.minimum; rtol=1e-10)
 
+# ## ADMM pays a setup cost once
+#
+# The proximal step of the least-squares loss uses a thin SVD of `X`, computed on the first
+# proximal call and cached in the loss. Every later call, for any step size, costs only products
+# with the cached factors, so the iterations of ADMM are cheap but the first call is not. We
+# time the two parts separately so that neither hides in the other.
+#
+# Julia first compiles the solver on a different tiny loss, so that compilation never reaches
+# the loss `f_raw`. A proximal call on a loss of the same size with other random data then
+# warms the SVD code at this size without touching the cache of `f_raw`. The first proximal call
+# on `f_raw` is the cold one. The setup time is that call minus the minimum time of later
+# calls, which reuse the cache.
+tiny_loss = LeastSquaresLoss([1.0, -1.0, 0.5], [1.0 0.0; 0.0 2.0; 1.0 1.0])
+solve!(zeros(2), tiny_loss, NormL1(0.1), ADMMSolver(ρ=1.0), ProximalOptions(maxiter=100))
+
+similar_loss = LeastSquaresLoss(randn(Xoshiro(3), n), randn(Xoshiro(2), n, p))
+probe, point = zeros(p), randn(Xoshiro(4), p)
+prox!(probe, similar_loss, point, 1 / n)
+first_prox = @elapsed prox!(probe, f_raw, point, 1 / n)
+cached_prox = minimum(@elapsed(prox!(probe, f_raw, point, 1 / n)) for _ in 1:20)
+svd_setup = max(first_prox - cached_prox, 0.0);
+
 # ## Run the same experiment for each solver
 #
 # Each run of the sweeps starts from the zero vector. The wall time of a setting is
@@ -101,10 +138,20 @@ fstar = objective(reference)
 # warm-up call; the solver object is built before the timer starts. Each random-order
 # coordinate descent run gets a new `Xoshiro` generator with the same seed. For each
 # setting the sweep records the time, the number of passes (coordinate descent) or
-# iterations (proximal gradient descent), the `converged` flag, the relative objective
-# gap `(F - fstar) / abs(fstar)` and the KKT violation divided by `lambda`. Coordinate descent is swept over `tol` and proximal gradient
-# descent over one scale used for `ftol`, `xtol` and `gradtol` together, with a large
-# `maxiter`.
+# iterations (proximal gradient descent and ADMM), the `converged` flag, the relative objective
+# gap `(F - fstar) / abs(fstar)` and the KKT violation divided by `lambda`. Coordinate descent is
+# swept over `tol` and proximal gradient descent over one scale used for `ftol`, `xtol` and
+# `gradtol` together, with a large `maxiter`.
+#
+# ADMM is swept over `tol`, used for both `abstol` and `reltol`, and over the penalty parameter
+# `ρ` in the grid `n/2, n, 2n`. The tolerances form the outer loop, from the loosest to the
+# tightest, and the three values of `ρ` the inner loop, so the first setting that reaches the
+# target has the loosest tolerance that any of the three values reaches. Each solve is capped
+# at `admmmaxiter = 10_000` iterations. A solve that stops at the cap reports `:iteration_limit`, and
+# the independent checks decide, as for every solver, whether it reached the target. It also
+# uses the single cached loss `f_raw`, so its times contain the iterations and the final
+# objective evaluation, not the SVD setup above. For every ADMM solve, the sweep checks that the
+# objective it reports, divided by `n`, matches the objective computed from the data.
 function measure(prepare; repetitions=5)
   besttime = Inf
   beta = zeros(p)
@@ -118,17 +165,22 @@ function measure(prepare; repetitions=5)
   besttime, beta, result
 end
 
-function sweep(settings, prepare, work)
+function sweep(settings, prepare, work; extra = (result, beta) -> NamedTuple())
   map(settings) do setting
     time, beta, result = measure(() -> prepare(setting))
-    (setting = setting, time = time, work = work(result), converged = result.converged,
-     gap = (objective(beta) - fstar) / abs(fstar), kkt = kktviolation(beta) / lambda)
+    merge((setting = setting, time = time, work = work(result), converged = result.converged,
+           gap = (objective(beta) - fstar) / abs(fstar), kkt = kktviolation(beta) / lambda),
+          extra(result, beta))
   end
 end
 
 cdseed = 7
 cdtols = 10.0 .^ (-2:-1:-10)
 pgdscales = 10.0 .^ (-2:-1:-13)
+admmtols = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8]
+admmrhos = [n / 2, n, 2n]
+admmmaxiter = 10_000
+admmsettings = [(tol = tol, ρ = ρ) for tol in admmtols for ρ in admmrhos]
 
 cyclic = sweep(cdtols,
   tol -> (solver = CDSolver(order=:cyclic, momentum=false, tol=tol);
@@ -144,7 +196,18 @@ pgd = sweep(pgdscales,
   scale -> (method = ProximalGradientDescent();
             options = ProximalOptions(maxiter=200_000, ftol=scale, xtol=scale, gradtol=scale);
             beta -> solve!(beta, f, g, method, options)),
-  result -> result.iterations);
+  result -> result.iterations)
+
+admm = sweep(admmsettings,
+  setting -> (solver = ADMMSolver(ρ=setting.ρ, abstol=setting.tol, reltol=setting.tol);
+              options = ProximalOptions(maxiter=admmmaxiter);
+              beta -> solve!(beta, f_raw, g_raw, solver, options)),
+  result -> result.iterations;
+  extra = (result, beta) -> (status = result.status,
+    reported_matches = isapprox(result.minimum / n, objective(beta); rtol=1e-10)));
+
+# The reported objective of every ADMM solve in the sweep matches the independent objective.
+@assert all(run -> run.reported_matches, admm) "an ADMM objective differs from the independent objective"
 
 # ## Time to the target accuracy
 #
@@ -152,18 +215,24 @@ pgd = sweep(pgdscales,
 # and its KKT violation divided by `lambda` is at most `kkttarget`. The time to target
 # of a solver is the time of the first setting in its sweep, from the loosest to the
 # tightest, that reaches the target. A solver with no such setting is reported as not
-# reached. The last column counts the settings in the sweep that the solver flagged
-# `converged` while the KKT violation divided by `lambda` exceeded `flagtol`.
+# reached. For ADMM the order is the tolerance first and `ρ` second, in the order `n/2`, `n`,
+# `2n`, so the row shown is the first setting in that order and not the fastest `ρ`. The last
+# column counts the settings in the sweep that the solver flagged `converged` while the KKT
+# violation divided by `lambda` exceeded `flagtol`.
 gaptarget = 1e-6
 kkttarget = 1e-4
 flagtol = 1e-3
 reached(run) = run.gap <= gaptarget && run.kkt <= kkttarget
 
-sweeps = ["CD, cyclic, no momentum" => (cyclic, "tol", "passes"),
-          "CD, random order, default momentum" => (randomorder, "tol", "passes"),
-          "Dense proximal gradient descent" => (pgd, "scale", "iterations")]
+tolsetting(parameter) = setting -> @sprintf("%s = %.0e", parameter, setting)
+admmsetting(setting) = @sprintf("tol = %.0e, ρ = %g (ρ/n = %g)", setting.tol, setting.ρ, setting.ρ / n)
 
-function tablerow(name, runs, parameter, unit)
+sweeps = ["CD, cyclic, no momentum" => (cyclic, tolsetting("tol"), "passes"),
+          "CD, random order, default momentum" => (randomorder, tolsetting("tol"), "passes"),
+          "Dense proximal gradient descent" => (pgd, tolsetting("scale"), "iterations"),
+          "Consensus ADMM, cached SVD" => (admm, admmsetting, "iterations")]
+
+function tablerow(name, runs, describe, unit)
   flagged = count(run -> run.converged && run.kkt > flagtol, runs)
   k = findfirst(reached, runs)
   if k === nothing
@@ -171,16 +240,16 @@ function tablerow(name, runs, parameter, unit)
              name, flagged, length(runs))
   else
     run = runs[k]
-    @sprintf("| %s | %s = %.0e | %.2f | %d %s | %.2e | %.2e | %d of %d |",
-             name, parameter, run.setting, 1000 * run.time, run.work, unit, run.gap, run.kkt,
+    @sprintf("| %s | %s | %.2f | %d %s | %.2e | %.2e | %d of %d |",
+             name, describe(run.setting), 1000 * run.time, run.work, unit, run.gap, run.kkt,
              flagged, length(runs))
   end
 end
 
 header = ["| Solver | Setting at target | Time to target (ms) | Work at target | Objective gap | KKT/lambda | Settings flagged converged with KKT/lambda > $flagtol |",
           "|:--|:--|--:|--:|--:|--:|--:|"]
-table = join(vcat(header, [tablerow(name, runs, parameter, unit)
-                           for (name, (runs, parameter, unit)) in sweeps]), "\n");
+table = join(vcat(header, [tablerow(name, runs, describe, unit)
+                           for (name, (runs, describe, unit)) in sweeps]), "\n");
 
 # The script and the notebook print the table as plain Markdown text. The documentation
 # page shows it rendered.
@@ -190,27 +259,69 @@ println(table) #!md
 
 # Each solver must reach the target at some setting of its sweep; this checks accuracy
 # and says nothing about time.
-for (name, (runs, parameter, unit)) in sweeps
+for (name, (runs, describe, unit)) in sweeps
   @assert any(reached, runs) "$name does not reach the target in its sweep"
 end
+
+# ## ADMM settings and setup
+#
+# The table keeps one row for ADMM. The grid below lists every ADMM solve, with its tolerance,
+# its `ρ` and the scale `ρ/n`, so that the other values of `ρ` stay visible. Its last column says
+# whether the setting reached the target.
+admmgrid_header = ["| tol | ρ | ρ/n | Status | Iterations | Time (ms) | Objective gap | KKT/lambda | Reached |",
+                   "|--:|--:|--:|:--|--:|--:|--:|--:|:--|"]
+admmgrid_rows = [@sprintf("| %.0e | %g | %g | `%s` | %d | %.2f | %.2e | %.2e | %s |",
+                          run.setting.tol, run.setting.ρ, run.setting.ρ / n, run.status, run.work,
+                          1000 * run.time, run.gap, run.kkt, reached(run) ? "yes" : "no")
+                 for run in admm]
+admmgrid = join(vcat(admmgrid_header, admmgrid_rows), "\n");
+println(admmgrid) #!md
+#md Markdown.parse(admmgrid)
+
+# The timings above exclude the one-time SVD setup. This is the tradeoff of ADMM for this loss.
+# The SVD of a tall `X` costs on the order of `n p²` operations, once. Each later proximal call
+# is a pair of products with `p × p` factors, on the order of `p²`, while a coordinate descent
+# pass costs on the order of `n p`. The setup depends on `X` and `y` only, so several fits with
+# other values of `ρ`, `tol` or the penalty level reuse it, but one fit pays all of it. The next
+# table gives the setup and the time to target of the first ADMM setting that reached it, with
+# and without the setup.
+admm_solve = admm[findfirst(reached, admm)].time
+setup_header = ["| Quantity | Time (ms) |", "|:--|--:|"]
+setup_rows = [@sprintf("| First proximal call on `f_raw` (SVD setup and one call) | %.3f |", 1000 * first_prox),
+              @sprintf("| Later proximal call with the cached SVD (minimum of 20) | %.3f |", 1000 * cached_prox),
+              @sprintf("| SVD setup (difference) | %.3f |", 1000 * svd_setup),
+              @sprintf("| ADMM time to target, iterations only | %.3f |", 1000 * admm_solve),
+              @sprintf("| ADMM time to target, setup included | %.3f |", 1000 * (admm_solve + svd_setup))]
+setup_table = join(vcat(setup_header, setup_rows), "\n");
+println(setup_table) #!md
+#md Markdown.parse(setup_table)
 
 # ## Reproduce and interpret the figure
 #
 # Each line is one solver and each marker one setting of its sweep. The left panel
 # shows the KKT violation divided by `lambda` and the right panel the relative
 # objective gap, both against the wall time of the setting on logarithmic axes. The
-# horizontal lines mark the targets. Values below `1e-16` are drawn at `1e-16`;
+# horizontal lines mark the targets. ADMM has no line: its markers are separate solves,
+# with one marker shape for each of the three values of `ρ`, and the five markers of one
+# shape differ in tolerance only. Values below `1e-16` are drawn at `1e-16`;
 # the table and the assertions use the unfloored values. The plotting code is part of
 # the documentation page and the notebook and is not run by the plain script.
 #!jl using Plots
 #!jl plotfloor(v) = max(v, 1e-16)
 #!jl kktplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="KKT violation / lambda", legend=false)
 #!jl gapplot = plot(xscale=:log10, yscale=:log10, xlabel="wall time (s)", ylabel="relative objective gap", legend=:outerright)
-#!jl for (name, (runs, parameter, unit)) in sweeps
+#!jl for (name, (runs, describe, unit)) in sweeps[1:3]
 #!jl   plot!(kktplot, [run.time for run in runs], [plotfloor(run.kkt) for run in runs];
 #!jl         marker=:circle, label=name)
 #!jl   plot!(gapplot, [run.time for run in runs], [plotfloor(run.gap) for run in runs];
 #!jl         marker=:circle, label=name)
+#!jl end
+#!jl for (ρ, rholabel, marker) in zip(admmrhos, ("n/2", "n", "2n"), (:diamond, :utriangle, :square))
+#!jl   runs = filter(run -> run.setting.ρ == ρ, admm)
+#!jl   scatter!(kktplot, [run.time for run in runs], [plotfloor(run.kkt) for run in runs];
+#!jl           marker=marker, label="ADMM, ρ = $rholabel")
+#!jl   scatter!(gapplot, [run.time for run in runs], [plotfloor(run.gap) for run in runs];
+#!jl           marker=marker, label="ADMM, ρ = $rholabel")
 #!jl end
 #!jl hline!(kktplot, [kkttarget]; color=:black, linestyle=:dash, label="target")
 #!jl hline!(gapplot, [gaptarget]; color=:black, linestyle=:dash, label="target")
@@ -225,6 +336,16 @@ end
 # times illustrate how to compare solvers at equal accuracy and are not benchmark
 # evidence.
 #
+# The ADMM rows cover only what the solver accepts here: exact `Float64` data and a tall or
+# square design, with the raw loss and the penalty `n * lambda` ([ADM-05](@ref)). The grid has
+# three values of `ρ` and five tolerances, fixed before the run and not tuned, and the cap is
+# `admmmaxiter = 10_000` iterations per solve. A different `ρ` can change the iteration counts a lot,
+# and the table row is the first setting that reached the target in the stated order, so it can
+# take longer than another `ρ` in the grid. The setup is paid once per loss and design; if one
+# fit is all that is needed, compare the time with the setup included. The setup depends on
+# the shape of `X`, and the table says nothing about wide designs, which `ADMMSolver` refuses
+# for this loss.
+#
 #md # The times on this page come from the machine that built the documentation, which
 #md # can be a shared continuous-integration runner.
 #md # They come from one machine in one run; see [Benchmarks and performance](../../benchmarks.md) for how they differ from the benchmark evidence of the repository.
@@ -232,7 +353,7 @@ end
 #
 # The random-order timings are for the one seed `cdseed`. The comparison covers this one
 # problem, with one correlation level, one `lambda` and one design. Dense proximal
-# gradient descent on a `SparseIterate` is not part of it. The last column of the
+# gradient descent on a `SparseIterate` and ADMM with any other loss are not part of it. The last column of the
 # table counts, for this problem, the settings whose `converged` flag was set while the
 # independent KKT measure was above `flagtol`.
 #

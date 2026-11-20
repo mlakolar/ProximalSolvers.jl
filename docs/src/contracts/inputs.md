@@ -28,6 +28,7 @@ the design requirement.
 | `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
 | `ProximalGradientDescent`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
 | `ADMMSolver`, centered `SqrNormL2` | dense `Vector{T}` | unweighted `NormL1` under [ADM-01](@ref) |
+| `ADMMSolver`, raw least squares | dense `Vector{Float64}` with a `Matrix{Float64}` design, `Vector{Float64}` response and `n ≥ p` | unweighted `NormL1`, level `nλ` for the normalized lasso, under [ADM-05](@ref) |
 | `ADMMSolver`, graphical lasso with `LogDetLoss` | dense, exactly symmetric `Matrix{T}` with a successful Cholesky factorization in `T` | `NormL1` whose stored weights are a nonnegative, exactly symmetric, zero-diagonal `Matrix{T}`, under [ADM-04](@ref) |
 
 The gradient methods refuse `SparseIterate` and `BlockIterate`; scalar CD refuses

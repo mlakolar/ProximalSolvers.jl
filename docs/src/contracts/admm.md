@@ -3,8 +3,8 @@
 ## [ADM-01 Inputs, settings and ownership](@id ADM-01)
 
 **Statement.** `solve!(z, f, g, method::ADMMSolver, options=ProximalOptions(); u=nothing)`
-accepts ProximalBase `f = SqrNormL2(λ, c)` and unweighted `g = NormL1(τ)`.
-The center `c`, initial consensus variable `z` and any explicit scaled dual
+accepts ProximalBase `f = SqrNormL2(λ, c)` and unweighted `g = NormL1(τ)`;
+[ADM-05](@ref) adds the raw least-squares loss. The center `c`, initial consensus variable `z` and any explicit scaled dual
 `u` must be finite nonempty `Vector{T}` buffers of equal length, with one common
 `T` of `Float32` or `Float64`. The loss level `λ` must be finite and strictly
 positive and the penalty level `τ` finite and nonnegative. Both levels must
@@ -32,7 +32,8 @@ and problem data stable.
 
 **Applies to.** `ADMMSolver` on a dense vector with centered `SqrNormL2` and
 unweighted `NormL1`. [ADM-04](@ref) states the inputs for the graphical lasso on
-a dense matrix.
+a dense matrix, and [ADM-05](@ref) those for the least-squares lasso with a tall
+or square design. The settings, ownership and refusal timing above are common to all three.
 
 **Code.** `src/solvers/admm.jl`.
 
@@ -100,7 +101,8 @@ raises an error before committing either caller buffer.
 
 **Applies to.** Every `ADMMSolver` solve and the `ADMMResults` it returns. For the graphical
 lasso on a dense matrix, [ADM-04](@ref) replaces the stationarity score, requires
-a stored `α` equal to 1 and adds the symmetry and Cholesky rules.
+a stored `α` equal to 1 and adds the symmetry and Cholesky rules. For the least-squares
+lasso, [ADM-05](@ref) replaces only the stationarity score.
 
 **Code.** `src/solvers/admm.jl`.
 
@@ -129,8 +131,8 @@ nonzero to zero. Updates occur between
 iterations. The reported `ρ` was used for the final completed iteration and
 matches both the diagnostics and the returned scaled dual.
 
-**Applies to.** `ADMMSolver(adaptive=true)` on a dense vector. [ADM-04](@ref)
-refuses it for a matrix.
+**Applies to.** `ADMMSolver(adaptive=true)` on a dense vector, including the
+least-squares lasso of [ADM-05](@ref). [ADM-04](@ref) refuses it for a matrix.
 
 **Code.** `src/solvers/admm.jl`.
 
@@ -250,3 +252,70 @@ numerical failures without writes to the caller's buffers.
 **Sources.** [Issue #436](https://github.com/mlakolar/ProximalSolvers.jl/issues/436),
 [parent issue #425](https://github.com/mlakolar/ProximalSolvers.jl/issues/425) and
 [the Stage 0 report](https://github.com/mlakolar/ProximalSolvers.jl/issues/436#issuecomment-7019530001).
+
+## [ADM-05 Least-squares lasso with a tall or square design](@id ADM-05)
+
+**Statement.** `solve!(β, f, g, method::ADMMSolver, options=ProximalOptions(); u=nothing)`
+with the raw ProximalBase loss `f = LeastSquaresLoss(y, X)` and unweighted `g = NormL1(τ)`
+minimizes
+
+```math
+\tfrac12\|y-X\beta\|_2^2+\tau\|\beta\|_1 .
+```
+
+The lasso `(1/2n)‖y-Xβ‖² + λ‖β‖₁` is this problem with `τ = nλ`, and `minimum` is
+then `n` times the normalized objective. A scaled loss, such as `(1/n)*LeastSquaresLoss(y, X)`,
+is not accepted: the scale belongs to `τ`.
+
+The coefficients `β`, an explicit `u` and the response `y` must be `Vector{Float64}`, and
+the design `X` a `Matrix{Float64}`, all stored in `f`. Float32 data and mixed element types
+are refused with an `ArgumentError`. The lengths must satisfy `length(y) == size(X,1)` and
+`length(β) == size(X,2)`, and an explicit `u` must have the length of `β`; empty or
+incompatible lengths raise `DimensionMismatch`. The shape must be tall or square, with
+`n = size(X,1) ≥ p = size(X,2) ≥ 1`. A wide design, `n < p`, is refused with an
+`ArgumentError`. Entries of `X`, `y`, `β` and an explicit `u` must be finite and `τ` finite
+and nonnegative. `β`, an explicit `u`, `y` and `X` must not alias or overlap in memory, by the
+check of [ADM-01](@ref), and `f` must have the internal storage that its public constructor
+creates. These checks precede every write to the caller's `β` and `u`. All other settings of
+[ADM-01](@ref) and [ADM-03](@ref) apply, including `α`, tolerances and `adaptive`, as do the
+ownership, initial dual, commit-on-return and warm-start rules of [ADM-01](@ref).
+
+Each iteration is the recurrence of [ADM-02](@ref) in `Float64`. The update of `x` is the
+ProximalBase `prox!` of `f` with step `inv(ρ)`, which solves `(XᵀX + ρI)x = Xᵀy + ρ(z₀-u₀)`
+through a thin SVD of `X`. The update of `z` is the `prox!` of `NormL1(τ)`. The SVD is
+computed on the first `prox!` of `f` and is kept in `f`. Every later iteration, later solve
+and other `ρ` or `τ` with the same `f` reuses it, and the solver neither copies nor resets
+`f`. Therefore `f` is borrowed exclusively for each solve: no other solve or thread may use
+it concurrently, and the caller must call ProximalBase `reset_cache!` on `f`, or construct a
+new loss, after changing entries of `X` or `y` in place. The solver imposes no cutoff on `ρ`,
+`τ` or the coefficients beyond the finiteness and range checks of [ADM-01](@ref) and
+[ADM-03](@ref), and it uses no scaling or extended precision.
+
+The residuals, tolerances, limits, counters and numerical failures are those of
+[ADM-02](@ref), with `N = p`. `minimum` is `f(z) + g(z)`, evaluated once after termination.
+The stationarity check of [ADM-02](@ref) at two zero residuals uses the score below in place of
+the centered one. With `q = Xᵀ(Xz - y)` formed in `Float64`, the score of coordinate `j` is
+`|qⱼ + τ sign(zⱼ)|` at a nonzero `zⱼ` and `max(|qⱼ| - τ, 0)` at an exact zero. A finite score
+above `eps_dual` gives `status=:stagnated` and `converged=false`; a nonfinite score or `q` is a
+numerical failure. The solver does not retry, rescale `ρ` or otherwise recover from that
+status. A status of `:converged` reports these working-precision tests, not an optimality
+certificate. Verify a fit from the data with the objective and KKT conditions of the lasso.
+
+**Applies to.** `ADMMSolver` with a dense `Vector{Float64}` start, a raw
+`LeastSquaresLoss{Float64}` with a vector response and a `Matrix{Float64}` design with
+`n ≥ p`, and an unweighted `NormL1`. A wide design is outside this clause. Support for it
+depends on ProximalBase and is a follow-up of [issue #458](https://github.com/mlakolar/ProximalSolvers.jl/issues/458).
+The matrix path of [ADM-04](@ref) and the centered path of [ADM-01](@ref) are unchanged.
+
+**Code.** `src/solvers/admm.jl`.
+
+**Tests.** `test/admm_leastsquares.jl` compares with orthogonal closed forms, a correlated tall
+design, an independent objective and KKT score, one iteration of the recurrence, fixed, relaxed
+and adaptive settings, statuses, warm starts and refusals without writes, including the wide
+design. The examples `examples/problems/lasso.jl` and `examples/comparisons/lasso_solvers.jl`
+check the returned point against the closed form or an independently computed objective and
+KKT violation, and the reported objective divided by `n` against the objective computed from
+the data.
+
+**Sources.** [Issue #467](https://github.com/mlakolar/ProximalSolvers.jl/issues/467) and
+[issue #458](https://github.com/mlakolar/ProximalSolvers.jl/issues/458).
