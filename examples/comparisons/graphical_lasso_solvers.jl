@@ -112,11 +112,9 @@ end;
 # with approximately half-decade steps near the target. The target is a normalized KKT violation
 # of `1e-8` computed independently as above. The matched fit is the first setting in a sweep that
 # reaches it, so each matched fit is at or below the target, though the solvers' tolerance settings
-# differ. The script prints `not reached` for a sweep that does not, and then fails. `converged`
-# is printed but is not the criterion. The script recomputes the KKT violation from the original
-# problem and compares it with a fixed target, while each solver stops by its own test and
-# tolerance on the inputs it received: ADMM on its residuals, PGD on its KKT score
-# ([PGD-08](@ref)).
+# differ. The script prints `not reached` for a sweep that does not, and then fails. The printed
+# `converged` is each solver's own flag for the inputs it received, defined in [ADM-04](@ref)
+# and [PGD-08](@ref); it is not the criterion here.
 function fit(route, policy, t)
   f, g, method, options = route === :ADMM ?
     (LogDetLoss(S), NormL1(1.0, policy.Λfull), ADMMSolver(; abstol=t, reltol=t),
@@ -165,7 +163,8 @@ foreach(check_fit, (run for s in sweeps for route in (:ADMM, :PGD) for run in s[
 # duality up to rounding in the numerical gap: the Float64 primal, the BigFloat dual value and the
 # conversion of the gap to Float64 are all rounded. A candidate that is not certified prints
 # `not certified` with its policy, solver and stage before the assertion fails. At each policy,
-# the objectives of the matched fits must agree within that scaled target. Their largest
+# the objectives of the matched fits must agree within `target * max(1, |P|)` with `P` the
+# objective of the PGD fit. Their largest
 # entrywise difference is bounded from the KKT violations. For positive-definite `A` and `B`,
 # `⟨inv(B) - inv(A), A - B⟩ ≥ ‖A - B‖_F² / (λmax(A) λmax(B))`, and the subgradient of the penalty is
 # monotone, so in exact arithmetic `‖A - B‖_F ≤ λmax(A) λmax(B) (‖R_A‖_F + ‖R_B‖_F)`. Here `R` is
@@ -213,8 +212,10 @@ end
 # backtracking trial. A trial calls the ℓ₁ proximal operator when its argument is finite, and the
 # solver evaluates the loss only when the resulting proposal is finite, exactly symmetric and
 # passes Cholesky in the element type; an accepted step also evaluates a gradient
-# ([PGD-07](@ref), [PGD-08](@ref)). The tables report these counts. A proximal call costs
-# different work in the two solvers. The times are the minimum of three warmed solves of the
+# ([PGD-07](@ref), [PGD-08](@ref)). PGD's `f_calls` and `grad_calls` also each include one
+# combined value and gradient evaluation at the start. Both solvers call the ℓ₁ proximal
+# operator, while ADMM's proximal-call count also includes the logdet proximal operator, so the
+# two totals count different operations. The times are the minimum of three warmed solves of the
 # matched setting, each from a fresh start and checked like the sweep fits. They illustrate one
 # machine and one problem, and they do not show a speedup.
 function timed(route, policy, t)
