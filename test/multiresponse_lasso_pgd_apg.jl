@@ -55,7 +55,7 @@ end
     X, Y = orthogonal_data(T)
     sample = T[0.25 1 -2; -1.5 0 1; 0.5 0.25 -0.5]
     Z, D, G = X*sample, similar(Y), similar(sample)
-    rectangular = sample[:, 1:2]
+    rectangular = sample[:, 2:3]
     @test PS._norm_inf(rectangular) === T(2)
     @test PS._norm_diff(rectangular, -rectangular, Inf) === T(4)
     for s in (one(T), one(T)/T(size(X, 1)))
