@@ -19,14 +19,15 @@
 #md # ![Independent weighted KKT violation and relative objective gap versus measured wall time for CD on a Vector, CD on a SparseIterate, PGD and APG; dashed lines mark common accuracy targets.](weighted_lasso_solvers.svg)
 #
 # Each marker is a separate solve from zero at one tolerance setting. A setting reaches the common
-# target only when it is below the dashed line in **both** panels. The figure compares accuracy and
+# target only when it is at or below the dashed line in **both** panels. The figure compares accuracy and
 # measured effort in this reproducible experiment; it is not an iteration history or evidence of a
 # universal speed advantage.
 #
 # ## A reproducible weighted-regression experiment
 #
-# The design has `n = 400` rows and `p = 60` columns with an AR(1) correlation `rho = 0.5` between
-# neighbouring columns. Five coefficients are nonzero. The weights follow a fixed rule: `w[j]` cycles
+# The design has `n = 400` rows and `p = 60` columns, built as an AR(1) sequence with parameter
+# `rho = 0.5`, the population correlation of neighbouring columns. Five coefficients of the generating
+# vector `beta0` are nonzero. The weights follow a fixed rule: `w[j]` cycles
 # through `0.5, 1, 2` along the columns, and the first two weights are then set to zero, so that
 # coefficients 1 and 2 are unpenalized. We generate ``y=X\beta^\star+\varepsilon`` with unit-variance
 # Gaussian noise.
@@ -73,8 +74,10 @@ g = NormL1(lambda, w);
 # `|grad[j] + lambda * w[j] * sign(beta[j])|`. For `w[j] = 0` both reduce to `|grad[j]|`. These are the
 # first-order optimality conditions for the displayed objective. The largest violation, divided by
 # `lambda`, provides a common stationarity measure despite the solvers' different stopping rules. A
-# solver reporting `converged` does not replace this check: it reports that the solver's own stopping
-# test passed, which is not the weighted KKT condition.
+# solver reporting `converged` does not replace this check: `converged` reports that the solver's own
+# stopping test passed. For PGD and APG that test includes a stationarity check at the solver's own
+# threshold (see `src/utils.jl`), and for CD it is a test on the change over a pass; neither is this
+# page's two-part target.
 objective(beta, lam = lambda) = sum(abs2, y - X * beta) / (2n) + lam * sum(w .* abs.(beta))
 
 function kktviolation(beta, lam = lambda)
@@ -84,8 +87,8 @@ function kktviolation(beta, lam = lambda)
   end
 end
 
-# Worked check of `lambda_max`: at that level the point `(bU, 0)` has a violation at the level of
-# the rounding of the normal equations.
+# Worked check of `lambda_max`: at that level the point `(bU, 0)` has a violation of at most
+# `1e-10 * lambda_max`, which the assertion below checks.
 beta_zero = zeros(p)
 beta_zero[unpenalized] = bU
 @assert kktviolation(beta_zero, lambda_max) <= 1e-10 * lambda_max;
@@ -107,15 +110,19 @@ fstar = objective(reference)
 #
 # Each run starts from zero. The time of a setting is the minimum over three timed calls after one
 # warm-up call; a timed call allocates the starting iterate and calls `solve!`, and for the
-# `SparseIterate` it also converts the result to a `Vector`, so these costs are included. Both CD
+# `SparseIterate` it also converts the result to a `Vector`, so these costs are included. The
+# coefficients and the result of the call that gave the minimum time are kept, so the time, the work
+# and the accuracy of a table row or marker come from one call. Both CD
 # configurations use cyclic order and no momentum, which fixes the order of the coordinate updates,
 # and are swept over `tol`. Proximal gradient descent, plain and accelerated, is swept over one scale
 # used for `xtol` and `gradtol` (with `ftol = 0`).
 function measure(run!; repetitions = 3)
   besttime, beta, result = Inf, zeros(p), nothing
   for k in 1:repetitions + 1
-    elapsed = @elapsed (beta, result) = run!()
-    k > 1 && (besttime = min(besttime, elapsed))
+    elapsed = @elapsed (b, r) = run!()
+    if k > 1 && elapsed < besttime
+      besttime, beta, result = elapsed, b, r
+    end
   end
   besttime, beta, result
 end
@@ -212,14 +219,14 @@ end
 #md nothing
 #nb display(accuracy_plot)
 #
-# A solver can have a small objective gap before its KKT residual is equally small. Read the two
+# A solver can have a small objective gap while its KKT residual is still large. Read the two
 # panels together: one summarizes objective quality, the other checks stationarity. The table
 # identifies the first tested setting satisfying both targets, rather than assuming that equal
-# tolerance values mean equal accuracy.
+# tolerance values give the same accuracy across solvers.
 #
 # ## Limitations of the comparison
 #
-# The times illustrate how to compare the solvers at equal accuracy on this one problem, one design,
+# The times illustrate how to compare the solvers at one common accuracy target on this one problem, one design,
 # one weight pattern and one `lambda`; they come from one machine in one run and are not benchmark
 # evidence (see [Benchmarks and performance](../../benchmarks.md)). A CD pass and a PGD iteration are
 # different units of work: a full pass visits each coordinate once and an active pass the active
@@ -227,8 +234,9 @@ end
 # when its line search rejects a trial).
 #
 # The timing protocol here includes starting-iterate allocation and, for the `SparseIterate`, the
-# conversion back to a dense vector. The [lasso comparison](lasso_solvers.md) times `solve!` alone, so
-# times from those two pages should not be read as a comparison of the two models. This experiment
+# conversion back to a dense vector. The [lasso comparison](lasso_solvers.md) times the `solve!` call
+# alone for each setting and reports the SVD setup of its ADMM loss separately, so times from those two
+# pages should not be read as a comparison of the two models. This experiment
 # uses `Float64`, one seed, one correlation pattern, one weight pattern and one penalty level; `Float32`
 # is in the support matrix ([Supported problems](../../support.md)) and is not run here. Additional
 # seeds, data geometries, and machines can change the measured ordering. A good optimization result
@@ -237,7 +245,9 @@ end
 #
 # ## What we learned
 #
-# Weights change the coordinate thresholds `lambda * w[j]` and the KKT conditions, and a zero weight
-# makes the condition at that coordinate `grad[j] = 0`. One objective and one residual, computed from
-# each returned fit, serve for CD on two iterate types, PGD and APG. Equal independently checked accuracy makes the reported effort
+# Weights change the penalty coefficient `lambda * w[j]` of each coordinate, which is the cutoff for
+# `|grad[j]|` at a zero coefficient in the KKT conditions, and a zero weight makes the condition at that
+# coordinate `grad[j] = 0`. One objective and one residual, computed from
+# each returned fit, serve for CD on two iterate types, PGD and APG. Runs that meet the same
+# independently checked target, with their own measured gaps and residuals, make the reported effort
 # interpretable, while broader performance claims belong in a controlled benchmark study.
