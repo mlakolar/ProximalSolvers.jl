@@ -20,7 +20,7 @@ python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py
 ```
 
 Building the documentation and regenerating its figures require Julia 1.11 or later, because
-`docs/Project.toml` uses `[sources]`. This applies to the documentation environment only: the
+`docs/Project.toml` uses `[sources]`. This requirement concerns the documentation environment; the
 package remains compatible with Julia 1.10.8, and standalone examples run with the package environment.
 
 ```sh

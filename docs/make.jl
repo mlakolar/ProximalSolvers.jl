@@ -148,7 +148,7 @@ Each tutorial explains the model, reproduces its figure, and checks the fitted r
 
 From the repository root, run these commands to build the documentation. Building the documentation
 and regenerating the figures require Julia 1.11 or later, because `docs/Project.toml` uses `[sources]`.
-This applies to the documentation environment only: the package remains compatible with Julia 1.10.8,
+This requirement concerns the documentation environment; the package remains compatible with Julia 1.10.8,
 and standalone examples run with the package environment.
 
 ```sh
