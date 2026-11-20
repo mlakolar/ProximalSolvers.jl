@@ -23,7 +23,8 @@
 # `ProximalGradientDescent` and `AccProxGradDescent` on a dense `Vector`, with `Float32` or `Float64`
 # data. The weights are a `Vector` of the element type of the data, with finite nonnegative entries. See
 # [Supported problems](../../support.md) for the combinations that the test suite checks, the rule on the
-# coefficients `λ wⱼ` and its limits.
+# coefficients `λ wⱼ` and its limits. [The solver comparison](../comparisons/weighted_lasso_solvers.md)
+# times the four supported `Float64` configurations at one common accuracy target.
 #
 # ## The problem
 #

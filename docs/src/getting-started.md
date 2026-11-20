@@ -10,7 +10,7 @@ Start Julia in your project directory:
 using Pkg
 Pkg.activate(".")
 Pkg.add(url="https://github.com/mlakolar/ProximalBase.jl",
-        rev="e03c6d9659365d54f4e0fba1a9cd54490631eea6")
+        rev="bc9e888d09e5fc3c3feb35905dd7a14e70657fa5")
 Pkg.add(url="https://github.com/mlakolar/ProximalSolvers.jl",
         rev="master")
 ~~~
@@ -18,7 +18,7 @@ Pkg.add(url="https://github.com/mlakolar/ProximalSolvers.jl",
 Add **both** packages: ProximalBase provides `LeastSquaresLoss`, `NormL1`, `SparseIterate` and, for the group lasso, `GroupNormL2` and `BlockIterate`; ProximalSolvers provides `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` and `solve!`. The long revision identifier specifies the ProximalBase source used by
 the development core. The [ProximalBase `/dev/` manual](https://mlakolar.github.io/ProximalBase.jl/dev/)
 documents its **current `master`**, which can differ from the
-[pinned ProximalBase source](https://github.com/mlakolar/ProximalBase.jl/tree/e03c6d9659365d54f4e0fba1a9cd54490631eea6)
+[pinned ProximalBase source](https://github.com/mlakolar/ProximalBase.jl/tree/bc9e888d09e5fc3c3feb35905dd7a14e70657fa5)
 used by this solver. Check the pinned code for exact compatibility
 when those docs differ. The `master` branches of both repositories can
 change. Save `Project.toml` and `Manifest.toml` to reproduce your
