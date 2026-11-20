@@ -129,6 +129,7 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 These tutorials apply rows of the matrix to statistical problems and add no solver support.
 
 - [Robust sparse regression](examples/problems/robust_sparse_regression.md): sparse response contamination fitted as a weighted lasso on `[X I]`, with separate penalties for predictors and observation corrections (weighted lasso row, `CDSolver` on a `Vector`, Float64).
+- [Scaled lasso](examples/problems/scaled_lasso.md): the coefficients and the noise level of Sun and Zhang (2012) from one square-root lasso solve, `σ̂ = ‖y − Xβ̂‖₂/√n` (square-root lasso row, `CDSolver` on a `Vector`, Float64).
 - [Change-point detection](examples/problems/change_point_detection.md): 1D total-variation denoising, rewritten as a lasso on a step design (lasso row, `CDSolver` on a `Vector`, Float64).
 - [Stability selection with repeated lasso fits](examples/problems/stability_selection.md) compares a full-data lasso fit with selection frequencies from repeated half-samples (`CDSolver` on a dense `Vector`, Float64).
 - [Gaussian graph: neighborhood selection](examples/problems/nodewise_gaussian_graph.md): the graph of a Gaussian vector from one lasso regression per variable (lasso row, `CDSolver` on a `Vector`, Float64).
@@ -255,7 +256,8 @@ preflight behavior are specified in [the weighted-input contract](@ref IN-03).
 CD, PGD and APG accept this penalty for least squares; weighted square-root
 lasso, weighted elastic net and wrapped penalties remain unsupported.
 [The weighted-lasso example](examples/problems/weighted_lasso.md) demonstrates
-an adaptive fit with a zero weight. The relationship between checked weights
+an adaptive fit with a zero weight, and [the solver comparison](examples/comparisons/weighted_lasso_solvers.md)
+checks four solver configurations against one common accuracy target. The relationship between checked weights
 and proximal thresholds is described in [working precision](@ref FP-01).
 
 ### ℓ∞ penalty with PGD and APG
