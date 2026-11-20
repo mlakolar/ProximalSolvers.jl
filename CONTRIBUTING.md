@@ -128,6 +128,51 @@ julia --startup-file=no --project=. -e 'using ProximalBase, ProximalSolvers'
 Run the standalone fixtures with
 `julia --startup-file=no --project=@stdlib scripts/test_check_local_pb_pin.jl`.
 
+### Advisory ProximalBase master canary
+
+Run this manually in a disposable ProximalSolvers checkout and separate Julia
+depots on Slurm. Capture the ProximalSolvers commit and fetch ProximalBase
+`master` into a separate checkout at the start of the run.
+
+```sh
+git clone --branch master --single-branch https://github.com/mlakolar/ProximalBase.jl.git
+git -C ProximalBase.jl rev-parse HEAD 'HEAD^{tree}'
+git -C ProximalSolvers.jl rev-parse HEAD 'HEAD^{tree}'
+```
+
+In the disposable ProximalSolvers checkout, set the root `Project.toml` source
+revision and the ProximalBase `repo-rev` and `git-tree-sha1` in
+`Manifest-v1.10.toml` to the captured commit and tree. If ProximalBase's package metadata changed,
+regenerate the Julia 1.10 manifest with Pkg on Julia 1.10 and check the
+resolved source and dependency changes. Update the same two
+expected literals in `test/benchmark_formal.jl` so the formal tests still
+compare the exact Git revision and tree. For a docs build, use that commit in
+`docs/Project.toml` too. Keep the normal package checkout and CI configuration
+outside the canary.
+
+On Julia 1.10.13 and 1.13.4, instantiate the disposable root environment, verify
+the pin, then run the focused tests and all tiers. Set `--jobs` to the allocated
+worker count and keep Julia and BLAS at one thread per worker.
+
+```sh
+julia --startup-file=no --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --startup-file=no --project=. scripts/check_local_pb_pin.jl --strict
+julia --startup-file=no --project=. -e 'using Pkg, ProximalBase, ProximalSolvers; @show VERSION pathof(ProximalBase) pathof(ProximalSolvers); println(bytes2hex(Pkg.GitTools.tree_hash(dirname(dirname(pathof(ProximalBase))))))'
+julia --startup-file=no --check-bounds=yes scripts/test.jl aqua core_contracts group_pgd linf logistic_pgd multiresponse_cd
+for tier in quick standard full; do
+  julia --startup-file=no --check-bounds=yes scripts/test.jl --tier="$tier"
+done
+```
+
+Compare the loaded tree with the captured tree and keep the job logs, including
+the exact revisions, commands and per-file results. Investigate source-policy
+failures separately from solver and numerical failures. Compare affected
+ordinary solver paths at matched accuracy on Julia 1.13.4, using a paired run
+and an A/A control when the upstream range touches performance-sensitive code.
+After a passing canary, advance the exact pin and its matching documentation
+and test expectations in a dedicated draft PR, then rerun the full tiers on
+both Julia versions at that PR head.
+
 ## Julia performance and correctness
 
 Use Julia 1.13.4 for performance benchmarks and optimization decisions.
@@ -151,9 +196,8 @@ branch to merge wholesale. The protected
 snapshot `9be1773e911a44ec21d49df28cb01fea37c4316e`.
 Restore capabilities selectively with focused numerical checks.
 
-The ProximalBase source pin for this development branch is
-`e03c6d9659365d54f4e0fba1a9cd54490631eea6`;
-the isolated historical comparison baseline is
+The current development pin is in `Project.toml` and `Manifest-v1.10.toml`.
+The isolated historical comparison baseline is
 `e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`.
 Every relevant CI run performs exact-source independent probes in
 isolated environments, including documentation-only runs. The
