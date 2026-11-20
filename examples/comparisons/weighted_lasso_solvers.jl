@@ -238,7 +238,6 @@ end
 # ## What we learned
 #
 # Weights change the coordinate thresholds `lambda * w[j]` and the KKT conditions, and a zero weight
-# makes the condition at that coordinate `grad[j] = 0`; they do not require a separate objective for
-# every solver. We can compare CD on two iterate types, PGD and APG by computing that objective and
-# residual from each returned fit. Equal independently checked accuracy makes the reported effort
+# makes the condition at that coordinate `grad[j] = 0`. One objective and one residual, computed from
+# each returned fit, serve for CD on two iterate types, PGD and APG. Equal independently checked accuracy makes the reported effort
 # interpretable, while broader performance claims belong in a controlled benchmark study.
