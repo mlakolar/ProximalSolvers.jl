@@ -173,6 +173,10 @@ is a finite, nonnegative, exactly symmetric `Matrix` with a zero diagonal, with 
 a dense, exactly symmetric `Matrix` start whose Cholesky factorization succeeds, such as the
 identity. The data, weights, start and optional scaled dual share one `Float32` or `Float64`
 element type. The penalty runs over the full matrix, so each off-diagonal pair counts twice.
+To add a finite nonnegative diagonal penalty `λdiag * sum(abs, diag(Θ))`, pass
+`S + λdiag*I` to `LogDetLoss` and keep `Λ` zero on the diagonal. For positive-definite `Θ`,
+every diagonal entry is positive and the penalty equals `λdiag * tr(Θ)`. The shifted
+covariance must be finite and exactly symmetric.
 
 Use a fixed `ρ`, an `α` stored as 1 by the `ADMMSolver` constructor and `adaptive = false`.
 On a normal return the matrix is exactly symmetric and passes a Cholesky factorization in its
