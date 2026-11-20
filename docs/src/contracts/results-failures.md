@@ -81,6 +81,8 @@ the stagnation guard, counters, limit statuses and numerical failure boundary.
 For the graphical lasso, [ADM-04](@ref) replaces the stagnation score and adds
 the symmetry and Cholesky rules. For the least-squares lasso, [ADM-05](@ref) replaces
 only the stagnation score.
+Matrix PGD uses the KKT check and result fields in [PGD-08](@ref), with the
+rollback boundary in [PGD-07](@ref).
 
 **Applies to.** All solver result types; each solver retains its specified loss, penalty and precision scope.
 
@@ -96,7 +98,8 @@ The later ridge result assertions are [217cde72, shared result checks](https://g
 
 **Statement.**
 
-`OptimizationResults` is the result of plain or accelerated proximal gradient.
+This clause describes `OptimizationResults` for vector PGD and APG. See
+[PGD-08](@ref) for matrix PGD.
 `minimizer` aliases the caller's coefficient vector and `minimum` is the reported
 objective at that iterate. `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.

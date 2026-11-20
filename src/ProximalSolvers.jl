@@ -14,12 +14,13 @@ an unweighted `NormL1`, and reports `converged = true` for it only with a dualit
 a `GroupNormL2` penalty, a `BlockIterate`. For a matrix response `Y` and a `GroupNormL2` whose
 groups are the rows of the coefficients, it accepts a `Matrix` coefficient (or a `BlockIterate`
 over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradientDescent`](@ref) and
-[`AccProxGradDescent`](@ref) accept a dense `Vector` only, all through [`solve!`](@ref);
+[`AccProxGradDescent`](@ref) accept a dense `Vector` for these least-squares problems, all through [`solve!`](@ref);
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the group lasso with a `GroupNormL2` penalty on it.
 [`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
 [`ADMMSolver`](@ref) solves centered `SqrNormL2` with unweighted `NormL1` on dense vectors.
 [`ADMMSolver`](@ref) also solves the lasso with a raw `LeastSquaresLoss` and unweighted `NormL1` for `Float64` data with a tall or square design, specified in [ADM-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-05).
 [`ADMMSolver`](@ref) also supports the graphical-lasso combination of `LogDetLoss` and matrix-weighted `NormL1` on a dense `Matrix` specified in [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
+[`ProximalGradientDescent`](@ref) also solves this graphical-lasso problem with bounded SPD backtracking and a KKT check, as specified in [PGD-06](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-06).
 Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
@@ -45,6 +46,7 @@ include("solvers/image_models.jl")
 include("solvers/proximal_gradient_descent.jl")
 include("solvers/accelerated_proximal_gradient_descent.jl")
 include("solvers/admm.jl")
+include("solvers/logdet_proximal_gradient.jl")
 include("cd/models.jl")
 include("cd/solver.jl")
 include("cd/multiresponse.jl")

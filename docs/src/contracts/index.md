@@ -43,7 +43,7 @@ Clause IDs are permanent. When a clause is replaced, keep its heading, mark it
 | `CDG` | Group steps, screening and curvature | [Group CD](@ref CDG-01) |
 | `CDM` | Matrix responses and row groups | [Multiresponse CD](@ref CDM-01) |
 | `CDQ` | Square-root lasso and certificates | [Square-root lasso](@ref CDQ-01) |
-| `PGD` | Iteration, initialization, traces and limits | [PGD iteration](@ref PGD-01) |
+| `PGD` | Iteration, initialization, traces and limits | [Vector PGD](@ref PGD-01), [matrix PGD](@ref PGD-06) |
 | `APG` | Extrapolation, restart and the bound test | [Accelerated PG](@ref APG-01) |
 | `ADM` | Two-function consensus ADMM | [Consensus ADMM](@ref ADM-01) |
 | `LS` | Backtracking, acceptance and range recovery | [Line search](@ref LS-01) |

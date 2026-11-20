@@ -13,25 +13,25 @@ means both; a letter refers to a limit in the notes below the table. A dash mean
 as supported in the table is not verified; the sections below give the exact input rules, and
 [What is not supported yet?](@ref "What is not supported yet?") lists what is deferred.
 
-| Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `CDSolver` on a `Matrix` | `ProximalGradientDescent` on a `Vector` | `AccProxGradDescent` on a `Vector` | `ADMMSolver` on a `Vector` | `ADMMSolver` on a `Matrix` | Tutorial |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | Float64 (l) | — | [Lasso](examples/problems/lasso.md) |
-| Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | Float32 (a, b, f), Float64 (b, f) | — | — | [Weighted lasso](examples/problems/weighted_lasso.md) |
-| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
-| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
-| Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | — | — | [Elastic net](examples/problems/elastic_net.md) |
-| Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
-| Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | Float32 (a, b, h), Float64 (b, h) | — | — | [Group lasso](examples/problems/group_lasso.md) |
-| Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
-| Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
-| Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | Float32, Float64 | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
-| ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | Float32 (a, b), Float64 (b) | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
-| Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
-| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric zero-diagonal `Matrix` weights | — | — | — | — | — | — | — | Float32, Float64 (k) | [Graphical lasso](examples/problems/graphical_lasso.md) |
+| Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `CDSolver` on a `Matrix` | `ProximalGradientDescent` on a `Vector` | `ProximalGradientDescent` on a `Matrix` | `AccProxGradDescent` on a `Vector` | `ADMMSolver` on a `Vector` | `ADMMSolver` on a `Matrix` | Tutorial |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | Float64 (l) | — | [Lasso](examples/problems/lasso.md) |
+| Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | [Weighted lasso](examples/problems/weighted_lasso.md) |
+| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
+| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
+| Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | [Elastic net](examples/problems/elastic_net.md) |
+| Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
+| Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | — | Float32 (a, b, h), Float64 (b, h) | — | — | [Group lasso](examples/problems/group_lasso.md) |
+| Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | — | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
+| Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
+| Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | — | Float32, Float64 | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
+| ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
+| Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
+| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric zero-diagonal `Matrix` weights | — | — | — | — | — | Float32, Float64 (m) | — | — | Float32, Float64 (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
 
 `ElasticNet` is unweighted where it appears in the table. `NormL1` is unweighted except in two rows: in the
 weighted-lasso row, `NormL1(lambda, w)` has one weight per coefficient, and in the graphical-lasso row,
-`NormL1(λ₀, Λ)` has a symmetric zero-diagonal weight matrix ([ADM-04](@ref)). `GroupNormL2` takes its group
+`NormL1(λ₀, Λ)` has a symmetric zero-diagonal weight matrix ([ADM-04](@ref), [PGD-06](@ref)). `GroupNormL2` takes its group
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
 [Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
@@ -105,6 +105,10 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   type, a scaled loss, a weighted penalty and a wide design (`n < p`) are refused with an
   `ArgumentError`. The tests and the lasso tutorials check the returned point against an
   independent objective and KKT violation. See [Lasso with consensus ADMM](@ref) and [ADM-05](@ref).
+- **(m)** Matrix PGD starts from a dense symmetric positive-definite matrix and uses bounded
+  backtracking and a normalized KKT check. The [matrix PGD contract](@ref PGD-06) gives
+  the input and option rules. The [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
+  fits the same estimator with ADMM and PGD.
 
 ### Statistical applications
 
@@ -213,6 +217,13 @@ optimality certificate. See [ADM-04](@ref) for the exact input, Cholesky and sto
 rules. The [graphical-lasso tutorial](examples/problems/graphical_lasso.md) checks a
 fit independently with its objective and KKT conditions and, when its stored dual matrix passes
 an exact box check and a Cholesky test, reports a numerical estimate of the duality gap.
+
+### Graphical lasso with proximal gradient
+
+Use the same `LogDetLoss` and zero-diagonal `NormL1` weights with
+`ProximalGradientDescent()`. Each committed iterate passes Cholesky in its
+element type, and the convergence flag requires a normalized KKT check. See
+[PGD-06](@ref) and the [solver comparison](examples/comparisons/graphical_lasso_solvers.md).
 
 ### [Weighted lasso](@id weighted-lasso-support)
 
@@ -381,15 +392,15 @@ The current development core intentionally excludes the following:
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
 | Generalized losses, intercepts/offsets; matrix responses other than least squares with `CDSolver`, a row-group `GroupNormL2` and a `Matrix` or `BlockIterate` coefficient | Deferred |
 | Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
-| Observation weights; infinite penalty weights; penalty weight storage or types outside the solver's contract (for example, the graphical lasso accepts only the symmetric zero-diagonal `Matrix{T}` weights of [ADM-04](@ref)) | Deferred; each solver's contract lists the weights it accepts |
+| Observation weights; infinite penalty weights; penalty weight storage or types outside the solver's contract (for example, the graphical lasso accepts only the symmetric zero-diagonal `Matrix{T}` weights of [ADM-04](@ref) and [PGD-06](@ref)) | Deferred; each solver's contract lists the weights it accepts |
 | Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
 | Weighted square-root lasso, `Scaled(SqrtLeastSquaresLoss)`, `SqrtLeastSquaresLoss` with an `ElasticNet` or a `BlockIterate`, or with PGD or APG | Refused with an `ArgumentError` (weights and `Scaled` deferred) |
-| Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE; graphical lasso (log-determinant estimation of a precision matrix) by a solver other than `ADMMSolver` on a dense `Matrix`, such as QUIC | Deferred |
+| Newton, monotone or active-set accelerated gradient, primal-dual, SLOPE; graphical lasso (log-determinant estimation of a precision matrix) with QUIC or other solvers outside [ADM-04](@ref) and [PGD-06](@ref) | Deferred |
 | ADMM with other functions or storage than the supported problems ([ADM-01](@ref), [ADM-05](@ref), [ADM-04](@ref)), product spaces, general linear constraints, custom norms, or over-relaxation or the adaptive penalty on a `Matrix` | Deferred |
 | ADMM with `LeastSquaresLoss` and a wide design (`n < p`), `Float32` or mixed types, a scaled loss or a weighted penalty | Refused with an `ArgumentError`; wide designs are an upstream follow-up |
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |
-| PGD or APG with `BlockIterate` or `Matrix` coefficients or a matrix response | Deferred; refused with an `ArgumentError` |
+| PGD or APG with `BlockIterate` coefficients or a matrix response, and matrix coefficients outside [PGD-06](@ref) | Deferred; refused with an `ArgumentError` |
 | `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
 | `NormL0` with `solve!` | The [ℓ₀ sparse-regression tutorial](examples/problems/l0_sparse_regression.md) runs its own IHT routine with the ProximalBase prox. |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
