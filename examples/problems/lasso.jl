@@ -12,16 +12,19 @@
 # The lasso minimizes `(s/2)‖y − Xβ‖² + λ‖β‖₁` over `β`, with `s = 1` for the raw sum of squares
 # and `s = 1/n` for the normalized form used on this page. ProximalBase's `LeastSquaresLoss(y, X)`
 # is half the sum of squares, `‖y − Xβ‖²/2`, so `s * LeastSquaresLoss(y, X)` is the smooth part
-# and `NormL1(λ)` is the penalty. This page solves the lasso in four ways, each section with its
+# and `NormL1(λ)` is the penalty. This page solves the lasso in five ways, each section with its
 # own iterate that starts from zeros: cyclic coordinate descent, proximal gradient descent,
-# coordinate descent on a `SparseIterate`, and accelerated proximal gradient descent next to
-# proximal gradient descent on a seeded correlated design. Each solution is checked against an
-# independent result, not against the solver's `converged` flag.
+# coordinate descent on a `SparseIterate`, consensus ADMM on the same small orthogonal design,
+# and accelerated proximal gradient descent next to proximal gradient descent on a seeded
+# correlated design. Each solution is checked against an independent result, not against the
+# solver's `converged` flag.
 #
 # `CDSolver` accepts this problem on a dense `Vector` or a `SparseIterate`, and
 # `ProximalGradientDescent` and `AccProxGradDescent` on a dense `Vector`, with `Float32` or
-# `Float64` data. See [Supported problems](../../support.md) for the combinations that the test
-# suite checks and their limits.
+# `Float64` data. `ADMMSolver` accepts the raw loss with a penalty level of `n * λ` for exact
+# `Float64` data with at least as many observations as coefficients (`n ≥ p`); it does not
+# accept a wide design, a loss scale or `Float32` data. See [Supported problems](../../support.md)
+# for the combinations that the test suite checks and their limits.
 #
 # ## The problem
 #
@@ -106,6 +109,59 @@ result = solve!(x_sparse, f, g_sparse, CDSolver(order=:cyclic, momentum=false))
 @assert nactive(x_sparse) == 1 && collect(activecoordinates(x_sparse)) == [2]
 println("coefficients = ", Vector(x_sparse), "; active coordinates = ", collect(activecoordinates(x_sparse)))
 
+# ## Consensus ADMM
+#
+# `ADMMSolver` alternates the proximal operators of the smooth loss and of the penalty, and
+# monitors how far the two results are from agreeing. It takes the raw loss
+# `LeastSquaresLoss(y, X)`, which has no scale `s`. Multiplying the normalized objective by `n`
+# gives
+#
+# ```math
+# \frac12\|y-X\beta\|_2^2+n\lambda\sum_j|\beta_j|,
+# ```
+#
+# which has the same minimizer. The penalty is therefore `NormL1(n * λ)`, and the `minimum` that
+# the solver reports is `n` times the normalized objective of this page.
+#
+# The loss's proximal operator caches a thin SVD of `X` inside the loss object on its first
+# call, and later calls and later solves with the same loss reuse it, so one `LeastSquaresLoss`
+# object belongs to one solve at a time. The [solver comparison](../comparisons/lasso_solvers.md)
+# measures that one-time setup separately from the iterations. This solver path takes exactly a
+# `Vector{Float64}` iterate, a `Matrix{Float64}` design and a `Vector{Float64}` response, with
+# `n ≥ p`; the `3 × 2` design of this section qualifies. [ADM-05](@ref) states the rules, and
+# [ADM-01](@ref) and [ADM-02](@ref) state the settings, recurrence and stopping tests that
+# every `ADMMSolver` solve shares.
+#
+# With orthogonal columns the eigenvalues of `XᵀX` are `1` and `4`. We take `ρ = 2`, their
+# geometric mean, and ask for tight tolerances. The caller supplies the scaled dual `u`, so
+# that the result can be seen to refer to it.
+lambda_admm = 0.1
+f_admm = LeastSquaresLoss(y, X)
+g_admm = NormL1(n * lambda_admm)
+x_admm, u_admm = zeros(2), zeros(2)
+method_admm = ADMMSolver(ρ = 2.0, abstol = 1e-12, reltol = 1e-12)
+result = solve!(x_admm, f_admm, g_admm, method_admm, ProximalOptions(maxiter = 10_000); u = u_admm)
+println(result)
+
+# The solver returns its status and its own residuals. We do not rely on them for accuracy. The
+# coefficients are compared with the soft-thresholded solution that the orthogonal columns
+# give, and the reported objective, divided by `n`, with the objective computed from the data.
+# The KKT residual of the lasso uses the same function and the same `λ` as the other sections.
+@assert result.status === :converged && result.converged
+@assert isapprox(x_admm, [1.7, -.925]; atol=1e-8)
+@assert isapprox(result.minimum / n, lasso_objective(X, y, s, lambda_admm, x_admm); rtol=1e-10)
+@assert lasso_kkt_residual(X, y, s, lambda_admm, x_admm) <= 1e-6
+
+# The result refers to the caller's buffers, and the counters follow the recurrence. A complete
+# iteration makes two proximal calls, and the loss value is evaluated once after the last
+# iteration. At a solution, the scaled dual `u` times `ρ` is the negative gradient of the raw
+# loss, `Xᵀ(y − Xβ)`, and the residuals passed their own tests.
+@assert result.minimizer === x_admm && result.u === u_admm
+@assert result.prox_calls == 2 * result.iterations
+@assert ProximalSolvers.f_calls(result) == 1 && ProximalSolvers.grad_calls(result) == 0
+@assert result.r_norm <= result.eps_pri && result.s_norm <= result.eps_dual
+@assert maximum(abs, result.ρ .* u_admm - X' * (y - X * x_admm)) <= 1e-6
+
 # ## Accelerated proximal gradient descent
 #
 # `AccProxGradDescent` is accelerated proximal gradient descent. Here it runs next to plain
@@ -167,7 +223,8 @@ end
 # The `converged` flag says that a solver's own stopping rule was met. The checks on this page
 # use other measures: a closed-form solution of the orthogonal problem, and the residual
 # `lasso_kkt_residual`, which is computed from `X`, `y`, `s`, `λ` and the coefficients only.
-# The same residual applies to the three small solutions above, each at its own `λ`.
+# The same residual applies to the three small solutions above, each at its own `λ`, and to the
+# ADMM solution, which the ADMM section checked at `λ = 0.1`.
 @assert lasso_kkt_residual(X, y, s, 0.1, x_cd) <= 1e-6
 @assert lasso_kkt_residual(X, y, s, 0.1, x_pgd) <= 1e-6
 @assert lasso_kkt_residual(X, y, s, lambda, Vector(x_sparse)) <= 1e-6

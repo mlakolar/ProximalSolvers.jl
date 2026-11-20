@@ -20,7 +20,7 @@ From the package root, with Julia 1.10 or later and Python 3.11 or later:
 
 ```sh
 julia benchmark/setup.jl "$PWD" benchmark/results/env-quick pinned
-JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=405780632bb5f4f5cfbb2193798c96945db602cf \
+JULIA_NUM_THREADS=1 PS_EXPECTED_PROXIMALBASE_REV=e03c6d9659365d54f4e0fba1a9cd54490631eea6 \
   julia --project=benchmark/results/env-quick benchmark/run.jl
 python3 benchmark/validate.py benchmark/results benchmark/results/validation.json
 python3 benchmark/summarize.py benchmark/results benchmark/results/summary
