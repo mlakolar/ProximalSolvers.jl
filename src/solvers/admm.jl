@@ -10,9 +10,9 @@ and relative tolerances control the primal and dual residual tests. Set
 
 With a dense `Matrix{Float32}` or `Matrix{Float64}` start, it applies to the
 graphical lasso `LogDetLoss(S) + NormL1(λ₀, Λ)` under the input rules of ADM-04,
-which include same-type weights `Λ` that are finite, nonnegative, exactly
-symmetric and zero on the diagonal, a fixed `ρ`, a stored `α` equal to 1 and
-`adaptive = false`.
+which include finite, nonnegative, exactly symmetric full matrix weights `Λ`
+of the same type, a fixed `ρ`, a stored `α` equal to 1 and `adaptive = false`.
+Diagonal weights may be positive.
 
 See [the ADMM contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01)
 for the supported inputs and iteration rules, and
@@ -151,9 +151,10 @@ or `u`. A wide design (`n < p`) is refused with an `ArgumentError`. See
 In summary, the graphical lasso uses one element type `T`, Float32 or Float64,
 for `z`, `S` and `Λ`: an exactly symmetric `Matrix{T}` start whose Cholesky
 factorization succeeds in `T`, `f = LogDetLoss(S)` with weight one, and
-`g = NormL1(λ₀, Λ)` with finite, nonnegative, exactly symmetric, zero-diagonal
+`g = NormL1(λ₀, Λ)` with finite, nonnegative, exactly symmetric full
 `Matrix{T}` weights and a finite, nonnegative level exactly representable in
-`T`. See [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04)
+`T`. Diagonal weights may be positive. See
+[ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04)
 for the complete conditions, including the method settings.
 """
 function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = ProximalOptions(); u=nothing, kwargs...)
@@ -332,7 +333,6 @@ function _solve_admm!(initial_Θ::Matrix{T}, f, g, method, options, initial_u) w
     throw(ArgumentError("z, S and the NormL1 weights must contain only finite values"))
   all(>=(zero(T)), Λ) || throw(ArgumentError("the NormL1 weights must be nonnegative"))
   _admm_issymmetric(Λ) || throw(ArgumentError("the NormL1 weights must be exactly symmetric"))
-  all(i -> iszero(Λ[i, i]), axes(Λ, 1)) || throw(ArgumentError("the NormL1 weights must be zero on the diagonal"))
   _admm_issymmetric(S) || throw(ArgumentError("S must be exactly symmetric"))
   _admm_issymmetric(initial_Θ) || throw(ArgumentError("z must be exactly symmetric"))
   if initial_u !== nothing
@@ -558,12 +558,8 @@ function _admm_logdet_stationary(z, S, inverse, λ0, Λ, tolerance)
   stationary = true
   @inbounds for j in axes(z, 2), i in axes(z, 1)
     grad = S[i, j] - inverse[i, j]
-    violation = if i == j
-      abs(grad)
-    else
-      level = λ0 * Λ[i, j]
-      iszero(z[i, j]) ? max(abs(grad) - level, zero(level)) : abs(grad + copysign(level, z[i, j]))
-    end
+    level = λ0 * Λ[i, j]
+    violation = iszero(z[i, j]) ? max(abs(grad) - level, zero(level)) : abs(grad + copysign(level, z[i, j]))
     isfinite(violation) || error("ADMM produced a nonfinite stationarity diagnostic")
     stationary &= violation <= tolerance
   end

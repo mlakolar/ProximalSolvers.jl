@@ -15,10 +15,11 @@
 # The off-diagonal sum runs over the full matrix, so each undirected pair is penalized twice.
 # Positive definiteness gives `Θᵢᵢ > 0` for every `i`. The diagonal penalty equals
 # `λdiag * tr(Θ)` and can change the scale and bias of the estimate. Its diagonal entries stay
-# positive throughout the domain. Setting `Sshift = S + λdiag*I` absorbs this term into
-# `LogDetLoss(Sshift)` for every positive-definite `Θ`. Use `NormL1(1.0, Λ)` with `Λ` equal
-# to `λoff` off the diagonal and zero on it. [Supported problems](../../support.md) and
-# [ADM-04](@ref) give the requirements for matrix ADMM.
+# positive throughout the domain. For a direct ADMM fit, pass `LogDetLoss(S)` and
+# `NormL1(1.0, Λfull)` with `λoff` off the diagonal and `λdiag` on it. An equivalent
+# formulation absorbs the diagonal term into `LogDetLoss(S + λdiag*I)` and uses weights
+# with zero diagonal. [Supported problems](../../support.md) and [ADM-04](@ref) give
+# the requirements for matrix ADMM.
 #
 # Two related pages solve different problems. [Neighborhood selection](nodewise_gaussian_graph.md)
 # fits one lasso regression per variable; that page reports a graph and does not assemble a
@@ -63,8 +64,8 @@ S = Matrix(Symmetric(X' * X / n))
 #
 # Use `λoff = 0.12` and compare `λdiag = 0`, `λoff/2` and `λoff`. Each fit starts at its own
 # identity matrix and uses the same fixed ADMM penalty parameter `ρ = 1` and absolute and relative
-# stopping tolerances of `1e-10`. The shifted covariance and penalty weights are built anew for
-# each fit. The checks below use the original sample covariance for all three.
+# stopping tolerances of `1e-10`. At each level the two routes use separate coefficient
+# and dual buffers. The checks below use the original sample covariance and penalty.
 function graphical_lasso_inputs(S::Matrix{T}, λoff::T, λdiag::T) where {T<:Union{Float32, Float64}}
   isfinite(λoff) && λoff >= 0 || throw(ArgumentError("λoff must be finite and nonnegative"))
   isfinite(λdiag) && λdiag >= 0 || throw(ArgumentError("λdiag must be finite and nonnegative"))
@@ -83,9 +84,13 @@ options = ProximalOptions(maxiter = 5000)
 method = ADMMSolver(ρ = 1.0, α = 1.0, adaptive = false, abstol = 1e-10, reltol = 1e-10)
 fits = map(diagonal_weights) do λdiag
   Sshift, Λ = graphical_lasso_inputs(S, λoff, λdiag)
+  Λfull = copy(Λ)
+  Λfull[diagind(Λfull)] .= λdiag
+  Θdirect = Matrix(1.0I, p, p)
+  direct = solve!(Θdirect, LogDetLoss(S), NormL1(1.0, Λfull), method, options)
   Θ = Matrix(1.0I, p, p)
   result = solve!(Θ, LogDetLoss(Sshift), NormL1(1.0, Λ), method, options)
-  return (; λdiag, Θ, Sshift, Λ, result)
+  return (; λdiag, Θ, Sshift, Λ, result, Θdirect, direct)
 end
 
 # ## Check the estimate independently
@@ -155,6 +160,26 @@ function dual_value(Θ, S, λoff, λdiag)
   return issuccess(factor) ? Float64(logdet(factor) + p) : nothing
 end
 
+# At each returned point, check positive definiteness, the original objective,
+# original KKT conditions and dual feasibility. Compare the two routes at the same
+# diagonal weight. Forming the effective weight and adding it to the covariance
+# can round in working precision.
+function check_fit(Θ, result, S, λoff, λdiag, Sshift, Λ)
+  @assert result.converged && result.minimizer === Θ
+  @assert result.r_norm <= result.eps_pri && result.s_norm <= result.eps_dual
+  @assert all(isfinite, Θ) && issymmetric(Θ)
+  factor = cholesky(Symmetric(Θ))
+  smallest_eigenvalue = eigmin(Symmetric(Θ))
+  @assert smallest_eigenvalue > 0
+  original, shifted = check_objectives(Θ, factor, S, λoff, λdiag, Sshift, Λ, result.minimum)
+  kkt = original_kkt(Θ, S, λoff, λdiag)
+  @assert kkt <= 1e-8
+  dual = dual_value(Θ, S, λoff, λdiag)
+  gap = isnothing(dual) ? nothing : original - dual
+  isnothing(gap) || @assert -1e-10 <= gap <= 1e-8
+  return (; original, shifted, kkt, dual, gap, smallest_eigenvalue)
+end
+
 # ## Compare with the true graph
 #
 # An edge is an unordered pair `i < j` with an exact nonzero entry. We also compare the
@@ -167,34 +192,30 @@ true_edges = count(e -> !iszero(Θ_true[e...]), edge_pairs)
 @assert true_edges == 14
 
 for fit in fits
-  (; λdiag, Θ, Sshift, Λ, result) = fit
-  @assert result.converged && result.minimizer === Θ
-  @assert result.r_norm <= result.eps_pri && result.s_norm <= result.eps_dual
-  @assert all(isfinite, Θ) && issymmetric(Θ)
-  factor = cholesky(Symmetric(Θ))
-  smallest_eigenvalue = eigmin(Symmetric(Θ))
-  @assert smallest_eigenvalue > 0
+  (; λdiag, Θ, Sshift, Λ, result, Θdirect, direct) = fit
+  direct_check = check_fit(Θdirect, direct, S, λoff, λdiag, Sshift, Λ)
+  shifted_check = check_fit(Θ, result, S, λoff, λdiag, Sshift, Λ)
+  solution_difference = maximum(abs, Θdirect - Θ)
+  objective_difference = abs(direct_check.original - shifted_check.original)
+  @assert solution_difference <= 1e-8
+  @assert objective_difference <= 1e-8 * max(1, abs(direct_check.original))
+  println((; λdiag, solution_difference, objective_difference))
 
-  original, shifted = check_objectives(Θ, factor, S, λoff, λdiag, Sshift, Λ, result.minimum)
-  kkt = original_kkt(Θ, S, λoff, λdiag)
-  @assert kkt <= 1e-8
-  dual = dual_value(Θ, S, λoff, λdiag)
-  gap = isnothing(dual) ? nothing : original - dual
-  isnothing(gap) || @assert -1e-10 <= gap <= 1e-8
-
-  diagonal_error = norm(diag(Θ) - diag(Θ_true))
-  frobenius_error = norm(Θ - Θ_true)
-  estimated_edges = count(e -> !iszero(Θ[e...]), edge_pairs)
-  tp = count(e -> !iszero(Θ_true[e...]) && !iszero(Θ[e...]), edge_pairs)
-  println((; λdiag, status = result.status, iterations = result.iterations,
-           original_objective = original, shifted_objective = shifted, solver_objective = result.minimum,
-           max_kkt_violation = kkt, smallest_eigenvalue, diagonal_error, frobenius_error,
-           estimated_edges, true_positives = tp, false_positives = estimated_edges - tp,
-           false_negatives = true_edges - tp, dual_objective = something(dual, "not certified"),
-           duality_gap_estimate = something(gap, "not certified")))
-  if iszero(λdiag)
-    @assert tp >= 10 && estimated_edges < length(edge_pairs)
-    @assert frobenius_error <= norm(Θ_true) / 2
+  for (route, point, solved, check) in ((:direct, Θdirect, direct, direct_check), (:shifted, Θ, result, shifted_check))
+    diagonal_error = norm(diag(point) - diag(Θ_true))
+    frobenius_error = norm(point - Θ_true)
+    estimated_edges = count(e -> !iszero(point[e...]), edge_pairs)
+    tp = count(e -> !iszero(Θ_true[e...]) && !iszero(point[e...]), edge_pairs)
+    println((; λdiag, route, status = solved.status, iterations = solved.iterations,
+             original_objective = check.original, shifted_objective = check.shifted, solver_objective = solved.minimum,
+             max_kkt_violation = check.kkt, check.smallest_eigenvalue, diagonal_error, frobenius_error,
+             estimated_edges, true_positives = tp, false_positives = estimated_edges - tp,
+             false_negatives = true_edges - tp, dual_objective = something(check.dual, "not certified"),
+             duality_gap_estimate = something(check.gap, "not certified")))
+    if iszero(λdiag)
+      @assert tp >= 10 && estimated_edges < length(edge_pairs)
+      @assert frobenius_error <= norm(Θ_true) / 2
+    end
   end
 end
 

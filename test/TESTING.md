@@ -36,14 +36,15 @@ with an independently verified fresh solution.
 
 The standard `admm_graphical_lasso` tests cover the graphical lasso with
 `LogDetLoss` and a matrix-weighted `NormL1` on a dense matrix in Float32 and
-Float64. They compare with analytic optima (1×1, diagonal, 2×2 in both regimes,
-zero and large penalty) and a seeded sparse precision matrix, and check a
-BigFloat objective, the KKT scores and, on those fixtures, a candidate dual
-matrix that must pass a BigFloat Cholesky check, with its gap compared against a
-roundoff allowance. They also check graph counts, one independently replayed step,
-limits, stagnation, an indefinite intermediate iterate, a logdet prox output
-that fails the Cholesky check, warm starts, and refusals and numerical failures
-without writes to the caller's buffers.
+Float64, including positive and zero diagonal weights. Analytic optima (1×1,
+diagonal, 2×2 at and on both sides of the edge threshold, zero and large
+penalty) and seeded problems check the original BigFloat objective and KKT
+scores for direct and covariance-shift fits. Gap estimates require a dual
+candidate that passes the exact affine constraints and a BigFloat Cholesky
+check. The tests also cover graph counts, independent one-step replay, limits,
+an exact positive-diagonal fixed point, rounded stagnation, an indefinite
+intermediate iterate, a logdet prox output that fails Cholesky, warm starts,
+and bitwise rollback on refusals and numerical failures.
 
 The separately approved Linux-only matrix and required gate graph remain
 unchanged: stable Julia1 Linux x64 for every tier, full master checks, coverage,
