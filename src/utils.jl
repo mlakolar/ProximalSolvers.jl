@@ -124,6 +124,12 @@ end
 # Rounding is monotone, so T(λ0) maximum(w) is maxᵢ cᵢ. The weights are not converted or copied. A proposed
 # stop adds to the O(p) pass of kkt_violation one O(p) scan of w for `maximum` and one in the constructor of
 # the NormL1 that holds the converted level; for w ≡ 1 the coefficients and S are those of NormL1(λ0).
+# With weights, each entry is also held to its own scale (#464): the score sᵢ of entry i must be below
+# τ max(cᵢ, λmax). That threshold is at most τ S, so the comparison with τ S above is necessary; when maxᵢ cᵢ ≤ λmax
+# every entry threshold equals τ S and nothing more is done. Otherwise _entry_thresholds_hold compares each score
+# (ProximalBase's kkt_violation(h, ∇f(x), x, i)) with its threshold, which must be at least floatmin(T), in one more
+# O(p) pass. Without it a coefficient far above λmax (a large weight, or one that excludes a column) would loosen the
+# test of every other entry, of a zero-weight entry in particular, by the factor maxᵢ cᵢ / λmax.
 # An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
@@ -136,7 +142,8 @@ end
 # entry and ‖∇_G f‖₂ - cₖ at a zero group (a zero weight gives the score ‖∇_G f‖₂). S = max(c_max, Λ), with
 # c_max = λ0 maximum(w) = maxₖ cₖ (rounding is monotone) and Λ = maxₖ ‖[∇f(0)]_{Gₖ}‖₂ = α maxₖ ‖[Xᵀy]_{Gₖ}‖₂
 # (_scale_norm, LinearAlgebra's norm of each block); 0 is a minimizer iff ‖[∇f(0)]_{Gₖ}‖₂ ≤ cₖ for each k. τ, the
-# threshold and the guards are those above. As for the ℓ1 penalties, a kept stop says that the computed residual is
+# threshold and the guards are those above, and as for weighted NormL1 each group is also held to τ max(cₖ, Λ) when
+# maxₖ cₖ > Λ (its score is ProximalBase's kkt_violation(g, ∇f(x), x, i) at the first entry i of the group). As for the ℓ1 penalties, a kept stop says that the computed residual is
 # below the computed threshold, not that the residual in exact arithmetic is. For singleton groups with unit weights,
 # S equals the S of NormL1(λ0) where no entry of ∇f(0) has a subnormal square (there the computed norm of a one-entry
 # block is its magnitude); the iterates and the residuals of the two penalties can differ by rounding, since
@@ -151,7 +158,27 @@ function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, E
   S = max(λ, λmax)
   τ = T(max(options.gradtol, 64 * Float64(eps(T))))
   threshold = τ * S
-  isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold
+  isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold &&
+    (λ <= λmax || _entry_thresholds_hold(gT, grad, state.x, τ, λmax))
+end
+
+# Each entry (each group) of a weighted penalty against its own threshold τ max(cᵢ, λmax), when the largest
+# coefficient exceeds λmax (see above). A penalty with one coefficient for every entry needs no such pass: there
+# every entry threshold is τ S.
+_entry_thresholds_hold(g, grad, x, τ, λmax) = true
+function _entry_thresholds_hold(g::NormL1{T, Vector{T}}, grad, x, τ::T, λmax::T) where T
+  @inbounds for i in eachindex(x, grad, g.w)
+    t = τ * max(g.λ0 * g.w[i], λmax)
+    (t >= floatmin(T) && kkt_violation(g, grad, x, i) < t) || return false
+  end
+  true
+end
+function _entry_thresholds_hold(g::GroupNormL2{T}, grad, x, τ::T, λmax::T) where T
+  @inbounds for k in eachindex(g.groups, g.w)
+    t = τ * max(g.λ0 * g.w[k], λmax)
+    (t >= floatmin(T) && kkt_violation(g, grad, x, first(g.groups[k])) < t) || return false
+  end
+  true
 end
 
 # For NormL1Nonneg, ProximalBase uses the point-aware constrained residual: abs(∇fᵢ + λ)

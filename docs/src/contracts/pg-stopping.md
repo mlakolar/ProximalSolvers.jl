@@ -64,13 +64,15 @@ The scale is `S = max(λ, λmax)`, where `λ = T(λ0)` without weights and `λ =
 
 For a raw `LogisticLoss`, `∇f` is the logistic gradient and `λmax = ‖Xᵀ(½ - y)‖∞`, the norm of its value at zero ([IN-09](@ref)).
 
-A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its full `|∇fᵢ|`, even with a large `λ0`. Each coefficient must already satisfy [IN-01](@ref): it is finite and normal when both factors are positive; a zero level or weight gives zero. An infinite coefficient iterate gives a nonfinite residual (`Inf`, or `NaN` if a `NaN` is read), which cannot pass.
+**Entry thresholds with weights.** With `NormL1(λ0, w)` a proposed stop must also hold entry by entry: the score `sᵢ` of entry `i` (ProximalBase's `kkt_violation(NormL1(T(λ0), w), ∇f(x), x, i)`, the entry score above) must be strictly below `τ max(cᵢ, λmax)`, a threshold that must be at least `floatmin(T)`. Each such threshold is at most `τ S`, so the full-point comparison of [STOP-04](@ref) is necessary. When `maxᵢ cᵢ ≤ λmax`, every entry threshold equals `τ S` and the full-point comparison decides alone, as for every unweighted or unit-weight penalty. Only when some coefficient exceeds `λmax` are the entries compared one by one. Without this, one coefficient far above `λmax` (a large weight, or one that excludes a column) would set `S` for every entry, and a free or lightly penalized entry could pass with a derivative of order `τ maxᵢ cᵢ` ([#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464)). The entry scale `max(cᵢ, λmax)` contains `cᵢ` because at a nonzero entry the score combines `∇fᵢ` and `cᵢ sign xᵢ`, two terms of size about `cᵢ`, whose rounding a smaller threshold would not admit. It contains `λmax` as the gradient scale of the unweighted rule. A common positive factor on loss and penalty scales every entry threshold alike.
+
+A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its full `|∇fᵢ|`, even with a large `λ0`. It is held to `τ λmax`, the threshold of the unpenalized problem. When `λmax = 0` (for least squares, `Xᵀy = 0`), its threshold is zero and no stop passes, as with all-zero weights ([STOP-04](@ref)), although `x = 0` may be the minimizer. Each coefficient must already satisfy [IN-01](@ref): it is finite and normal when both factors are positive; a zero level or weight gives zero. An infinite coefficient iterate gives a nonfinite residual (`Inf`, or `NaN` if a `NaN` is read), which cannot pass.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** `test/core_regressions.jl`, “Working ℓ₁ levels”, checks stopping flags and residuals against explicit working-level controls. See also `test/stopping_scale.jl`, `test/weighted_lasso.jl` and `test/logistic_pgd.jl` (the logistic scale `‖Xᵀ(½ - y)‖∞` and independent KKT scores).
+**Tests.** `test/core_regressions.jl`, “Working ℓ₁ levels”, checks stopping flags and residuals against explicit working-level controls. See also `test/stopping_scale.jl`, `test/weighted_lasso.jl` and `test/logistic_pgd.jl` (the logistic scale `‖Xᵀ(½ - y)‖∞` and independent KKT scores). `test/entry_thresholds.jl` checks the entry thresholds. Its fixtures are the #464 least-squares and logistic cases against analytic minimizers; zero columns, excluded columns, free and tiny weights; an active entry with a coefficient far above `λmax`; ill-conditioned designs; zero weights with `∇f(0)` zero in the free entry or `y = 0`; and ordinary-weight controls on which the single threshold decides. Every converged solve there is checked entry by entry against a BigFloat residual, and the rule is checked at fixed points against its definition.
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L145`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`.
 
@@ -96,7 +98,7 @@ The threshold need not be finite: a huge `gradtol` can make conversion or multip
 
 Common positive rescaling of loss and penalty preserves the normalized inequality in exact arithmetic. In working precision the rounded quantities and the normal-threshold guard can change the outcome even when the scales remain representable. For Float32 `X = [1]`, response `y = [1]`, `x = 0` and default `gradtol`, `s = λ = 1` passes while `s = λ = 1f-35` does not: the latter threshold is below `floatmin(Float32)`.
 
-If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives `G = 0` and stops at the first proposal when `S > 0` and the normal-threshold guard holds. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
+With weights, the entry thresholds of [STOP-03](@ref) and [STOP-05](@ref) must also hold, under the same strict comparison and normal-threshold guard. If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives `G = 0` and stops at the first proposal when `S > 0` and the normal-threshold guard holds. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
@@ -110,7 +112,7 @@ If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no s
 
 **Statement.** For `GroupNormL2{T}(λ0, groups, w)` whose groups partition `1:p`, let `cₖ = T(λ0) wₖ` rounded in `T`. The residual is ProximalBase's `kkt_violation(g, ∇f(x), x) = max(0, maxₖ scoreₖ)`. A group with any nonzero entry has score `‖∇_G f + cₖ x_G/‖x_G‖₂‖₂`; a zero group has score `‖∇_G f‖₂ - cₖ`. A zero weight gives `‖∇_G f‖₂`.
 
-Use `S = max(maxₖ cₖ, Λ)`, where `Λ = maxₖ ‖[∇f(0)]_{Gₖ}‖₂`, the computed group counterpart of `s maxₖ ‖[Xᵀy]_{Gₖ}‖₂`. In exact arithmetic zero is a minimizer iff each group norm of `∇f(0)` is no larger than its own coefficient. The guards and computed threshold are [STOP-04](@ref).
+Use `S = max(maxₖ cₖ, Λ)`, where `Λ = maxₖ ‖[∇f(0)]_{Gₖ}‖₂`, the computed group counterpart of `s maxₖ ‖[Xᵀy]_{Gₖ}‖₂`. In exact arithmetic zero is a minimizer iff each group norm of `∇f(0)` is no larger than its own coefficient. The guards and computed threshold are [STOP-04](@ref). As for weighted `NormL1` ([STOP-03](@ref)), each group must also have its score (ProximalBase's `kkt_violation(g, ∇f(x), x, i)` at the first entry `i` of the group) strictly below `τ max(cₖ, Λ)`, a threshold of at least `floatmin(T)`. This is compared group by group only when `maxₖ cₖ > Λ`; a zero-weight group is held to `τ Λ`.
 
 Each group norm is LinearAlgebra's `norm`: it scales a block before squaring when squaring its largest magnitude underflows to zero. This prevents the squaring operation alone from losing `Λ`, as tested at a scale `s = 1e-300`; it cannot recover an entry of `s Xᵀy` already rounded to zero or a subnormal value. Singleton groups with unit weights have the unweighted lasso's scale where no entry of `∇f(0)` has a subnormal square. The two penalties' iterates and residuals can still differ through rounding. Passing bounds the computed residual, not the exact residual.
 
@@ -118,7 +120,7 @@ Each group norm is LinearAlgebra's `norm`: it scales a block before squaring whe
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** test/group_pgd.jl: group-check threshold and state.λmax testsets.
+**Tests.** test/group_pgd.jl: group-check threshold and state.λmax testsets. test/entry_thresholds.jl: the #464 analogue with singleton groups, and an excluded group on an orthogonal design against the block soft threshold.
 
 **Sources.** `docs/src/numerics.md:L155`, `docstring:src/types.jl:L23`, `docs/src/support.md:L222`.
 
@@ -166,7 +168,7 @@ A small accepted `L` makes `t` large and this mapping a weaker stationarity meas
 
 **Statement.** Checks run only when a proposal survives the exact-stall rule. PGD already holds `∇f(x)`. APG holds the gradient at its extrapolated point and computes `∇f(x)` from cached `A x`, using the same gradient oracle and preallocated `xhat` and `dz` buffers. Those buffers are overwritten before their next iteration use. This adds one transposed product per APG check that reaches this evaluation, counted in `grad_calls` and not in `f_calls`. A generic check with invalid `t` returns before computing `λmax`, this gradient or the prox.
 
-`λmax` is computed once per solve at the first check that reaches that stage, by one `Xᵀy` product, and stored in state field `λmax`; that product is not counted. Weighted lasso adds two scans of `w` to the KKT pass: one maximum scan and one scan in construction of the penalty with converted level. It creates no coefficient array.
+`λmax` is computed once per solve at the first check that reaches that stage, by one `Xᵀy` product, and stored in state field `λmax`; that product is not counted. Weighted lasso adds two scans of `w` to the KKT pass: one maximum scan and one scan in construction of the penalty with converted level. When the largest coefficient exceeds `λmax`, a check that passes the full-point comparison adds one more pass over the entries (over the groups for `GroupNormL2`), with ProximalBase's per-entry score. It creates no coefficient array.
 
 Each generic check with finite positive `t` adds one proximal evaluation, counted in `prox_calls`; APG additionally counts its gradient at `x`. These costs accrue before call limits are tested. The generic check restores its scratch `delta_x` to `x - x_previous` before the remaining diagnostics read it.
 
@@ -286,7 +288,7 @@ At tolerances near or beyond working precision, success versus an objective-incr
 
 ### [STOP-12 Accuracy interpretation and strict-option examples](@id STOP-12)
 
-**Statement.** Defaults `maxiter=200`, `ftol=1e-6`, `xtol=1e-8` and `gradtol=1e-5` are exploratory settings. Tightening them does not establish a specified error, and reducing `gradtol` below the floor in [STOP-04](@ref) does not tighten that computed check. The residual uses rounded gradient products: underflow or cancellation can make a nonstationary point pass. A coordinate on a much smaller gradient scale than `λmax` can remain inaccurate even when the global relative residual is small. See [working precision](working-precision.md) and [stopping evidence](evidence/stopping-audit-352.md).
+**Statement.** Defaults `maxiter=200`, `ftol=1e-6`, `xtol=1e-8` and `gradtol=1e-5` are exploratory settings. Tightening them does not establish a specified error, and reducing `gradtol` below the floor in [STOP-04](@ref) does not tighten that computed check. The residual uses rounded gradient products: underflow or cancellation can make a nonstationary point pass. A coordinate on a much smaller gradient scale than `λmax` can remain inaccurate even when the global relative residual is small. In particular `λmax = ‖∇f(0)‖∞` is measured at zero: when a free coordinate is far from zero at the solution, as an intercept is with an uncentered (offset) response, its entry of `∇f(0)` can make `λmax`, and so every threshold, much larger than the gradients near the solution. Then `converged = true` can be reported with a materially wrong objective. The #400 offset fixture gives relative objective excesses of 3.4 (PGD) and 46 (APG) at default options, against `8.8e-12` for the centered response. Centering the response or a smaller `gradtol` avoids it; the entry thresholds of [STOP-03](@ref) do not, and the defect is tracked in [#487](https://github.com/mlakolar/ProximalSolvers.jl/issues/487). See [working precision](working-precision.md) and [stopping evidence](evidence/stopping-audit-352.md).
 
 For PGD, `xtol` bounds a step scaled by `1/L`; the implied proximal-gradient residual is roughly `L * xtol * max(norm(x), 1)`, depending on curvature, coefficient scale and penalty level. Even `xtol = 1e-300` can accept a nonzero step, such as from `[0.0]` to `[1e-310]`. It is not an accuracy target.
 
@@ -399,5 +401,7 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 **Sources.** `README.md:L52`, `docs/src/working-with-results.md:L29`, `docstring:src/types.jl:L23`, `docstring:src/solvers/proximal_gradient_descent.jl:L30`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/numerics.md:L86`.
 
 ## Change log
+
+[#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464): weighted `NormL1` and `GroupNormL2` hold each entry (group) to `τ max(cᵢ, λmax)` when the largest coefficient exceeds `λmax` ([STOP-03](@ref), [STOP-05](@ref), [STOP-04](@ref), [STOP-08](@ref)); decisions with `maxᵢ cᵢ ≤ λmax` are unchanged. The offset-response limitation is stated in [STOP-12](@ref). Measurements: [entry-threshold evidence](evidence/entry-thresholds-464.md).
 
 This migration consolidates the baseline stopping specifications without changing solver logic. Historical strict-configuration results remain separate from the current contract. The historical normalized-residual and group-support formulations were retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416); the original quotations and anchor remain available for provenance.
