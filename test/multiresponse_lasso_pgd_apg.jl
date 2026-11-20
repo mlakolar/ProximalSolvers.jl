@@ -55,8 +55,9 @@ end
     X, Y = orthogonal_data(T)
     sample = T[0.25 1 -2; -1.5 0 1; 0.5 0.25 -0.5]
     Z, D, G = X*sample, similar(Y), similar(sample)
-    @test PS._norm_inf(sample) === T(2)
-    @test PS._norm_diff(sample, -sample, Inf) === T(4)
+    rectangular = sample[:, 1:2]
+    @test PS._norm_inf(rectangular) === T(2)
+    @test PS._norm_diff(rectangular, -rectangular, Inf) === T(4)
     for s in (one(T), one(T)/T(size(X, 1)))
       # A literal of a different precision must use the validated working level.
       λ = Float64(s) * 2
@@ -240,6 +241,7 @@ end
     for s in (T(Inf), 1//3, Float16(0.5))
       refused(ArgumentError, "loss scale", B, Scaled(f, s), g, method)
     end
+    refused(ArgumentError, "loss scale", B[:, 1:2], Scaled(f, 1//3), g, method)
     inner = T(0.25)*f
     for unsupported in (Scaled{typeof(inner), T}(inner, T(2)), zero(T)*f,
                         LeastSquaresLoss(Y[:, 1], X))

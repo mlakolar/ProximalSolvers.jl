@@ -84,7 +84,7 @@ the stagnation guard, counters, limit statuses and numerical failure boundary.
 For the graphical lasso, [ADM-04](@ref) replaces the stagnation score and adds
 the symmetry and Cholesky rules. For the least-squares lasso, [ADM-05](@ref) replaces
 only the stagnation score.
-Matrix PGD uses the KKT check and result fields in [PGD-08](@ref), with the
+Graphical-lasso PGD uses the KKT check and result fields in [PGD-08](@ref), with the
 rollback boundary in [PGD-07](@ref).
 
 **Applies to.** All solver result types; each solver retains its specified loss, penalty and precision scope.

@@ -431,6 +431,7 @@ function _check_gradient_problem(B::Matrix{T}, f, g, kind) where T
   base = f isa Scaled ? f.f : f
   T in (Float32, Float64) && base.X isa Matrix{T} && base.Y isa Matrix{T} ||
     throw(ArgumentError("matrix-response PGD and APG need dense Matrix inputs B, X and Y of the same Float32 or Float64 type"))
+  f isa Scaled && _check_loss_scale(leastsquares_data(f).α, T)
   n, p = size(base.X)
   K = size(base.Y, 2)
   n > 0 && p > 0 && K > 0 || throw(DimensionMismatch("X and Y must have positive row and column counts"))
@@ -440,7 +441,6 @@ function _check_gradient_problem(B::Matrix{T}, f, g, kind) where T
   g isa NormL1 && g.w === nothing ||
     throw(ArgumentError("matrix-response PGD and APG require an unweighted NormL1 penalty; their other regression penalties require a dense Vector"))
   _scalar_parameter(g.λ0, T, "penalty lambda")
-  f isa Scaled && _check_loss_scale(leastsquares_data(f).α, T)
   (Base.mightalias(B, base.X) || Base.mightalias(B, base.Y) || Base.mightalias(B, base.tmp)) &&
     throw(ArgumentError("mutable B must not alias borrowed X or Y or the scratch of the loss"))
   _allfinite(B) && _allfinite(base.X) && _allfinite(base.Y) ||

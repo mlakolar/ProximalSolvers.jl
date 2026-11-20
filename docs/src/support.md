@@ -38,7 +38,8 @@ weights ([ADM-04](@ref)). PGD requires a zero diagonal ([PGD-06](@ref)). `GroupN
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
 [Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
-row uses the unscaled `SqrtLeastSquaresLoss`. Both multi-response rows use this loss with a dense matrix response `Y`.
+row uses the unscaled `SqrtLeastSquaresLoss`. Both multi-response rows use
+`LeastSquaresLoss` with a dense matrix response `Y`, raw or with one supported scale.
 The PGD/APG row uses entrywise sparsity ([IN-10](@ref)). The
 [CD row uses row groups](@ref "Multi-response group lasso with coordinate descent"). Regression designs use a dense `Matrix`. For `CDSolver`, `converged = true` is the test on the change of the
 coefficients over a pass and not a certificate of optimality, except for the square-root
@@ -175,6 +176,7 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
 | Nonnegative least squares and lasso | `ProximalGradientDescent` only, with `IndNonnegative()` or unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
+| Multi-response entrywise lasso | PGD or APG with unweighted `NormL1` and same-type dense matrix data and coefficients under [IN-10](@ref). See [APG-07](@ref) for the APG dimension limits. |
 
 ### Lasso with consensus ADMM
 
