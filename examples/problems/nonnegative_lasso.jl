@@ -17,7 +17,8 @@
 # ```
 # The squared error rewards reconstruction; ``\lambda>0`` encourages a short list of
 # components and shrinks their amplitudes. `NormL1Nonneg` includes the domain constraint
-# in this objective. This example uses dense Float64 data and proximal gradient descent.
+# in this objective. This example uses dense Float64 data and proximal gradient descent,
+# and then solves the same problem with coordinate descent.
 # [Supported problems](../../support.md) gives the precise API limits.
 using LinearAlgebra, Printf, Random, ProximalBase, ProximalSolvers
 
@@ -112,11 +113,25 @@ end
 @assert ordinary_kkt / scale <= 1e-7
 @assert isapprox(ordinary_result.minimum,
   sum(abs2, y - X * ordinary)/(2n) + lambda * sum(abs, ordinary); rtol=1e-12)
+# Coordinate descent on a dense vector solves the same constrained problem. Its
+# `converged` flag is a change test, not a certificate, so we judge this fit as we judged
+# the first one: by feasibility, the constrained KKT residual and the objective, all
+# recomputed from `X` and `y`. The tolerance `1e-10` is a choice that is tighter than the
+# default, and the KKT assertion below is what shows that it was tight enough here.
+cd_beta = zeros(p)
+cd_result = solve!(cd_beta, f, g, CDSolver(order=:cyclic, momentum=false, tol=1e-10))
+cd_check = independent_nonnegative(X, y, cd_beta, lambda)
+@assert cd_check.minimum_coefficient >= 0
+@assert cd_check.residual / scale <= 1e-7
+@assert isapprox(cd_check.objective, cd_result.minimum; rtol=1e-10)
+@assert isapprox(cd_check.objective, check.objective; rtol=1e-8)
 selected = findall(>(1e-6), beta)
 println("True components: ", findall(!iszero, beta_true))
 println("Selected components (amplitude > 1e-6): ", selected)
 @printf("Objective %.6f; relative reconstruction error %.4f; KKT/scale %.2e; minimum coefficient %.1f\n",
   check.objective, norm(y-X*beta)/norm(y), check.residual/scale, minimum(beta))
+@printf("Coordinate descent: objective %.6f; KKT/scale %.2e; minimum coefficient %.1f\n",
+  cd_check.objective, cd_check.residual/scale, minimum(cd_beta))
 
 # The threshold `1e-6` is a reporting choice, not a statistical significance level.
 # Noise, correlated dictionary columns, and the selected penalty can change which

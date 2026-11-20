@@ -263,10 +263,11 @@ a penalty carrying a center is refused even when the center is all zeros.
 See [the ridge example](examples/problems/elastic_net.md#Ridge-with-coordinate-descent)
 and [the input rules](@ref IN-01).
 
-For nonnegative least squares, use `ProximalGradientDescent` with
-`IndNonnegative()` or `NormL1Nonneg(0)`. Use unweighted `NormL1Nonneg(lambda)`
-with a positive level to encourage sparsity. Start with a feasible dense vector,
-such as zeros. The [NNLS example](examples/problems/nonnegative_least_squares.md)
+For nonnegative least squares, use `ProximalGradientDescent`, or `CDSolver` on a
+dense vector, with `IndNonnegative()` or `NormL1Nonneg(0)`. Use unweighted
+`NormL1Nonneg(lambda)` with a positive level to encourage sparsity. Start with a
+feasible dense vector, such as zeros; a `SparseIterate` is not supported for these
+penalties. The [NNLS example](examples/problems/nonnegative_least_squares.md)
 compares the two models. See [IN-07](@ref) for input rules and [STOP-16](@ref)
 for the constrained KKT check.
 

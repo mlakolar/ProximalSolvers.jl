@@ -16,7 +16,7 @@ groups are the rows of the coefficients, it accepts a `Matrix` coefficient (or a
 over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradientDescent`](@ref) and
 [`AccProxGradDescent`](@ref) accept a dense `Vector` for these least-squares problems, all through [`solve!`](@ref);
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the group lasso with a `GroupNormL2` penalty on it.
-[`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
+[`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`, and [`CDSolver`](@ref) does too with a least-squares loss.
 [`ProximalGradientDescent`](@ref) also fits sparse logistic regression with a raw `LogisticLoss` (binary
 response, no observation weights or offset), dense `Float64` data and `NormL1`.
 [`ADMMSolver`](@ref) solves centered `SqrNormL2` with unweighted `NormL1` on dense vectors.

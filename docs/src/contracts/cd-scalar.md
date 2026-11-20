@@ -1,7 +1,8 @@
 # Scalar coordinate descent
 
-These clauses cover least-squares lasso, weighted lasso, unweighted elastic net
-and ridge with an uncentered `SqrNormL2` penalty.
+These clauses cover least-squares lasso, weighted lasso, unweighted elastic net,
+ridge with an uncentered `SqrNormL2` penalty, and, on a dense `Vector`, nonnegative
+least squares and nonnegative lasso (`IndNonnegative()` and unweighted `NormL1Nonneg`).
 Read the [input rules](@ref IN-01), [working precision](@ref FP-01), and
 [result and failure rules](@ref RES-01) with them. Specialized storage and losses have
 their own clauses: [SparseIterate](@ref CDS-01), [groups](@ref CDG-01),
@@ -16,7 +17,8 @@ The public call is `solve!(beta, f, g, CDSolver())`.
 `CDSolver` accepts matching `Float32` or `Float64` dense design/response data and
 coefficients in a dense `Vector` or a one-dimensional `SparseIterate`. The penalty is
 `NormL1(lambda)`, `NormL1(lambda, w)`, an unweighted `ElasticNet(lambda1, lambda2)`
-or an uncentered `SqrNormL2(lambda)`.
+or an uncentered `SqrNormL2(lambda)`; for a dense `Vector` start only, also
+`IndNonnegative()` or an unweighted `NormL1Nonneg(lambda)` under [IN-07](@ref).
 The weights of `NormL1` are a `Vector{T}` of finite nonnegative entries. Input validation
 checks `T(lambda)` and the rounded coefficient `T(lambda) * w[k]` to be zero or normal
 numbers of `T`; a zero weight leaves its coordinate unpenalized.
@@ -27,7 +29,8 @@ ProximalBase's `prox_block` forms the threshold from the supplied level and weig
 working type, so its threshold need not equal one formed from the already-rounded checked
 coefficient. The [range rule](@ref CD-04) specifies the exceptional band and the
 positive-ridge refusal. At every visit a flat column (all entries zero) sets its scalar
-coordinate to zero for these accepted penalties, including a zero level or weight.
+coordinate to zero for these accepted penalties, including a zero level or weight;
+for `IndNonnegative()` and `NormL1Nonneg` the coordinate is set to `+0` (no sign bit).
 A nonflat column whose squared norm underflows to zero is refused. With `maxpasses = 0`
 no coordinate is visited.
 
@@ -41,6 +44,15 @@ prox is `c / (1 + gamma*lambda)`. The supplied penalty and scale participate
 in the oracle's working precision; equivalence to `ElasticNet(0, lambda)` is
 an objective equivalence, not a promise of bitwise-identical iterates.
 
+For `IndNonnegative()` the step in the normal band is `prox_block(g, c, k, gamma)`, which is
+`max(c, 0)`; for an unweighted `NormL1Nonneg(lambda)` it is the same call, in exact arithmetic
+`max(c - gamma*lambda, 0)` with `gamma = inv(s*a)`. A start with a negative entry is refused
+before any write ([IN-07](@ref)); momentum extrapolation can leave a negative intermediate
+value, which the visit of that coordinate in the same pass projects, so the point returned
+after a completed pass is nonnegative. `converged` is the change test of [RES-01](@ref), not
+a certificate of the constrained KKT conditions: the tests judge a solve by an independently
+computed constrained KKT score and objective.
+
 Ridge uses the same cached residual, pass schedule, optional momentum, stopping
 scales and owner transaction as the other scalar least-squares penalties.
 The ridge term does not replace the loss-column curvature in the change scale.
@@ -50,9 +62,9 @@ exceptional step band remain subject to [CD-04](@ref).
 
 **Applies to.** `CDSolver`; vector response; dense `Vector{T}` or one-dimensional `SparseIterate{T}`; `T` is `Float32` or `Float64`.
 
-**Code.** `src/cd/leastsquares.jl`: `coordinate_step!`, `_sqnorm!`; `src/solve.jl`: input validation.
+**Code.** `src/cd/leastsquares.jl`: `coordinate_step!`, `_sqnorm!`; `src/cd/models.jl`: `_coordinate_minimizer`; `src/solve.jl`: input validation.
 
-**Tests.** `test/cd_numerics.jl`, `test/cd_elasticnet.jl` (flat columns and range refusals), `test/weighted_lasso.jl`. The ridge testset "uncentered SqrNormL2 with normalized least squares" covers Float32/Float64 dense and warm-owner solves on ordinary, wide, correlated and flat-column designs, zero level, and a Float64 scale/level with Float32 data. It checks independent 256-bit normal-equation references, agreement within precision-based bounds with `ElasticNet(0, lambda)`, coefficient/objective agreement, result fields and flat-column zeros. `examples/problems/elastic_net.jl` also compares the normalized ridge solve with the normal-equation ridge reference.
+**Tests.** `test/cd_numerics.jl`, `test/cd_elasticnet.jl` (flat columns and range refusals), `test/weighted_lasso.jl`; `test/cd_nonnegative.jl` ("closed forms", "single coordinates", "correlated and p > n designs against a BigFloat reference and PGD", "flat columns", "orders") for the nonnegative penalties. The ridge testset "uncentered SqrNormL2 with normalized least squares" covers Float32/Float64 dense and warm-owner solves on ordinary, wide, correlated and flat-column designs, zero level, and a Float64 scale/level with Float32 data. It checks independent 256-bit normal-equation references, agreement within precision-based bounds with `ElasticNet(0, lambda)`, coefficient/objective agreement, result fields and flat-column zeros. `examples/problems/elastic_net.jl` also compares the normalized ridge solve with the normal-equation ridge reference.
 
 **Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`. The later ridge addition is [upstream #420 at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/commit/217cde72cad2b324e174012accc949da59c1bba5), with [coordinate and range methods](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/cd/leastsquares.jl#L77-L166), [flat-column minimization](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/cd/models.jl#L26-L34), and [ridge tests](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/test/cd_elasticnet.jl#L378-L441). These sources extend the frozen baseline support.
 
@@ -141,8 +153,9 @@ stationarity or objective-gap certificate. [RES-01](@ref) specifies the unchange
 
 **Statement.**
 
-The threshold arithmetic below applies to lasso and weighted lasso, and to an
-elastic net with zero ridge level. For an uncentered `SqrNormL2`, the ordinary
+The threshold arithmetic below applies to lasso and weighted lasso, to an
+elastic net with zero ridge level, and, with the nonnegative forms stated further below,
+to unweighted `NormL1Nonneg`. For an uncentered `SqrNormL2`, the ordinary
 step remains ProximalBase's ridge prox in [CD-01](@ref). At a finite positive
 column squared norm `a`, when `p = s*a` or its reciprocal falls below
 `floatmin(S)`, `SqrNormL2(0)` takes the unpenalized center `c`, while a positive
@@ -199,11 +212,21 @@ finite `a`, an `S` wider than `T` keeps `p` inside the band: `solve!` requires a
 loss scale that is representable in `T`, and `a` is finite in `T`, so
 for `Float32` data with a `Float64` scale `p` is between about `1e-90` and
 `1e77`. A scale of another type, or
-a penalty without a method of `_exceptional_step` (an unweighted `NormL1` or `ElasticNet`, or a `NormL1` with a `Vector{T}` of weights, has one), makes
+a penalty without a method of `_exceptional_step` (an unweighted `NormL1`, `ElasticNet`, `NormL1Nonneg` or `IndNonnegative`, or a `NormL1` with a `Vector{T}` of weights, has one), makes
 the step throw an `ArgumentError`. A column whose `a` is not finite in `T` makes `coordinate_step!`
 throw an `ArgumentError` that names the curvature, before the coordinate, the
 residual or the curvature cache entry of that column changes, and `x` and an
 owner are not changed.
+
+For `S == T`, the exceptional methods for the nonnegative penalties are `max(c, 0)` for
+`IndNonnegative()` and `max(c - min(τ, floatmax(T)), 0)` for an unweighted `NormL1Nonneg`,
+with `τ` formed as above. A finite `c` gives a finite nonnegative result, `+0` where the
+difference is not positive. A `c` of `+Inf` stays `+Inf` and a NaN `c` stays NaN, which
+`_visit!` refuses; a `c` of `-Inf` gives `+0`. At `λ = 0` the result is `max(c, 0)`.
+These methods are tested against BigFloat references (`max(c - λ/(s a), 0)`, with the bound on
+`τ` stated above), and an off-band step through `solve!` is tested at an overflowing and at a
+subnormal `s*a`. Without them such a step would throw the generic refusal that a penalty
+without an exceptional method gets.
 
 The exceptional methods also include `SqrNormL2{<:Real, Nothing}` with the
 zero-level and positive-level behavior above. A nonflat column whose squared
@@ -212,11 +235,11 @@ refused before the coordinate/residual/cache-entry writes; a positive ridge
 level does not bypass those curvature gates. A genuinely flat column uses the
 zero minimizer of [CD-01](@ref), including at zero ridge level.
 
-**Applies to.** Lasso, weighted lasso, unweighted elastic net and uncentered `SqrNormL2` ridge on scalar CD iterates.
+**Applies to.** Lasso, weighted lasso, unweighted elastic net, uncentered `SqrNormL2` ridge and, on a dense `Vector`, `IndNonnegative()` and unweighted `NormL1Nonneg` on scalar CD iterates.
 
-**Code.** `src/cd/leastsquares.jl`: `_threshold`, `coordinate_step!`, `_sqnorm!`.
+**Code.** `src/cd/leastsquares.jl`: `_threshold`, `_exceptional_step`, `coordinate_step!`, `_sqnorm!`.
 
-**Tests.** `test/cd_numerics.jl` (normal-band equivalence, threshold range and positive-ridge refusal for an overflowing scale-curvature product); `test/cd_elasticnet.jl` (off-band refusals and rollback), including "SqrNormL2 validation and exceptional coordinate steps": positive subnormal second-column curvature refuses the positive ridge level after the first private coordinate moves, preserving dense/owner entry state; zero level reaches the unpenalized solution, and a flat column is zeroed; `test/weighted_lasso.jl`.
+**Tests.** `test/cd_numerics.jl` (normal-band equivalence, threshold range and positive-ridge refusal for an overflowing scale-curvature product); `test/cd_elasticnet.jl` (off-band refusals and rollback), including "SqrNormL2 validation and exceptional coordinate steps": positive subnormal second-column curvature refuses the positive ridge level after the first private coordinate moves, preserving dense/owner entry state; zero level reaches the unpenalized solution, and a flat column is zeroed; `test/weighted_lasso.jl`; `test/cd_nonnegative.jl` ("the exceptional steps of IndNonnegative and NormL1Nonneg against BigFloat", "one coordinate step with s a outside the band through solve!").
 
 **Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`. The additional ridge method and its limits are [217cde72, `_exceptional_step`](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/cd/leastsquares.jl#L157-L166) and [the updated numerical guidance](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/docs/src/numerics.md#L18-L38).
 

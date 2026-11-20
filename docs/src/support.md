@@ -17,8 +17,8 @@ as supported in the table is not verified; the sections below give the exact inp
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | Float64 (l) | — | [Lasso](examples/problems/lasso.md) |
 | Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | [Weighted lasso](examples/problems/weighted_lasso.md) |
-| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
-| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
+| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | Float32, Float64 (i) | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
+| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | Float32, Float64 (i) | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | [Elastic net](examples/problems/elastic_net.md) |
 | Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | — | Float32 (a, b, h), Float64 (b, h) | — | — | [Group lasso](examples/problems/group_lasso.md) |
@@ -44,7 +44,7 @@ lasso (note e).
 
 Ridge uses the same least-squares loss and supported positive scaling; its
 CD-only input rules are specified in [IN-01](@ref). Nonnegative least squares and nonnegative lasso also use
-that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref).
+that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `Vector`, are specified in [IN-07](@ref).
 
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
@@ -153,7 +153,7 @@ with `ElasticNet(lambda1, lambda2)`. `CDSolver` also accepts uncentered
 `SqrNormL2(lambda)` for ridge, the elastic-net objective with the L1 level set to
 zero. Its supported storage and center type are specified in [IN-01](@ref).
 `ProximalGradientDescent` and `AccProxGradDescent` also solve the
-ℓ∞-penalized problem (below). PGD additionally supports nonnegative coefficients
+ℓ∞-penalized problem (below). PGD, and CD on a dense `Vector`, additionally support nonnegative coefficients
 with `IndNonnegative()` or unweighted `NormL1Nonneg`. See [the nonnegative input rules](@ref IN-07).
 CD's numerical step restrictions and its change-test
 meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
@@ -168,7 +168,7 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Ridge penalty | Uncentered `SqrNormL2(lambda)` with the least-squares loss and `CDSolver` on a dense vector or a one-dimensional `SparseIterate` (note j above) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
-| Nonnegative least squares and lasso | `ProximalGradientDescent` only, with `IndNonnegative()` or unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
+| Nonnegative least squares and lasso | `ProximalGradientDescent`, and `CDSolver` on a dense `Vector{T}` (not a `SparseIterate`), with `IndNonnegative()` or unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
 
 ### Lasso with consensus ADMM
@@ -406,9 +406,12 @@ fits seeded data and checks its objective and KKT residual from the data.
 **(i)** With dense least-squares data and a feasible nonnegative starting vector,
 use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares.
 Use unweighted `NormL1Nonneg(lambda)` with a positive level for nonnegative
-lasso. These combinations are available with PGD. See [the input contract](@ref IN-07)
+lasso. These combinations are available with PGD and with CD on a dense `Vector`; a
+`SparseIterate` is refused for them with CD. See [the input contract](@ref IN-07)
 for refusals and [the constrained stationarity check](@ref STOP-16) for how PGD
-checks a stopping proposal at positive and zero coefficients.
+checks a stopping proposal at positive and zero coefficients. For CD, `converged` is the
+change test of [RES-01](@ref), not a check of the constrained KKT conditions; assess the
+returned point with an independently computed constrained KKT residual, as the walkthroughs do.
 
 The [NNLS walkthrough](examples/problems/nonnegative_least_squares.md) compares
 the two objectives on a common mixture. The [nonnegative sparse-regression

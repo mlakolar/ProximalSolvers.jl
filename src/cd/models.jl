@@ -24,10 +24,13 @@ _uncertified(m::CDModel) = false
 _fallback!(m::CDModel, g, x, st, s) = nothing
 cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model"))
 # The coordinate along a flat LS column (zero slope and curvature), which does not enter the loss: the
-# prox of the penalty at the step floatmax(T) from 0. For NormL1, unweighted ElasticNet and uncentered
-# SqrNormL2 with the levels and weights accepted by `solve!`, this gives the minimizer 0, including
-# when the coordinate is unpenalized and the minimizer is nonunique.
-function _coordinate_minimizer(g::Union{NormL1, ElasticNet, SqrNormL2{<:Real, Nothing}}, old::T, i) where T
+# prox of the penalty at the step floatmax(T) from 0. For NormL1, unweighted ElasticNet, uncentered
+# SqrNormL2, unweighted NormL1Nonneg and IndNonnegative with the levels and weights accepted by `solve!`,
+# this gives the minimizer 0, including when the coordinate is unpenalized and the minimizer is nonunique.
+# For the two nonnegative penalties the result is +0 of type T (checked for levels 0, 0.3, floatmax(T) and
+# nextfloat(0) in Float32 and Float64), so the coordinate keeps no sign bit.
+function _coordinate_minimizer(g::Union{NormL1, ElasticNet, SqrNormL2{<:Real, Nothing}, NormL1Nonneg{<:Real, Nothing}, IndNonnegative},
+                               old::T, i) where T
   new = T(prox_block(g, zero(T), i, floatmax(T)))
   isfinite(new) && isfinite(new-old) || throw(ArgumentError("coordinate $i has no finite minimizer and displacement"))
   new

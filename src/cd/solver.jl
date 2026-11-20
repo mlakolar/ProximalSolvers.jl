@@ -4,7 +4,8 @@
                gaptol=0, gapsafe=false)
 
 Coordinate descent for dense Float32/Float64 least-squares lasso (including
-weights), elastic net, ridge, group lasso and square-root lasso. Use a dense vector
+weights), elastic net, ridge, nonnegative least squares and nonnegative lasso (on a
+dense vector), group lasso and square-root lasso. Use a dense vector
 or one-dimensional `SparseIterate` for scalar problems, a `BlockIterate` for
 groups, or matrix coefficients for row-group multi-response regression.
 `solve!` updates the supplied coefficients. For deterministic scalar examples,
@@ -44,7 +45,11 @@ The data arrays share one `Float32` or `Float64` element type. With least square
 use `NormL1(lambda)`, `NormL1(lambda, w)`, an unweighted `ElasticNet` or an
 uncentered `SqrNormL2(lambda)` for scalar coefficients. Ridge via `SqrNormL2`
 is supported only by CD, for dense vectors or one-dimensional `SparseIterate`;
-a centered penalty is refused, even with an all-zero center. Weights must be a
+a centered penalty is refused, even with an all-zero center. `IndNonnegative()` and an
+unweighted `NormL1Nonneg(lambda)` minimize the least-squares loss over `x >= 0`
+(with `lambda * sum(x)` added for the latter) and are supported for a dense vector
+only, not for a `SparseIterate`; the starting vector must be nonnegative, and a
+negative entry is refused rather than projected. Weights must be a
 matching `Vector{T}` satisfying the validated
 coefficient-range rules; a zero weight leaves its coordinate unpenalized.
 Group penalties require matching partitions; matrix-response groups are the rows

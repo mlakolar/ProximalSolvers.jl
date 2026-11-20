@@ -45,11 +45,13 @@ end
   @test rr.minimum ≈ independent(A,b,v,T(0.1),one(T)).obj atol=tol rtol=tol
 
   # All refusals leave the caller's coefficients unchanged.
-  for method in (AccProxGradDescent(), CDSolver())
-    v = fill(T(0.3), 4); before = copy(v)
-    @test_throws ArgumentError solve!(v, f, g, method)
-    @test v == before
-  end
+  v = fill(T(0.3), 4); before = copy(v)
+  @test_throws ArgumentError solve!(v, f, g, AccProxGradDescent())
+  @test v == before
+  # CDSolver accepts the penalty on a dense Vector (test/cd_nonnegative.jl); its refusals are there too.
+  v = fill(T(0.3), 4)
+  @test solve!(v, f, g, CDSolver(order=:cyclic, momentum=false)).minimizer === v
+  @test minimum(v) >= 0
   for badg in (NormL1Nonneg(lambda, ones(T,4)), NormL1Nonneg(Inf),
                NormL1Nonneg(big(10)^1000), NormL1Nonneg(big(10.0)^(-1000)))
     v = fill(T(0.3), 4); before = copy(v)
