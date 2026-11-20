@@ -17,6 +17,13 @@ python3 -B benchmark/campaigns/stage2b/test_migration_compare.py
 python3 -B benchmark/campaigns/stage2b/test_stage2b_files.py
 python3 -B benchmark/campaigns/stage2b/test_stage2b_campaign.py
 python3 -B benchmark/campaigns/stage2b/probes/test_check_reset_probes.py
+```
+
+Building the documentation and regenerating its figures require Julia 1.11 or later, because
+`docs/Project.toml` uses `[sources]`. This applies to the documentation environment only: the
+package remains compatible with Julia 1.10.8, and standalone examples run with the package environment.
+
+```sh
 julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
