@@ -1,0 +1,49 @@
+titan_retry: attempt 1
+Precompiling packages...
+   0.6 s  ✓ Preferences
+   0.5 s  ✓ PrecompileTools
+  15.0 s  ✓ ProximalBase
+   7.5 s  ✓ ProximalSolvers
+  4 dependencies successfully precompiled in 24 seconds. 8 already precompiled.
+ProximalBase loaded: version 0.6.0-DEV tree 8de7a696d89a10022bb40f0941745939e4087fd4 source https://github.com/mlakolar/ProximalBase.jl rev e03c6d9659365d54f4e0fba1a9cd54490631eea6 path <scratch>/pb-20261120-issue464/shared-depot/packages/ProximalBase/Vu5iv
+Julia 1.13.4; CPU AMD EPYC 7513 32-Core Processor; BLAS LBTConfig([ILP64] libopenblas64_.so)
+== logistic, ProximalGradientDescent, default options (Julia 1.13.4)
+  solver: converged = true, iterations = 6, f_calls = 296, minimum = 2.502012118
+  returned b      = [1.3862821125695498e-150, 0.0]
+  analytic b*     = [1.3862943611198905e-150, 0.0]
+  max |X b - X b*| (predictors) = 1.225e-05
+  objective F(b) = 2.5020121178, F(b*) = 2.5020121177, gap = 6.001e-11 (relative 2.399e-11)
+  free-coordinate KKT max|df/db_free| = 9.799e+144 = 6.533e-06 of its value at zero (1.500e+150)
+  stopping scale S = 1.000e+300, threshold tau*S = 1.000e+295 (tau = 1.0e-05)
+== weighted least squares, one free column, Proximal Gradient Descent, default options (Julia 1.13.4)
+  solver: converged = true, iterations = 1, f_calls = 492, minimum = 0.4
+  returned b      = [8.0e-151, 0.0]
+  analytic b*     = [8.0e-151, 0.0]
+  max |X b - X b*| (predictors) = 6.456e-17
+  objective F(b) = 0.4000000000, F(b*) = 0.4000000000, gap = 1.042e-32 (relative 2.605e-32)
+  free-coordinate KKT max|df/db_free| = 3.228e+134 = 8.070e-17 of its value at zero (4.000e+150)
+  stopping scale S = 1.000e+300, threshold tau*S = 1.000e+295 (tau = 1.0e-05)
+== weighted least squares, two free columns, Proximal Gradient Descent, default options (Julia 1.13.4)
+  solver: converged = true, iterations = 195, f_calls = 909, minimum = 0.2000000127
+  returned b      = [1.9983273229878604e-151, 2.0004658520047478e-151, 0.0]
+  analytic b*     = [2.0000000000000006e-151, 2.0e-151, 0.0]
+  max |X b - X b*| (predictors) = 1.207e-04
+  objective F(b) = 0.2000000127, F(b*) = 0.2000000000, gap = 1.274e-08 (relative 6.372e-08)
+  free-coordinate KKT max|df/db_free| = 1.376e+146 = 9.826e-06 of its value at zero (1.400e+151)
+  stopping scale S = 1.000e+300, threshold tau*S = 1.000e+295 (tau = 1.0e-05)
+== weighted least squares, one free column, Accelerated Proximal Gradient Descent, default options (Julia 1.13.4)
+  solver: converged = true, iterations = 7, f_calls = 1017, minimum = 0.4
+  returned b      = [8.000030563649015e-151, 0.0]
+  analytic b*     = [8.0e-151, 0.0]
+  max |X b - X b*| (predictors) = 3.056e-06
+  objective F(b) = 0.4000000000, F(b*) = 0.4000000000, gap = 2.335e-11 (relative 5.838e-11)
+  free-coordinate KKT max|df/db_free| = 1.528e+145 = 3.820e-06 of its value at zero (4.000e+150)
+  stopping scale S = 1.000e+300, threshold tau*S = 1.000e+295 (tau = 1.0e-05)
+== weighted least squares, two free columns, Accelerated Proximal Gradient Descent, default options (Julia 1.13.4)
+  solver: converged = true, iterations = 45, f_calls = 1101, minimum = 0.2000000078
+  returned b      = [1.9986866035357353e-151, 2.0003627850782305e-151, 0.0]
+  analytic b*     = [2.0000000000000006e-151, 2.0e-151, 0.0]
+  max |X b - X b*| (predictors) = 9.506e-05
+  objective F(b) = 0.2000000078, F(b*) = 0.2000000000, gap = 7.847e-09 (relative 3.923e-08)
+  free-coordinate KKT max|df/db_free| = 1.125e+146 = 8.037e-06 of its value at zero (1.400e+151)
+  stopping scale S = 1.000e+300, threshold tau*S = 1.000e+295 (tau = 1.0e-05)

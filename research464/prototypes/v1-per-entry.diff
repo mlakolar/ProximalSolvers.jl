@@ -1,0 +1,27 @@
+diff --git a/src/utils.jl b/src/utils.jl
+index 274c9ec9..91299cf5 100644
+--- a/src/utils.jl
++++ b/src/utils.jl
+@@ -151,7 +151,21 @@ function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, E
+   S = max(λ, λmax)
+   τ = T(max(options.gradtol, 64 * Float64(eps(T))))
+   threshold = τ * S
+-  isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold
++  isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold &&
++    _entry_thresholds(gT, grad, state.x, τ, λ, λmax)
++end
++
++# #464 prototype: with weights, entry i is held to τ max(cᵢ, λmax). That threshold is at most τ S, so the
++# comparison above is necessary; when the largest coefficient λ does not exceed λmax every entry threshold
++# equals τ S and nothing more is checked.
++_entry_thresholds(g, grad, x, τ, λ, λmax) = true
++function _entry_thresholds(g::NormL1{T, Vector{T}}, grad, x, τ::T, λ::T, λmax::T) where T
++  λ <= λmax && return true
++  @inbounds for i in eachindex(x, grad, g.w)
++    t = τ * max(g.λ0 * g.w[i], λmax)
++    (t >= floatmin(T) && kkt_violation(g, grad, x, i) < t) || return false
++  end
++  true
+ end
+ 
+ # For NormL1Nonneg, ProximalBase uses the point-aware constrained residual: abs(∇fᵢ + λ)

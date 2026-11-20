@@ -1,0 +1,821 @@
+case	loss	T	method	start	rule	converged	iter	iter_conv	stagnated	f_increased	call_limit	x_conv	f_conv	g_conv	f_calls	grad_calls	checks	passes	relgap	kkt_local	kkt_free_rel0	free_err	S_v0	lmax	cmax	decision_vs_v0
+A1 logistic B4	logistic	Float64	PGD	zero	v0	true	1	false	false	false	false	true	false	false	285	2	1	1	5.755e-03	6.295e-02	1.049e-01	1.344e-01	1.000e+300	1.500e+150	1.000e+300	same
+A1 logistic B4	logistic	Float64	PGD	zero	v1	true	6	false	false	false	false	true	true	false	296	7	6	1	2.399e-11	3.920e-06	6.533e-06	8.835e-06	1.000e+300	1.500e+150	1.000e+300	differs
+A1 logistic B4	logistic	Float64	PGD	zero	v2	true	6	false	false	false	false	true	true	false	296	7	6	1	2.399e-11	3.920e-06	6.533e-06	8.835e-06	1.000e+300	1.500e+150	1.000e+300	differs
+A1 logistic B4	logistic	Float64	PGD	zero	v3	true	6	false	false	false	false	true	true	false	296	7	6	1	2.399e-11	3.920e-06	6.533e-06	8.835e-06	1.000e+300	1.500e+150	1.000e+300	differs
+A2 LS one free	ls	Float64	PGD	zero	v0	true	1	false	false	false	false	true	false	false	492	2	1	1	2.605e-32	7.218e-17	8.070e-17	8.070e-17	1.000e+300	4.000e+150	1.000e+300	same
+A2 LS one free	ls	Float64	PGD	zero	v1	true	1	false	false	false	false	true	false	false	492	2	1	1	2.605e-32	7.218e-17	8.070e-17	8.070e-17	1.000e+300	4.000e+150	1.000e+300	same
+A2 LS one free	ls	Float64	PGD	zero	v2	true	1	false	false	false	false	true	false	false	492	2	1	1	2.605e-32	7.218e-17	8.070e-17	8.070e-17	1.000e+300	4.000e+150	1.000e+300	same
+A2 LS one free	ls	Float64	PGD	zero	v3	true	1	false	false	false	false	true	false	false	492	2	1	1	2.605e-32	7.218e-17	8.070e-17	8.070e-17	1.000e+300	4.000e+150	1.000e+300	same
+A2 LS one free	ls	Float64	APG	zero	v0	true	1	false	false	false	false	true	false	false	1003	2	1	1	9.274e-01	4.307e-01	4.815e-01	4.815e-01	1.000e+300	4.000e+150	1.000e+300	same
+A2 LS one free	ls	Float64	APG	zero	v1	true	7	false	false	false	false	true	true	false	1017	15	7	1	5.838e-11	3.417e-06	3.820e-06	3.820e-06	1.000e+300	4.000e+150	1.000e+300	differs
+A2 LS one free	ls	Float64	APG	zero	v2	true	7	false	false	false	false	true	true	false	1017	15	7	1	5.838e-11	3.417e-06	3.820e-06	3.820e-06	1.000e+300	4.000e+150	1.000e+300	differs
+A2 LS one free	ls	Float64	APG	zero	v3	true	7	false	false	false	false	true	true	false	1017	15	7	1	5.838e-11	3.417e-06	3.820e-06	3.820e-06	1.000e+300	4.000e+150	1.000e+300	differs
+A3 LS two free	ls	Float64	PGD	zero	v0	true	1	false	false	false	false	true	false	false	497	2	1	1	2.280e+00	4.709e-01	4.989e-01	8.309e-01	1.000e+300	1.400e+151	1.000e+300	same
+A3 LS two free	ls	Float64	PGD	zero	v1	true	195	false	false	false	false	true	true	false	909	196	195	1	6.372e-08	3.076e-05	9.826e-06	8.363e-04	1.000e+300	1.400e+151	1.000e+300	differs
+A3 LS two free	ls	Float64	PGD	zero	v2	true	195	false	false	false	false	true	true	false	909	196	195	1	6.372e-08	3.076e-05	9.826e-06	8.363e-04	1.000e+300	1.400e+151	1.000e+300	differs
+A3 LS two free	ls	Float64	PGD	zero	v3	true	195	false	false	false	false	true	true	false	909	196	195	1	6.372e-08	3.076e-05	9.826e-06	8.363e-04	1.000e+300	1.400e+151	1.000e+300	differs
+A3 LS two free	ls	Float64	APG	zero	v0	true	1	false	false	false	false	true	false	false	1006	2	1	1	5.275e-01	2.278e-01	2.315e-01	7.408e-01	1.000e+300	1.400e+151	1.000e+300	same
+A3 LS two free	ls	Float64	APG	zero	v1	true	45	false	false	false	false	true	true	true	1101	91	45	1	3.923e-08	2.516e-05	8.037e-06	6.567e-04	1.000e+300	1.400e+151	1.000e+300	differs
+A3 LS two free	ls	Float64	APG	zero	v2	true	45	false	false	false	false	true	true	true	1101	91	45	1	3.923e-08	2.516e-05	8.037e-06	6.567e-04	1.000e+300	1.400e+151	1.000e+300	differs
+A3 LS two free	ls	Float64	APG	zero	v3	true	45	false	false	false	false	true	true	true	1101	91	45	1	3.923e-08	2.516e-05	8.037e-06	6.567e-04	1.000e+300	1.400e+151	1.000e+300	differs
+B zero column W=1.0	ls	Float64	PGD	zero	v0	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float64	PGD	zero	v1	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float64	PGD	zero	v2	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float64	PGD	zero	v3	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float64	APG	zero	v0	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float64	APG	zero	v1	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float64	APG	zero	v2	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float64	APG	zero	v3	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1000.0	ls	Float64	PGD	zero	v0	true	41	false	false	false	false	false	true	false	89	42	1	1	4.469e-06	3.504e-04	NaN	4.194e-03	1.086e+04	1.086e+02	1.086e+04	same
+B zero column W=1000.0	ls	Float64	PGD	zero	v1	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+04	1.086e+02	1.086e+04	differs
+B zero column W=1000.0	ls	Float64	PGD	zero	v2	true	41	false	false	false	false	false	true	false	89	42	1	1	4.469e-06	3.504e-04	NaN	4.194e-03	1.086e+04	1.086e+02	1.086e+04	same
+B zero column W=1000.0	ls	Float64	PGD	zero	v3	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+04	1.086e+02	1.086e+04	differs
+B zero column W=1000.0	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+04	1.086e+02	1.086e+04	same
+B zero column W=1000.0	ls	Float64	APG	zero	v1	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+04	1.086e+02	1.086e+04	differs
+B zero column W=1000.0	ls	Float64	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+04	1.086e+02	1.086e+04	same
+B zero column W=1000.0	ls	Float64	APG	zero	v3	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+04	1.086e+02	1.086e+04	differs
+B zero column W=1.0e6	ls	Float64	PGD	zero	v0	true	41	false	false	false	false	false	true	false	89	42	1	1	4.469e-06	3.504e-04	NaN	4.194e-03	1.086e+07	1.086e+02	1.086e+07	same
+B zero column W=1.0e6	ls	Float64	PGD	zero	v1	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0e6	ls	Float64	PGD	zero	v2	true	41	false	false	false	false	false	true	false	89	42	1	1	4.469e-06	3.504e-04	NaN	4.194e-03	1.086e+07	1.086e+02	1.086e+07	same
+B zero column W=1.0e6	ls	Float64	PGD	zero	v3	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0e6	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+07	1.086e+02	1.086e+07	same
+B zero column W=1.0e6	ls	Float64	APG	zero	v1	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0e6	ls	Float64	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+07	1.086e+02	1.086e+07	same
+B zero column W=1.0e6	ls	Float64	APG	zero	v3	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0e12	ls	Float64	PGD	zero	v0	true	41	false	false	false	false	false	true	false	89	42	1	1	4.469e-06	3.504e-04	NaN	4.194e-03	1.086e+13	1.086e+02	1.086e+13	same
+B zero column W=1.0e12	ls	Float64	PGD	zero	v1	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+13	1.086e+02	1.086e+13	differs
+B zero column W=1.0e12	ls	Float64	PGD	zero	v2	true	41	false	false	false	false	false	true	false	89	42	1	1	4.469e-06	3.504e-04	NaN	4.194e-03	1.086e+13	1.086e+02	1.086e+13	same
+B zero column W=1.0e12	ls	Float64	PGD	zero	v3	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+13	1.086e+02	1.086e+13	differs
+B zero column W=1.0e12	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+13	1.086e+02	1.086e+13	same
+B zero column W=1.0e12	ls	Float64	APG	zero	v1	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+13	1.086e+02	1.086e+13	differs
+B zero column W=1.0e12	ls	Float64	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+13	1.086e+02	1.086e+13	same
+B zero column W=1.0e12	ls	Float64	APG	zero	v3	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+13	1.086e+02	1.086e+13	differs
+B zero column W=1.0e100	ls	Float64	PGD	zero	v0	true	41	false	false	false	false	false	true	false	89	42	1	1	4.469e-06	3.504e-04	NaN	4.194e-03	1.086e+101	1.086e+02	1.086e+101	same
+B zero column W=1.0e100	ls	Float64	PGD	zero	v1	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+101	1.086e+02	1.086e+101	differs
+B zero column W=1.0e100	ls	Float64	PGD	zero	v2	true	41	false	false	false	false	false	true	false	89	42	1	1	4.469e-06	3.504e-04	NaN	4.194e-03	1.086e+101	1.086e+02	1.086e+101	same
+B zero column W=1.0e100	ls	Float64	PGD	zero	v3	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+101	1.086e+02	1.086e+101	differs
+B zero column W=1.0e100	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+101	1.086e+02	1.086e+101	same
+B zero column W=1.0e100	ls	Float64	APG	zero	v1	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+101	1.086e+02	1.086e+101	differs
+B zero column W=1.0e100	ls	Float64	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+101	1.086e+02	1.086e+101	same
+B zero column W=1.0e100	ls	Float64	APG	zero	v3	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+101	1.086e+02	1.086e+101	differs
+B reduced (no zero column)	ls	Float64	PGD	zero	v0	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float64	PGD	zero	v1	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float64	PGD	zero	v2	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float64	PGD	zero	v3	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float64	APG	zero	v0	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float64	APG	zero	v1	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float64	APG	zero	v2	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float64	APG	zero	v3	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float64	PGD	zero	v0	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float64	PGD	zero	v1	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float64	PGD	zero	v2	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float64	PGD	zero	v3	true	77	false	false	false	false	false	true	false	166	78	37	1	1.743e-09	6.680e-06	NaN	7.807e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float64	APG	zero	v0	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float64	APG	zero	v1	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float64	APG	zero	v2	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float64	APG	zero	v3	true	27	false	false	false	false	false	true	false	70	38	9	1	2.046e-09	8.411e-06	NaN	7.109e-05	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1000.0	ls	Float64	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.770e-04	NaN	3.904e-03	1.086e+04	1.086e+02	1.086e+04	same
+C excluded column W=1000.0	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	161	76	33	1	2.164e-09	6.048e-06	NaN	8.843e-05	1.086e+04	1.086e+02	1.086e+04	differs
+C excluded column W=1000.0	ls	Float64	PGD	zero	v2	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.770e-04	NaN	3.904e-03	1.086e+04	1.086e+02	1.086e+04	same
+C excluded column W=1000.0	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	161	76	33	1	2.164e-09	6.048e-06	NaN	8.843e-05	1.086e+04	1.086e+02	1.086e+04	differs
+C excluded column W=1000.0	ls	Float64	APG	zero	v0	true	20	false	false	false	false	false	true	false	53	22	1	1	1.016e-06	2.143e-04	NaN	1.446e-03	1.086e+04	1.086e+02	1.086e+04	same
+C excluded column W=1000.0	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	true	76	43	11	1	1.404e-09	7.299e-06	NaN	6.623e-05	1.086e+04	1.086e+02	1.086e+04	differs
+C excluded column W=1000.0	ls	Float64	APG	zero	v2	true	20	false	false	false	false	false	true	false	53	22	1	1	1.016e-06	2.143e-04	NaN	1.446e-03	1.086e+04	1.086e+02	1.086e+04	same
+C excluded column W=1000.0	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	true	76	43	11	1	1.404e-09	7.299e-06	NaN	6.623e-05	1.086e+04	1.086e+02	1.086e+04	differs
+C excluded column W=1.0e6	ls	Float64	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.770e-04	NaN	3.904e-03	1.086e+07	1.086e+02	1.086e+07	same
+C excluded column W=1.0e6	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	161	76	33	1	2.164e-09	6.048e-06	NaN	8.843e-05	1.086e+07	1.086e+02	1.086e+07	differs
+C excluded column W=1.0e6	ls	Float64	PGD	zero	v2	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.770e-04	NaN	3.904e-03	1.086e+07	1.086e+02	1.086e+07	same
+C excluded column W=1.0e6	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	161	76	33	1	2.164e-09	6.048e-06	NaN	8.843e-05	1.086e+07	1.086e+02	1.086e+07	differs
+C excluded column W=1.0e6	ls	Float64	APG	zero	v0	true	20	false	false	false	false	false	true	false	53	22	1	1	1.016e-06	2.143e-04	NaN	1.446e-03	1.086e+07	1.086e+02	1.086e+07	same
+C excluded column W=1.0e6	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	true	76	43	11	1	1.404e-09	7.299e-06	NaN	6.623e-05	1.086e+07	1.086e+02	1.086e+07	differs
+C excluded column W=1.0e6	ls	Float64	APG	zero	v2	true	20	false	false	false	false	false	true	false	53	22	1	1	1.016e-06	2.143e-04	NaN	1.446e-03	1.086e+07	1.086e+02	1.086e+07	same
+C excluded column W=1.0e6	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	true	76	43	11	1	1.404e-09	7.299e-06	NaN	6.623e-05	1.086e+07	1.086e+02	1.086e+07	differs
+C excluded column W=1.0e12	ls	Float64	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.770e-04	NaN	3.904e-03	1.086e+13	1.086e+02	1.086e+13	same
+C excluded column W=1.0e12	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	161	76	33	1	2.164e-09	6.048e-06	NaN	8.843e-05	1.086e+13	1.086e+02	1.086e+13	differs
+C excluded column W=1.0e12	ls	Float64	PGD	zero	v2	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.770e-04	NaN	3.904e-03	1.086e+13	1.086e+02	1.086e+13	same
+C excluded column W=1.0e12	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	161	76	33	1	2.164e-09	6.048e-06	NaN	8.843e-05	1.086e+13	1.086e+02	1.086e+13	differs
+C excluded column W=1.0e12	ls	Float64	APG	zero	v0	true	20	false	false	false	false	false	true	false	53	22	1	1	1.016e-06	2.143e-04	NaN	1.446e-03	1.086e+13	1.086e+02	1.086e+13	same
+C excluded column W=1.0e12	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	true	76	43	11	1	1.404e-09	7.299e-06	NaN	6.623e-05	1.086e+13	1.086e+02	1.086e+13	differs
+C excluded column W=1.0e12	ls	Float64	APG	zero	v2	true	20	false	false	false	false	false	true	false	53	22	1	1	1.016e-06	2.143e-04	NaN	1.446e-03	1.086e+13	1.086e+02	1.086e+13	same
+C excluded column W=1.0e12	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	true	76	43	11	1	1.404e-09	7.299e-06	NaN	6.623e-05	1.086e+13	1.086e+02	1.086e+13	differs
+C excluded column W=1.0e100	ls	Float64	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.770e-04	NaN	3.904e-03	1.086e+101	1.086e+02	1.086e+101	same
+C excluded column W=1.0e100	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	161	76	33	1	2.164e-09	6.048e-06	NaN	8.843e-05	1.086e+101	1.086e+02	1.086e+101	differs
+C excluded column W=1.0e100	ls	Float64	PGD	zero	v2	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.770e-04	NaN	3.904e-03	1.086e+101	1.086e+02	1.086e+101	same
+C excluded column W=1.0e100	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	161	76	33	1	2.164e-09	6.048e-06	NaN	8.843e-05	1.086e+101	1.086e+02	1.086e+101	differs
+C excluded column W=1.0e100	ls	Float64	APG	zero	v0	true	20	false	false	false	false	false	true	false	53	22	1	1	1.016e-06	2.143e-04	NaN	1.446e-03	1.086e+101	1.086e+02	1.086e+101	same
+C excluded column W=1.0e100	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	true	76	43	11	1	1.404e-09	7.299e-06	NaN	6.623e-05	1.086e+101	1.086e+02	1.086e+101	differs
+C excluded column W=1.0e100	ls	Float64	APG	zero	v2	true	20	false	false	false	false	false	true	false	53	22	1	1	1.016e-06	2.143e-04	NaN	1.446e-03	1.086e+101	1.086e+02	1.086e+101	same
+C excluded column W=1.0e100	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	true	76	43	11	1	1.404e-09	7.299e-06	NaN	6.623e-05	1.086e+101	1.086e+02	1.086e+101	differs
+D free first, W=1.0	ls	Float64	PGD	zero	v0	true	75	false	false	false	false	false	true	false	162	76	29	1	2.320e-09	5.728e-06	7.610e-06	5.800e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	29	1	2.320e-09	5.728e-06	7.610e-06	5.800e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float64	PGD	zero	v2	true	75	false	false	false	false	false	true	false	162	76	29	1	2.320e-09	5.728e-06	7.610e-06	5.800e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	29	1	2.320e-09	5.728e-06	7.610e-06	5.800e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float64	APG	zero	v0	true	30	false	false	false	false	false	true	true	77	44	12	1	7.754e-10	5.997e-06	3.981e-06	1.901e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	true	77	44	12	1	7.754e-10	5.997e-06	3.981e-06	1.901e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float64	APG	zero	v2	true	30	false	false	false	false	false	true	true	77	44	12	1	7.754e-10	5.997e-06	3.981e-06	1.901e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	true	77	44	12	1	7.754e-10	5.997e-06	3.981e-06	1.901e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1000.0	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	2.405e-04	2.466e-03	1.086e+04	1.086e+02	1.086e+04	same
+D free first, W=1000.0	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float64	PGD	zero	v2	true	66	false	false	false	false	false	true	false	142	67	21	1	1.840e-08	2.868e-05	2.498e-06	1.683e-04	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.861e-05	9.177e-04	1.086e+04	1.086e+02	1.086e+04	same
+D free first, W=1000.0	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float64	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.070e-05	9.444e-06	1.294e-04	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1.0e6	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	2.405e-04	2.466e-03	1.086e+07	1.086e+02	1.086e+07	same
+D free first, W=1.0e6	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float64	PGD	zero	v2	true	66	false	false	false	false	false	true	false	142	67	21	1	1.840e-08	2.868e-05	2.498e-06	1.683e-04	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.861e-05	9.177e-04	1.086e+07	1.086e+02	1.086e+07	same
+D free first, W=1.0e6	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float64	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.070e-05	9.444e-06	1.294e-04	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e12	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	2.405e-04	2.466e-03	1.086e+13	1.086e+02	1.086e+13	same
+D free first, W=1.0e12	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float64	PGD	zero	v2	true	66	false	false	false	false	false	true	false	142	67	21	1	1.840e-08	2.868e-05	2.498e-06	1.683e-04	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.861e-05	9.177e-04	1.086e+13	1.086e+02	1.086e+13	same
+D free first, W=1.0e12	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float64	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.070e-05	9.444e-06	1.294e-04	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e100	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	2.405e-04	2.466e-03	1.086e+101	1.086e+02	1.086e+101	same
+D free first, W=1.0e100	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+101	1.086e+02	1.086e+101	differs
+D free first, W=1.0e100	ls	Float64	PGD	zero	v2	true	66	false	false	false	false	false	true	false	142	67	21	1	1.840e-08	2.868e-05	2.498e-06	1.683e-04	1.086e+101	1.086e+02	1.086e+101	differs
+D free first, W=1.0e100	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+101	1.086e+02	1.086e+101	differs
+D free first, W=1.0e100	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.861e-05	9.177e-04	1.086e+101	1.086e+02	1.086e+101	same
+D free first, W=1.0e100	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+101	1.086e+02	1.086e+101	differs
+D free first, W=1.0e100	ls	Float64	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.070e-05	9.444e-06	1.294e-04	1.086e+101	1.086e+02	1.086e+101	differs
+D free first, W=1.0e100	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+101	1.086e+02	1.086e+101	differs
+E tiny+huge weights	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	NaN	2.466e-03	1.086e+13	1.086e+02	1.086e+13	same
+E tiny+huge weights	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	NaN	6.129e-05	1.086e+13	1.086e+02	1.086e+13	differs
+E tiny+huge weights	ls	Float64	PGD	zero	v2	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	NaN	2.466e-03	1.086e+13	1.086e+02	1.086e+13	same
+E tiny+huge weights	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	NaN	6.129e-05	1.086e+13	1.086e+02	1.086e+13	differs
+E tiny+huge weights	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	NaN	9.177e-04	1.086e+13	1.086e+02	1.086e+13	same
+E tiny+huge weights	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	NaN	3.124e-05	1.086e+13	1.086e+02	1.086e+13	differs
+E tiny+huge weights	ls	Float64	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	NaN	9.177e-04	1.086e+13	1.086e+02	1.086e+13	same
+E tiny+huge weights	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	NaN	3.124e-05	1.086e+13	1.086e+02	1.086e+13	differs
+F ordinary weights λ=0.01λmax	ls	Float64	PGD	zero	v0	true	104	false	false	false	false	false	true	false	224	105	36	1	1.110e-08	7.511e-06	NaN	5.243e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float64	PGD	zero	v1	true	104	false	false	false	false	false	true	false	224	105	36	1	1.110e-08	7.511e-06	NaN	5.243e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float64	PGD	zero	v2	true	104	false	false	false	false	false	true	false	224	105	36	1	1.110e-08	7.511e-06	NaN	5.243e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float64	PGD	zero	v3	true	104	false	false	false	false	false	true	false	224	105	36	1	1.110e-08	7.511e-06	NaN	5.243e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float64	APG	zero	v0	true	35	false	false	false	false	false	true	false	88	48	11	1	9.567e-09	9.638e-06	NaN	4.734e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float64	APG	zero	v1	true	35	false	false	false	false	false	true	false	88	48	11	1	9.567e-09	9.638e-06	NaN	4.734e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float64	APG	zero	v2	true	35	false	false	false	false	false	true	false	88	48	11	1	9.567e-09	9.638e-06	NaN	4.734e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float64	APG	zero	v3	true	35	false	false	false	false	false	true	false	88	48	11	1	9.567e-09	9.638e-06	NaN	4.734e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.1λmax	ls	Float64	PGD	zero	v0	true	59	false	false	false	false	false	true	false	127	60	18	1	1.581e-09	6.695e-06	NaN	6.650e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float64	PGD	zero	v1	true	59	false	false	false	false	false	true	false	127	60	18	1	1.581e-09	6.695e-06	NaN	6.650e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float64	PGD	zero	v2	true	59	false	false	false	false	false	true	false	127	60	18	1	1.581e-09	6.695e-06	NaN	6.650e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float64	PGD	zero	v3	true	59	false	false	false	false	false	true	false	127	60	18	1	1.581e-09	6.695e-06	NaN	6.650e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float64	APG	zero	v0	true	24	false	false	false	false	false	true	false	64	30	4	1	2.960e-10	7.323e-06	NaN	1.649e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float64	APG	zero	v1	true	24	false	false	false	false	false	true	false	64	30	4	1	2.960e-10	7.323e-06	NaN	1.649e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float64	APG	zero	v2	true	24	false	false	false	false	false	true	false	64	30	4	1	2.960e-10	7.323e-06	NaN	1.649e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float64	APG	zero	v3	true	24	false	false	false	false	false	true	false	64	30	4	1	2.960e-10	7.323e-06	NaN	1.649e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.5λmax	ls	Float64	PGD	zero	v0	true	9	false	false	false	false	false	true	false	20	10	3	1	2.695e-11	2.567e-06	NaN	1.204e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float64	PGD	zero	v1	true	9	false	false	false	false	false	true	false	20	10	3	1	2.695e-11	2.567e-06	NaN	1.204e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float64	PGD	zero	v2	true	9	false	false	false	false	false	true	false	20	10	3	1	2.695e-11	2.567e-06	NaN	1.204e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float64	PGD	zero	v3	true	9	false	false	false	false	false	true	false	20	10	3	1	2.695e-11	2.567e-06	NaN	1.204e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float64	APG	zero	v0	true	12	false	false	false	false	false	true	true	37	18	4	1	8.556e-13	5.005e-07	NaN	2.729e-06	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float64	APG	zero	v1	true	12	false	false	false	false	false	true	true	37	18	4	1	8.556e-13	5.005e-07	NaN	2.729e-06	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float64	APG	zero	v2	true	12	false	false	false	false	false	true	true	37	18	4	1	8.556e-13	5.005e-07	NaN	2.729e-06	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float64	APG	zero	v3	true	12	false	false	false	false	false	true	true	37	18	4	1	8.556e-13	5.005e-07	NaN	2.729e-06	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=2.0λmax	ls	Float64	PGD	zero	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float64	PGD	zero	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float64	PGD	zero	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float64	PGD	zero	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float64	APG	zero	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float64	APG	zero	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float64	APG	zero	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float64	APG	zero	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F all-zero weights	ls	Float64	PGD	zero	v0	true	110	false	false	false	false	false	true	false	236	111	36	1	2.609e-08	8.270e-06	9.626e-06	6.183e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float64	PGD	zero	v1	true	110	false	false	false	false	false	true	false	236	111	36	1	2.609e-08	8.270e-06	9.626e-06	6.183e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float64	PGD	zero	v2	true	110	false	false	false	false	false	true	false	236	111	36	1	2.609e-08	8.270e-06	9.626e-06	6.183e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float64	PGD	zero	v3	true	110	false	false	false	false	false	true	false	236	111	36	1	2.609e-08	8.270e-06	9.626e-06	6.183e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float64	APG	zero	v0	true	37	false	false	false	false	false	true	false	92	48	9	1	1.866e-08	7.915e-06	9.213e-06	6.004e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float64	APG	zero	v1	true	37	false	false	false	false	false	true	false	92	48	9	1	1.866e-08	7.915e-06	9.213e-06	6.004e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float64	APG	zero	v2	true	37	false	false	false	false	false	true	false	92	48	9	1	1.866e-08	7.915e-06	9.213e-06	6.004e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float64	APG	zero	v3	true	37	false	false	false	false	false	true	false	92	48	9	1	1.866e-08	7.915e-06	9.213e-06	6.004e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float64	PGD	zero	v0	true	110	false	false	false	false	false	true	false	236	111	36	1	2.609e-08	8.270e-06	9.626e-06	6.183e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float64	PGD	zero	v1	true	110	false	false	false	false	false	true	false	236	111	36	1	2.609e-08	8.270e-06	9.626e-06	6.183e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float64	PGD	zero	v2	true	110	false	false	false	false	false	true	false	236	111	36	1	2.609e-08	8.270e-06	9.626e-06	6.183e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float64	PGD	zero	v3	true	110	false	false	false	false	false	true	false	236	111	36	1	2.609e-08	8.270e-06	9.626e-06	6.183e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float64	APG	zero	v0	true	37	false	false	false	false	false	true	false	92	48	9	1	1.866e-08	7.915e-06	9.213e-06	6.004e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float64	APG	zero	v1	true	37	false	false	false	false	false	true	false	92	48	9	1	1.866e-08	7.915e-06	9.213e-06	6.004e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float64	APG	zero	v2	true	37	false	false	false	false	false	true	false	92	48	9	1	1.866e-08	7.915e-06	9.213e-06	6.004e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float64	APG	zero	v3	true	37	false	false	false	false	false	true	false	92	48	9	1	1.866e-08	7.915e-06	9.213e-06	6.004e-05	1.086e+02	1.086e+02	0.000e+00	same
+G corr ρ=.95 ordinary	ls	Float64	PGD	zero	v0	true	76	false	false	false	false	false	true	false	162	77	33	1	6.541e-09	8.189e-06	NaN	1.654e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float64	PGD	zero	v1	true	76	false	false	false	false	false	true	false	162	77	33	1	6.541e-09	8.189e-06	NaN	1.654e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float64	PGD	zero	v2	true	76	false	false	false	false	false	true	false	162	77	33	1	6.541e-09	8.189e-06	NaN	1.654e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float64	PGD	zero	v3	true	76	false	false	false	false	false	true	false	162	77	33	1	6.541e-09	8.189e-06	NaN	1.654e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float64	APG	zero	v0	true	40	false	false	false	false	false	true	true	98	51	9	1	2.726e-09	5.618e-06	NaN	1.071e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float64	APG	zero	v1	true	40	false	false	false	false	false	true	true	98	51	9	1	2.726e-09	5.618e-06	NaN	1.071e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float64	APG	zero	v2	true	40	false	false	false	false	false	true	true	98	51	9	1	2.726e-09	5.618e-06	NaN	1.071e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float64	APG	zero	v3	true	40	false	false	false	false	false	true	true	98	51	9	1	2.726e-09	5.618e-06	NaN	1.071e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 huge W	ls	Float64	PGD	zero	v0	true	26	false	false	false	false	false	true	false	56	27	1	1	8.864e-08	9.207e-05	9.681e-05	9.681e-05	9.542e+06	9.542e+01	9.542e+06	same
+G corr ρ=.95 huge W	ls	Float64	PGD	zero	v1	true	29	false	false	false	false	false	true	false	62	30	4	1	1.721e-10	4.057e-06	4.266e-06	4.266e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G corr ρ=.95 huge W	ls	Float64	PGD	zero	v2	true	29	false	false	false	false	false	true	false	62	30	4	1	1.721e-10	4.057e-06	4.266e-06	4.266e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G corr ρ=.95 huge W	ls	Float64	PGD	zero	v3	true	29	false	false	false	false	false	true	false	62	30	4	1	1.721e-10	4.057e-06	4.266e-06	4.266e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G corr ρ=.95 huge W	ls	Float64	APG	zero	v0	true	22	false	false	false	false	false	true	false	59	25	1	1	9.966e-08	9.762e-05	1.027e-04	1.027e-04	9.542e+06	9.542e+01	9.542e+06	same
+G corr ρ=.95 huge W	ls	Float64	APG	zero	v1	true	24	false	false	false	false	false	true	true	63	29	3	1	7.413e-11	2.662e-06	2.800e-06	2.800e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G corr ρ=.95 huge W	ls	Float64	APG	zero	v2	true	24	false	false	false	false	false	true	true	63	29	3	1	7.413e-11	2.662e-06	2.800e-06	2.800e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G corr ρ=.95 huge W	ls	Float64	APG	zero	v3	true	24	false	false	false	false	false	true	true	63	29	3	1	7.413e-11	2.662e-06	2.800e-06	2.800e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G duplicate column, huge W on copy	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	2.405e-04	2.466e-03	1.086e+07	1.086e+02	1.086e+07	same
+G duplicate column, huge W on copy	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float64	PGD	zero	v2	true	66	false	false	false	false	false	true	false	142	67	21	1	1.840e-08	2.868e-05	2.498e-06	1.683e-04	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.861e-05	9.177e-04	1.086e+07	1.086e+02	1.086e+07	same
+G duplicate column, huge W on copy	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float64	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.070e-05	9.444e-06	1.294e-04	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+07	1.086e+02	1.086e+07	differs
+H starts ordinary	ls	Float64	PGD	random	v0	true	68	false	false	false	false	false	true	false	147	69	27	1	1.932e-09	7.635e-06	NaN	7.367e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	PGD	random	v1	true	68	false	false	false	false	false	true	false	147	69	27	1	1.932e-09	7.635e-06	NaN	7.367e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	PGD	random	v2	true	68	false	false	false	false	false	true	false	147	69	27	1	1.932e-09	7.635e-06	NaN	7.367e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	PGD	random	v3	true	68	false	false	false	false	false	true	false	147	69	27	1	1.932e-09	7.635e-06	NaN	7.367e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	PGD	reference	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	8.286e-29	5.160e-15	NaN	5.015e-15	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	PGD	reference	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	8.286e-29	5.160e-15	NaN	5.015e-15	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	PGD	reference	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	8.286e-29	5.160e-15	NaN	5.015e-15	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	PGD	reference	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	8.286e-29	5.160e-15	NaN	5.015e-15	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	APG	random	v0	true	26	false	false	false	false	false	true	true	68	38	10	1	9.056e-10	6.926e-06	NaN	4.606e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	APG	random	v1	true	26	false	false	false	false	false	true	true	68	38	10	1	9.056e-10	6.926e-06	NaN	4.606e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	APG	random	v2	true	26	false	false	false	false	false	true	true	68	38	10	1	9.056e-10	6.926e-06	NaN	4.606e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	APG	random	v3	true	26	false	false	false	false	false	true	true	68	38	10	1	9.056e-10	6.926e-06	NaN	4.606e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	APG	reference	v0	true	1	false	false	false	false	true	true	true	9	2	1	1	1.896e-33	1.841e-17	NaN	3.379e-17	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	APG	reference	v1	true	1	false	false	false	false	true	true	true	9	2	1	1	1.896e-33	1.841e-17	NaN	3.379e-17	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	APG	reference	v2	true	1	false	false	false	false	true	true	true	9	2	1	1	1.896e-33	1.841e-17	NaN	3.379e-17	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float64	APG	reference	v3	true	1	false	false	false	false	true	true	true	9	2	1	1	1.896e-33	1.841e-17	NaN	3.379e-17	1.086e+02	1.086e+02	2.155e+01	same
+H starts huge W	ls	Float64	PGD	random	v0	true	48	false	false	false	false	false	true	false	104	49	1	1	4.939e-06	3.101e-04	2.729e-04	2.709e-03	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	PGD	random	v1	true	77	false	false	false	false	false	true	true	165	78	30	1	1.576e-09	6.243e-06	8.295e-06	4.667e-05	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float64	PGD	random	v2	true	60	false	false	false	false	false	true	false	129	61	13	1	1.299e-07	7.987e-05	1.102e-06	4.475e-04	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float64	PGD	random	v3	true	77	false	false	false	false	false	true	true	165	78	30	1	1.576e-09	6.243e-06	8.295e-06	4.667e-05	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float64	PGD	reference	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	5.618e-29	3.110e-15	4.131e-15	3.369e-15	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	PGD	reference	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	5.618e-29	3.110e-15	4.131e-15	3.369e-15	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	PGD	reference	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	5.618e-29	3.110e-15	4.131e-15	3.369e-15	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	PGD	reference	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	5.618e-29	3.110e-15	4.131e-15	3.369e-15	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	APG	random	v0	true	20	false	false	false	false	false	true	false	55	23	1	1	1.824e-06	2.018e-04	7.754e-05	1.316e-03	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	APG	random	v1	true	30	false	false	false	false	false	true	true	77	43	11	1	1.269e-09	7.392e-06	5.485e-06	2.582e-05	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float64	APG	random	v2	true	28	false	false	false	false	false	true	false	72	39	9	1	2.222e-08	3.191e-05	9.199e-06	1.882e-04	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float64	APG	random	v3	true	30	false	false	false	false	false	true	true	77	43	11	1	1.269e-09	7.392e-06	5.485e-06	2.582e-05	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float64	APG	reference	v0	true	1	false	false	false	false	true	true	true	9	2	1	1	5.299e-33	2.075e-17	2.130e-17	4.847e-17	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	APG	reference	v1	true	1	false	false	false	false	true	true	true	9	2	1	1	5.299e-33	2.075e-17	2.130e-17	4.847e-17	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	APG	reference	v2	true	1	false	false	false	false	true	true	true	9	2	1	1	5.299e-33	2.075e-17	2.130e-17	4.847e-17	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float64	APG	reference	v3	true	1	false	false	false	false	true	true	true	9	2	1	1	5.299e-33	2.075e-17	2.130e-17	4.847e-17	1.086e+07	1.086e+02	1.086e+07	same
+I rescale α=1.0e-100 huge W	ls	Float64	PGD	zero	v0	true	53	false	false	false	false	false	true	false	111	54	1	1	2.353e-06	3.924e-04	5.214e-04	1.624e-03	1.086e-93	1.086e-98	1.086e-93	same
+I rescale α=1.0e-100 huge W	ls	Float64	PGD	zero	v1	true	79	false	false	false	false	false	true	false	167	80	27	1	3.808e-09	7.220e-06	9.486e-06	7.443e-05	1.086e-93	1.086e-98	1.086e-93	differs
+I rescale α=1.0e-100 huge W	ls	Float64	PGD	zero	v2	true	70	false	false	false	false	false	true	false	148	71	18	1	3.163e-08	3.588e-05	5.876e-06	2.205e-04	1.086e-93	1.086e-98	1.086e-93	differs
+I rescale α=1.0e-100 huge W	ls	Float64	PGD	zero	v3	true	79	false	false	false	false	false	true	false	167	80	27	1	3.808e-09	7.220e-06	9.486e-06	7.443e-05	1.086e-93	1.086e-98	1.086e-93	differs
+I rescale α=1.0e-100 huge W	ls	Float64	APG	zero	v0	true	23	false	false	false	false	false	true	false	51	25	1	1	9.394e-07	1.495e-04	7.972e-05	9.820e-04	1.086e-93	1.086e-98	1.086e-93	same
+I rescale α=1.0e-100 huge W	ls	Float64	APG	zero	v1	true	34	false	false	false	false	false	true	true	75	48	12	1	1.556e-10	3.425e-06	2.406e-06	1.033e-05	1.086e-93	1.086e-98	1.086e-93	differs
+I rescale α=1.0e-100 huge W	ls	Float64	APG	zero	v2	true	33	false	false	false	false	false	true	false	73	46	11	1	3.925e-09	9.662e-06	9.263e-06	7.792e-05	1.086e-93	1.086e-98	1.086e-93	differs
+I rescale α=1.0e-100 huge W	ls	Float64	APG	zero	v3	true	34	false	false	false	false	false	true	true	75	48	12	1	1.556e-10	3.425e-06	2.406e-06	1.033e-05	1.086e-93	1.086e-98	1.086e-93	differs
+I rescale α=1.0e-100 ordinary	ls	Float64	PGD	zero	v0	true	70	false	false	false	false	false	true	false	149	71	21	1	1.056e-09	4.763e-06	NaN	5.380e-05	1.086e-98	1.086e-98	2.155e-99	same
+I rescale α=1.0e-100 ordinary	ls	Float64	PGD	zero	v1	true	70	false	false	false	false	false	true	false	149	71	21	1	1.056e-09	4.763e-06	NaN	5.380e-05	1.086e-98	1.086e-98	2.155e-99	same
+I rescale α=1.0e-100 ordinary	ls	Float64	PGD	zero	v2	true	70	false	false	false	false	false	true	false	149	71	21	1	1.056e-09	4.763e-06	NaN	5.380e-05	1.086e-98	1.086e-98	2.155e-99	same
+I rescale α=1.0e-100 ordinary	ls	Float64	PGD	zero	v3	true	70	false	false	false	false	false	true	false	149	71	21	1	1.056e-09	4.763e-06	NaN	5.380e-05	1.086e-98	1.086e-98	2.155e-99	same
+I rescale α=1.0e-100 ordinary	ls	Float64	APG	zero	v0	true	34	false	false	false	false	false	true	false	76	45	9	1	1.823e-09	7.737e-06	NaN	7.175e-05	1.086e-98	1.086e-98	2.155e-99	same
+I rescale α=1.0e-100 ordinary	ls	Float64	APG	zero	v1	true	34	false	false	false	false	false	true	false	76	45	9	1	1.823e-09	7.737e-06	NaN	7.175e-05	1.086e-98	1.086e-98	2.155e-99	same
+I rescale α=1.0e-100 ordinary	ls	Float64	APG	zero	v2	true	34	false	false	false	false	false	true	false	76	45	9	1	1.823e-09	7.737e-06	NaN	7.175e-05	1.086e-98	1.086e-98	2.155e-99	same
+I rescale α=1.0e-100 ordinary	ls	Float64	APG	zero	v3	true	34	false	false	false	false	false	true	false	76	45	9	1	1.823e-09	7.737e-06	NaN	7.175e-05	1.086e-98	1.086e-98	2.155e-99	same
+I rescale α=1.0e-20 huge W	ls	Float64	PGD	zero	v0	true	53	false	false	false	false	false	true	false	111	54	1	1	2.353e-06	3.924e-04	5.214e-04	1.624e-03	1.086e-13	1.086e-18	1.086e-13	same
+I rescale α=1.0e-20 huge W	ls	Float64	PGD	zero	v1	true	74	false	false	false	false	false	true	false	155	75	22	1	2.220e-09	7.283e-06	4.787e-06	5.777e-05	1.086e-13	1.086e-18	1.086e-13	differs
+I rescale α=1.0e-20 huge W	ls	Float64	PGD	zero	v2	true	73	false	false	false	false	false	true	false	153	74	21	1	5.131e-09	9.573e-06	9.377e-06	8.711e-05	1.086e-13	1.086e-18	1.086e-13	differs
+I rescale α=1.0e-20 huge W	ls	Float64	PGD	zero	v3	true	74	false	false	false	false	false	true	false	155	75	22	1	2.220e-09	7.283e-06	4.787e-06	5.777e-05	1.086e-13	1.086e-18	1.086e-13	differs
+I rescale α=1.0e-20 huge W	ls	Float64	APG	zero	v0	true	23	false	false	false	false	false	true	false	51	25	1	1	9.394e-07	1.495e-04	7.972e-05	9.820e-04	1.086e-13	1.086e-18	1.086e-13	same
+I rescale α=1.0e-20 huge W	ls	Float64	APG	zero	v1	true	34	false	false	false	false	false	true	true	75	48	12	1	1.556e-10	3.425e-06	2.406e-06	1.033e-05	1.086e-13	1.086e-18	1.086e-13	differs
+I rescale α=1.0e-20 huge W	ls	Float64	APG	zero	v2	true	33	false	false	false	false	false	true	false	73	46	11	1	3.925e-09	9.662e-06	9.263e-06	7.792e-05	1.086e-13	1.086e-18	1.086e-13	differs
+I rescale α=1.0e-20 huge W	ls	Float64	APG	zero	v3	true	34	false	false	false	false	false	true	true	75	48	12	1	1.556e-10	3.425e-06	2.406e-06	1.033e-05	1.086e-13	1.086e-18	1.086e-13	differs
+I rescale α=1.0e-20 ordinary	ls	Float64	PGD	zero	v0	true	70	false	false	false	false	false	true	false	149	71	21	1	1.056e-09	4.763e-06	NaN	5.380e-05	1.086e-18	1.086e-18	2.155e-19	same
+I rescale α=1.0e-20 ordinary	ls	Float64	PGD	zero	v1	true	70	false	false	false	false	false	true	false	149	71	21	1	1.056e-09	4.763e-06	NaN	5.380e-05	1.086e-18	1.086e-18	2.155e-19	same
+I rescale α=1.0e-20 ordinary	ls	Float64	PGD	zero	v2	true	70	false	false	false	false	false	true	false	149	71	21	1	1.056e-09	4.763e-06	NaN	5.380e-05	1.086e-18	1.086e-18	2.155e-19	same
+I rescale α=1.0e-20 ordinary	ls	Float64	PGD	zero	v3	true	70	false	false	false	false	false	true	false	149	71	21	1	1.056e-09	4.763e-06	NaN	5.380e-05	1.086e-18	1.086e-18	2.155e-19	same
+I rescale α=1.0e-20 ordinary	ls	Float64	APG	zero	v0	true	34	false	false	false	false	false	true	false	76	45	9	1	1.823e-09	7.737e-06	NaN	7.175e-05	1.086e-18	1.086e-18	2.155e-19	same
+I rescale α=1.0e-20 ordinary	ls	Float64	APG	zero	v1	true	34	false	false	false	false	false	true	false	76	45	9	1	1.823e-09	7.737e-06	NaN	7.175e-05	1.086e-18	1.086e-18	2.155e-19	same
+I rescale α=1.0e-20 ordinary	ls	Float64	APG	zero	v2	true	34	false	false	false	false	false	true	false	76	45	9	1	1.823e-09	7.737e-06	NaN	7.175e-05	1.086e-18	1.086e-18	2.155e-19	same
+I rescale α=1.0e-20 ordinary	ls	Float64	APG	zero	v3	true	34	false	false	false	false	false	true	false	76	45	9	1	1.823e-09	7.737e-06	NaN	7.175e-05	1.086e-18	1.086e-18	2.155e-19	same
+I rescale α=1.0e20 huge W	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	2.405e-04	2.466e-03	1.086e+27	1.086e+22	1.086e+27	same
+I rescale α=1.0e20 huge W	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+27	1.086e+22	1.086e+27	differs
+I rescale α=1.0e20 huge W	ls	Float64	PGD	zero	v2	true	66	false	false	false	false	false	true	false	142	67	21	1	1.840e-08	2.868e-05	2.498e-06	1.683e-04	1.086e+27	1.086e+22	1.086e+27	differs
+I rescale α=1.0e20 huge W	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+27	1.086e+22	1.086e+27	differs
+I rescale α=1.0e20 huge W	ls	Float64	APG	zero	v0	true	22	false	false	false	false	false	true	false	123	24	1	1	9.067e-07	1.903e-04	2.485e-05	8.544e-04	1.086e+27	1.086e+22	1.086e+27	same
+I rescale α=1.0e20 huge W	ls	Float64	APG	zero	v1	true	35	false	false	false	false	false	true	false	151	50	14	1	1.568e-09	8.410e-06	2.481e-06	3.701e-05	1.086e+27	1.086e+22	1.086e+27	differs
+I rescale α=1.0e20 huge W	ls	Float64	APG	zero	v2	true	34	false	false	false	false	false	true	false	149	48	13	1	1.840e-08	2.237e-05	5.824e-06	1.222e-04	1.086e+27	1.086e+22	1.086e+27	differs
+I rescale α=1.0e20 huge W	ls	Float64	APG	zero	v3	true	35	false	false	false	false	false	true	false	151	50	14	1	1.568e-09	8.410e-06	2.481e-06	3.701e-05	1.086e+27	1.086e+22	1.086e+27	differs
+I rescale α=1.0e20 ordinary	ls	Float64	PGD	zero	v0	true	69	false	false	false	false	false	true	false	149	70	28	1	1.855e-09	7.781e-06	NaN	7.239e-05	1.086e+22	1.086e+22	2.155e+21	same
+I rescale α=1.0e20 ordinary	ls	Float64	PGD	zero	v1	true	69	false	false	false	false	false	true	false	149	70	28	1	1.855e-09	7.781e-06	NaN	7.239e-05	1.086e+22	1.086e+22	2.155e+21	same
+I rescale α=1.0e20 ordinary	ls	Float64	PGD	zero	v2	true	69	false	false	false	false	false	true	false	149	70	28	1	1.855e-09	7.781e-06	NaN	7.239e-05	1.086e+22	1.086e+22	2.155e+21	same
+I rescale α=1.0e20 ordinary	ls	Float64	PGD	zero	v3	true	69	false	false	false	false	false	true	false	149	70	28	1	1.855e-09	7.781e-06	NaN	7.239e-05	1.086e+22	1.086e+22	2.155e+21	same
+I rescale α=1.0e20 ordinary	ls	Float64	APG	zero	v0	true	29	false	false	false	false	false	true	false	141	38	7	1	1.303e-09	5.530e-06	NaN	5.988e-05	1.086e+22	1.086e+22	2.155e+21	same
+I rescale α=1.0e20 ordinary	ls	Float64	APG	zero	v1	true	29	false	false	false	false	false	true	false	141	38	7	1	1.303e-09	5.530e-06	NaN	5.988e-05	1.086e+22	1.086e+22	2.155e+21	same
+I rescale α=1.0e20 ordinary	ls	Float64	APG	zero	v2	true	29	false	false	false	false	false	true	false	141	38	7	1	1.303e-09	5.530e-06	NaN	5.988e-05	1.086e+22	1.086e+22	2.155e+21	same
+I rescale α=1.0e20 ordinary	ls	Float64	APG	zero	v3	true	29	false	false	false	false	false	true	false	141	38	7	1	1.303e-09	5.530e-06	NaN	5.988e-05	1.086e+22	1.086e+22	2.155e+21	same
+I rescale α=1.0e100 huge W	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	2.405e-04	2.466e-03	1.086e+107	1.086e+102	1.086e+107	same
+I rescale α=1.0e100 huge W	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+107	1.086e+102	1.086e+107	differs
+I rescale α=1.0e100 huge W	ls	Float64	PGD	zero	v2	true	66	false	false	false	false	false	true	false	142	67	21	1	1.840e-08	2.868e-05	2.498e-06	1.683e-04	1.086e+107	1.086e+102	1.086e+107	differs
+I rescale α=1.0e100 huge W	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+107	1.086e+102	1.086e+107	differs
+I rescale α=1.0e100 huge W	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	386	22	1	1	4.440e-07	1.191e-04	1.583e-04	7.322e-04	1.086e+107	1.086e+102	1.086e+107	same
+I rescale α=1.0e100 huge W	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	true	408	44	12	1	1.187e-10	1.955e-06	1.309e-06	1.350e-05	1.086e+107	1.086e+102	1.086e+107	differs
+I rescale α=1.0e100 huge W	ls	Float64	APG	zero	v2	true	29	false	false	false	false	false	true	false	406	42	11	1	3.292e-09	8.030e-06	8.028e-06	7.092e-05	1.086e+107	1.086e+102	1.086e+107	differs
+I rescale α=1.0e100 huge W	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	true	408	44	12	1	1.187e-10	1.955e-06	1.309e-06	1.350e-05	1.086e+107	1.086e+102	1.086e+107	differs
+I rescale α=1.0e100 ordinary	ls	Float64	PGD	zero	v0	true	63	false	false	false	false	false	true	false	135	64	23	1	1.516e-09	6.763e-06	NaN	6.345e-05	1.086e+102	1.086e+102	2.155e+101	same
+I rescale α=1.0e100 ordinary	ls	Float64	PGD	zero	v1	true	63	false	false	false	false	false	true	false	135	64	23	1	1.516e-09	6.763e-06	NaN	6.345e-05	1.086e+102	1.086e+102	2.155e+101	same
+I rescale α=1.0e100 ordinary	ls	Float64	PGD	zero	v2	true	63	false	false	false	false	false	true	false	135	64	23	1	1.516e-09	6.763e-06	NaN	6.345e-05	1.086e+102	1.086e+102	2.155e+101	same
+I rescale α=1.0e100 ordinary	ls	Float64	PGD	zero	v3	true	63	false	false	false	false	false	true	false	135	64	23	1	1.516e-09	6.763e-06	NaN	6.345e-05	1.086e+102	1.086e+102	2.155e+101	same
+I rescale α=1.0e100 ordinary	ls	Float64	APG	zero	v0	true	20	false	false	false	false	false	true	true	387	26	4	1	3.411e-10	3.856e-06	NaN	2.778e-05	1.086e+102	1.086e+102	2.155e+101	same
+I rescale α=1.0e100 ordinary	ls	Float64	APG	zero	v1	true	20	false	false	false	false	false	true	true	387	26	4	1	3.411e-10	3.856e-06	NaN	2.778e-05	1.086e+102	1.086e+102	2.155e+101	same
+I rescale α=1.0e100 ordinary	ls	Float64	APG	zero	v2	true	20	false	false	false	false	false	true	true	387	26	4	1	3.411e-10	3.856e-06	NaN	2.778e-05	1.086e+102	1.086e+102	2.155e+101	same
+I rescale α=1.0e100 ordinary	ls	Float64	APG	zero	v3	true	20	false	false	false	false	false	true	true	387	26	4	1	3.411e-10	3.856e-06	NaN	2.778e-05	1.086e+102	1.086e+102	2.155e+101	same
+J y=0 mixed weights	ls	Float64	PGD	zero	v0	true	1	false	false	false	false	true	true	false	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	same
+J y=0 mixed weights	ls	Float64	PGD	zero	v1	false	200	true	false	false	false	false	false	false	401	201	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	PGD	zero	v2	false	200	true	false	false	false	false	false	false	401	201	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	PGD	zero	v3	false	200	true	false	false	false	false	false	false	401	201	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	PGD	random	v0	true	9	false	false	false	false	false	false	true	21	10	1	1	8.904e-12	3.916e+295	3.916e+295	4.547e+293	1.086e+01	0.000e+00	1.086e+01	same
+J y=0 mixed weights	ls	Float64	PGD	random	v1	false	200	true	false	false	false	false	false	false	432	201	192	0	4.810e-264	2.879e+169	2.879e+169	3.342e+167	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	PGD	random	v2	false	200	true	false	false	false	false	false	false	432	201	192	0	4.810e-264	2.879e+169	2.879e+169	3.342e+167	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	PGD	random	v3	false	200	true	false	false	false	false	false	false	432	201	192	0	4.810e-264	2.879e+169	2.879e+169	3.342e+167	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	APG	zero	v0	true	1	false	false	false	false	true	true	false	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	same
+J y=0 mixed weights	ls	Float64	APG	zero	v1	false	200	true	false	false	false	false	false	false	401	400	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	APG	zero	v2	false	200	true	false	false	false	false	false	false	401	400	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	APG	zero	v3	false	200	true	false	false	false	false	false	false	401	400	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	APG	random	v0	true	10	false	false	false	false	false	false	true	31	12	1	1	5.957e-14	3.203e+294	3.203e+294	3.719e+292	1.086e+01	0.000e+00	1.086e+01	same
+J y=0 mixed weights	ls	Float64	APG	random	v1	false	200	true	false	false	false	false	false	false	554	449	191	0	8.167e-321	1.186e+141	1.186e+141	1.377e+139	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	APG	random	v2	false	200	true	false	false	false	false	false	false	554	449	191	0	8.167e-321	1.186e+141	1.186e+141	1.377e+139	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float64	APG	random	v3	false	200	true	false	false	false	false	false	false	554	449	191	0	8.167e-321	1.186e+141	1.186e+141	1.377e+139	1.086e+01	0.000e+00	1.086e+01	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float64	PGD	zero	v0	true	38	false	false	false	false	false	true	false	82	39	1	1	7.820e-07	3.136e-04	1.183e+12	1.900e-03	1.086e+07	3.833e+01	1.086e+07	same
+J free coord with ∇f_1(0)≈0, huge W	ls	Float64	PGD	zero	v1	true	70	false	false	false	false	false	true	false	151	71	33	1	2.906e-10	3.057e-06	1.071e+10	4.060e-05	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float64	PGD	zero	v2	true	51	false	false	false	false	false	true	false	110	52	14	1	3.025e-08	5.503e-05	7.700e+09	4.250e-04	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float64	PGD	zero	v3	true	70	false	false	false	false	false	true	false	151	71	33	1	2.906e-10	3.057e-06	1.071e+10	4.060e-05	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	5.994e-07	1.730e-04	6.526e+11	1.807e-03	1.086e+07	3.833e+01	1.086e+07	same
+J free coord with ∇f_1(0)≈0, huge W	ls	Float64	APG	zero	v1	true	34	false	false	false	false	false	true	false	86	52	16	1	1.210e-10	3.258e-06	3.087e+09	2.742e-05	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float64	APG	zero	v2	true	31	false	false	false	false	false	true	false	78	46	13	1	1.692e-09	1.199e-05	5.675e+09	1.000e-04	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float64	APG	zero	v3	true	34	false	false	false	false	false	true	false	86	52	16	1	1.210e-10	3.258e-06	3.087e+09	2.742e-05	1.086e+07	3.833e+01	1.086e+07	differs
+K strict, huge W	ls	Float64	PGD	zero	v0	true	188	false	false	false	false	false	false	true	407	193	1	1	2.139e-22	2.042e-12	1.793e-12	1.783e-11	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float64	PGD	zero	v1	true	188	false	false	false	false	false	false	true	407	193	1	1	2.139e-22	2.042e-12	1.793e-12	1.783e-11	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float64	PGD	zero	v2	true	188	false	false	false	false	false	false	true	407	193	1	1	2.139e-22	2.042e-12	1.793e-12	1.783e-11	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float64	PGD	zero	v3	true	188	false	false	false	false	false	false	true	407	193	1	1	2.139e-22	2.042e-12	1.793e-12	1.783e-11	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float64	APG	zero	v0	true	77	false	false	false	false	false	false	true	190	86	1	1	1.331e-21	4.882e-12	4.579e-12	4.415e-11	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float64	APG	zero	v1	true	77	false	false	false	false	false	false	true	190	86	1	1	1.331e-21	4.882e-12	4.579e-12	4.415e-11	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float64	APG	zero	v2	true	77	false	false	false	false	false	false	true	190	86	1	1	1.331e-21	4.882e-12	4.579e-12	4.415e-11	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float64	APG	zero	v3	true	77	false	false	false	false	false	false	true	190	86	1	1	1.331e-21	4.882e-12	4.579e-12	4.415e-11	1.086e+07	1.086e+02	1.086e+07	same
+K maxiter 5000, huge W	ls	Float64	PGD	zero	v0	true	46	false	false	false	false	false	true	false	100	47	1	1	4.081e-06	2.873e-04	2.405e-04	2.466e-03	1.086e+07	1.086e+02	1.086e+07	same
+K maxiter 5000, huge W	ls	Float64	PGD	zero	v1	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float64	PGD	zero	v2	true	66	false	false	false	false	false	true	false	142	67	21	1	1.840e-08	2.868e-05	2.498e-06	1.683e-04	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float64	PGD	zero	v3	true	75	false	false	false	false	false	true	false	162	76	30	1	2.546e-09	6.627e-06	6.765e-06	6.129e-05	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.861e-05	9.177e-04	1.086e+07	1.086e+02	1.086e+07	same
+K maxiter 5000, huge W	ls	Float64	APG	zero	v1	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float64	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.070e-05	9.444e-06	1.294e-04	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float64	APG	zero	v3	true	30	false	false	false	false	false	true	false	77	44	12	1	1.462e-09	7.612e-06	6.221e-06	3.124e-05	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0	ls	Float32	PGD	zero	v0	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float32	PGD	zero	v1	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float32	PGD	zero	v2	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float32	PGD	zero	v3	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float32	APG	zero	v0	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float32	APG	zero	v1	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float32	APG	zero	v2	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1.0	ls	Float32	APG	zero	v3	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+B zero column W=1000.0	ls	Float32	PGD	zero	v0	true	41	false	false	false	false	false	true	false	89	42	1	1	4.473e-06	3.489e-04	NaN	4.197e-03	1.086e+04	1.086e+02	1.086e+04	same
+B zero column W=1000.0	ls	Float32	PGD	zero	v1	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+04	1.086e+02	1.086e+04	differs
+B zero column W=1000.0	ls	Float32	PGD	zero	v2	true	41	false	false	false	false	false	true	false	89	42	1	1	4.473e-06	3.489e-04	NaN	4.197e-03	1.086e+04	1.086e+02	1.086e+04	same
+B zero column W=1000.0	ls	Float32	PGD	zero	v3	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+04	1.086e+02	1.086e+04	differs
+B zero column W=1000.0	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+04	1.086e+02	1.086e+04	same
+B zero column W=1000.0	ls	Float32	APG	zero	v1	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+04	1.086e+02	1.086e+04	differs
+B zero column W=1000.0	ls	Float32	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+04	1.086e+02	1.086e+04	same
+B zero column W=1000.0	ls	Float32	APG	zero	v3	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+04	1.086e+02	1.086e+04	differs
+B zero column W=1.0e6	ls	Float32	PGD	zero	v0	true	41	false	false	false	false	false	true	false	89	42	1	1	4.473e-06	3.489e-04	NaN	4.197e-03	1.086e+07	1.086e+02	1.086e+07	same
+B zero column W=1.0e6	ls	Float32	PGD	zero	v1	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0e6	ls	Float32	PGD	zero	v2	true	41	false	false	false	false	false	true	false	89	42	1	1	4.473e-06	3.489e-04	NaN	4.197e-03	1.086e+07	1.086e+02	1.086e+07	same
+B zero column W=1.0e6	ls	Float32	PGD	zero	v3	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0e6	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+07	1.086e+02	1.086e+07	same
+B zero column W=1.0e6	ls	Float32	APG	zero	v1	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0e6	ls	Float32	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+07	1.086e+02	1.086e+07	same
+B zero column W=1.0e6	ls	Float32	APG	zero	v3	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+07	1.086e+02	1.086e+07	differs
+B zero column W=1.0e12	ls	Float32	PGD	zero	v0	true	41	false	false	false	false	false	true	false	89	42	1	1	4.473e-06	3.489e-04	NaN	4.197e-03	1.086e+13	1.086e+02	1.086e+13	same
+B zero column W=1.0e12	ls	Float32	PGD	zero	v1	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+13	1.086e+02	1.086e+13	differs
+B zero column W=1.0e12	ls	Float32	PGD	zero	v2	true	41	false	false	false	false	false	true	false	89	42	1	1	4.473e-06	3.489e-04	NaN	4.197e-03	1.086e+13	1.086e+02	1.086e+13	same
+B zero column W=1.0e12	ls	Float32	PGD	zero	v3	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+13	1.086e+02	1.086e+13	differs
+B zero column W=1.0e12	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+13	1.086e+02	1.086e+13	same
+B zero column W=1.0e12	ls	Float32	APG	zero	v1	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+13	1.086e+02	1.086e+13	differs
+B zero column W=1.0e12	ls	Float32	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+13	1.086e+02	1.086e+13	same
+B zero column W=1.0e12	ls	Float32	APG	zero	v3	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+13	1.086e+02	1.086e+13	differs
+B zero column W=1.0e30	ls	Float32	PGD	zero	v0	true	41	false	false	false	false	false	true	false	89	42	1	1	4.473e-06	3.489e-04	NaN	4.197e-03	1.086e+31	1.086e+02	1.086e+31	same
+B zero column W=1.0e30	ls	Float32	PGD	zero	v1	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+31	1.086e+02	1.086e+31	differs
+B zero column W=1.0e30	ls	Float32	PGD	zero	v2	true	41	false	false	false	false	false	true	false	89	42	1	1	4.473e-06	3.489e-04	NaN	4.197e-03	1.086e+31	1.086e+02	1.086e+31	same
+B zero column W=1.0e30	ls	Float32	PGD	zero	v3	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+31	1.086e+02	1.086e+31	differs
+B zero column W=1.0e30	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+31	1.086e+02	1.086e+31	same
+B zero column W=1.0e30	ls	Float32	APG	zero	v1	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+31	1.086e+02	1.086e+31	differs
+B zero column W=1.0e30	ls	Float32	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	7.356e-07	2.045e-04	NaN	1.450e-03	1.086e+31	1.086e+02	1.086e+31	same
+B zero column W=1.0e30	ls	Float32	APG	zero	v3	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+31	1.086e+02	1.086e+31	differs
+B reduced (no zero column)	ls	Float32	PGD	zero	v0	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float32	PGD	zero	v1	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float32	PGD	zero	v2	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float32	PGD	zero	v3	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float32	APG	zero	v0	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float32	APG	zero	v1	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float32	APG	zero	v2	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+B reduced (no zero column)	ls	Float32	APG	zero	v3	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float32	PGD	zero	v0	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float32	PGD	zero	v1	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float32	PGD	zero	v2	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float32	PGD	zero	v3	false	68	false	false	true	false	false	false	false	148	69	28	0	1.187e-08	1.846e-05	NaN	2.055e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float32	APG	zero	v0	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float32	APG	zero	v1	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float32	APG	zero	v2	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1.0	ls	Float32	APG	zero	v3	false	33	false	false	true	false	false	false	false	84	51	15	0	4.250e-09	1.512e-05	NaN	1.058e-04	1.086e+02	1.086e+02	1.086e+01	same
+C excluded column W=1000.0	ls	Float32	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.769e-04	NaN	3.903e-03	1.086e+04	1.086e+02	1.086e+04	same
+C excluded column W=1000.0	ls	Float32	PGD	zero	v1	false	63	false	false	true	false	false	false	false	136	64	21	0	3.377e-08	3.429e-05	NaN	3.449e-04	1.086e+04	1.086e+02	1.086e+04	differs
+C excluded column W=1000.0	ls	Float32	PGD	zero	v2	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.769e-04	NaN	3.903e-03	1.086e+04	1.086e+02	1.086e+04	same
+C excluded column W=1000.0	ls	Float32	PGD	zero	v3	false	63	false	false	true	false	false	false	false	136	64	21	0	3.377e-08	3.429e-05	NaN	3.449e-04	1.086e+04	1.086e+02	1.086e+04	differs
+C excluded column W=1000.0	ls	Float32	APG	zero	v0	true	21	false	false	false	false	false	true	false	56	23	1	1	4.762e-07	1.448e-04	NaN	1.004e-03	1.086e+04	1.086e+02	1.086e+04	same
+C excluded column W=1000.0	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	76	42	10	0	2.899e-08	2.691e-05	NaN	2.299e-04	1.086e+04	1.086e+02	1.086e+04	differs
+C excluded column W=1000.0	ls	Float32	APG	zero	v2	true	21	false	false	false	false	false	true	false	56	23	1	1	4.762e-07	1.448e-04	NaN	1.004e-03	1.086e+04	1.086e+02	1.086e+04	same
+C excluded column W=1000.0	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	76	42	10	0	2.899e-08	2.691e-05	NaN	2.299e-04	1.086e+04	1.086e+02	1.086e+04	differs
+C excluded column W=1.0e6	ls	Float32	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.769e-04	NaN	3.903e-03	1.086e+07	1.086e+02	1.086e+07	same
+C excluded column W=1.0e6	ls	Float32	PGD	zero	v1	false	63	false	false	true	false	false	false	false	136	64	21	0	3.377e-08	3.429e-05	NaN	3.449e-04	1.086e+07	1.086e+02	1.086e+07	differs
+C excluded column W=1.0e6	ls	Float32	PGD	zero	v2	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.769e-04	NaN	3.903e-03	1.086e+07	1.086e+02	1.086e+07	same
+C excluded column W=1.0e6	ls	Float32	PGD	zero	v3	false	63	false	false	true	false	false	false	false	136	64	21	0	3.377e-08	3.429e-05	NaN	3.449e-04	1.086e+07	1.086e+02	1.086e+07	differs
+C excluded column W=1.0e6	ls	Float32	APG	zero	v0	true	21	false	false	false	false	false	true	false	56	23	1	1	4.762e-07	1.448e-04	NaN	1.004e-03	1.086e+07	1.086e+02	1.086e+07	same
+C excluded column W=1.0e6	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	76	42	10	0	2.899e-08	2.691e-05	NaN	2.299e-04	1.086e+07	1.086e+02	1.086e+07	differs
+C excluded column W=1.0e6	ls	Float32	APG	zero	v2	true	21	false	false	false	false	false	true	false	56	23	1	1	4.762e-07	1.448e-04	NaN	1.004e-03	1.086e+07	1.086e+02	1.086e+07	same
+C excluded column W=1.0e6	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	76	42	10	0	2.899e-08	2.691e-05	NaN	2.299e-04	1.086e+07	1.086e+02	1.086e+07	differs
+C excluded column W=1.0e12	ls	Float32	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.769e-04	NaN	3.903e-03	1.086e+13	1.086e+02	1.086e+13	same
+C excluded column W=1.0e12	ls	Float32	PGD	zero	v1	false	63	false	false	true	false	false	false	false	136	64	21	0	3.377e-08	3.429e-05	NaN	3.449e-04	1.086e+13	1.086e+02	1.086e+13	differs
+C excluded column W=1.0e12	ls	Float32	PGD	zero	v2	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.769e-04	NaN	3.903e-03	1.086e+13	1.086e+02	1.086e+13	same
+C excluded column W=1.0e12	ls	Float32	PGD	zero	v3	false	63	false	false	true	false	false	false	false	136	64	21	0	3.377e-08	3.429e-05	NaN	3.449e-04	1.086e+13	1.086e+02	1.086e+13	differs
+C excluded column W=1.0e12	ls	Float32	APG	zero	v0	true	21	false	false	false	false	false	true	false	56	23	1	1	4.762e-07	1.448e-04	NaN	1.004e-03	1.086e+13	1.086e+02	1.086e+13	same
+C excluded column W=1.0e12	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	76	42	10	0	2.899e-08	2.691e-05	NaN	2.299e-04	1.086e+13	1.086e+02	1.086e+13	differs
+C excluded column W=1.0e12	ls	Float32	APG	zero	v2	true	21	false	false	false	false	false	true	false	56	23	1	1	4.762e-07	1.448e-04	NaN	1.004e-03	1.086e+13	1.086e+02	1.086e+13	same
+C excluded column W=1.0e12	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	76	42	10	0	2.899e-08	2.691e-05	NaN	2.299e-04	1.086e+13	1.086e+02	1.086e+13	differs
+C excluded column W=1.0e30	ls	Float32	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.769e-04	NaN	3.903e-03	1.086e+31	1.086e+02	1.086e+31	same
+C excluded column W=1.0e30	ls	Float32	PGD	zero	v1	false	63	false	false	true	false	false	false	false	136	64	21	0	3.377e-08	3.429e-05	NaN	3.449e-04	1.086e+31	1.086e+02	1.086e+31	differs
+C excluded column W=1.0e30	ls	Float32	PGD	zero	v2	true	43	false	false	false	false	false	true	false	93	44	1	1	3.753e-06	2.769e-04	NaN	3.903e-03	1.086e+31	1.086e+02	1.086e+31	same
+C excluded column W=1.0e30	ls	Float32	PGD	zero	v3	false	63	false	false	true	false	false	false	false	136	64	21	0	3.377e-08	3.429e-05	NaN	3.449e-04	1.086e+31	1.086e+02	1.086e+31	differs
+C excluded column W=1.0e30	ls	Float32	APG	zero	v0	true	21	false	false	false	false	false	true	false	56	23	1	1	4.762e-07	1.448e-04	NaN	1.004e-03	1.086e+31	1.086e+02	1.086e+31	same
+C excluded column W=1.0e30	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	76	42	10	0	2.899e-08	2.691e-05	NaN	2.299e-04	1.086e+31	1.086e+02	1.086e+31	differs
+C excluded column W=1.0e30	ls	Float32	APG	zero	v2	true	21	false	false	false	false	false	true	false	56	23	1	1	4.762e-07	1.448e-04	NaN	1.004e-03	1.086e+31	1.086e+02	1.086e+31	same
+C excluded column W=1.0e30	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	76	42	10	0	2.899e-08	2.691e-05	NaN	2.299e-04	1.086e+31	1.086e+02	1.086e+31	differs
+D free first, W=1.0	ls	Float32	PGD	zero	v0	false	62	false	false	true	false	false	false	false	134	63	17	0	8.452e-08	4.127e-05	3.471e-05	3.548e-04	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float32	PGD	zero	v1	false	62	false	false	true	false	false	false	false	134	63	17	0	8.452e-08	4.127e-05	3.471e-05	3.548e-04	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float32	PGD	zero	v2	false	62	false	false	true	false	false	false	false	134	63	17	0	8.452e-08	4.127e-05	3.471e-05	3.548e-04	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float32	PGD	zero	v3	false	62	false	false	true	false	false	false	false	134	63	17	0	8.452e-08	4.127e-05	3.471e-05	3.548e-04	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float32	APG	zero	v0	true	34	false	false	false	false	false	true	true	88	53	16	1	4.503e-10	3.564e-06	4.736e-06	2.501e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float32	APG	zero	v1	true	34	false	false	false	false	false	true	true	88	53	16	1	4.503e-10	3.564e-06	4.736e-06	2.501e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float32	APG	zero	v2	true	34	false	false	false	false	false	true	true	88	53	16	1	4.503e-10	3.564e-06	4.736e-06	2.501e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1.0	ls	Float32	APG	zero	v3	true	34	false	false	false	false	false	true	true	88	53	16	1	4.503e-10	3.564e-06	4.736e-06	2.501e-05	1.086e+02	1.086e+02	1.086e+01	same
+D free first, W=1000.0	ls	Float32	PGD	zero	v0	true	45	false	false	false	false	false	true	false	98	46	1	1	5.060e-06	2.895e-04	3.100e-04	2.729e-03	1.086e+04	1.086e+02	1.086e+04	same
+D free first, W=1000.0	ls	Float32	PGD	zero	v1	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float32	PGD	zero	v2	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float32	PGD	zero	v3	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.857e-05	9.176e-04	1.086e+04	1.086e+02	1.086e+04	same
+D free first, W=1000.0	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float32	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.069e-05	9.436e-06	1.294e-04	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1000.0	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+04	1.086e+02	1.086e+04	differs
+D free first, W=1.0e6	ls	Float32	PGD	zero	v0	true	45	false	false	false	false	false	true	false	98	46	1	1	5.060e-06	2.895e-04	3.100e-04	2.729e-03	1.086e+07	1.086e+02	1.086e+07	same
+D free first, W=1.0e6	ls	Float32	PGD	zero	v1	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float32	PGD	zero	v2	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float32	PGD	zero	v3	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.857e-05	9.176e-04	1.086e+07	1.086e+02	1.086e+07	same
+D free first, W=1.0e6	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float32	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.069e-05	9.436e-06	1.294e-04	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e6	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+07	1.086e+02	1.086e+07	differs
+D free first, W=1.0e12	ls	Float32	PGD	zero	v0	true	45	false	false	false	false	false	true	false	98	46	1	1	5.060e-06	2.895e-04	3.100e-04	2.729e-03	1.086e+13	1.086e+02	1.086e+13	same
+D free first, W=1.0e12	ls	Float32	PGD	zero	v1	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float32	PGD	zero	v2	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float32	PGD	zero	v3	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.857e-05	9.176e-04	1.086e+13	1.086e+02	1.086e+13	same
+D free first, W=1.0e12	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float32	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.069e-05	9.436e-06	1.294e-04	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e12	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+13	1.086e+02	1.086e+13	differs
+D free first, W=1.0e30	ls	Float32	PGD	zero	v0	true	45	false	false	false	false	false	true	false	98	46	1	1	5.060e-06	2.895e-04	3.100e-04	2.729e-03	1.086e+31	1.086e+02	1.086e+31	same
+D free first, W=1.0e30	ls	Float32	PGD	zero	v1	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+31	1.086e+02	1.086e+31	differs
+D free first, W=1.0e30	ls	Float32	PGD	zero	v2	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+31	1.086e+02	1.086e+31	differs
+D free first, W=1.0e30	ls	Float32	PGD	zero	v3	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+31	1.086e+02	1.086e+31	differs
+D free first, W=1.0e30	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.857e-05	9.176e-04	1.086e+31	1.086e+02	1.086e+31	same
+D free first, W=1.0e30	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+31	1.086e+02	1.086e+31	differs
+D free first, W=1.0e30	ls	Float32	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.069e-05	9.436e-06	1.294e-04	1.086e+31	1.086e+02	1.086e+31	differs
+D free first, W=1.0e30	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+31	1.086e+02	1.086e+31	differs
+E tiny+huge weights	ls	Float32	PGD	zero	v0	true	47	false	false	false	false	false	true	false	102	48	1	1	3.210e-06	2.330e-04	NaN	2.175e-03	1.086e+13	1.086e+02	1.086e+13	same
+E tiny+huge weights	ls	Float32	PGD	zero	v1	false	59	false	false	true	false	false	false	false	128	60	13	0	1.283e-07	4.391e-05	NaN	4.332e-04	1.086e+13	1.086e+02	1.086e+13	differs
+E tiny+huge weights	ls	Float32	PGD	zero	v2	true	47	false	false	false	false	false	true	false	102	48	1	1	3.210e-06	2.330e-04	NaN	2.175e-03	1.086e+13	1.086e+02	1.086e+13	same
+E tiny+huge weights	ls	Float32	PGD	zero	v3	false	59	false	false	true	false	false	false	false	128	60	13	0	1.283e-07	4.391e-05	NaN	4.332e-04	1.086e+13	1.086e+02	1.086e+13	differs
+E tiny+huge weights	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	NaN	9.176e-04	1.086e+13	1.086e+02	1.086e+13	same
+E tiny+huge weights	ls	Float32	APG	zero	v1	false	28	false	false	true	false	false	false	false	76	42	10	0	3.300e-08	2.374e-05	NaN	2.230e-04	1.086e+13	1.086e+02	1.086e+13	differs
+E tiny+huge weights	ls	Float32	APG	zero	v2	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	NaN	9.176e-04	1.086e+13	1.086e+02	1.086e+13	same
+E tiny+huge weights	ls	Float32	APG	zero	v3	false	28	false	false	true	false	false	false	false	76	42	10	0	3.300e-08	2.374e-05	NaN	2.230e-04	1.086e+13	1.086e+02	1.086e+13	differs
+F ordinary weights λ=0.01λmax	ls	Float32	PGD	zero	v0	false	84	false	false	true	false	false	false	false	181	85	15	0	4.659e-07	3.777e-05	NaN	3.343e-04	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float32	PGD	zero	v1	false	84	false	false	true	false	false	false	false	181	85	15	0	4.659e-07	3.777e-05	NaN	3.343e-04	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float32	PGD	zero	v2	false	84	false	false	true	false	false	false	false	181	85	15	0	4.659e-07	3.777e-05	NaN	3.343e-04	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float32	PGD	zero	v3	false	84	false	false	true	false	false	false	false	181	85	15	0	4.659e-07	3.777e-05	NaN	3.343e-04	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float32	APG	zero	v0	true	35	false	false	false	false	false	true	false	88	48	11	1	9.574e-09	9.672e-06	NaN	4.738e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float32	APG	zero	v1	true	35	false	false	false	false	false	true	false	88	48	11	1	9.574e-09	9.672e-06	NaN	4.738e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float32	APG	zero	v2	true	35	false	false	false	false	false	true	false	88	48	11	1	9.574e-09	9.672e-06	NaN	4.738e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.01λmax	ls	Float32	APG	zero	v3	true	35	false	false	false	false	false	true	false	88	48	11	1	9.574e-09	9.672e-06	NaN	4.738e-05	1.086e+02	1.086e+02	2.155e+00	same
+F ordinary weights λ=0.1λmax	ls	Float32	PGD	zero	v0	false	48	false	false	true	false	false	false	false	104	49	8	0	2.724e-07	9.472e-05	NaN	8.775e-04	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float32	PGD	zero	v1	false	48	false	false	true	false	false	false	false	104	49	8	0	2.724e-07	9.472e-05	NaN	8.775e-04	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float32	PGD	zero	v2	false	48	false	false	true	false	false	false	false	104	49	8	0	2.724e-07	9.472e-05	NaN	8.775e-04	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float32	PGD	zero	v3	false	48	false	false	true	false	false	false	false	104	49	8	0	2.724e-07	9.472e-05	NaN	8.775e-04	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float32	APG	zero	v0	true	24	false	false	false	false	false	true	false	64	30	4	1	2.950e-10	7.316e-06	NaN	1.644e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float32	APG	zero	v1	true	24	false	false	false	false	false	true	false	64	30	4	1	2.950e-10	7.316e-06	NaN	1.644e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float32	APG	zero	v2	true	24	false	false	false	false	false	true	false	64	30	4	1	2.950e-10	7.316e-06	NaN	1.644e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.1λmax	ls	Float32	APG	zero	v3	true	24	false	false	false	false	false	true	false	64	30	4	1	2.950e-10	7.316e-06	NaN	1.644e-05	1.086e+02	1.086e+02	2.155e+01	same
+F ordinary weights λ=0.5λmax	ls	Float32	PGD	zero	v0	true	9	false	false	true	false	false	true	false	20	10	3	1	2.682e-11	2.508e-06	NaN	1.189e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float32	PGD	zero	v1	true	9	false	false	true	false	false	true	false	20	10	3	1	2.682e-11	2.508e-06	NaN	1.189e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float32	PGD	zero	v2	true	9	false	false	true	false	false	true	false	20	10	3	1	2.682e-11	2.508e-06	NaN	1.189e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float32	PGD	zero	v3	true	9	false	false	true	false	false	true	false	20	10	3	1	2.682e-11	2.508e-06	NaN	1.189e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float32	APG	zero	v0	true	13	false	false	false	false	false	true	false	41	21	5	1	1.004e-10	5.390e-06	NaN	2.948e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float32	APG	zero	v1	true	13	false	false	false	false	false	true	false	41	21	5	1	1.004e-10	5.390e-06	NaN	2.948e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float32	APG	zero	v2	true	13	false	false	false	false	false	true	false	41	21	5	1	1.004e-10	5.390e-06	NaN	2.948e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=0.5λmax	ls	Float32	APG	zero	v3	true	13	false	false	false	false	false	true	false	41	21	5	1	1.004e-10	5.390e-06	NaN	2.948e-05	1.086e+02	1.086e+02	1.077e+02	same
+F ordinary weights λ=2.0λmax	ls	Float32	PGD	zero	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float32	PGD	zero	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float32	PGD	zero	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float32	PGD	zero	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float32	APG	zero	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float32	APG	zero	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float32	APG	zero	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F ordinary weights λ=2.0λmax	ls	Float32	APG	zero	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	NaN	0.000e+00	4.309e+02	1.086e+02	4.309e+02	same
+F all-zero weights	ls	Float32	PGD	zero	v0	false	95	false	false	true	false	false	false	false	204	96	16	0	4.280e-07	3.516e-05	4.671e-05	2.429e-04	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float32	PGD	zero	v1	false	95	false	false	true	false	false	false	false	204	96	16	0	4.280e-07	3.516e-05	4.671e-05	2.429e-04	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float32	PGD	zero	v2	false	95	false	false	true	false	false	false	false	204	96	16	0	4.280e-07	3.516e-05	4.671e-05	2.429e-04	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float32	PGD	zero	v3	false	95	false	false	true	false	false	false	false	204	96	16	0	4.280e-07	3.516e-05	4.671e-05	2.429e-04	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float32	APG	zero	v0	true	37	false	false	false	false	false	true	false	92	48	9	1	1.862e-08	7.784e-06	9.061e-06	5.992e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float32	APG	zero	v1	true	37	false	false	false	false	false	true	false	92	48	9	1	1.862e-08	7.784e-06	9.061e-06	5.992e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float32	APG	zero	v2	true	37	false	false	false	false	false	true	false	92	48	9	1	1.862e-08	7.784e-06	9.061e-06	5.992e-05	1.086e+02	1.086e+02	0.000e+00	same
+F all-zero weights	ls	Float32	APG	zero	v3	true	37	false	false	false	false	false	true	false	92	48	9	1	1.862e-08	7.784e-06	9.061e-06	5.992e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float32	PGD	zero	v0	false	95	false	false	true	false	false	false	false	204	96	16	0	4.280e-07	3.516e-05	4.671e-05	2.429e-04	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float32	PGD	zero	v1	false	95	false	false	true	false	false	false	false	204	96	16	0	4.280e-07	3.516e-05	4.671e-05	2.429e-04	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float32	PGD	zero	v2	false	95	false	false	true	false	false	false	false	204	96	16	0	4.280e-07	3.516e-05	4.671e-05	2.429e-04	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float32	PGD	zero	v3	false	95	false	false	true	false	false	false	false	204	96	16	0	4.280e-07	3.516e-05	4.671e-05	2.429e-04	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float32	APG	zero	v0	true	37	false	false	false	false	false	true	false	92	48	9	1	1.862e-08	7.784e-06	9.061e-06	5.992e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float32	APG	zero	v1	true	37	false	false	false	false	false	true	false	92	48	9	1	1.862e-08	7.784e-06	9.061e-06	5.992e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float32	APG	zero	v2	true	37	false	false	false	false	false	true	false	92	48	9	1	1.862e-08	7.784e-06	9.061e-06	5.992e-05	1.086e+02	1.086e+02	0.000e+00	same
+F λ0 = 0	ls	Float32	APG	zero	v3	true	37	false	false	false	false	false	true	false	92	48	9	1	1.862e-08	7.784e-06	9.061e-06	5.992e-05	1.086e+02	1.086e+02	0.000e+00	same
+G corr ρ=.95 ordinary	ls	Float32	PGD	zero	v0	false	65	false	false	true	false	false	false	false	138	66	19	0	6.662e-08	3.258e-05	NaN	5.301e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float32	PGD	zero	v1	false	65	false	false	true	false	false	false	false	138	66	19	0	6.662e-08	3.258e-05	NaN	5.301e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float32	PGD	zero	v2	false	65	false	false	true	false	false	false	false	138	66	19	0	6.662e-08	3.258e-05	NaN	5.301e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float32	PGD	zero	v3	false	65	false	false	true	false	false	false	false	138	66	19	0	6.662e-08	3.258e-05	NaN	5.301e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float32	APG	zero	v0	false	35	false	false	true	false	false	false	false	88	42	4	0	1.889e-08	1.442e-05	NaN	2.798e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float32	APG	zero	v1	false	35	false	false	true	false	false	false	false	88	42	4	0	1.889e-08	1.442e-05	NaN	2.798e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float32	APG	zero	v2	false	35	false	false	true	false	false	false	false	88	42	4	0	1.889e-08	1.442e-05	NaN	2.798e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 ordinary	ls	Float32	APG	zero	v3	false	35	false	false	true	false	false	false	false	88	42	4	0	1.889e-08	1.442e-05	NaN	2.798e-04	9.542e+01	9.542e+01	9.542e+00	same
+G corr ρ=.95 huge W	ls	Float32	PGD	zero	v0	true	32	false	false	false	false	false	true	false	68	33	1	1	2.938e-12	5.300e-07	5.573e-07	5.573e-07	9.542e+06	9.542e+01	9.542e+06	same
+G corr ρ=.95 huge W	ls	Float32	PGD	zero	v1	true	32	false	false	false	false	false	true	false	68	33	1	1	2.938e-12	5.300e-07	5.573e-07	5.573e-07	9.542e+06	9.542e+01	9.542e+06	same
+G corr ρ=.95 huge W	ls	Float32	PGD	zero	v2	true	32	false	false	false	false	false	true	false	68	33	1	1	2.938e-12	5.300e-07	5.573e-07	5.573e-07	9.542e+06	9.542e+01	9.542e+06	same
+G corr ρ=.95 huge W	ls	Float32	PGD	zero	v3	true	32	false	false	false	false	false	true	false	68	33	1	1	2.938e-12	5.300e-07	5.573e-07	5.573e-07	9.542e+06	9.542e+01	9.542e+06	same
+G corr ρ=.95 huge W	ls	Float32	APG	zero	v0	true	22	false	false	false	false	false	true	false	59	25	1	1	9.966e-08	9.762e-05	1.027e-04	1.027e-04	9.542e+06	9.542e+01	9.542e+06	same
+G corr ρ=.95 huge W	ls	Float32	APG	zero	v1	true	24	false	false	false	false	false	true	true	63	29	3	1	7.236e-11	2.630e-06	2.766e-06	2.766e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G corr ρ=.95 huge W	ls	Float32	APG	zero	v2	true	24	false	false	false	false	false	true	true	63	29	3	1	7.236e-11	2.630e-06	2.766e-06	2.766e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G corr ρ=.95 huge W	ls	Float32	APG	zero	v3	true	24	false	false	false	false	false	true	true	63	29	3	1	7.236e-11	2.630e-06	2.766e-06	2.766e-06	9.542e+06	9.542e+01	9.542e+06	differs
+G duplicate column, huge W on copy	ls	Float32	PGD	zero	v0	true	45	false	false	false	false	false	true	false	98	46	1	1	5.060e-06	2.895e-04	3.100e-04	2.729e-03	1.086e+07	1.086e+02	1.086e+07	same
+G duplicate column, huge W on copy	ls	Float32	PGD	zero	v1	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float32	PGD	zero	v2	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float32	PGD	zero	v3	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.857e-05	9.176e-04	1.086e+07	1.086e+02	1.086e+07	same
+G duplicate column, huge W on copy	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float32	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.069e-05	9.436e-06	1.294e-04	1.086e+07	1.086e+02	1.086e+07	differs
+G duplicate column, huge W on copy	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+07	1.086e+02	1.086e+07	differs
+H starts ordinary	ls	Float32	PGD	random	v0	false	55	false	false	true	false	false	false	false	119	56	10	0	8.505e-08	4.288e-05	NaN	4.831e-04	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	PGD	random	v1	false	55	false	false	true	false	false	false	false	119	56	10	0	8.505e-08	4.288e-05	NaN	4.831e-04	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	PGD	random	v2	false	55	false	false	true	false	false	false	false	119	56	10	0	8.505e-08	4.288e-05	NaN	4.831e-04	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	PGD	random	v3	false	55	false	false	true	false	false	false	false	119	56	10	0	8.505e-08	4.288e-05	NaN	4.831e-04	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	PGD	reference	v0	true	1	false	false	false	false	false	true	false	3	2	1	1	5.095e-11	3.983e-06	NaN	3.127e-06	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	PGD	reference	v1	true	1	false	false	false	false	false	true	false	3	2	1	1	5.095e-11	3.983e-06	NaN	3.127e-06	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	PGD	reference	v2	true	1	false	false	false	false	false	true	false	3	2	1	1	5.095e-11	3.983e-06	NaN	3.127e-06	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	PGD	reference	v3	true	1	false	false	false	false	false	true	false	3	2	1	1	5.095e-11	3.983e-06	NaN	3.127e-06	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	APG	random	v0	true	26	false	false	true	false	false	true	true	74	41	10	1	4.023e-10	6.275e-06	NaN	2.039e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	APG	random	v1	true	26	false	false	true	false	false	true	true	74	41	10	1	4.023e-10	6.275e-06	NaN	2.039e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	APG	random	v2	true	26	false	false	true	false	false	true	true	74	41	10	1	4.023e-10	6.275e-06	NaN	2.039e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	APG	random	v3	true	26	false	false	true	false	false	true	true	74	41	10	1	4.023e-10	6.275e-06	NaN	2.039e-05	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	APG	reference	v0	true	1	false	false	false	false	false	true	true	10	2	1	1	2.943e-15	2.720e-08	NaN	4.596e-08	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	APG	reference	v1	true	1	false	false	false	false	false	true	true	10	2	1	1	2.943e-15	2.720e-08	NaN	4.596e-08	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	APG	reference	v2	true	1	false	false	false	false	false	true	true	10	2	1	1	2.943e-15	2.720e-08	NaN	4.596e-08	1.086e+02	1.086e+02	2.155e+01	same
+H starts ordinary	ls	Float32	APG	reference	v3	true	1	false	false	false	false	false	true	true	10	2	1	1	2.943e-15	2.720e-08	NaN	4.596e-08	1.086e+02	1.086e+02	2.155e+01	same
+H starts huge W	ls	Float32	PGD	random	v0	true	49	false	false	false	false	false	true	false	106	50	1	1	5.330e-06	3.144e-04	2.942e-04	2.811e-03	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	PGD	random	v1	false	61	false	false	true	false	false	false	false	130	62	13	0	5.500e-08	3.661e-05	2.333e-05	2.877e-04	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float32	PGD	random	v2	false	61	false	false	true	false	false	false	false	130	62	13	0	5.500e-08	3.661e-05	2.333e-05	2.877e-04	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float32	PGD	random	v3	false	61	false	false	true	false	false	false	false	130	62	13	0	5.500e-08	3.661e-05	2.333e-05	2.877e-04	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float32	PGD	reference	v0	true	1	false	false	false	false	false	true	true	4	2	1	1	6.150e-16	1.056e-08	1.715e-09	1.243e-08	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	PGD	reference	v1	true	1	false	false	false	false	false	true	true	4	2	1	1	6.150e-16	1.056e-08	1.715e-09	1.243e-08	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	PGD	reference	v2	true	1	false	false	false	false	false	true	true	4	2	1	1	6.150e-16	1.056e-08	1.715e-09	1.243e-08	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	PGD	reference	v3	true	1	false	false	false	false	false	true	true	4	2	1	1	6.150e-16	1.056e-08	1.715e-09	1.243e-08	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	APG	random	v0	true	20	false	false	false	false	false	true	false	55	23	1	1	1.823e-06	2.018e-04	7.759e-05	1.316e-03	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	APG	random	v1	true	30	false	false	false	false	false	true	true	77	43	11	1	1.274e-09	7.399e-06	5.498e-06	2.598e-05	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float32	APG	random	v2	true	28	false	false	false	false	false	true	false	72	39	9	1	2.225e-08	3.197e-05	9.132e-06	1.884e-04	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float32	APG	random	v3	true	30	false	false	false	false	false	true	true	77	43	11	1	1.274e-09	7.399e-06	5.498e-06	2.598e-05	1.086e+07	1.086e+02	1.086e+07	differs
+H starts huge W	ls	Float32	APG	reference	v0	true	1	false	false	false	false	false	true	true	9	2	1	1	2.330e-15	2.233e-08	6.355e-09	3.110e-08	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	APG	reference	v1	true	1	false	false	false	false	false	true	true	9	2	1	1	2.330e-15	2.233e-08	6.355e-09	3.110e-08	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	APG	reference	v2	true	1	false	false	false	false	false	true	true	9	2	1	1	2.330e-15	2.233e-08	6.355e-09	3.110e-08	1.086e+07	1.086e+02	1.086e+07	same
+H starts huge W	ls	Float32	APG	reference	v3	true	1	false	false	false	false	false	true	true	9	2	1	1	2.330e-15	2.233e-08	6.355e-09	3.110e-08	1.086e+07	1.086e+02	1.086e+07	same
+I rescale α=1.0e-12 huge W	ls	Float32	PGD	zero	v0	true	48	false	false	false	false	false	true	false	100	49	1	1	1.143e-06	2.284e-04	1.626e-05	1.327e-03	1.086e-05	1.086e-10	1.086e-05	same
+I rescale α=1.0e-12 huge W	ls	Float32	PGD	zero	v1	false	56	false	false	true	false	false	false	false	117	57	9	0	1.723e-07	6.837e-05	3.617e-05	5.106e-04	1.086e-05	1.086e-10	1.086e-05	differs
+I rescale α=1.0e-12 huge W	ls	Float32	PGD	zero	v2	true	52	false	false	false	false	false	true	false	108	53	5	1	4.343e-07	1.436e-04	5.795e-06	8.182e-04	1.086e-05	1.086e-10	1.086e-05	differs
+I rescale α=1.0e-12 huge W	ls	Float32	PGD	zero	v3	false	56	false	false	true	false	false	false	false	117	57	9	0	1.723e-07	6.837e-05	3.617e-05	5.106e-04	1.086e-05	1.086e-10	1.086e-05	differs
+I rescale α=1.0e-12 huge W	ls	Float32	APG	zero	v0	true	23	false	false	false	false	false	true	false	51	25	1	1	9.394e-07	1.495e-04	7.974e-05	9.820e-04	1.086e-05	1.086e-10	1.086e-05	same
+I rescale α=1.0e-12 huge W	ls	Float32	APG	zero	v1	false	33	false	false	true	false	false	false	false	77	48	11	0	3.035e-08	2.416e-05	2.233e-05	2.131e-04	1.086e-05	1.086e-10	1.086e-05	differs
+I rescale α=1.0e-12 huge W	ls	Float32	APG	zero	v2	false	33	false	false	true	false	false	false	false	77	48	11	0	3.035e-08	2.416e-05	2.233e-05	2.131e-04	1.086e-05	1.086e-10	1.086e-05	differs
+I rescale α=1.0e-12 huge W	ls	Float32	APG	zero	v3	false	33	false	false	true	false	false	false	false	77	48	11	0	3.035e-08	2.416e-05	2.233e-05	2.131e-04	1.086e-05	1.086e-10	1.086e-05	differs
+I rescale α=1.0e-12 ordinary	ls	Float32	PGD	zero	v0	false	58	false	false	true	false	false	false	false	123	59	9	0	1.846e-07	7.770e-05	NaN	7.222e-04	1.086e-10	1.086e-10	2.155e-11	same
+I rescale α=1.0e-12 ordinary	ls	Float32	PGD	zero	v1	false	58	false	false	true	false	false	false	false	123	59	9	0	1.846e-07	7.770e-05	NaN	7.222e-04	1.086e-10	1.086e-10	2.155e-11	same
+I rescale α=1.0e-12 ordinary	ls	Float32	PGD	zero	v2	false	58	false	false	true	false	false	false	false	123	59	9	0	1.846e-07	7.770e-05	NaN	7.222e-04	1.086e-10	1.086e-10	2.155e-11	same
+I rescale α=1.0e-12 ordinary	ls	Float32	PGD	zero	v3	false	58	false	false	true	false	false	false	false	123	59	9	0	1.846e-07	7.770e-05	NaN	7.222e-04	1.086e-10	1.086e-10	2.155e-11	same
+I rescale α=1.0e-12 ordinary	ls	Float32	APG	zero	v0	false	28	false	false	true	false	false	false	false	64	33	3	0	1.314e-08	3.781e-05	NaN	1.596e-04	1.086e-10	1.086e-10	2.155e-11	same
+I rescale α=1.0e-12 ordinary	ls	Float32	APG	zero	v1	false	28	false	false	true	false	false	false	false	64	33	3	0	1.314e-08	3.781e-05	NaN	1.596e-04	1.086e-10	1.086e-10	2.155e-11	same
+I rescale α=1.0e-12 ordinary	ls	Float32	APG	zero	v2	false	28	false	false	true	false	false	false	false	64	33	3	0	1.314e-08	3.781e-05	NaN	1.596e-04	1.086e-10	1.086e-10	2.155e-11	same
+I rescale α=1.0e-12 ordinary	ls	Float32	APG	zero	v3	false	28	false	false	true	false	false	false	false	64	33	3	0	1.314e-08	3.781e-05	NaN	1.596e-04	1.086e-10	1.086e-10	2.155e-11	same
+I rescale α=1.0e12 huge W	ls	Float32	PGD	zero	v0	true	47	false	false	false	false	false	true	false	109	48	1	1	3.210e-06	2.330e-04	2.435e-04	2.175e-03	1.086e+19	1.086e+14	1.086e+19	same
+I rescale α=1.0e12 huge W	ls	Float32	PGD	zero	v1	false	58	false	false	true	false	false	false	false	133	59	12	0	1.534e-07	6.493e-05	3.355e-05	4.820e-04	1.086e+19	1.086e+14	1.086e+19	differs
+I rescale α=1.0e12 huge W	ls	Float32	PGD	zero	v2	false	58	false	false	true	false	false	false	false	133	59	12	0	1.534e-07	6.493e-05	3.355e-05	4.820e-04	1.086e+19	1.086e+14	1.086e+19	differs
+I rescale α=1.0e12 huge W	ls	Float32	PGD	zero	v3	false	58	false	false	true	false	false	false	false	133	59	12	0	1.534e-07	6.493e-05	3.355e-05	4.820e-04	1.086e+19	1.086e+14	1.086e+19	differs
+I rescale α=1.0e12 huge W	ls	Float32	APG	zero	v0	true	21	false	false	false	false	false	true	false	95	23	1	1	1.345e-06	1.732e-04	1.908e-04	1.406e-03	1.086e+19	1.086e+14	1.086e+19	same
+I rescale α=1.0e12 huge W	ls	Float32	APG	zero	v1	false	25	false	false	true	false	false	false	false	105	32	5	0	5.404e-08	4.977e-05	4.787e-05	1.852e-04	1.086e+19	1.086e+14	1.086e+19	differs
+I rescale α=1.0e12 huge W	ls	Float32	APG	zero	v2	false	25	false	false	true	false	false	false	false	105	32	5	0	5.404e-08	4.977e-05	4.787e-05	1.852e-04	1.086e+19	1.086e+14	1.086e+19	differs
+I rescale α=1.0e12 huge W	ls	Float32	APG	zero	v3	false	25	false	false	true	false	false	false	false	105	32	5	0	5.404e-08	4.977e-05	4.787e-05	1.852e-04	1.086e+19	1.086e+14	1.086e+19	differs
+I rescale α=1.0e12 ordinary	ls	Float32	PGD	zero	v0	false	53	false	false	true	false	false	false	false	122	54	13	0	8.922e-08	4.848e-05	NaN	4.902e-04	1.086e+14	1.086e+14	2.155e+13	same
+I rescale α=1.0e12 ordinary	ls	Float32	PGD	zero	v1	false	53	false	false	true	false	false	false	false	122	54	13	0	8.922e-08	4.848e-05	NaN	4.902e-04	1.086e+14	1.086e+14	2.155e+13	same
+I rescale α=1.0e12 ordinary	ls	Float32	PGD	zero	v2	false	53	false	false	true	false	false	false	false	122	54	13	0	8.922e-08	4.848e-05	NaN	4.902e-04	1.086e+14	1.086e+14	2.155e+13	same
+I rescale α=1.0e12 ordinary	ls	Float32	PGD	zero	v3	false	53	false	false	true	false	false	false	false	122	54	13	0	8.922e-08	4.848e-05	NaN	4.902e-04	1.086e+14	1.086e+14	2.155e+13	same
+I rescale α=1.0e12 ordinary	ls	Float32	APG	zero	v0	false	24	false	false	true	false	false	false	false	106	34	7	0	5.056e-09	1.970e-05	NaN	1.031e-04	1.086e+14	1.086e+14	2.155e+13	same
+I rescale α=1.0e12 ordinary	ls	Float32	APG	zero	v1	false	24	false	false	true	false	false	false	false	106	34	7	0	5.056e-09	1.970e-05	NaN	1.031e-04	1.086e+14	1.086e+14	2.155e+13	same
+I rescale α=1.0e12 ordinary	ls	Float32	APG	zero	v2	false	24	false	false	true	false	false	false	false	106	34	7	0	5.056e-09	1.970e-05	NaN	1.031e-04	1.086e+14	1.086e+14	2.155e+13	same
+I rescale α=1.0e12 ordinary	ls	Float32	APG	zero	v3	false	24	false	false	true	false	false	false	false	106	34	7	0	5.056e-09	1.970e-05	NaN	1.031e-04	1.086e+14	1.086e+14	2.155e+13	same
+J y=0 mixed weights	ls	Float32	PGD	zero	v0	true	1	false	false	false	false	true	true	false	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	same
+J y=0 mixed weights	ls	Float32	PGD	zero	v1	false	200	true	false	false	false	false	false	false	401	201	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	PGD	zero	v2	false	200	true	false	false	false	false	false	false	401	201	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	PGD	zero	v3	false	200	true	false	false	false	false	false	false	401	201	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	PGD	random	v0	true	9	false	false	false	false	false	false	true	21	10	1	1	8.904e-12	3.916e+295	3.916e+295	4.547e+293	1.086e+01	0.000e+00	1.086e+01	same
+J y=0 mixed weights	ls	Float32	PGD	random	v1	false	56	false	false	true	false	false	false	false	119	57	48	0	1.240e-44	1.461e+279	1.461e+279	1.697e+277	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	PGD	random	v2	false	56	false	false	true	false	false	false	false	119	57	48	0	1.240e-44	1.461e+279	1.461e+279	1.697e+277	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	PGD	random	v3	false	56	false	false	true	false	false	false	false	119	57	48	0	1.240e-44	1.461e+279	1.461e+279	1.697e+277	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	APG	zero	v0	true	1	false	false	false	false	true	true	false	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	same
+J y=0 mixed weights	ls	Float32	APG	zero	v1	false	200	true	false	false	false	false	false	false	401	400	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	APG	zero	v2	false	200	true	false	false	false	false	false	false	401	400	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	APG	zero	v3	false	200	true	false	false	false	false	false	false	401	400	200	0	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	APG	random	v0	true	10	false	false	false	false	false	false	true	31	12	1	1	5.957e-14	3.203e+294	3.203e+294	3.719e+292	1.086e+01	0.000e+00	1.086e+01	same
+J y=0 mixed weights	ls	Float32	APG	random	v1	false	200	true	false	false	false	false	false	false	461	399	191	0	9.042e-83	1.248e+260	1.248e+260	1.449e+258	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	APG	random	v2	false	200	true	false	false	false	false	false	false	461	399	191	0	9.042e-83	1.248e+260	1.248e+260	1.449e+258	1.086e+01	0.000e+00	1.086e+01	differs
+J y=0 mixed weights	ls	Float32	APG	random	v3	false	200	true	false	false	false	false	false	false	461	399	191	0	9.042e-83	1.248e+260	1.248e+260	1.449e+258	1.086e+01	0.000e+00	1.086e+01	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float32	PGD	zero	v0	true	43	false	false	false	false	false	true	false	93	44	1	1	1.913e-06	3.810e-04	1.414e+03	3.369e-03	1.086e+07	3.833e+01	1.086e+07	same
+J free coord with ∇f_1(0)≈0, huge W	ls	Float32	PGD	zero	v1	true	76	false	false	false	false	false	true	false	163	77	34	1	3.489e-10	3.619e-06	4.810e+01	4.469e-05	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float32	PGD	zero	v2	true	69	false	false	false	false	false	true	false	148	70	27	1	2.064e-09	1.142e-05	6.788e+01	1.102e-04	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float32	PGD	zero	v3	true	76	false	false	false	false	false	true	false	163	77	34	1	3.489e-10	3.619e-06	4.810e+01	4.469e-05	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	5.993e-07	1.729e-04	2.964e+03	1.807e-03	1.086e+07	3.833e+01	1.086e+07	same
+J free coord with ∇f_1(0)≈0, huge W	ls	Float32	APG	zero	v1	true	35	false	false	false	false	false	true	false	88	54	17	1	1.870e-10	3.131e-06	1.031e+01	2.593e-05	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float32	APG	zero	v2	true	34	false	false	false	false	false	true	false	86	52	16	1	4.818e-10	4.377e-06	5.680e+01	4.731e-05	1.086e+07	3.833e+01	1.086e+07	differs
+J free coord with ∇f_1(0)≈0, huge W	ls	Float32	APG	zero	v3	true	35	false	false	false	false	false	true	false	88	54	17	1	1.870e-10	3.131e-06	1.031e+01	2.593e-05	1.086e+07	3.833e+01	1.086e+07	differs
+K strict, huge W	ls	Float32	PGD	zero	v0	false	143	false	true	false	false	false	false	false	314	151	0	0	2.404e-14	2.582e-08	3.430e-08	1.891e-07	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float32	PGD	zero	v1	false	143	false	true	false	false	false	false	false	314	151	0	0	2.404e-14	2.582e-08	3.430e-08	1.891e-07	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float32	PGD	zero	v2	false	143	false	true	false	false	false	false	false	314	151	0	0	2.404e-14	2.582e-08	3.430e-08	1.891e-07	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float32	PGD	zero	v3	false	143	false	true	false	false	false	false	false	314	151	0	0	2.404e-14	2.582e-08	3.430e-08	1.891e-07	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float32	APG	zero	v0	true	145	false	false	false	false	false	false	true	362	167	1	1	8.361e-15	3.441e-08	4.571e-08	7.233e-08	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float32	APG	zero	v1	true	145	false	false	false	false	false	false	true	362	167	1	1	8.361e-15	3.441e-08	4.571e-08	7.233e-08	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float32	APG	zero	v2	true	145	false	false	false	false	false	false	true	362	167	1	1	8.361e-15	3.441e-08	4.571e-08	7.233e-08	1.086e+07	1.086e+02	1.086e+07	same
+K strict, huge W	ls	Float32	APG	zero	v3	true	145	false	false	false	false	false	false	true	362	167	1	1	8.361e-15	3.441e-08	4.571e-08	7.233e-08	1.086e+07	1.086e+02	1.086e+07	same
+K maxiter 5000, huge W	ls	Float32	PGD	zero	v0	true	45	false	false	false	false	false	true	false	98	46	1	1	5.060e-06	2.895e-04	3.100e-04	2.729e-03	1.086e+07	1.086e+02	1.086e+07	same
+K maxiter 5000, huge W	ls	Float32	PGD	zero	v1	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float32	PGD	zero	v2	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float32	PGD	zero	v3	false	62	false	false	true	false	false	false	false	134	63	17	0	6.588e-08	3.701e-05	2.983e-05	3.135e-04	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	true	false	51	21	1	1	1.052e-06	1.889e-04	1.857e-05	9.176e-04	1.086e+07	1.086e+02	1.086e+07	same
+K maxiter 5000, huge W	ls	Float32	APG	zero	v1	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float32	APG	zero	v2	true	28	false	false	false	false	false	true	false	73	40	10	1	1.081e-08	2.069e-05	9.436e-06	1.294e-04	1.086e+07	1.086e+02	1.086e+07	differs
+K maxiter 5000, huge W	ls	Float32	APG	zero	v3	false	30	false	false	true	false	false	false	false	79	45	12	0	3.621e-09	9.103e-06	9.896e-06	6.947e-05	1.086e+07	1.086e+02	1.086e+07	differs
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	PGD	zero	v0	false	5	false	false	true	false	false	false	false	16	7	5	0	4.263e+00	8.745e-04	8.745e-01	1.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	PGD	zero	v1	false	5	false	false	true	false	false	false	false	16	7	5	0	4.263e+00	8.745e-04	8.745e-01	1.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	PGD	zero	v2	false	5	false	false	true	false	false	false	false	16	7	5	0	4.263e+00	8.745e-04	8.745e-01	1.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	PGD	zero	v3	false	5	false	false	true	false	false	false	false	16	7	5	0	4.263e+00	8.745e-04	8.745e-01	1.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	PGD	reference	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	PGD	reference	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	PGD	reference	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	PGD	reference	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	APG	zero	v0	false	156	false	false	true	false	false	false	false	359	313	156	0	4.263e+00	8.998e-04	8.998e-01	1.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	APG	zero	v1	false	156	false	false	true	false	false	false	false	359	313	156	0	4.263e+00	8.998e-04	8.998e-01	1.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	APG	zero	v2	false	156	false	false	true	false	false	false	false	359	313	156	0	4.263e+00	8.998e-04	8.998e-01	1.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	APG	zero	v3	false	156	false	false	true	false	false	false	false	359	313	156	0	4.263e+00	8.998e-04	8.998e-01	1.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	APG	reference	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	APG	reference	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	APG	reference	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=1000.0	ls	Float32	APG	reference	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+02	1.000e+00	1.000e+02	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	PGD	zero	v0	false	200	true	false	false	false	false	false	false	427	214	200	0	4.263e+00	9.000e-06	9.000e-01	1.000e+00	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	PGD	zero	v1	false	200	true	false	false	false	false	false	false	427	214	200	0	4.263e+00	9.000e-06	9.000e-01	1.000e+00	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	PGD	zero	v2	false	200	true	false	false	false	false	false	false	427	214	200	0	4.263e+00	9.000e-06	9.000e-01	1.000e+00	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	PGD	zero	v3	false	200	true	false	false	false	false	false	false	427	214	200	0	4.263e+00	9.000e-06	9.000e-01	1.000e+00	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	PGD	reference	v0	false	200	true	false	false	false	false	false	false	405	201	200	0	3.844e-05	2.702e-03	2.702e+02	5.678e-08	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	PGD	reference	v1	false	200	true	false	false	false	false	false	false	405	201	200	0	3.844e-05	2.702e-03	2.702e+02	5.678e-08	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	PGD	reference	v2	false	200	true	false	false	false	false	false	false	405	201	200	0	3.844e-05	2.702e-03	2.702e+02	5.678e-08	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	PGD	reference	v3	false	200	true	false	false	false	false	false	false	405	201	200	0	3.844e-05	2.702e-03	2.702e+02	5.678e-08	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	APG	zero	v0	false	200	true	false	false	false	false	false	false	465	400	200	0	4.263e+00	9.000e-06	9.000e-01	1.000e+00	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	APG	zero	v1	false	200	true	false	false	false	false	false	false	465	400	200	0	4.263e+00	9.000e-06	9.000e-01	1.000e+00	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	APG	zero	v2	false	200	true	false	false	false	false	false	false	465	400	200	0	4.263e+00	9.000e-06	9.000e-01	1.000e+00	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	APG	zero	v3	false	200	true	false	false	false	false	false	false	465	400	200	0	4.263e+00	9.000e-06	9.000e-01	1.000e+00	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	APG	reference	v0	false	200	true	false	false	false	false	false	false	456	400	200	0	3.844e-05	2.702e-03	2.702e+02	5.678e-08	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	APG	reference	v1	false	200	true	false	false	false	false	false	false	456	400	200	0	3.844e-05	2.702e-03	2.702e+02	5.678e-08	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	APG	reference	v2	false	200	true	false	false	false	false	false	false	456	400	200	0	3.844e-05	2.702e-03	2.702e+02	5.678e-08	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=100000.0	ls	Float32	APG	reference	v3	false	200	true	false	false	false	false	false	false	456	400	200	0	3.844e-05	2.702e-03	2.702e+02	5.678e-08	1.000e+04	1.000e+00	1.000e+04	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	PGD	zero	v0	false	10	false	false	true	false	false	false	false	31	16	10	0	4.263e+00	8.957e-07	8.957e-01	1.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	PGD	zero	v1	false	10	false	false	true	false	false	false	false	31	16	10	0	4.263e+00	8.957e-07	8.957e-01	1.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	PGD	zero	v2	false	10	false	false	true	false	false	false	false	31	16	10	0	4.263e+00	8.957e-07	8.957e-01	1.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	PGD	zero	v3	false	10	false	false	true	false	false	false	false	31	16	10	0	4.263e+00	8.957e-07	8.957e-01	1.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	PGD	reference	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	PGD	reference	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	PGD	reference	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	PGD	reference	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	APG	zero	v0	true	14	false	false	false	false	false	true	false	71	28	14	1	4.263e+00	9.000e-07	9.000e-01	1.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	APG	zero	v1	false	200	true	false	false	false	false	false	false	472	401	200	0	4.263e+00	9.000e-07	9.000e-01	1.000e+00	1.000e+05	1.000e+00	1.000e+05	differs
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	APG	zero	v2	false	200	true	false	false	false	false	false	false	472	401	200	0	4.263e+00	9.000e-07	9.000e-01	1.000e+00	1.000e+05	1.000e+00	1.000e+05	differs
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	APG	zero	v3	false	200	true	false	false	false	false	false	false	472	401	200	0	4.263e+00	9.000e-07	9.000e-01	1.000e+00	1.000e+05	1.000e+00	1.000e+05	differs
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	APG	reference	v0	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	APG	reference	v1	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	APG	reference	v2	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e6	ls	Float64	APG	reference	v3	true	1	false	false	false	false	true	true	true	3	2	1	1	0.000e+00	0.000e+00	0.000e+00	0.000e+00	1.000e+05	1.000e+00	1.000e+05	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	PGD	zero	v0	true	32	false	false	false	false	true	true	true	77	39	32	1	4.263e+00	9.000e-14	9.000e-01	1.000e+00	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	PGD	zero	v1	false	200	true	false	false	false	false	false	false	463	232	200	0	4.263e+00	9.000e-14	9.000e-01	1.000e+00	1.000e+12	1.000e+00	1.000e+12	differs
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	PGD	zero	v2	false	200	true	false	false	false	false	false	false	463	232	200	0	4.263e+00	9.000e-14	9.000e-01	1.000e+00	1.000e+12	1.000e+00	1.000e+12	differs
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	PGD	zero	v3	false	200	true	false	false	false	false	false	false	463	232	200	0	4.263e+00	9.000e-14	9.000e-01	1.000e+00	1.000e+12	1.000e+00	1.000e+12	differs
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	PGD	reference	v0	false	200	true	false	false	false	false	false	false	402	201	200	0	1.899e-06	6.006e-04	6.006e+09	6.674e-17	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	PGD	reference	v1	false	200	true	false	false	false	false	false	false	402	201	200	0	1.899e-06	6.006e-04	6.006e+09	6.674e-17	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	PGD	reference	v2	false	200	true	false	false	false	false	false	false	402	201	200	0	1.899e-06	6.006e-04	6.006e+09	6.674e-17	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	PGD	reference	v3	false	200	true	false	false	false	false	false	false	402	201	200	0	1.899e-06	6.006e-04	6.006e+09	6.674e-17	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	APG	zero	v0	true	11	false	false	false	false	false	true	true	112	22	11	1	4.263e+00	9.000e-14	9.000e-01	1.000e+00	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	APG	zero	v1	false	200	true	false	false	false	false	false	false	518	400	200	0	4.263e+00	9.000e-14	9.000e-01	1.000e+00	1.000e+12	1.000e+00	1.000e+12	differs
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	APG	zero	v2	false	200	true	false	false	false	false	false	false	518	400	200	0	4.263e+00	9.000e-14	9.000e-01	1.000e+00	1.000e+12	1.000e+00	1.000e+12	differs
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	APG	zero	v3	false	200	true	false	false	false	false	false	false	518	400	200	0	4.263e+00	9.000e-14	9.000e-01	1.000e+00	1.000e+12	1.000e+00	1.000e+12	differs
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	APG	reference	v0	false	200	true	false	false	false	false	false	false	485	400	200	0	1.899e-06	6.006e-04	6.006e+09	6.674e-17	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	APG	reference	v1	false	200	true	false	false	false	false	false	false	485	400	200	0	1.899e-06	6.006e-04	6.006e+09	6.674e-17	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	APG	reference	v2	false	200	true	false	false	false	false	false	false	485	400	200	0	1.899e-06	6.006e-04	6.006e+09	6.674e-17	1.000e+12	1.000e+00	1.000e+12	same
+N active c₂=M/10 ≫ λmax, M=1.0e13	ls	Float64	APG	reference	v3	false	200	true	false	false	false	false	false	false	485	400	200	0	1.899e-06	6.006e-04	6.006e+09	6.674e-17	1.000e+12	1.000e+00	1.000e+12	same
+O offset response, free intercept (#400)	ls	Float64	PGD	zero	v0	true	27	false	false	false	false	false	false	true	59	28	1	1	3.386e+00	1.620e-06	1.291e-06	2.572e-06	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float64	PGD	zero	v1	true	27	false	false	false	false	false	false	true	59	28	1	1	3.386e+00	1.620e-06	1.291e-06	2.572e-06	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float64	PGD	zero	v2	true	27	false	false	false	false	false	false	true	59	28	1	1	3.386e+00	1.620e-06	1.291e-06	2.572e-06	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float64	PGD	zero	v3	true	27	false	false	false	false	false	false	true	59	28	1	1	3.386e+00	1.620e-06	1.291e-06	2.572e-06	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float64	APG	zero	v0	true	19	false	false	false	false	false	false	true	50	21	1	1	4.586e+01	6.207e-06	6.207e-06	1.034e-05	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float64	APG	zero	v1	true	19	false	false	false	false	false	false	true	50	21	1	1	4.586e+01	6.207e-06	6.207e-06	1.034e-05	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float64	APG	zero	v2	true	19	false	false	false	false	false	false	true	50	21	1	1	4.586e+01	6.207e-06	6.207e-06	1.034e-05	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float64	APG	zero	v3	true	19	false	false	false	false	false	false	true	50	21	1	1	4.586e+01	6.207e-06	6.207e-06	1.034e-05	5.000e+07	5.000e+07	2.235e+02	same
+O centered control	ls	Float64	PGD	zero	v0	true	11	false	false	false	false	false	true	false	25	12	2	1	8.832e-12	1.600e-06	2.323e-06	2.902e-06	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float64	PGD	zero	v1	true	11	false	false	false	false	false	true	false	25	12	2	1	8.832e-12	1.600e-06	2.323e-06	2.902e-06	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float64	PGD	zero	v2	true	11	false	false	false	false	false	true	false	25	12	2	1	8.832e-12	1.600e-06	2.323e-06	2.902e-06	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float64	PGD	zero	v3	true	11	false	false	false	false	false	true	false	25	12	2	1	8.832e-12	1.600e-06	2.323e-06	2.902e-06	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float64	APG	zero	v0	true	8	false	false	false	false	false	true	false	28	12	2	1	1.125e-09	1.593e-05	2.313e-05	3.067e-05	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float64	APG	zero	v1	true	9	false	false	false	false	false	true	false	31	14	3	1	5.076e-11	4.368e-06	7.306e-06	6.342e-06	2.235e+02	8.113e+01	2.235e+02	differs
+O centered control	ls	Float64	APG	zero	v2	true	9	false	false	false	false	false	true	false	31	14	3	1	5.076e-11	4.368e-06	7.306e-06	6.342e-06	2.235e+02	8.113e+01	2.235e+02	differs
+O centered control	ls	Float64	APG	zero	v3	true	9	false	false	false	false	false	true	false	31	14	3	1	5.076e-11	4.368e-06	7.306e-06	6.342e-06	2.235e+02	8.113e+01	2.235e+02	differs
+O offset response, free intercept (#400)	ls	Float32	PGD	zero	v0	true	27	false	false	false	false	false	false	true	59	28	1	1	3.358e+00	1.639e-06	1.243e-06	2.528e-06	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float32	PGD	zero	v1	true	27	false	false	false	false	false	false	true	59	28	1	1	3.358e+00	1.639e-06	1.243e-06	2.528e-06	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float32	PGD	zero	v2	true	27	false	false	false	false	false	false	true	59	28	1	1	3.358e+00	1.639e-06	1.243e-06	2.528e-06	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float32	PGD	zero	v3	true	27	false	false	false	false	false	false	true	59	28	1	1	3.358e+00	1.639e-06	1.243e-06	2.528e-06	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float32	APG	zero	v0	true	19	false	false	false	false	false	false	true	50	21	1	1	4.608e+01	6.266e-06	6.266e-06	1.041e-05	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float32	APG	zero	v1	true	19	false	false	false	false	false	false	true	50	21	1	1	4.608e+01	6.266e-06	6.266e-06	1.041e-05	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float32	APG	zero	v2	true	19	false	false	false	false	false	false	true	50	21	1	1	4.608e+01	6.266e-06	6.266e-06	1.041e-05	5.000e+07	5.000e+07	2.235e+02	same
+O offset response, free intercept (#400)	ls	Float32	APG	zero	v3	true	19	false	false	false	false	false	false	true	50	21	1	1	4.608e+01	6.266e-06	6.266e-06	1.041e-05	5.000e+07	5.000e+07	2.235e+02	same
+O centered control	ls	Float32	PGD	zero	v0	true	11	false	false	false	false	false	true	false	25	12	2	1	8.934e-12	1.646e-06	2.390e-06	2.952e-06	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float32	PGD	zero	v1	true	11	false	false	false	false	false	true	false	25	12	2	1	8.934e-12	1.646e-06	2.390e-06	2.952e-06	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float32	PGD	zero	v2	true	11	false	false	false	false	false	true	false	25	12	2	1	8.934e-12	1.646e-06	2.390e-06	2.952e-06	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float32	PGD	zero	v3	true	11	false	false	false	false	false	true	false	25	12	2	1	8.934e-12	1.646e-06	2.390e-06	2.952e-06	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float32	APG	zero	v0	true	9	false	false	true	false	false	true	false	30	14	3	1	3.833e-10	8.304e-06	1.340e-05	1.656e-05	2.235e+02	8.113e+01	2.235e+02	same
+O centered control	ls	Float32	APG	zero	v1	false	9	false	false	true	false	false	false	false	30	14	3	0	3.833e-10	8.304e-06	1.340e-05	1.656e-05	2.235e+02	8.113e+01	2.235e+02	differs
+O centered control	ls	Float32	APG	zero	v2	false	9	false	false	true	false	false	false	false	30	14	3	0	3.833e-10	8.304e-06	1.340e-05	1.656e-05	2.235e+02	8.113e+01	2.235e+02	differs
+O centered control	ls	Float32	APG	zero	v3	false	9	false	false	true	false	false	false	false	30	14	3	0	3.833e-10	8.304e-06	1.340e-05	1.656e-05	2.235e+02	8.113e+01	2.235e+02	differs
+L logistic intercept free, zero column W=1.0	logistic	Float64	PGD	zero	v0	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	3.964e+01	3.964e+01	1.982e+00	same
+L logistic intercept free, zero column W=1.0	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	3.964e+01	3.964e+01	1.982e+00	same
+L logistic intercept free, zero column W=1.0	logistic	Float64	PGD	zero	v2	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	3.964e+01	3.964e+01	1.982e+00	same
+L logistic intercept free, zero column W=1.0	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	3.964e+01	3.964e+01	1.982e+00	same
+L logistic intercept free, excluded column W=1.0	logistic	Float64	PGD	zero	v0	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	3.964e+01	3.964e+01	1.982e+00	same
+L logistic intercept free, excluded column W=1.0	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	3.964e+01	3.964e+01	1.982e+00	same
+L logistic intercept free, excluded column W=1.0	logistic	Float64	PGD	zero	v2	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	3.964e+01	3.964e+01	1.982e+00	same
+L logistic intercept free, excluded column W=1.0	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	3.964e+01	3.964e+01	1.982e+00	same
+L logistic intercept free, zero column W=1000.0	logistic	Float64	PGD	zero	v0	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+03	3.964e+01	1.982e+03	same
+L logistic intercept free, zero column W=1000.0	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+03	3.964e+01	1.982e+03	differs
+L logistic intercept free, zero column W=1000.0	logistic	Float64	PGD	zero	v2	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+03	3.964e+01	1.982e+03	same
+L logistic intercept free, zero column W=1000.0	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+03	3.964e+01	1.982e+03	differs
+L logistic intercept free, excluded column W=1000.0	logistic	Float64	PGD	zero	v0	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+03	3.964e+01	1.982e+03	same
+L logistic intercept free, excluded column W=1000.0	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+03	3.964e+01	1.982e+03	differs
+L logistic intercept free, excluded column W=1000.0	logistic	Float64	PGD	zero	v2	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+03	3.964e+01	1.982e+03	same
+L logistic intercept free, excluded column W=1000.0	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+03	3.964e+01	1.982e+03	differs
+L logistic intercept free, zero column W=1.0e6	logistic	Float64	PGD	zero	v0	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+06	3.964e+01	1.982e+06	same
+L logistic intercept free, zero column W=1.0e6	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+06	3.964e+01	1.982e+06	differs
+L logistic intercept free, zero column W=1.0e6	logistic	Float64	PGD	zero	v2	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+06	3.964e+01	1.982e+06	same
+L logistic intercept free, zero column W=1.0e6	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+06	3.964e+01	1.982e+06	differs
+L logistic intercept free, excluded column W=1.0e6	logistic	Float64	PGD	zero	v0	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+06	3.964e+01	1.982e+06	same
+L logistic intercept free, excluded column W=1.0e6	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+06	3.964e+01	1.982e+06	differs
+L logistic intercept free, excluded column W=1.0e6	logistic	Float64	PGD	zero	v2	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+06	3.964e+01	1.982e+06	same
+L logistic intercept free, excluded column W=1.0e6	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+06	3.964e+01	1.982e+06	differs
+L logistic intercept free, zero column W=1.0e12	logistic	Float64	PGD	zero	v0	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+12	3.964e+01	1.982e+12	same
+L logistic intercept free, zero column W=1.0e12	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+12	3.964e+01	1.982e+12	differs
+L logistic intercept free, zero column W=1.0e12	logistic	Float64	PGD	zero	v2	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+12	3.964e+01	1.982e+12	same
+L logistic intercept free, zero column W=1.0e12	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+12	3.964e+01	1.982e+12	differs
+L logistic intercept free, excluded column W=1.0e12	logistic	Float64	PGD	zero	v0	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+12	3.964e+01	1.982e+12	same
+L logistic intercept free, excluded column W=1.0e12	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+12	3.964e+01	1.982e+12	differs
+L logistic intercept free, excluded column W=1.0e12	logistic	Float64	PGD	zero	v2	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+12	3.964e+01	1.982e+12	same
+L logistic intercept free, excluded column W=1.0e12	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+12	3.964e+01	1.982e+12	differs
+L logistic intercept free, zero column W=1.0e100	logistic	Float64	PGD	zero	v0	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+100	3.964e+01	1.982e+100	same
+L logistic intercept free, zero column W=1.0e100	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+100	3.964e+01	1.982e+100	differs
+L logistic intercept free, zero column W=1.0e100	logistic	Float64	PGD	zero	v2	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+100	3.964e+01	1.982e+100	same
+L logistic intercept free, zero column W=1.0e100	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+100	3.964e+01	1.982e+100	differs
+L logistic intercept free, excluded column W=1.0e100	logistic	Float64	PGD	zero	v0	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+100	3.964e+01	1.982e+100	same
+L logistic intercept free, excluded column W=1.0e100	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+100	3.964e+01	1.982e+100	differs
+L logistic intercept free, excluded column W=1.0e100	logistic	Float64	PGD	zero	v2	true	8	false	false	false	false	false	true	false	18	9	1	1	8.775e-09	5.605e-05	8.741e-06	2.420e-04	1.982e+100	3.964e+01	1.982e+100	same
+L logistic intercept free, excluded column W=1.0e100	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	false	23	11	3	1	2.713e-11	3.140e-06	9.317e-07	1.355e-05	1.982e+100	3.964e+01	1.982e+100	differs
+L logistic ordinary weights	logistic	Float64	PGD	zero	v0	true	10	false	false	false	false	false	true	true	22	11	3	1	6.546e-14	1.441e-07	NaN	3.396e-07	3.964e+01	3.964e+01	3.765e+00	same
+L logistic ordinary weights	logistic	Float64	PGD	zero	v1	true	10	false	false	false	false	false	true	true	22	11	3	1	6.546e-14	1.441e-07	NaN	3.396e-07	3.964e+01	3.964e+01	3.765e+00	same
+L logistic ordinary weights	logistic	Float64	PGD	zero	v2	true	10	false	false	false	false	false	true	true	22	11	3	1	6.546e-14	1.441e-07	NaN	3.396e-07	3.964e+01	3.964e+01	3.765e+00	same
+L logistic ordinary weights	logistic	Float64	PGD	zero	v3	true	10	false	false	false	false	false	true	true	22	11	3	1	6.546e-14	1.441e-07	NaN	3.396e-07	3.964e+01	3.964e+01	3.765e+00	same
+M group LS one free (B4 analogue)	ls	Float64	PGD	zero	v0	true	1	false	false	false	false	true	false	false	492	2	1	1	2.605e-32	7.218e-17	NaN	8.070e-17	1.000e+300	4.000e+150	1.000e+300	same
+M group LS one free (B4 analogue)	ls	Float64	PGD	zero	gv1	true	1	false	false	false	false	true	false	false	492	2	1	1	2.605e-32	7.218e-17	NaN	8.070e-17	1.000e+300	4.000e+150	1.000e+300	same
+M group LS one free (B4 analogue)	ls	Float64	APG	zero	v0	true	1	false	false	false	false	true	false	false	1003	2	1	1	9.274e-01	4.307e-01	NaN	4.815e-01	1.000e+300	4.000e+150	1.000e+300	same
+M group LS one free (B4 analogue)	ls	Float64	APG	zero	gv1	true	7	false	false	false	false	true	true	false	1017	15	7	1	5.838e-11	3.417e-06	NaN	3.820e-06	1.000e+300	4.000e+150	1.000e+300	differs

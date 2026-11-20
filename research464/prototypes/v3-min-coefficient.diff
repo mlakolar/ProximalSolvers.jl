@@ -1,0 +1,15 @@
+diff --git a/src/utils.jl b/src/utils.jl
+index 274c9ec9..4974d795 100644
+--- a/src/utils.jl
++++ b/src/utils.jl
+@@ -261,8 +261,8 @@ _converted_penalty(g::NormL1Nonneg{<:Real, Nothing}, ::Type{T}) where T = NormL1
+ _converted_penalty(::IndNonnegative, ::Type{T}) where T = NormL1Nonneg(zero(T))
+ _l1_level(g::NormL1Nonneg) = g.λ0
+ _l1_level(g::NormL1) = g.λ0
+-# the largest coefficient λ0 wᵢ of a penalty with weights in T and a level in T
+-_l1_level(g::NormL1{<:Real, <:Vector}) = g.λ0 * maximum(g.w)
++# #464 prototype: the smallest coefficient λ0 wᵢ of a penalty with weights in T and a level in T
++_l1_level(g::NormL1{<:Real, <:Vector}) = g.λ0 * Base.minimum(g.w)
+ _l1_level(g::ElasticNet) = g.λ1
+ # solve! requires the parameters of a GroupNormL2 to be of type T; the level of the scale is the largest coefficient
+ _converted_penalty(g::GroupNormL2{T}, ::Type{T}) where T = g
