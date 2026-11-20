@@ -113,7 +113,10 @@ end;
 # of `1e-8` computed independently as above. The matched fit is the first setting in a sweep that
 # reaches it, so each matched fit is at or below the target, though the solvers' tolerance settings
 # differ. The script prints `not reached` for a sweep that does not, and then fails. `converged`
-# is printed but is not the criterion, and neither solver's own stopping test is this score.
+# is printed but is not the criterion. The script recomputes the KKT violation from the original
+# problem and compares it with a fixed target, while each solver stops by its own test and
+# tolerance on the inputs it received: ADMM on its residuals, PGD on its KKT score
+# ([PGD-08](@ref)).
 function fit(route, policy, t)
   f, g, method, options = route === :ADMM ?
     (LogDetLoss(S), NormL1(1.0, policy.Λfull), ADMMSolver(; abstol=t, reltol=t),
@@ -159,10 +162,11 @@ foreach(check_fit, (run for s in sweeps for route in (:ADMM, :PGD) for run in s[
 #
 # At the matched and the tightest fits, the dual candidate must be certified, and its gap must lie
 # between minus the allowance and the target scaled by `max(1, |P|)`. The lower bound is weak
-# duality up to rounding in the Float64 objective. A candidate that is not certified prints
-# `not certified` with its policy, solver and stage before the assertion fails. At each policy, the objectives of the matched
-# fits must agree within that scaled target. Their largest entrywise difference is bounded from
-# the KKT violations. For positive-definite `A` and `B`,
+# duality up to rounding in the numerical gap: the Float64 primal, the BigFloat dual value and the
+# conversion of the gap to Float64 are all rounded. A candidate that is not certified prints
+# `not certified` with its policy, solver and stage before the assertion fails. At each policy,
+# the objectives of the matched fits must agree within that scaled target. Their largest
+# entrywise difference is bounded from the KKT violations. For positive-definite `A` and `B`,
 # `⟨inv(B) - inv(A), A - B⟩ ≥ ‖A - B‖_F² / (λmax(A) λmax(B))`, and the subgradient of the penalty is
 # monotone, so in exact arithmetic `‖A - B‖_F ≤ λmax(A) λmax(B) (‖R_A‖_F + ‖R_B‖_F)`. Here `R` is
 # `G` plus a selected subgradient of the penalty, a signed matrix whose entry magnitudes equal the
@@ -204,12 +208,13 @@ end
 
 # ## Compare work at the same accuracy
 #
-# One ADMM iteration makes two proximal calls: the logdet proximal operator, which needs an
-# eigendecomposition, and the ℓ₁ proximal operator. One PGD trial step makes one ℓ₁ proximal call
-# at a finite trial argument. The solver evaluates the logdet value, which needs a Cholesky
-# factorization, only if the proposal is positive definite, and an accepted step also takes a
-# gradient, which needs an inverse. A trial can therefore end without a value call. Proximal
-# calls are not equal units of work. The times are the minimum of three warmed solves of the
+# One ADMM iteration makes two proximal calls: the logdet proximal operator, which uses an
+# eigendecomposition, and the ℓ₁ proximal operator. PGD counts each attempted proposal as a
+# backtracking trial. A trial calls the ℓ₁ proximal operator when its argument is finite, and the
+# solver evaluates the loss only when the resulting proposal is finite, exactly symmetric and
+# passes Cholesky in the element type; an accepted step also evaluates a gradient
+# ([PGD-07](@ref), [PGD-08](@ref)). The tables report these counts. A proximal call costs
+# different work in the two solvers. The times are the minimum of three warmed solves of the
 # matched setting, each from a fresh start and checked like the sweep fits. They illustrate one
 # machine and one problem, and they do not show a speedup.
 function timed(route, policy, t)
@@ -250,12 +255,12 @@ end
 #
 # Each top panel plots the independent normalized KKT violation of every fit in a sweep against
 # its proximal calls, and the dashed line marks the target. The three panels share their
-# vertical limits. Values below `eps()` are drawn at `eps()`. Each heatmap shows ADMM's matched
-# estimate above the diagonal and PGD's below it, with the diagonal set to zero for display. The
-# three heatmaps share one symmetric color scale. The fit markers and the off-diagonal heatmap
-# entries come from the solvers; the script adds the target line and the zeroed display diagonal.
-# The documentation build runs the plotting lines. The script alone runs the same calculations
-# and checks without loading Plots.
+# vertical limits. Each heatmap shows ADMM's matched estimate above the diagonal and PGD's below
+# it, with the diagonal set to zero for display. The three heatmaps share one symmetric color
+# scale. Each marker pairs a solver's reported proximal calls with the script's independent KKT
+# violation, floored at `eps()`. The off-diagonal heatmap entries are the returned estimates; the
+# script adds the target line and the zeroed display diagonal. The documentation build runs the
+# plotting lines. The script alone runs the same calculations and checks without loading Plots.
 #!jl using Plots
 #!jl labels = ("λdiag = 0", "λdiag = λoff/2", "λdiag = λoff")
 #!jl ylimits = extrema(max(run.d.kkt, eps()) for s in sweeps for route in (:ADMM, :PGD) for run in s[route])

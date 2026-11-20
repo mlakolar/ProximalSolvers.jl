@@ -239,8 +239,9 @@ denotes the effective diagonal penalty, which in the `NormL1(λ₀, Λ)` notatio
 and must be the same for every `i`. For every symmetric positive-definite `Θ`, this
 objective equals the one with that diagonal penalty, up to the rounding of the stored shifted
 covariance. Form the shifted covariance in the element type `T` of the start and the weights,
-and check that it is finite and exactly symmetric: a `Float64` `λdiag` promotes a `Float32`
-`S`, and [PGD-06](@ref) then rejects it. See [PGD-06](@ref) and the
+and check that it is finite and exactly symmetric. The unconverted expression `S + λdiag*I`
+with a `Float32` `S` and a `Float64` `λdiag` is promoted to `Float64`, which [PGD-06](@ref)
+rejects when the start and weights stay `Float32`. See [PGD-06](@ref) and the
 [solver comparison](examples/comparisons/graphical_lasso_solvers.md), which judges each
 estimate from the original `S`.
 

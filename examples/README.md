@@ -81,8 +81,8 @@ The elastic-net script also demonstrates uncentered `SqrNormL2` ridge with
 `CDSolver`. It checks the coefficient owner and agreement within `1e-7` in the
 infinity norm with the direct ridge normal-equation solution.
 
-The lasso and group-lasso comparisons measure the time to reach common thresholds on an
-independently checked objective gap and KKT violation; the achieved scores can differ. The
+The lasso, group-lasso and weighted-lasso comparisons measure the time to reach common thresholds
+on an independently checked objective gap and KKT violation; the achieved scores can differ. The
 graphical-lasso comparison requires an independently checked KKT violation of at most a common
 bound and reports work as iterations and oracle calls, with illustrative times. The
 scripts print tables, and the documentation build adds figures. The lasso comparison draws its
