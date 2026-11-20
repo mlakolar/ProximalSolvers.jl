@@ -222,6 +222,17 @@ end
     @test_throws ErrorException("matrix PGD line search failed after 64 trials") solve!(z, f, g, ProximalGradientDescent(; ls), pg_options())
     @test z ≈ accepted && z != start && eigmin(Symmetric(z)) > 0
 
+    # Interrupt the second search after its first rejected trial. Its work
+    # counts, while the result diagnostics still describe the accepted step.
+    snapshot = copy(z)
+    z = copy(start)
+    r = solve!(z, f, g, ProximalGradientDescent(; ls), ProximalOptions(prox_calls_limit=2))
+    @test r.call_limit_reached && !r.converged && !r.stagnated
+    @test (r.iterations, r.backtrack_steps, r.prox_calls, r.f_calls, r.grad_calls) == (1, 2, 2, 3, 2)
+    @test r.minimizer === z && z == snapshot && r.minimum == f(z)
+    @test r.x_residual == abs(only(z) - only(start))
+    @test r.f_residual ≈ abs(f(z) - f(start)) / abs(f(z)) rtol=eps(T)
+
     f = LogDetLoss(array(4))
     z = array(1)
     @test_throws ErrorException("matrix PGD line search failed after 64 trials") solve!(z, f, g, ProximalGradientDescent(; ls), pg_options())

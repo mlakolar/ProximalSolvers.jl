@@ -73,91 +73,109 @@ function _logdet_pgd_majorizes(G, D, t::T, loss, next_loss) where T
   next_loss - model <= slack
 end
 
-_logdet_pgd_call_limit(o, f_calls, grad_calls, prox_calls) =
-  (0 < o.f_calls_limit <= f_calls || 0 < o.grad_calls_limit <= grad_calls ||
-   0 < o.prox_calls_limit <= prox_calls)
+# The shared driver reads the accepted objective and oracle counts. The
+# matrix line search keeps all proposals in buffers separate from x.
+mutable struct LogDetPGDState{T}
+  x::Matrix{T}
+  f_x::T
+  g_x::T
+  f_x_previous::T
+  g_x_previous::T
+  gradient::Matrix{T}
+  argument::Matrix{T}
+  trial::Matrix{T}
+  displacement::Matrix{T}
+  cholesky_scratch::Matrix{T}
+  weights::Matrix{T}
+  scale::T
+  step::T
+  α::T
+  β::T
+  score::Float64
+  x_change::Float64
+  unchanged::Bool
+  backtrack_steps::Int
+  f_calls::Int
+  grad_calls::Int
+  prox_calls::Int
+end
 
-_logdet_pgd_time_limit(o, start) = (time_ns() - start) * 1e-9 >= o.time_limit
+_strict_gradient_limits(::LogDetPGDState) = true
+_gradient_tracing(::LogDetPGDState, options) = false
+# The line search already enforces composite descent with a rounding allowance.
+_stop_on_gradient_increase(::LogDetPGDState, options) = false
+_rollback_gradient_step!(::LogDetPGDState) = nothing
+_gradient_tolerance(::LogDetPGDState{T}, options) where T = max(options.gradtol, Float64(64eps(T)))
+_state_normdiff(state::LogDetPGDState) = state.x_change
+g_residual(state::LogDetPGDState) = state.score
+_stagnated(state::LogDetPGDState, options) =
+  state.unchanged && state.score > _gradient_tolerance(state, options)
+
+function convergence_assessment(state::LogDetPGDState, f, g, options)
+  objective = state.f_x + state.g_x
+  previous = state.f_x_previous + state.g_x_previous
+  stationary = state.score <= _gradient_tolerance(state, options)
+  x_converged = stationary && state.x_change < options.xtol
+  f_converged = stationary && options.ftol > 0 &&
+                f_residual(objective, previous, options.ftol) < options.ftol
+  x_converged, f_converged, stationary, stationary, objective > previous
+end
+
+function _gradient_step!(state::LogDetPGDState{T}, f, g, method, options, t0) where T
+  Θ, G, V, Z, D = state.x, state.gradient, state.argument, state.trial, state.displacement
+  loss = state.f_x
+  objective = loss + state.g_x
+  t = min(one(T), state.step / state.α)
+  for attempt in 1:64
+    isfinite(t) && t > zero(T) && isfinite(inv(t)) && inv(t) > zero(T) ||
+      error("matrix PGD line search requires a finite positive step and reciprocal")
+    state.backtrack_steps += 1
+    if _logdet_pgd_trial_argument!(V, Θ, G, t)
+      state.prox_calls += 1
+      prox!(Z, g, V, t)
+      if _admm_passes_cholesky!(state.cholesky_scratch, Z)
+        state.f_calls += 1
+        next_loss, penalty = f(Z), g(Z)
+        next_objective = next_loss + penalty
+        if isfinite(next_objective)
+          D .= Z .- Θ
+          slack = 16eps(T) * max(one(T), abs(next_objective), abs(objective))
+          if next_objective - objective <= slack && _logdet_pgd_majorizes(G, D, t, loss, next_loss)
+            state.grad_calls += 1
+            gradient!(G, f, Z)
+            _logdet_pgd_symmetrize!(G, f.S)
+            state.score = _logdet_pgd_kkt(Z, G, state.weights, state.scale)
+            state.x_change = Float64(norm(D))
+            state.unchanged = Z == Θ
+            state.f_x_previous, state.g_x_previous = state.f_x, state.g_x
+            state.f_x, state.g_x = next_loss, penalty
+            state.step = t
+            copyto!(Θ, Z)
+            return true
+          end
+        end
+      end
+    end
+    attempt == 64 && error("matrix PGD line search failed after 64 trials")
+    (_gradient_call_limit(state, options) || _gradient_time_limit(t0, options)) && return false
+    next_t = t * state.β
+    next_t < t || error("matrix PGD line search could not reduce the step")
+    t = next_t
+  end
+end
 
 function solve!(Θ::Matrix{T}, f::LogDetLoss{T}, g::NormL1, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...) where T
   _check_keywords(kwargs)
   start = time_ns()
   C, scale, α, β, scratch = _logdet_pgd_preflight(Θ, f, g, method.ls, options)
-  G, V, Z, D = similar(Θ), similar(Θ), similar(Θ), similar(Θ)
-  loss = value_and_gradient!(G, f, Θ)
-  objective = loss + g(Θ)
-  isfinite(objective) || throw(ArgumentError("matrix PGD requires a finite starting objective"))
+  G = similar(Θ)
+  loss, penalty = value_and_gradient!(G, f, Θ), g(Θ)
+  isfinite(loss + penalty) || throw(ArgumentError("matrix PGD requires a finite starting objective"))
   _logdet_pgd_symmetrize!(G, f.S)
   score = _logdet_pgd_kkt(Θ, G, C, scale)
-  gtol = max(options.gradtol, Float64(64eps(T)))
-
-  t = one(T)
-  steps = trials = prox_calls = 0
-  f_calls = grad_calls = 1
-  x_change = f_change = NaN
-  increased = converged = stagnated = false
-  call_limit = _logdet_pgd_call_limit(options, f_calls, grad_calls, prox_calls)
-  while steps < options.maxiter && !call_limit && !_logdet_pgd_time_limit(options, start)
-    steps > 0 && (t = min(one(T), t / α))
-    accepted = false
-    next_loss, next_objective = loss, objective
-    for attempt in 1:64
-      isfinite(t) && t > zero(T) && isfinite(inv(t)) && inv(t) > zero(T) ||
-        error("matrix PGD line search requires a finite positive step and reciprocal")
-      trials += 1
-      if _logdet_pgd_trial_argument!(V, Θ, G, t)
-        prox_calls += 1
-        prox!(Z, g, V, t)
-        if _admm_passes_cholesky!(scratch, Z)
-          f_calls += 1
-          next_loss = f(Z)
-          next_objective = next_loss + g(Z)
-          if isfinite(next_objective)
-            D .= Z .- Θ
-            slack = 16eps(T) * max(one(T), abs(next_objective), abs(objective))
-            if next_objective - objective <= slack && _logdet_pgd_majorizes(G, D, t, loss, next_loss)
-              accepted = true
-              break
-            end
-          end
-        end
-      end
-      attempt == 64 && error("matrix PGD line search failed after 64 trials")
-      call_limit = _logdet_pgd_call_limit(options, f_calls, grad_calls, prox_calls)
-      (call_limit || _logdet_pgd_time_limit(options, start)) && break
-      next_t = t * β
-      next_t < t || error("matrix PGD line search could not reduce the step")
-      t = next_t
-    end
-    accepted || break
-
-    grad_calls += 1
-    gradient!(G, f, Z)
-    _logdet_pgd_symmetrize!(G, f.S)
-    score = _logdet_pgd_kkt(Z, G, C, scale)
-    x_change = Float64(norm(D))
-    f_change = f_residual(next_objective, objective, options.ftol)
-    increased = next_objective > objective
-    unchanged = Z == Θ
-    copyto!(Θ, Z)
-    loss, objective = next_loss, next_objective
-    steps += 1
-
-    stationary = score <= gtol
-    stagnated = unchanged && !stationary
-    call_limit = _logdet_pgd_call_limit(options, f_calls, grad_calls, prox_calls)
-    limited = call_limit || steps == options.maxiter || _logdet_pgd_time_limit(options, start)
-    converged = stationary && !limited
-    (converged || stagnated || limited) && break
-  end
-
-  trace = OptimizationTrace{typeof(method)}()
-  x_converged = converged && x_change < options.xtol
-  f_converged = converged && options.ftol > 0 && f_change < options.ftol
-  OptimizationResults{typeof(method), T, 2, typeof(method), typeof(Θ)}(
-    method, Θ, objective, steps, steps == options.maxiter, converged,
-    x_converged, options.xtol, x_change, f_converged, options.ftol, f_change,
-    converged, gtol, score, increased, trace, trials, f_calls, grad_calls, prox_calls,
-    call_limit, stagnated, NaN)
+  state = LogDetPGDState(Θ, loss, penalty, T(NaN), T(NaN), G, similar(Θ), similar(Θ),
+                         similar(Θ), scratch, C, scale, one(T), α, β, score, NaN, false,
+                         0, 1, 1, 0)
+  _solve_gradient!(state, f, g, method, options, start)
 end

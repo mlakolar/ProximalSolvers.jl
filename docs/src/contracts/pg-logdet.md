@@ -75,7 +75,8 @@ constant on the SPD cone.
 
 **Applies to.** Matrix PGD after preflight in [PGD-06](@ref).
 
-**Code.** `src/solvers/logdet_proximal_gradient.jl`.
+**Code.** `src/solvers/logdet_proximal_gradient.jl` implements the matrix
+step within `_solve_gradient!` in `src/solve.jl`.
 
 **Tests.** `test/pgd_graphical_lasso.jl` verifies an indefinite first
 trial, a nonfinite objective, finite backtracking and bounded failure,
@@ -124,12 +125,15 @@ the iteration, time or call limit returns `converged=false`.
 
 **Applies to.** Normal matrix PGD returns.
 
-**Code.** `src/solvers/logdet_proximal_gradient.jl` and `OptimizationResults`
-in `src/types.jl`.
+**Code.** `src/solvers/logdet_proximal_gradient.jl` supplies the KKT and
+rounding-stall checks. `_solve_gradient!` in `src/solve.jl` handles limit exits
+and constructs `OptimizationResults`.
 
 **Tests.** `test/pgd_graphical_lasso.jl` independently checks SPD, primal
 objective, KKT and a feasible dual lower bound for analytic and seeded
 problems. It also tests reported counters, a verified fixed point, a
-rounded Float32 stall outside the threshold and limit precedence.
+rounded Float32 stall outside the threshold and limit precedence. A call
+limit during a rejected trial checks that the shared driver keeps the last
+accepted point and its diagnostics.
 
 **Sources.** [Approved graphical-lasso PGD stopping rule](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
