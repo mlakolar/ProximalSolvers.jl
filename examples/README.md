@@ -31,7 +31,7 @@ the gallery category and description along with the script path in `docs/make.jl
   problem (`lasso.jl`, `elastic_net.jl`, ...). A tutorial can solve its problem with several
   solvers, in separate sections.
 - `comparisons/` holds comparisons of solvers on a problem, named `<problem>_solvers.jl`.
-- Some tutorials in `problems/` are statistical applications of a supported problem rather than new problems. The documentation lists them under "Statistical applications", and they add no row to the matrix of [Supported problems](../docs/src/support.md). The sparse logistic-regression tutorial is listed there as well and is the tutorial of the matrix row for `LogisticLoss`.
+- Some tutorials in `problems/` are statistical applications of a supported problem rather than new problems. The documentation lists them under "Statistical applications", and they add no row to the matrix of [Supported problems](../docs/src/support.md). The sparse logistic-regression tutorial is listed under "Problems" as the tutorial of the matrix row for `LogisticLoss`.
 - A solver is not a problem. A weighted lasso, for example, is `LeastSquaresLoss` with a
   weighted `NormL1(λ, w)`. `CDSolver`, `ProximalGradientDescent` and `AccProxGradDescent`
   support it (see [Supported problems](../docs/src/support.md)), and it is documented in

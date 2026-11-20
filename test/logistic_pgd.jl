@@ -551,6 +551,9 @@ end
     (copy(start), (1 / n) * f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMM requires SqrNormL2"),
     (copy(start), (1 / n) * f, g, AccProxGradDescent(), ArgumentError, "supported only by ProximalGradientDescent"),
     (copy(start), (1 / n) * f, g, CDSolver(), ArgumentError, "CDSolver does not support it"),
+    # matrix coefficients: PGD's matrix method takes only a LogDetLoss, so the logistic gate refuses them
+    ([1.0 0.1; 0.1 1.0], f, NormL1(1.0), pgd, ArgumentError, "x to be a dense Vector{Float64}"),
+    ([1.0 0.1; 0.1 1.0], (1 / n) * f, NormL1(1.0), pgd, ArgumentError, "Scaled(LogisticLoss) is not supported"),
     # the loss and the arrays
     (copy(start), (1 / n) * f, g, pgd, ArgumentError, "Scaled(LogisticLoss) is not supported"),
     (Float32.(start), LogisticLoss(Float32.(y), Float32.(X)), NormL1(1f0, Float32.(w)), pgd, ArgumentError,
@@ -609,6 +612,27 @@ end
   # the same inputs with a Float64 start and the binary data are accepted
   b = copy(start)
   @test solve!(b, f, g, pgd).minimizer === b
+end
+
+@testset "ADMMSolver refuses a logistic loss before any write to z or u" begin
+  X, y = logistic_data(40, 3; seed = 12)
+  n, k = size(X)
+  Λ = [0.0 1.0; 1.0 0.0]
+  storages = [(() -> [0.1, -0.2, 0.3, 0.0], () -> [0.01, 0.02, -0.03, 0.04], NormL1(1.0), "ADMM requires SqrNormL2"),
+              (() -> [1.0 0.1; 0.1 1.0], () -> [0.01 0.02; 0.02 0.03], NormL1(1.0, Λ),
+               "ADMM on a matrix requires LogDetLoss")]
+  for loss in (LogisticLoss(y, X), (1 / n) * LogisticLoss(y, X)), (makez, makeu, g, message) in storages
+    z, u = makez(), makeu()
+    zbefore, ubefore = copy(z), copy(u)
+    err = try
+      solve!(z, loss, g, ADMMSolver(); u = u)
+      nothing
+    catch e
+      e
+    end
+    @test err isa ArgumentError && occursin(message, sprint(showerror, err))
+    @test z == zbefore && u == ubefore
+  end
 end
 
 @testset "CDSolver refuses a logistic loss before any write or draw from its RNG" begin
