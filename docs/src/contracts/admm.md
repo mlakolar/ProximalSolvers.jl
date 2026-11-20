@@ -267,15 +267,17 @@ The lasso `(1/2n)‖y-Xβ‖² + λ‖β‖₁` is this problem with `τ = nλ`,
 then `n` times the normalized objective. A scaled loss, such as `(1/n)*LeastSquaresLoss(y, X)`,
 is not accepted: the scale belongs to `τ`.
 
-The coefficients `β`, an explicit `u` and the response `y` must be `Vector{Float64}`, and
-the design `X` a `Matrix{Float64}`, all stored in `f`. Float32 data and mixed element types
-are refused with an `ArgumentError`. The lengths must satisfy `length(y) == size(X,1)` and
+The coefficients `β` and an explicit `u` must be `Vector{Float64}`. Only the data are stored
+in `f`: the response `y`, a `Vector{Float64}`, and the design `X`, a `Matrix{Float64}`.
+Float32 data and mixed element types are refused with an `ArgumentError`. The lengths must
+satisfy `length(y) == size(X,1)` and
 `length(β) == size(X,2)`, and an explicit `u` must have the length of `β`; empty or
 incompatible lengths raise `DimensionMismatch`. The shape must be tall or square, with
 `n = size(X,1) ≥ p = size(X,2) ≥ 1`. A wide design, `n < p`, is refused with an
-`ArgumentError`. Entries of `X`, `y`, `β` and an explicit `u` must be finite and `τ` finite
-and nonnegative. `β`, an explicit `u`, `y` and `X` must not alias or overlap in memory, by the
-check of [ADM-01](@ref), and `f` must have the internal storage that its public constructor
+`ArgumentError`. Entries of `X`, `y`, `β` and an explicit `u` must be finite, and `τ` finite,
+nonnegative and exactly representable in `Float64`. No two of `β`, an explicit `u`, `y`, `X`
+and the scratch of `f`, including a cached decomposition, may alias or overlap in memory, by
+the check of [ADM-01](@ref), and `f` must have the internal storage that its public constructor
 creates. These checks precede every write to the caller's `β` and `u`. All other settings of
 [ADM-01](@ref) and [ADM-03](@ref) apply, including `α`, tolerances and `adaptive`, as do the
 ownership, initial dual, commit-on-return and warm-start rules of [ADM-01](@ref).

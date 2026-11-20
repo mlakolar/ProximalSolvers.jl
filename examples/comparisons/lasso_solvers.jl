@@ -149,9 +149,10 @@ svd_setup = max(first_prox - cached_prox, 0.0);
 # target has the loosest tolerance that any of the three values reaches. Each solve is capped
 # at `admmmaxiter = 10_000` iterations. A solve that stops at the cap reports `:iteration_limit`, and
 # the independent checks decide, as for every solver, whether it reached the target. It also
-# uses the single cached loss `f_raw`, so its times contain the iterations and the final
-# objective evaluation, not the SVD setup above. For every ADMM solve, the sweep checks that the
-# objective it reports, divided by `n`, matches the objective computed from the data.
+# uses the single cached loss `f_raw`, so its times are cached-solve times: the input checks, the
+# iterations and the final objective evaluation, not the SVD setup above. For the returned fit at
+# each setting, the sweep checks that the objective it reports, divided by `n`, matches the
+# objective computed from the data.
 function measure(prepare; repetitions=5)
   besttime = Inf
   beta = zeros(p)
@@ -206,7 +207,7 @@ admm = sweep(admmsettings,
   extra = (result, beta) -> (status = result.status,
     reported_matches = isapprox(result.minimum / n, objective(beta); rtol=1e-10)));
 
-# The reported objective of every ADMM solve in the sweep matches the independent objective.
+# The reported objective of the returned fit at each ADMM setting matches the independent objective.
 @assert all(run -> run.reported_matches, admm) "an ADMM objective differs from the independent objective"
 
 # ## Time to the target accuracy
@@ -257,18 +258,12 @@ println(table) #!md
 #md using Markdown
 #md Markdown.parse(table)
 
-# Each solver must reach the target at some setting of its sweep; this checks accuracy
-# and says nothing about time.
-for (name, (runs, describe, unit)) in sweeps
-  @assert any(reached, runs) "$name does not reach the target in its sweep"
-end
-
 # ## ADMM settings and setup
 #
-# The table keeps one row for ADMM. The grid below lists every ADMM solve, with its tolerance,
+# The table keeps one row for ADMM. The grid below lists every ADMM setting, with its tolerance,
 # its `ρ` and the scale `ρ/n`, so that the other values of `ρ` stay visible. Its last column says
 # whether the setting reached the target.
-admmgrid_header = ["| tol | ρ | ρ/n | Status | Iterations | Time (ms) | Objective gap | KKT/lambda | Reached |",
+admmgrid_header = ["| tol | ρ | ρ/n | Status | Iterations | Cached solve (ms) | Objective gap | KKT/lambda | Reached |",
                    "|--:|--:|--:|:--|--:|--:|--:|--:|:--|"]
 admmgrid_rows = [@sprintf("| %.0e | %g | %g | `%s` | %d | %.2f | %.2e | %.2e | %s |",
                           run.setting.tol, run.setting.ρ, run.setting.ρ / n, run.status, run.work,
@@ -278,6 +273,12 @@ admmgrid = join(vcat(admmgrid_header, admmgrid_rows), "\n");
 println(admmgrid) #!md
 #md Markdown.parse(admmgrid)
 
+# Each solver must reach the target at some setting of its sweep; this checks accuracy
+# and says nothing about time.
+for (name, (runs, describe, unit)) in sweeps
+  @assert any(reached, runs) "$name does not reach the target in its sweep"
+end
+
 # The timings above exclude the one-time SVD setup. This is the tradeoff of ADMM for this loss.
 # The SVD of a tall `X` costs on the order of `n p²` operations, once. Each later proximal call
 # is a pair of products with `p × p` factors, on the order of `p²`, while a coordinate descent
@@ -285,13 +286,15 @@ println(admmgrid) #!md
 # other values of `ρ`, `tol` or the penalty level reuse it, but one fit pays all of it. The next
 # table gives the setup and the time to target of the first ADMM setting that reached it, with
 # and without the setup.
-admm_solve = admm[findfirst(reached, admm)].time
+admm_target = findfirst(reached, admm)
+admm_target === nothing && error("Consensus ADMM does not reach the target in its sweep")
+admm_solve = admm[admm_target].time
 setup_header = ["| Quantity | Time (ms) |", "|:--|--:|"]
 setup_rows = [@sprintf("| First proximal call on `f_raw` (SVD setup and one call) | %.3f |", 1000 * first_prox),
               @sprintf("| Later proximal call with the cached SVD (minimum of 20) | %.3f |", 1000 * cached_prox),
               @sprintf("| SVD setup (difference) | %.3f |", 1000 * svd_setup),
-              @sprintf("| ADMM time to target, iterations only | %.3f |", 1000 * admm_solve),
-              @sprintf("| ADMM time to target, setup included | %.3f |", 1000 * (admm_solve + svd_setup))]
+              @sprintf("| ADMM time to target, cached solve | %.3f |", 1000 * admm_solve),
+              @sprintf("| ADMM time to target, cached solve plus SVD setup | %.3f |", 1000 * (admm_solve + svd_setup))]
 setup_table = join(vcat(setup_header, setup_rows), "\n");
 println(setup_table) #!md
 #md Markdown.parse(setup_table)

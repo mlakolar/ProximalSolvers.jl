@@ -324,7 +324,8 @@ end
     @test_throws ArgumentError solve!(BigFloat.(z), f, g, method)
     @test_throws ArgumentError solve!(center, f, g, method)
     @test center == T[1, -1]
-    @test_throws ArgumentError solve!(z, LeastSquaresLoss(center, T[1 0; 0 1]), g, method)
+    # A wide design (n = 1 < p = 2) stays unsupported for both element types.
+    @test_throws ArgumentError solve!(z, LeastSquaresLoss(T[1], T[1 0]), g, method)
     @test_throws ArgumentError solve!(z, SqrNormL2(1), g, method)
     @test_throws ArgumentError solve!(z, SqrNormL2(1, BigFloat.(center)), g, method)
     @test_throws ArgumentError solve!(z, SqrNormL2(0, center), g, method)

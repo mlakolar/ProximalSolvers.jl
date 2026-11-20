@@ -162,19 +162,6 @@ println(result)
 @assert result.r_norm <= result.eps_pri && result.s_norm <= result.eps_dual
 @assert maximum(abs, result.ρ .* u_admm - X' * (y - X * x_admm)) <= 1e-6
 
-# A wide design is refused before any write to the iterate, because `ADMMSolver` supports only
-# `n ≥ p` for this loss ([ADM-05](@ref)). Support for a wide design is a separate follow-up in
-# ProximalBase and is not part of this page.
-wide_loss = LeastSquaresLoss([1.0, 2.0], [1.0 0.0 0.0; 0.0 1.0 0.0])
-x_wide = zeros(3)
-wide_refused = try
-  solve!(x_wide, wide_loss, g_admm, method_admm, ProximalOptions(maxiter = 10_000))
-  false
-catch err
-  err isa ArgumentError
-end
-@assert wide_refused && iszero(x_wide)
-
 # ## Accelerated proximal gradient descent
 #
 # `AccProxGradDescent` is accelerated proximal gradient descent. Here it runs next to plain
