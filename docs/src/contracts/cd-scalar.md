@@ -49,9 +49,11 @@ For `IndNonnegative()` the step in the normal band is `prox_block(g, c, k, gamma
 `max(c - gamma*lambda, 0)` with `gamma = inv(s*a)`. A start with a negative entry is refused
 before any write ([IN-07](@ref)); momentum extrapolation can leave a negative intermediate
 value, which the visit of that coordinate in the same pass projects, so the point returned
-after a completed pass is nonnegative. `converged` is the change test of [RES-01](@ref), not
-a certificate of the constrained KKT conditions: the tests judge a solve by an independently
-computed constrained KKT score and objective.
+after a completed pass is nonnegative. `converged` is the change test of [CD-03](@ref) and
+[RES-01](@ref), not a certificate of the constrained KKT conditions: the tests judge a solve by an
+independently computed constrained KKT score and objective. The cached residual behind the
+reported minimum is specified in [CD-05](@ref) and [CD-09](@ref), and the canonical input and
+feasibility rule is [IN-07](@ref).
 
 Ridge uses the same cached residual, pass schedule, optional momentum, stopping
 scales and owner transaction as the other scalar least-squares penalties.
@@ -166,8 +168,12 @@ still applies. The refusal occurs during a pass, before that coordinate and
 residual are changed; the public caller remains unchanged even if an earlier
 coordinate in the private pass moved. A borrowed RNG may already have advanced.
 
-The coordinate step is the soft threshold of the centre `c = x_k + b / a` at
-`τ = λ / (s * a)`, with `b` the inner product of the residual and the column.
+For the lasso (and, with the changes stated below, the weighted lasso and the elastic net
+at zero ridge level), the coordinate step is the soft threshold of the centre `c = x_k + b / a` at
+`τ = λ / (s * a)`, with `b` the inner product of the residual and the column. The following
+paragraphs up to the one on the nonnegative penalties are specific to this signed soft
+threshold; in particular, they say that an infinite or NaN `c` stays nonfinite, which for the
+nonnegative penalties holds for `+Inf` and NaN only.
 With `p = s * a` and `γ = inv(p)` in `S`, it is `prox_block(g, c, k, γ)`, the
 step as it was, with the same bits, where `p` and `γ` are both at least
 `floatmin(S)`. Otherwise `_exceptional_step` applies `shrink(c, min(τ,
@@ -220,13 +226,12 @@ owner are not changed.
 
 For `S == T`, the exceptional methods for the nonnegative penalties are `max(c, 0)` for
 `IndNonnegative()` and `max(c - min(τ, floatmax(T)), 0)` for an unweighted `NormL1Nonneg`,
-with `τ` formed as above. A finite `c` gives a finite nonnegative result, `+0` where the
-difference is not positive. A `c` of `+Inf` stays `+Inf` and a NaN `c` stays NaN, which
-`_visit!` refuses; a `c` of `-Inf` gives `+0`. At `λ = 0` the result is `max(c, 0)`.
-These methods are tested against BigFloat references (`max(c - λ/(s a), 0)`, with the bound on
-`τ` stated above), and an off-band step through `solve!` is tested at an overflowing and at a
-subnormal `s*a`. Without them such a step would throw the generic refusal that a penalty
-without an exceptional method gets.
+where `τ` is formed exactly as for the lasso: from `Float64(g.λ0)`, the level converted to
+`Float64`, and from `s` and `a`, so the bounds above hold against that converted level, as for
+`NormL1`. The preconditions are those of `solve!`: a finite level, a positive finite `s` and a
+positive finite `a`. A finite `c` gives a finite nonnegative result, `+0` where the difference
+is not positive. A `c` of `+Inf` stays `+Inf` and a NaN `c` stays NaN, which `_visit!` refuses;
+a `c` of `-Inf` gives `+0`, unlike the signed soft threshold. At `λ = 0` the result is `max(c, 0)`.
 
 The exceptional methods also include `SqrNormL2{<:Real, Nothing}` with the
 zero-level and positive-level behavior above. A nonflat column whose squared
@@ -239,7 +244,7 @@ zero minimizer of [CD-01](@ref), including at zero ridge level.
 
 **Code.** `src/cd/leastsquares.jl`: `_threshold`, `_exceptional_step`, `coordinate_step!`, `_sqnorm!`.
 
-**Tests.** `test/cd_numerics.jl` (normal-band equivalence, threshold range and positive-ridge refusal for an overflowing scale-curvature product); `test/cd_elasticnet.jl` (off-band refusals and rollback), including "SqrNormL2 validation and exceptional coordinate steps": positive subnormal second-column curvature refuses the positive ridge level after the first private coordinate moves, preserving dense/owner entry state; zero level reaches the unpenalized solution, and a flat column is zeroed; `test/weighted_lasso.jl`; `test/cd_nonnegative.jl` ("the exceptional steps of IndNonnegative and NormL1Nonneg against BigFloat", "one coordinate step with s a outside the band through solve!").
+**Tests.** `test/cd_nonnegative.jl` ("the exceptional steps of IndNonnegative and NormL1Nonneg against BigFloat": BigFloat references `max(c - λ/(s a), 0)` with the bound on `τ` stated above, and the nonfinite centres; "one coordinate step with s a outside the band through solve!": an overflowing and a subnormal `s*a`;). `test/cd_numerics.jl` (normal-band equivalence, threshold range and positive-ridge refusal for an overflowing scale-curvature product); `test/cd_elasticnet.jl` (off-band refusals and rollback), including "SqrNormL2 validation and exceptional coordinate steps": positive subnormal second-column curvature refuses the positive ridge level after the first private coordinate moves, preserving dense/owner entry state; zero level reaches the unpenalized solution, and a flat column is zeroed; `test/weighted_lasso.jl`; `test/cd_nonnegative.jl` ("the exceptional steps of IndNonnegative and NormL1Nonneg against BigFloat", "one coordinate step with s a outside the band through solve!").
 
 **Sources.** `docs/src/choosing-solver.md:L83`, `docs/src/numerics.md:L9`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/cd/solver.jl:L6`, `README.md:L79`, `docs/src/support.md:L107`. The additional ridge method and its limits are [217cde72, `_exceptional_step`](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/cd/leastsquares.jl#L157-L166) and [the updated numerical guidance](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/docs/src/numerics.md#L18-L38).
 

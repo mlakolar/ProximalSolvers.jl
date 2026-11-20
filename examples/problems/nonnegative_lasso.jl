@@ -18,7 +18,7 @@
 # The squared error rewards reconstruction; ``\lambda>0`` encourages a short list of
 # components and shrinks their amplitudes. `NormL1Nonneg` includes the domain constraint
 # in this objective. This example uses dense Float64 data and proximal gradient descent,
-# and then solves the same problem with coordinate descent.
+# and then fits the same objective with coordinate descent.
 # [Supported problems](../../support.md) gives the precise API limits.
 using LinearAlgebra, Printf, Random, ProximalBase, ProximalSolvers
 
@@ -113,7 +113,7 @@ end
 @assert ordinary_kkt / scale <= 1e-7
 @assert isapprox(ordinary_result.minimum,
   sum(abs2, y - X * ordinary)/(2n) + lambda * sum(abs, ordinary); rtol=1e-12)
-# Coordinate descent on a dense vector solves the same constrained problem. Its
+# Coordinate descent on a dense vector targets the same constrained objective. Its
 # `converged` flag is a change test, not a certificate, so we judge this fit as we judged
 # the first one: by feasibility, the constrained KKT residual and the objective, all
 # recomputed from `X` and `y`. The tolerance `1e-10` is a choice that is tighter than the

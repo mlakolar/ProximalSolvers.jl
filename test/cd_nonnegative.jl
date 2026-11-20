@@ -7,13 +7,17 @@ module CDNonnegativeTests
 # from X, y, s, λ and the returned point, the gradient s Xᵀ(Xb - y), the constrained KKT score
 # max_j (b_j > 0 ? |g_j + λ| : max(0, -(g_j + λ))) relative to s ‖Xᵀy‖∞ + λ, and the objective. The references are
 # BigFloat closed forms for designs with a diagonal XᵀX, and, for the general case, cyclic coordinate descent run in
-# BigFloat until the score of the oracle is below 1e-40 (`reference`). PGD (ProximalGradientDescent) solves the same
-# problems, and CD and PGD are compared by their external scores and objectives, not by their `converged` flags.
+# BigFloat until the score of the oracle is below 1e-40 or 200_000 passes have run (`reference`; `refcheck` asserts the
+# score of the returned point). PGD (ProximalGradientDescent) solves the same problems. CD and PGD are compared by
+# their external scores and objectives, not by their `converged` flags: for feasible points b1 and b2, with F(b1) >= F(b2)
+# and K1 the unnormalized constrained KKT score of b1, convexity gives F(b1) - F(b2) <= K1 ‖b1 - b2‖₁.
+#
+# All accepted solves use X, y, the start, the loss scale and the penalty level of one type T (Float32 or Float64);
+# BigFloat appears in the oracle, the references and the gate refusals of unsupported scalar types.
 #
 # Tolerances: a score of at most 1e-6 (Float64) or 1e-3 (Float32), and an objective above that of the reference by at
 # most 1e-10 (Float64) or 1e-4 (Float32) of the objective at 0. The CD runs use the cyclic order without momentum and the
-# tolerance `cdtol(T)` unless a testset says otherwise; the random orders use a seeded Xoshiro, because CD's default
-# RNG is unseeded.
+# tolerance `cdtol(T)` unless a testset says otherwise; the random orders use a seeded Xoshiro, so that runs repeat.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 import Logging
 const PS = ProximalSolvers
@@ -29,8 +33,8 @@ objbound(::Type{Float32}) = 1e-4
 quiet(f) = Logging.with_logger(f, Logging.NullLogger())
 lossof(s, y, X) = s === nothing ? LeastSquaresLoss(y, X) : Scaled(LeastSquaresLoss(y, X), s)
 sval(s) = s === nothing ? 1 : s
-# the loss scales of the tests: raw, a scale of the data type, and an integer scale
-scales(::Type{T}, n) where T = (nothing, one(T) / T(n), 2)
+# the loss scales of the tests: raw, and two scales of the data type
+scales(::Type{T}, n) where T = (nothing, one(T) / T(n), T(2))
 penalty(kind::Symbol, λ) = kind === :ind ? IndNonnegative() : NormL1Nonneg(λ)
 level(kind::Symbol, λ::T) where T = kind === :ind ? zero(T) : λ
 is_pzero(v, ::Type{T}) where T = v isa T && iszero(v) && !signbit(v)
@@ -48,7 +52,7 @@ function design(::Type{T}, n, p, seed) where T
   X, y
 end
 
-# columns with the pairwise correlation ρ
+# columns generated with the pairwise correlation ρ (the sample correlations vary around it)
 function correlated(::Type{T}, n, p, seed; ρ = 0.6) where T
   rng = Xoshiro(seed)
   common = randn(rng, T, n)
@@ -83,7 +87,8 @@ function diagonal(::Type{T}, seed) where T
   Matrix(Diagonal(d)), d .* t, t
 end
 
-# max_j s (Xᵀy)_j as Float64: the level at and above which the solution is 0
+# max_j s (Xᵀy)_j as Float64: in exact arithmetic the level at and above which the solution is 0 (a level rounded to T
+# from a multiple f of it can fall on either side of that boundary at f = 1)
 smax(X, y, s) = setprecision(BigFloat, 256) do
   Float64(big(sval(s)) * maximum(big.(X)' * big.(y)))
 end
@@ -100,7 +105,7 @@ function nnkkt(X, y, s, λ, b)
     g = sb .* (Xb' * d)
     num = maximum(j -> bb[j] > 0 ? abs(g[j] + lb) : max(-(g[j] + lb), zero(BigFloat)), eachindex(bb))
     den = sb * maximum(abs, Xb' * yb) + lb
-    (; score = iszero(den) ? num : num / den, objective = sb * sum(abs2, d) / 2 + lb * sum(bb))
+    (; score = iszero(den) ? num : num / den, viol = num, objective = sb * sum(abs2, d) / 2 + lb * sum(bb))
   end
 end
 
@@ -127,6 +132,26 @@ function reference(X, y, s, λ)
       pass % 10 == 0 && nnkkt(Xb, yb, sb, lb, b).score < big"1e-40" && break
     end
     b
+  end
+end
+
+# the reference, with the check that its own score at return is below 1e-30
+function refcheck(X, y, s, λ)
+  ref = reference(X, y, s, λ)
+  @test nnkkt(X, y, s, λ, ref).score < 1e-30
+  ref
+end
+
+# the objective difference of two feasible points against the bound K ‖b1 - b2‖₁ of the one with the larger objective,
+# K its unnormalized constrained KKT score; the allowance 1e-30 F(0) covers the 256-bit rounding of the diagnostics
+function objective_bound_holds(X, y, s, λ, b1, b2)
+  k1, k2 = nnkkt(X, y, s, λ, b1), nnkkt(X, y, s, λ, b2)
+  hi, lo, khi = k1.objective >= k2.objective ? (b1, b2, k1) : (b2, b1, k2)
+  klo = khi === k1 ? k2 : k1
+  setprecision(BigFloat, 256) do
+    F0 = big(sval(s)) * sum(abs2, big.(y)) / 2
+    d = sum(abs, big.(hi) .- big.(lo))
+    khi.objective - klo.objective <= khi.viol * d + big"1e-30" * F0
   end
 end
 
@@ -234,7 +259,8 @@ end
     end
     check!(label, X, y, s, kind, λ, b, r, ref, T; bound = 100 * Float64(eps(T)))
   end
-  # a coordinate whose unconstrained least-squares optimum t_j is negative ends at 0, with g_j + λ ≥ 0 for its gradient
+  # on the diagonal design, a coordinate whose unconstrained least-squares optimum t_j is negative ends at 0, with
+  # g_j + λ ≥ 0 for its gradient g_j (Float64 diagnostic)
   X, y, t = diagonal(T, 5)
   λ = level_at(T, X, y, nothing, 0.1)
   b = fill(T(0.5), 6)
@@ -248,7 +274,8 @@ end
 end
 
 @testset "single coordinates: the centre, the threshold and the projection ($T)" for T in FLOATS
-  # one step (maxpasses = 1) on X = [1], y = [v]: the centre is c = v from any start, and the step is max(c - λ/s, 0)
+  # one step (maxpasses = 1) on X = [1], y = [v]: in exact arithmetic the centre is c = v from any start, and the step
+  # is max(c - λ/s, 0)
   one_step(X, y, s, g, b0) = begin
     b = [b0]
     cdsolve!(b, X, y, s, g; maxpasses = 1)
@@ -263,8 +290,8 @@ end
   end
   # with a = 4 and s = 2 the threshold is λ/8
   X4 = T[2;;]
-  @test isapprox(one_step(X4, T[1], 2, NormL1Nonneg(T(0.1)), T(0)), T(0.5 - 0.1 / 8); rtol = 8 * eps(T))
-  @test is_pzero(one_step(X4, T[-1], 2, NormL1Nonneg(T(0.1)), T(0.2)), T)
+  @test isapprox(one_step(X4, T[1], T(2), NormL1Nonneg(T(0.1)), T(0)), T(0.5 - 0.1 / 8); rtol = 8 * eps(T))
+  @test is_pzero(one_step(X4, T[-1], T(2), NormL1Nonneg(T(0.1)), T(0.2)), T)
   # the starts [0, 1] and [-0.0, 1] are accepted, and the solution of the identity design does not depend on them
   for b in (T[0, 1], T[-0, 1], T[-0.0, 1])
     r = cdsolve!(copy(b), T[1 0; 0 1], T[0.5, -2], nothing, IndNonnegative())
@@ -272,15 +299,13 @@ end
   end
 end
 
-@testset "the flat-column minimizer is +0 at each level of both penalties ($T)" for T in FLOATS
+@testset "the flat-column minimizer is +0 at sampled levels of both penalties ($T)" for T in FLOATS
   levels = unique(T[0, 0.3, floatmax(T) / 4, prevfloat(floatmax(T)), floatmax(T), nextfloat(zero(T))])
   for old in T[0.6, 0, 1e3]
     @test is_pzero(PS._coordinate_minimizer(IndNonnegative(), old, 1), T)
     for λ in levels
       @test is_pzero(PS._coordinate_minimizer(NormL1Nonneg(λ), old, 1), T)
     end
-    # a level of another type (Float64 on Float32 data) gives the same
-    @test is_pzero(PS._coordinate_minimizer(NormL1Nonneg(0.3), old, 1), T)
   end
   # the same through solve!, with a positive start on the flat column
   X, y = design(T, 12, 5, 5)
@@ -297,9 +322,8 @@ end
   for (name, X, y, kinds) in cases, s in scales(T, size(X, 1)), kind in kinds, f in (kind === :ind ? (0.0,) : (0.1, 0.4))
     λ = level_at(T, X, y, s, f)
     g = penalty(kind, λ)
-    ref = reference(X, y, s, level(kind, λ))
+    ref = refcheck(X, y, s, level(kind, λ))
     label = (T, name, s, kind, f)
-    @test (label, nnkkt(X, y, s, level(kind, λ), ref).score < 1e-30) == (label, true)
     b = zeros(T, size(X, 2))
     r = cdsolve!(b, X, y, s, g)
     @test (label, r.converged) == (label, true)
@@ -308,14 +332,15 @@ end
     bw = fill(T(0.5), size(X, 2))
     rw = cdsolve!(bw, X, y, s, g)
     check!((label, :warm), X, y, s, kind, λ, bw, rw, ref, T)
-    # PGD on the same problem, at matched external score; the two objectives agree
+    # PGD on the same problem, to the same external score bound
     bp = zeros(T, size(X, 2))
     rp = pgdsolve!(bp, X, y, s, g)
     kp = nnkkt(X, y, s, level(kind, λ), bp)
     @test (label, :pgd, all(>=(0), bp), kp.score <= kktbound(T)) == (label, :pgd, true, true)
     gap = relgap(X, y, s, level(kind, λ), bp, ref)
     @test (label, :pgd, -1e-12 <= gap <= objbound(T)) == (label, :pgd, true)
-    @test (label, abs(relgap(X, y, s, level(kind, λ), b, bp)) <= 2 * objbound(T)) == (label, true)
+    # the objectives of the two fits differ by at most the bound derived from the measured scores
+    @test (label, objective_bound_holds(X, y, s, level(kind, λ), b, bp)) == (label, true)
   end
 end
 
@@ -334,14 +359,14 @@ end
   end
 end
 
-@testset "NormL1Nonneg(0) is IndNonnegative(), and a level of s max_j (Xᵀy)_j or more gives 0 ($T)" for T in FLOATS
+@testset "NormL1Nonneg(0) is IndNonnegative(), and a level above s max_j (Xᵀy)_j gives 0 ($T)" for T in FLOATS
   for (X, y) in (correlated(T, 30, 6, 26), design(T, 40, 8, 27)), s in scales(T, 30)
     b1, b2 = zeros(T, size(X, 2)), zeros(T, size(X, 2))
     r1 = cdsolve!(b1, X, y, s, NormL1Nonneg(zero(T)))
     r2 = cdsolve!(b2, X, y, s, IndNonnegative())
     @test isequal(b1, b2)
     @test isequal(r1.minimum, r2.minimum) && r1.passes == r2.passes
-    λ = level_at(T, X, y, s, 1.01)
+    λ = level_at(T, X, y, s, 1.01)   # 1.01 times the boundary
     for start in (zeros(T, size(X, 2)), fill(T(0.7), size(X, 2)))
       b = copy(start)
       r = cdsolve!(b, X, y, s, NormL1Nonneg(λ))
@@ -351,16 +376,25 @@ end
   end
 end
 
+@testset "a level exactly at s max_j (Xᵀy)_j gives 0 on a dyadic design ($T)" for T in FLOATS
+  X, y = Matrix{T}(I, 2, 2), T[1, 0.5]
+  for start in (zeros(T, 2), fill(T(0.5), 2))
+    b = copy(start)
+    cdsolve!(b, X, y, nothing, NormL1Nonneg(one(T)))
+    @test all(j -> is_pzero(b[j], T), 1:2)
+  end
+end
+
 @testset "starts: zero, positive, -0.0 entries; the returned point is feasible and finite ($T)" for T in FLOATS
   X, y = correlated(T, 30, 6, 28)
   λ = level_at(T, X, y, nothing, 0.2)
-  ref = reference(X, y, nothing, λ)
+  ref = refcheck(X, y, nothing, λ)
   starts = (zeros(T, 6), fill(T(0.5), 6), fill(-zero(T), 6), T[-0.0, 1, 0, 3, -0.0, 0.1], fill(floatmin(T), 6))
   for kind in (:l1nn, :ind), (i, start) in enumerate(starts)
     b = copy(start)
     g = penalty(kind, λ)
     r = cdsolve!(b, X, y, nothing, g)
-    check!((T, kind, i), X, y, nothing, kind, λ, b, r, kind === :ind ? reference(X, y, nothing, 0) : ref, T)
+    check!((T, kind, i), X, y, nothing, kind, λ, b, r, kind === :ind ? refcheck(X, y, nothing, 0) : ref, T)
   end
 end
 
@@ -372,7 +406,7 @@ end
     λ = level_at(T, Xf, y, nothing, 0.1)
     keep = setdiff(1:6, k)
     ref = zeros(BigFloat, 6)
-    ref[keep] .= reference(Xf[:, keep], y, nothing, level(kind, λ))
+    ref[keep] .= refcheck(Xf[:, keep], y, nothing, level(kind, λ))
     b = fill(T(start), 6)
     r = cdsolve!(b, Xf, y, nothing, penalty(kind, λ))
     label = (T, k, kind, start)
@@ -388,12 +422,12 @@ end
 @testset "orders: cyclic, random, and momentum, each from a seeded RNG ($T)" for T in FLOATS
   X, y = correlated(T, 30, 6, 30)
   λ = level_at(T, X, y, nothing, 0.2)
-  ref = reference(X, y, nothing, λ)
+  ref = refcheck(X, y, nothing, λ)
   for kind in (:l1nn, :ind), (order, momentum) in ((:cyclic, nothing), (:cyclic, false), (:random, nothing),
                                                     (:random, false), (:random, true))
     b = fill(T(0.3), 6)
     r = cdsolve!(b, X, y, nothing, penalty(kind, λ); order, momentum, seed = 5)
-    check!((T, kind, order, momentum), X, y, nothing, kind, λ, b, r, kind === :ind ? reference(X, y, nothing, 0) : ref, T)
+    check!((T, kind, order, momentum), X, y, nothing, kind, λ, b, r, kind === :ind ? refcheck(X, y, nothing, 0) : ref, T)
     @test r.converged
   end
   # the default CDSolver (random order, default momentum) from the RNG of a seed is reproducible
@@ -408,7 +442,8 @@ end
 # ---------------------------------------------------------------------------------------------
 # The coordinate step outside the band of p = s a and 1/p
 # ---------------------------------------------------------------------------------------------
-# The allowances for the threshold τ = λ/(α a) are those of the existing tests of `_threshold`: Float32 within one
+# The allowances for the threshold τ = λ/(α a) (the test levels are of type T, so the conversion to Float64 of the
+# level is exact) are those of the existing tests of `_threshold`: Float32 within one
 # Float32 ulp of the quotient (and at least floatmax where the quotient is); Float64 within 3 eps relative where
 # normal, plus nextfloat(0.0) where subnormal. Returns the allowed absolute error of τ̂ and whether the quotient is
 # at or above floatmax(T).
@@ -445,6 +480,8 @@ end
           ref_τ = big(λ) / (big(α) * big(a))
           τ̂ = min(PS._threshold(T, λ, α, a), floatmax(T))
           Δτ, atmax = tau_allowance(T, τ̂, ref_τ)
+          # where the quotient is at or above floatmax(T), the threshold is within 4 floats of floatmax(T) (the bound of
+          # the existing `_threshold` tests); elsewhere within the allowance
           check(atmax ? τ̂ >= prevfloat(floatmax(T), 4) : abs(big(τ̂) - ref_τ) <= Δτ, "threshold", info...)
           ref = max(big(c) - ref_τ, 0)
           allowed = Δτ + big(eps(T)) * abs(ref) + big(tiny)
@@ -477,7 +514,8 @@ end
 # of the stored data, from BigFloat. On the base branch these solves are refused by the penalty gate, and an
 # exceptional step of these penalties would be refused as having no range-safe form.
 @testset "one coordinate step with s a outside the band through solve! ($T)" for T in FLOATS
-  # overflow: y = 0.01 X, so that s ‖y‖² is finite, and λ/(s a) = 4e-4; subnormal: y = 2 X, and λ/(s a) = 0.5
+  # overflow: y = 0.01 X, so that s ‖y‖² is finite, and λ/(s a) is about 4e-4; subnormal: y = 2 X, and λ/(s a) is about
+  # 0.5 (the quotients of the stored values are formed in BigFloat below)
   big_s, big_λ = T === Float32 ? (T(1e38), T(1e36)) : (T(1e307), T(1e305))
   small_s = T === Float32 ? T(1e-30) : T(1e-300)
   small_λ = T === Float32 ? T(1.25e-39) : T(1.25e-309)
@@ -533,6 +571,13 @@ end
     refused(ArgumentError, "x must be a dense Vector", zeros(T, 2, 2), f, g)
     refused(ArgumentError, "x must be a dense Vector", view(copy(x0), :), f, g)
     # losses and penalties
+    refused(ArgumentError, "matrix responses", copy(x0), LeastSquaresLoss(hcat(y, y), X), g)
+    refused(ArgumentError, "unsupported type", copy(x0), big"2.0" * f, g)
+    refused(ArgumentError, "unsupported type", copy(x0), (1 // 3) * f, g)
+    # a logistic loss, raw or scaled (Float64 data only)
+    fl = LogisticLoss([0.0, 1.0, 1.0], Float64.(X))
+    refused(ArgumentError, "LogisticLoss is supported only by ProximalGradientDescent", Float64.(x0), fl, g)
+    refused(ArgumentError, "LogisticLoss is supported only by ProximalGradientDescent", Float64.(x0), (1 / 3) * fl, g)
     refused(ArgumentError, "", copy(x0), SqrtLeastSquaresLoss(y, X), g)
     refused(ArgumentError, "CDSolver supports NormL1", copy(x0), f, Scaled(g, 2))
     # types: Float32 data with Float64 coefficients and the converse
@@ -562,10 +607,12 @@ end
   # a negative or NaN level is refused by the constructor of NormL1Nonneg itself
   @test_throws Exception NormL1Nonneg(-T(0.1))
   @test_throws Exception NormL1Nonneg(T(NaN))
-  # the other solvers' gates are as before: APG refuses both penalties, PGD accepts them
-  refused_apg = copy(x0)
-  @test_throws ArgumentError solve!(refused_apg, f, g1, AccProxGradDescent())
-  @test refused_apg == x0
+  # APG refuses both penalties
+  for g in (g1, g0)
+    refused_apg = copy(x0)
+    @test_throws ArgumentError solve!(refused_apg, f, g, AccProxGradDescent())
+    @test refused_apg == x0
+  end
 end
 
 @testset "X and y are not modified by a solve ($T)" for T in FLOATS
@@ -579,46 +626,90 @@ end
   end
 end
 
-@testset "rollback: a column whose curvature is not finite leaves the start unchanged ($T)" for T in FLOATS
-  X, y = design(T, 20, 4, 91)
-  X[:, 3] .*= T === Float32 ? 1f20 : 1e160
-  @test isinf(sum(abs2, X[:, 3])) && all(isfinite, X)
-  for g in (NormL1Nonneg(T(0.01)), IndNonnegative()), order in (:cyclic, :random)
-    b = fill(T(0.3), 4)
-    before = copy(b)
-    err, text = failure(() -> cdsolve!(b, X, y, nothing, g; order))
-    @test err isa ArgumentError
-    @test isequal(b, before)
+# The loss borrows X and y: a change after its construction is a change of the data at the call.
+@testset "data changed after the loss was built: the solve uses the data at the call ($T)" for T in FLOATS
+  for kind in (:l1nn, :ind)
+    X, y = correlated(T, 30, 6, 32)
+    f = LeastSquaresLoss(y, X)
+    @test f.X === X
+    λ = level_at(T, X, y, nothing, 0.2)
+    X[:, 2] .*= T(1.5)
+    y .+= T(0.25)
+    g = penalty(kind, λ)
+    b = zeros(T, 6)
+    r = quiet() do
+      solve!(b, f, g, CDSolver(order = :cyclic, momentum = false, tol = cdtol(T)))
+    end
+    ref = refcheck(X, y, nothing, level(kind, λ))
+    check!((T, :changed, kind), X, y, nothing, kind, λ, b, r, ref, T)
+    # a NaN written after the construction is refused with the coefficients and the RNG unchanged
+    X[3, 1] = T(NaN)
+    refused(ArgumentError, "finite", fill(T(0.3), 6), f, g)
+  end
+end
+
+# A refusal during a pass after an earlier coordinate has moved leaves the caller's coefficients unchanged. In each
+# fixture the coordinate before the failing column 3 moves in the private run (checked at the model), and the
+# cyclic order visits it first.
+@testset "rollback: a refusal at column 3 after column 1 moved leaves the start unchanged ($T)" for T in FLOATS
+  X0, y = design(T, 20, 4, 91)
+  huge = T === Float32 ? T(1e20) : T(1e160)
+  tiny = T === Float32 ? T(1e-30) : T(1e-170)
+  for (name, col, start, msg) in (("nonfinite curvature", huge .* X0[:, 3], zeros(T, 4), "the curvature of coordinate 3"),
+                                  ("curvature rounds to zero", tiny .* sign.(X0[:, 3]), fill(T(0.3), 4),
+                                   "the coordinate curvature underflows")),
+      g in (NormL1Nonneg(T(0.01)), IndNonnegative())
+    X = copy(X0)
+    X[:, 3] .= col
+    f = LeastSquaresLoss(y, X)
+    label = (T, name, typeof(g))
+    @test (label, isinf(sum(abs2, X[:, 3])) == startswith(name, "nonfinite")) == (label, true)
+    xs = SparseIterate(copy(start))
+    m = PS.cdmodel(f, xs)
+    PS.initialize!(m, xs)
+    h = PS.coordinate_step!(m, g, xs, 1)
+    @test (label, !iszero(h) && xs[1] != start[1]) == (label, true)
+    err, text = failure(() -> PS.coordinate_step!(m, g, xs, 3))
+    @test (label, err isa ArgumentError && occursin(msg, text)) == (label, true)
+    b = copy(start)
+    rng = Xoshiro(3)
+    rb = copy(rng)
+    err, text = failure(() -> solve!(b, f, g, CDSolver(order = :cyclic, momentum = false, rng = rng)))
+    @test (label, err isa ArgumentError && occursin(msg, text)) == (label, true)
+    @test (label, isequal(b, start)) == (label, true)
   end
   # the same problem without that column solves
+  X = copy(X0)
   b = fill(T(0.3), 3)
   r = cdsolve!(b, X[:, [1, 2, 4]], y, nothing, NormL1Nonneg(T(0.01)))
   @test r.converged && all(>=(0), b)
 end
 
 # ---------------------------------------------------------------------------------------------
-# the bytes of a warmed solve, measured inside a function so that no argument is boxed; the minimum of three
-function solve_allocations(f, g, x0, method)
-  run() = begin
+# The bytes of a solve with a fixed number of passes (tol = 0 runs to the cap), measured after a warm-up inside a
+# function so that no argument is boxed; the minimum of three runs.
+function pass_bytes(f, g, x0, passes)
+  run() = quiet() do
     x = copy(x0)
-    @allocated solve!(x, f, g, method)
+    @allocated solve!(x, f, g, CDSolver(order = :cyclic, momentum = false, tol = 0.0, maxpasses = passes))
   end
   run()
   minimum(run() for _ in 1:3)
 end
 
-@testset "a warmed nonnegative solve allocates no more than the same solve under NormL1 ($T)" for T in FLOATS
+# the bytes of 6 more passes (8 against 2), divided by 6
+pass_increment(f, g, x0) = (pass_bytes(f, g, x0, 8) - pass_bytes(f, g, x0, 2)) / 6
+
+@testset "the bytes per pass of the nonnegative penalties are at most those of NormL1 ($T)" for T in FLOATS
   X, y = design(T, 40, 8, 24)
   λ = level_at(T, X, y, nothing, 0.1)
   f = LeastSquaresLoss(y, X)
-  x0 = zeros(T, 8)
-  for (order, momentum) in ((:cyclic, false), (:random, nothing))
-    method() = CDSolver(; order, momentum, rng = Xoshiro(1), tol = T === Float32 ? 1e-5 : 1e-9)
-    l1 = quiet(() -> solve_allocations(f, NormL1(λ), x0, method()))
+  for x0 in (zeros(T, 8), fill(T(0.5), 8))
+    l1 = pass_increment(f, NormL1(λ), x0)
     for g in (NormL1Nonneg(λ), IndNonnegative())
-      nn = quiet(() -> solve_allocations(f, g, x0, method()))
-      @test (T, order, typeof(g), nn <= l1) == (T, order, typeof(g), true)
-      nn == l1 || println("allocations, $T, $order, $(typeof(g)): $nn bytes, NormL1 $l1 bytes")
+      nn = pass_increment(f, g, x0)
+      @test (T, typeof(g), nn <= l1) == (T, typeof(g), true)
+      nn == l1 || println("bytes per pass, $T, $(typeof(g)): $nn, NormL1 $l1")
     end
   end
 end

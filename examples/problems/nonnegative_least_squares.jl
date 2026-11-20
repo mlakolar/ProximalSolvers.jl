@@ -104,7 +104,7 @@ options = ProximalOptions(maxiter=10_000, ftol=eps(Float64), xtol=1e-12,
 nnls = checked_fit(X, y, IndNonnegative(), 0.0, options, 1e-7)
 sparse = checked_fit(X, y, NormL1Nonneg(lambda), lambda, options, 1e-7)
 
-# `CDSolver` on a dense vector solves the same two problems. Its `converged` flag is a
+# `CDSolver` on a dense vector targets the same two objectives. Its `converged` flag is a
 # change test, not a certificate, so we apply the same checks computed from the data, and
 # compare the objective with the one of the PGD fit. The tolerance `tol=1e-10` is tighter
 # than the default; the KKT assertions inside `checked_fit` show it was tight enough here.

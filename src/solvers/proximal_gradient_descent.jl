@@ -368,12 +368,16 @@ Square-root lasso is available only with CD, an unscaled loss and an unweighted
 positive L1 level; its successful stopping flag requires a certificate.
 
 Use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares and
-unweighted `NormL1Nonneg(lambda)` for nonnegative lasso. These penalties require
-PGD, dense same-type least-squares data and a nonnegative starting vector.
-An infeasible start is refused before writes. The stopping check uses the
-constrained KKT residual and the lasso's symmetric gradient scale.
-See [inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-07)
-and [stopping](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16).
+unweighted `NormL1Nonneg(lambda)` for nonnegative lasso. These penalties are accepted
+by PGD and by `CDSolver` on a dense `Vector`, with dense same-type least-squares data
+and a nonnegative starting vector; APG, and CD on a `SparseIterate`, refuse them. An
+infeasible start is refused before writes. PGD's stopping check uses the
+constrained KKT residual and the lasso's symmetric gradient scale. `CDSolver` stops on
+its change test, so its `converged` flag is not a KKT check; assess its point with an
+independent constrained KKT score.
+See [inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-07),
+[PGD's stopping check](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16)
+and [CD's change test](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-scalar/#CD-03).
 
 - [Supported inputs, dimensions and scalar parameters](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01).
 - [Aliasing and borrowed input requirements](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-05).

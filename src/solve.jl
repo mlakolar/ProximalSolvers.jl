@@ -55,8 +55,8 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
-# IndNonnegative and unweighted NormL1Nonneg are accepted under :pgd and :cd, with a feasible start
-# checked by _check_problem on a dense Vector (a SparseIterate is refused by _check_owner_problem).
+# IndNonnegative and unweighted NormL1Nonneg are accepted under :pgd and :cd, with the vector-response
+# LeastSquaresLoss (raw or one positive Scaled) and a feasible start checked by _check_problem on a dense Vector (a SparseIterate is refused by _check_owner_problem).
 # :gradient retains the APG gate.
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
 # :gradient (APG), :pgd (PGD) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
@@ -407,8 +407,9 @@ end
 
 # The dense gate: :cd for CDSolver, :pgd for PGD and :gradient (the default) for APG.
 # Both gradient kinds refuse square-root loss and accept NormLinf and GroupNormL2;
-# :pgd and :cd also accept IndNonnegative and unweighted NormL1Nonneg, with a feasible start (checked here,
-# before any write, for each of these kinds; a negative entry is refused rather than projected).
+# :pgd and :cd also accept IndNonnegative and unweighted NormL1Nonneg, with the vector-response least-squares
+# loss and a feasible start (checked here, before any write, for each of these kinds; a negative entry
+# is refused rather than projected).
 # A logistic loss goes to _check_logistic_problem, whatever the kind.
 function _check_problem(x, f, g, kind::Symbol = :gradient)
   _is_logistic_loss(f) && return _check_logistic_problem(x, f, g, kind)

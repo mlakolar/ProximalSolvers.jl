@@ -401,7 +401,7 @@ input rules, the curvature factor of the line search and the stopping scale are 
 [the logistic input contract](@ref IN-09). The [tutorial](examples/problems/logistic_regression.md)
 fits seeded data and checks its objective and KKT residual from the data.
 
-### Nonnegative lasso with proximal gradient descent
+### [Nonnegative least squares and lasso](@id Nonnegative-lasso-with-proximal-gradient-descent)
 
 **(i)** With dense least-squares data and a feasible nonnegative starting vector,
 use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares.

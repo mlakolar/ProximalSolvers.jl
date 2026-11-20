@@ -66,7 +66,7 @@ end
   end
 
   @testset "CDSolver on a dense Vector" begin
-    # accepted (test/cd_nonnegative.jl has the full tests); a SparseIterate or a BlockIterate is refused below
+    # one correlated fixture solved by dense CD (test/cd_nonnegative.jl checks CD against references and refusals); a SparseIterate or a BlockIterate is refused below
     cd_A = T[1 0.8 0; 0 0.6 0; 0 0 1]
     cd_b = cd_A * T[2, -1, -2]
     beta = fill(T(0.5), 3)

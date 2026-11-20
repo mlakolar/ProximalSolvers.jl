@@ -48,7 +48,8 @@ end
   v = fill(T(0.3), 4); before = copy(v)
   @test_throws ArgumentError solve!(v, f, g, AccProxGradDescent())
   @test v == before
-  # CDSolver accepts the penalty on a dense Vector (test/cd_nonnegative.jl); its refusals are there too.
+  # CDSolver accepts the penalty on a dense Vector: the identity fixture here is solved with a feasible result (test/cd_nonnegative.jl
+  # checks CD against references; the CD refusals are tested there).
   v = fill(T(0.3), 4)
   @test solve!(v, f, g, CDSolver(order=:cyclic, momentum=false)).minimizer === v
   @test minimum(v) >= 0

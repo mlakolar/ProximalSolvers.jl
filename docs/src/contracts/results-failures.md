@@ -13,7 +13,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 
 | Solver | A stop is proposed by | Vetoed by | `converged = true` means | Kind of evidence |
 | --- | --- | --- | --- | --- |
-| `CDSolver`, least squares with `NormL1` or `ElasticNet` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
+| `CDSolver`, least squares with `NormL1`, `ElasticNet`, `IndNonnegative()` or unweighted `NormL1Nonneg` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
 | `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level (for `NormL1(λ, w)`, the largest coefficient `maxⱼ cⱼ` with `cⱼ = T(λ) wⱼ`; each entry of `G` is scored with its own `cⱼ`; for `GroupNormL2` with PGD, the group residual and the group scale; see [the stationarity check](@ref STOP-03)) | a residual formed in working precision |
 | `ProximalGradientDescent`, `AccProxGradDescent`, `NormLinf` | the same | the generic check | a test proposed a stop and the proximal-gradient residual is below `max(gradtol, 64 eps(T)) * max(‖∇f(0)‖∞, ‖∇f(x)‖∞)` (see [the generic check](@ref STOP-07)) | a working-precision indication; weaker when the accepted `L` is small |
@@ -65,7 +65,10 @@ For nonnegative least squares and nonnegative lasso, dense PGD uses
 the constrained residual in [STOP-16](@ref), subject to the same computed-threshold
 guards in [STOP-04](@ref). A kept stop is a working-precision stationarity check;
 it does not supply an exact-arithmetic certificate or a calculated duality gap.
-The supported inputs and feasibility refusals are in [IN-07](@ref).
+The supported inputs and feasibility refusals are in [IN-07](@ref). With `CDSolver` on a dense
+`Vector`, these penalties use the change-test row of the table above: `converged` does not
+check the constrained KKT conditions, and the reported minimum is the objective from the
+cached residual ([CD-09](@ref)).
 
 Uncentered `SqrNormL2` ridge was also added after the table's baseline. Its
 scalar least-squares CD run uses the same full-pass change criterion as the

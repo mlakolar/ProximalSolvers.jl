@@ -296,7 +296,7 @@ mutation or RNG use, as specified in [IN-01](@ref). See the
 **Statement.**
 
 `ProximalGradientDescent`, and `CDSolver` on a dense `Vector{T}`, accept `IndNonnegative()` and the
-unweighted penalty `NormL1Nonneg(lambda)` with a dense least-squares loss. They minimize
+unweighted penalty `NormL1Nonneg(lambda)` with a dense least-squares loss. They target
 `(s/2) * sum(abs2, y-X*x) + lambda * sum(x)` over `x >= 0`, where `s` is the
 accepted loss scale and `lambda = 0` for `IndNonnegative()`. The zero-level form
 `NormL1Nonneg(0)` gives the same nonnegative least-squares problem. The data
@@ -324,7 +324,9 @@ The result and failure rules are those of PGD in [RES-01](@ref) and [RES-03](@re
 For `CDSolver` the coordinate step is the least-squares step of [CD-01](@ref), with the
 penalty's proximal operator and the exceptional step of [CD-04](@ref); `converged` is
 CD's change test and not a certificate of the constrained KKT conditions
-([RES-01](@ref)). A returned point is nonnegative and finite after a completed run.
+([RES-01](@ref), [CD-03](@ref)): assess the returned point with an independent constrained KKT
+score. The cached residual and the reported minimum are those of [CD-05](@ref) and [CD-09](@ref).
+A returned point is nonnegative and finite after a completed run.
 The [NNLS tutorial](../examples/problems/nonnegative_least_squares.md) compares
 the constraint alone with a positive penalty. The [nonnegative sparse-regression tutorial](../examples/problems/nonnegative_lasso.md)
 checks feasibility, the objective and a separately computed constrained KKT residual.
