@@ -539,8 +539,9 @@ extreme weight on one coordinate does not loosen the test of the others. A free
 intercept is held to `τ λmax`. The fixture `X = [fill(1e150, 5) zeros(5)]`,
 `y = [0.0, 1.0, 1.0, 1.0, 1.0]`, `NormL1(1e300, [0.0, 1.0])` has the minimizer
 `b = [log(4)/1e150, 0.0]`. A single scale `S = 1e300` admitted a stop far from it; the
-measured outcomes before and after [#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464)
-are in the [entry-threshold evidence](@ref evidence-entry-thresholds-464). The thresholds
+outcomes measured with the single threshold and with the entry thresholds
+([#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464)) are in the
+[entry-threshold evidence](@ref evidence-entry-thresholds-464). The thresholds
 still use `λmax = ‖∇f(0)‖∞`, which a free intercept can inflate when the response is far
 from balanced ([STOP-12](@ref)).
 

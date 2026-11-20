@@ -127,10 +127,11 @@ end
 # With weights, each entry is also held to its own scale (#464): the signed score sᵢ of entry i (ProximalBase's
 # kkt_violation(h, ∇f(x), x, i), negative at a zero entry with |∇fᵢ| < cᵢ) must be below τ max(cᵢ, λmax). That
 # threshold is at most τ S, so the comparison with τ S above is necessary; when maxᵢ cᵢ ≤ λmax every entry threshold
-# equals τ S and nothing more is done. Otherwise _entry_thresholds_hold compares each score with its threshold, which
+# equals τ S and nothing more is done. Otherwise, after that comparison has passed, _entry_thresholds_hold compares each score with its threshold, which
 # must be at least floatmin(T), in one more pass that ends at the first failure. Without it, a coefficient far above
 # λmax (a large weight, or one that excludes a column) would set the threshold of entry i to τ maxⱼ cⱼ instead of
-# τ max(cᵢ, λmax), larger by the factor maxⱼ cⱼ / max(cᵢ, λmax) (maxⱼ cⱼ / λmax at a zero-weight entry).
+# τ max(cᵢ, λmax), larger in exact arithmetic by the factor maxⱼ cⱼ / max(cᵢ, λmax) where that scale is positive
+# (maxⱼ cⱼ / λmax at a zero-weight entry with λmax > 0).
 # An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
@@ -163,8 +164,8 @@ function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, E
     (λ <= λmax || _entry_thresholds_hold(gT, grad, state.x, τ, λmax))
 end
 
-# Each entry (each group) of a weighted penalty against its own threshold τ max(cᵢ, λmax), when the largest
-# coefficient exceeds λmax (see above). The penalties without weights (unweighted NormL1, NormL1Nonneg, IndNonnegative,
+# Each entry (each group) of a weighted penalty against its own threshold τ max(cᵢ, λmax), when the full-point
+# comparison has passed and the largest coefficient exceeds λmax (see above). The penalties without weights (unweighted NormL1, NormL1Nonneg, IndNonnegative,
 # ElasticNet) take this method, since all their entry thresholds are τ S; a weight vector of ones takes the pass, with
 # every threshold equal to τ S.
 _entry_thresholds_hold(g, grad, x, τ, λmax) = true

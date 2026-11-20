@@ -2,8 +2,8 @@ module EntryThresholds
 # Per-entry stopping thresholds of PGD and APG for weighted penalties (#464, STOP-03, STOP-05). A proposed stop
 # with NormL1(λ0, w) is kept only if every entry score sᵢ is below τ max(cᵢ, λmax), cᵢ = T(λ0) wᵢ, and with
 # GroupNormL2 only if every group score is below τ max(cₖ, Λ); before #464 every entry was compared with the single
-# threshold τ max(maxᵢ cᵢ, λmax), so one large coefficient raised the threshold of entry i by the factor
-# maxⱼ cⱼ / max(cᵢ, λmax).
+# threshold τ max(maxᵢ cᵢ, λmax), so one large coefficient raised the threshold of entry i, in exact arithmetic, by
+# the factor maxⱼ cⱼ / max(cᵢ, λmax) where that scale is positive.
 #
 # Independent references, computed here in 256-bit BigFloat from the stored data and the returned coefficients,
 # without ProximalBase's kkt_violation or the solvers' helpers: the gradient, the per-entry (per-group) minimal-norm
@@ -246,7 +246,7 @@ end
   for T in (Float64, Float32), method in METHODS
     X, y = design(T, 30, 5)
     λ = T(0.1 * norm(Float64.(X)' * Float64.(y), Inf))
-    # a free coordinate whose ∇f(0) entry is nearly 0 (the response is projected off its column in T): it is held to
+    # a free coordinate whose ∇f(0) entry is approximately 0 (the response is projected off its column in T): it is held to
     # τ λmax with the global λmax
     yo = y .- X[:, 1] .* (dot(X[:, 1], y) / dot(X[:, 1], X[:, 1]))
     w = T[0, 1, 1, 1, 1e6]
@@ -289,12 +289,13 @@ end
       x = zeros(T, 8)
       r = solve!(x, f, g, method)
       @test !r.converged || check_entries(:ls, 1, X, y, T(λfac * lm), w, x, T) <= 1
-      # the returned point of a converged solve is an accepting point of the same rule
-      if r.converged
-        v = verdicts(method, f, g, x, T)
-        @test v.verdict && v.rule && v.single
-      end
     end
+    # an accepting fixed point on the fast path: unit weights and the level equal to the computed λmax, at x = 0, where
+    # every score is |∇fᵢ(0)| - λmax ≤ 0 and every threshold is τ λmax
+    lmT = verdicts(method, f, NormL1(one(T), ones(T, 8)), zeros(T, 8), T).λmax
+    v = verdicts(method, f, NormL1(lmT, ones(T, 8)), zeros(T, 8), T)
+    @test v.cmax == v.λmax
+    @test v.verdict && v.rule && v.single
     # unit weights decide exactly as the unweighted penalty
     for x in pts
       @test verdicts(method, f, NormL1(T(0.1lm), ones(T, 8)), x, T).verdict == verdicts(method, f, NormL1(T(0.1lm)), x, T).verdict
