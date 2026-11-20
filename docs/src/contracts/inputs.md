@@ -25,6 +25,7 @@ the design requirement.
 | `CDSolver`, matrix-response least squares | dense `Matrix{T}` or matching row-group `BlockIterate{T}` | native row-group `GroupNormL2`; see [CDM-01](@ref) |
 | `CDSolver`, square-root least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | unweighted `NormL1` with positive level; see [CDQ-01](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1`, unweighted `ElasticNet`, `NormLinf`, or `GroupNormL2` under [IN-04](@ref) |
+| `ProximalGradientDescent`, `AccProxGradDescent`, matrix-response least squares | dense `Matrix{T}` | unweighted `NormL1` under [IN-10](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
 | `ProximalGradientDescent`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
 | `ProximalGradientDescent`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) |
@@ -242,7 +243,7 @@ subnormal square.
 `X` and the response are borrowed read-only during a solve: do not mutate them while
 the solver is running. The mutable coefficient storage must not alias either input.
 Weighted `NormL1` and dense-group PGD/APG also prohibit aliasing the penalty weights;
-matrix-response CD has the additional alias rules in [CDM-01](@ref).
+matrix-response CD and PGD/APG have additional alias rules in [CDM-01](@ref) and [IN-10](@ref).
 For `SparseIterate`, alias checks cover the owner's whole
 backing storage, even when it has no active entries; passing
 `parent(activevalues(x))` or a reshape of it as `y` or `X` is refused.
@@ -556,3 +557,39 @@ squares with PGD and APG, with the zero gradient of that loss in place of `Xᵀ(
 **Tests.** `test/logistic_pgd.jl`: the stopping scale against `‖Xᵀ(½ - y)‖∞`, and a stop through the engine checked with ProximalBase's scorer and with the independent residual; the value and gradient at zero and at a representative point against label-wise BigFloat formulas and central differences; the inequalities behind the factor `¼`, the initial curvature, and the recheck of a rejected trial in each mode (`c = ¼` and `c = ½` for a unit step, at least TFOCS's estimate); a regularized nonseparable fit with an unpenalized intercept (objective, the KKT scores of the intercept and of the active and inactive slopes, `minimizer === b`, rejected trials, the `F/n` scaling); the intercept-only model and levels at and above the slope threshold; an unpenalized fit against a damped Newton reference, with a numerical witness that its data are not separable; unit weights against the unweighted penalty; checked rejections; rollback after a fault and through `solve!`; overflowed images at the start (refused, coefficients unchanged) and in a trial (retried, on the side of the label and against it), and a finite logit of 800; iteration and call limits; steep, separated and almost separated regularized problems, including a start with logits beyond `log(floatmax(Float64))`; a one-class sample with an unpenalized intercept (finite coefficients, objective and diagnostics; when convergence is reported, the solver's criterion re-formed at the returned point and the independent residual against the same threshold; neither outcome required); the refusals above with the coefficients unchanged, including `CDSolver` on each storage with raw and scaled losses and an unchanged RNG, `ProximalGradientDescent` on a `Matrix` coefficient, and `ADMMSolver` on a `Vector` and a `Matrix` with raw and scaled losses and a supplied `u` that is left unchanged; for one fixture, warmed iterations that allocate nothing and whole solves against the least-squares control. Where the independent residual is compared with `KKT_TOL`, the test also checks a first-order estimate of the rounding of the solver's gradient. `examples/problems/logistic_regression.jl` checks its fit independently.
 
 **Sources.** [Issue #438](https://github.com/mlakolar/ProximalSolvers.jl/issues/438) (scope, mathematical contract and tests) and [pull request #439](https://github.com/mlakolar/ProximalSolvers.jl/pull/439) (mini-design); ProximalBase [`LogisticLoss` at 4a737a52](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/src/functions/logisticloss.jl), the merge of [ProximalBase #1033](https://github.com/mlakolar/ProximalBase.jl/pull/1033).
+
+
+## [IN-10 Matrix-response entrywise lasso with PGD and APG](@id IN-10)
+
+**Statement.** For least squares with a matrix response, PGD and APG accept
+finite, same-type dense `Matrix{T}` inputs `X` of size `n × p`, `Y` of size
+`n × K`, and a writable coefficient matrix `B` of size `p × K`.
+`T` is `Float32` or `Float64`, and `n`, `p` and `K` are positive.
+Use raw `LeastSquaresLoss(Y,X)` or one positive scalar wrapper under [IN-02](@ref)
+and unweighted `NormL1(lambda)` at a finite, nonnegative representable level.
+The objective is `s‖Y − XB‖_F²/2 + λ Σⱼₖ |B[j,k]|` with native working penalty
+level `λ` and supplied loss scale `s`. All entries participate, including the
+diagonal of a square coefficient matrix. Rectangular coefficients, rank
+deficiency and a zero level are accepted. Use `s = 1/n` for normalization
+by the number of observations.
+
+Refusals occur before any coefficient write. An invalid shape or empty
+dimension throws `DimensionMismatch`. A different loss, a nested scale,
+an invalid scalar parameter, unsupported storage or element type, weights
+of any shape, nonfinite data or coefficients, or a reported
+`Base.mightalias` between `B` and any of `X`, `Y` and the loss scratch
+`tmp` throws `ArgumentError`. APG applies [APG-07](@ref) before state
+creation. Borrowed inputs follow [IN-05](@ref). On return the result's
+`minimizer` is the supplied `B`, with the failure boundary in [RES-03](@ref).
+
+**Applies to.** Matrix-response least squares with PGD or APG and unweighted
+`NormL1`.
+
+**Code.** `src/solve.jl`: `_check_gradient_problem`, `_scalar_parameter` and
+`_check_loss_scale`. `src/utils.jl`: `_working_gradient_penalty`.
+
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks both working types,
+objective and per-entry KKT, dimensions, levels, pre-write refusals and
+coefficient storage identity.
+
+**Sources.** [Issue #469](https://github.com/mlakolar/ProximalSolvers.jl/issues/469).
