@@ -28,6 +28,11 @@ see [the stopping contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/co
 `ls` must be `LineSearches.BackTracking`; custom line searches are unsupported.
 The compatibility keywords `normalized=false`, `debias=0` and
 `preconditioner=:none` are accepted only at their defaults and are not stored.
+PGD also solves the graphical lasso with `LogDetLoss(S)` and symmetric
+zero-diagonal `Matrix` weights in `NormL1(λ₀, Λ)`. Start from a same-type dense
+Float32 or Float64 SPD matrix. See [matrix PGD](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-06)
+for the supported options and the KKT stopping check.
+
 PGD requires dense coefficients and refuses `SparseIterate`, `BlockIterate`,
 matrix responses and square-root loss. A group penalty must have the same
 parameter type as the data and groups partitioning the coefficients.
