@@ -13,7 +13,8 @@ The following remain deferred:
   `SparseIterate` for PGD/APG; other group and symmetric owner types;
 - matrix-shaped coefficient owners except the dense `Matrix` coefficient of
   least-squares CD with a matrix response and native row-group `GroupNormL2`
-  ([CDM-01](@ref), #396); matrix responses outside that case, which uses a private
+  ([CDM-01](@ref), #396) and the dense `Matrix` iterate of the graphical
+  lasso with ADMM or PGD ([ADM-04](@ref), [PGD-06](@ref)); matrix responses outside the CD case, which uses a private
   `BlockIterate` over `vec(B)`;
 - weighted `ElasticNet`, `Scaled` penalties, and CD group penalties other than
   `GroupNormL2`;
@@ -32,9 +33,14 @@ The following remain deferred:
   offsets, `Float32` data, sparse designs and penalties other than `NormL1` remain
   deferred, as do Poisson and other generalized linear model losses;
 - monotone or active-set acceleration, APG diagonal preconditioning, Newton,
-  primal-dual methods, SLOPE and graphical models;
+  primal-dual methods, SLOPE and direct precision-matrix solvers other than the
+  graphical-lasso routes in [ADM-04](@ref) and [PGD-06](@ref);
 - ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref),
-  including arbitrary function pairs, product spaces, linear constraints and custom norms;
+  the least-squares lasso with a tall or square `Float64` design in [ADM-05](@ref)
+  and the graphical lasso in [ADM-04](@ref), including arbitrary function pairs,
+  product spaces, linear constraints, custom norms, scaled or `Float32`
+  least-squares losses, wide designs (`n < p`), and over-relaxation or the
+  adaptive penalty on a matrix;
 - paths, screening, public workspaces, refitting, reweighting, and certificates
   other than the square-root-lasso CD duality certificate;
 - generic block, metric, certificate and logging frameworks, and extension

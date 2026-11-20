@@ -518,13 +518,37 @@ _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
 
+_gradient_call_limit(state, options) =
+  (0 < options.f_calls_limit <= state.f_calls ||
+   0 < options.grad_calls_limit <= state.grad_calls ||
+   0 < options.prox_calls_limit <= state.prox_calls)
+
+_gradient_time_limit(t0, options) = time() - t0 > options.time_limit
+_gradient_time_limit(t0::UInt64, options) = (time_ns() - t0) * 1e-9 >= options.time_limit
+
+# Vector PGD/APG preserve their after-iteration limit and stopping semantics.
+# A strict-budget search can return false when a limit interrupts a trial.
+_strict_gradient_limits(state) = false
+_stop_on_gradient_increase(state, options) = !options.allow_f_increases
+_gradient_tolerance(state, options) = options.gradtol
+_gradient_tracing(state, options) =
+  options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
+_rollback_gradient_step!(state) = _copyto!(state.x, state.x_previous)
+
+@inline function _gradient_step!(state, f, g, method, options, t0)
+  update_state!(f, g, state, method)
+  true
+end
+
 function _solve_gradient!(state, f, g, method, options, t0 = time())
 
   tr = OptimizationTrace{typeof(method)}()
-  tracing = options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
-  stopped, stopped_by_callback, stopped_by_time_limit = false, false, false
+  tracing = _gradient_tracing(state, options)
+  strict_limits = _strict_gradient_limits(state)
+  call_limit_reached = strict_limits && _gradient_call_limit(state, options)
+  stopped = call_limit_reached || (strict_limits && _gradient_time_limit(t0, options))
+  stopped_by_callback = false
   stagnated = false
-  f_limit_reached, grad_limit_reached, prox_limit_reached = false, false, false
   x_converged, fg_converged, grad_converged, f_increased = false, false, false, false
 
   converged = false
@@ -533,17 +557,20 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
   options.show_trace && @printf "Iter     Function value       |dx|/|x|       Step Size\n"
 
   while !converged && !stopped && iteration < options.maxiter
-    iteration += 1
-
-    try
-      update_state!(f, g, state, method)
-      isfinite(state.f_x + state.g_x) || error("the gradient step did not produce a finite objective")
+    completed = try
+      accepted = _gradient_step!(state, f, g, method, options, t0)
+      (!accepted || isfinite(state.f_x + state.g_x)) ||
+        error("the gradient step did not produce a finite objective")
+      accepted
     catch
-      # Trials overwrite x for allocation-free iteration. An unsuccessful
-      # search must still leave the caller's last accepted point intact.
-      _copyto!(state.x, state.x_previous)
+      _rollback_gradient_step!(state)
       rethrow()
     end
+    if !completed
+      call_limit_reached = _gradient_call_limit(state, options)
+      break
+    end
+    iteration += 1
 
     x_converged, fg_converged,
     grad_converged, converged, f_increased = convergence_assessment(state, f, g, options)
@@ -553,20 +580,18 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
       stopped_by_callback = trace!(tr, state, iteration, options)
     end
 
-    stopped_by_time_limit = time()-t0 > options.time_limit ? true : false
-    f_limit_reached = options.f_calls_limit > 0 && state.f_calls >= options.f_calls_limit
-    grad_limit_reached = options.grad_calls_limit > 0 && state.grad_calls >= options.grad_calls_limit
-    prox_limit_reached = options.prox_calls_limit > 0 && state.prox_calls >= options.prox_calls_limit
+    stopped_by_time_limit = _gradient_time_limit(t0, options)
+    call_limit_reached = _gradient_call_limit(state, options)
+    if strict_limits && (stopped_by_time_limit || call_limit_reached || iteration == options.maxiter)
+      x_converged = fg_converged = grad_converged = converged = false
+    end
 
     # a numerical-stagnation stop (see _stagnated), checked after trace! and any callback call
     # that is due at this iteration under print_every
     stagnated = _stagnated(state, options)
 
-    increased = f_increased && !options.allow_f_increases
-    if increased || stagnated || stopped_by_callback ||
-        stopped_by_time_limit || f_limit_reached || grad_limit_reached || prox_limit_reached
-        stopped = true
-    end
+    increased = f_increased && _stop_on_gradient_increase(state, options)
+    stopped = increased || stagnated || stopped_by_callback || stopped_by_time_limit || call_limit_reached
   end # while
   # the residuals are stored as Float64, like the tolerances, whatever the element type
   return OptimizationResults{typeof(method), typeof(state.f_x), ndims(state.x), typeof(method), typeof(state.x)}(
@@ -583,7 +608,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
                 options.ftol,
                 Float64(f_residual(state.f_x + state.g_x, state.f_x_previous + state.g_x_previous, options.ftol)),
                 grad_converged,
-                options.gradtol,
+                _gradient_tolerance(state, options),
                 Float64(g_residual(state)),
                 f_increased,
                 tr,
@@ -591,7 +616,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
                 state.f_calls,
                 state.grad_calls,
                 state.prox_calls,
-                f_limit_reached || grad_limit_reached || prox_limit_reached,
+                call_limit_reached,
                 stagnated,
                 NaN)           # gap sentinel, never computed
 

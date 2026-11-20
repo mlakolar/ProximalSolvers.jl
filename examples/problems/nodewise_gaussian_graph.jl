@@ -286,9 +286,9 @@ println("pairs selected by one node only (OR but not AND): ", setdiff(or_edges, 
 #   this page does not select `λ` by cross-validation or stability selection and does not
 #   study how the counts vary over data sets.
 # - The result is a graph. The coefficients of the different regressions are not combined into an
-#   estimate of `Ω`; a matrix assembled from them need not be symmetric or positive definite. The
-#   log-determinant (graphical lasso) estimation of a precision matrix is not provided; see
-#   [Supported problems](../../support.md).
+#   estimate of `Ω`; a matrix assembled from them need not be symmetric or positive definite.
+#   Direct estimation of a sparse precision matrix by the graphical lasso is a different
+#   estimator, shown in [Graphical lasso](graphical_lasso.md).
 # - The `p` regressions are solved one after another, each from zero, with no warm start along
 #   a path of levels. The design matrices are dense `Float64` arrays. The solves are fast at this
 #   size; no timing claim is made for larger `p`.

@@ -43,6 +43,9 @@ const EXAMPLES = [
   (section = "Problems", path = "problems/sparse_signal_denoising.jl",
    title = "Sparse signal denoising with ADMM", notebook = false,
    gallery = "Signal processing", description = "Recover a sparse signal from noisy amplitudes using a squared-distance loss and an ℓ₁ penalty."),
+  (section = "Problems", path = "problems/graphical_lasso.jl",
+   title = "Graphical lasso", notebook = false,
+   gallery = "Covariance and graphs", description = "Estimate a sparse precision matrix and its conditional-independence graph."),
   (section = "Problems", path = "problems/logistic_regression.jl",
    title = "Sparse logistic regression", notebook = false,
    gallery = "Sparse classification", description = "Select a few covariates that predict a binary outcome, with an unpenalized intercept."),
@@ -81,7 +84,10 @@ const EXAMPLES = [
    gallery = "Solver comparisons", description = "Compare how much work lasso solvers need to reach the same accuracy."),
   (section = "Solver comparisons", path = "comparisons/group_lasso_solvers.jl",
    title = "Group lasso: CD, PGD and APG", notebook = false,
-   gallery = "Solver comparisons", description = "Compare coordinate and gradient methods on one group-lasso problem.")]
+   gallery = "Solver comparisons", description = "Compare coordinate and gradient methods on one group-lasso problem."),
+  (section = "Solver comparisons", path = "comparisons/graphical_lasso_solvers.jl",
+   title = "Graphical lasso: ADMM and proximal gradient", notebook = false,
+   gallery = "Covariance and graphs", description = "Compare two solvers for the same sparse precision estimate at matched accuracy.")]
 
 # The set of scripts under `examples/`, in subfolders too, equals the registry.
 let root = joinpath(@__DIR__, "..", "examples"), found = String[]
@@ -190,6 +196,7 @@ makedocs(sitename = "ProximalSolvers.jl", authors = "Mladen Kolar",
       "Proximal gradient iteration" => "contracts/pg-iteration.md",
       "Accelerated proximal gradient" => "contracts/apg.md",
       "Consensus ADMM" => "contracts/admm.md",
+      "Matrix PGD" => "contracts/pg-logdet.md",
       "Line search" => "contracts/line-search.md",
       "PG stopping" => "contracts/pg-stopping.md",
       "Results and failures" => "contracts/results-failures.md",

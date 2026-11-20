@@ -2,7 +2,7 @@
 
 ## Scope
 
-`ProximalGradientDescent` uses dense `Vector{Float32}` or `Vector{Float64}` coefficients for the supported least-squares problems and penalties in the [support matrix](../support.md). PGD and APG share `_solve_gradient!`, stopping, reporting and result types; their iteration algorithms differ.
+`ProximalGradientDescent` uses dense `Vector{Float32}` or `Vector{Float64}` coefficients for the supported least-squares problems and penalties in the [support matrix](../support.md). Vector PGD and APG share `_solve_gradient!`, stopping and results. Graphical-lasso PGD also uses `_solve_gradient!`, with the step and stopping rules in [PGD-07](@ref) and [PGD-08](@ref).
 
 ## Problem
 

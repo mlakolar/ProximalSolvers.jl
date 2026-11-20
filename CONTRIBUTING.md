@@ -90,6 +90,37 @@ Git HEADs and source digests, then compares fresh child-process diagnostics.
 Version-only fingerprints or unverified sibling checkouts are insufficient. Old workspace helper scripts
 are historical conveniences, not proof a sibling directory is current master.
 
+## Local ProximalBase pin preflight
+
+After switching integration branches or changing the ProximalBase pin, run this
+from the repository root before a long local run or submitting work to Discovery.
+Use the same Julia binary or launcher channel as the run.
+
+```sh
+julia --startup-file=no --project=@stdlib scripts/check_local_pb_pin.jl
+```
+
+The checker inspects the effective local manifest selected by that Julia version
+and complements CI's tracked-pin and exact-source checks. `MATCH` confirms that
+the local manifest records the project pin. `MISSING` is normal before
+instantiation or when Julia 1.10 uses the matching tracked baseline. Use
+`--strict` to fail on `STALE`, `UNVERIFIABLE`, or `PATH / DEV WORKSPACE`.
+Add `--allow-path` when you deliberately use a `Pkg.develop` workspace.
+
+For a stale untracked manifest, move the reported file to a backup outside the
+repository. From the repository root, run the following with the same Julia
+binary or channel. Rerun the checker after instantiation, then run the import
+smoke test. For `Manifest-v1.10.toml` tracked by Git, follow the tracked pin
+policy above and keep the file in place.
+
+```sh
+julia --startup-file=no --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --startup-file=no --project=. -e 'using ProximalBase, ProximalSolvers'
+```
+
+Run the standalone fixtures with
+`julia --startup-file=no --project=@stdlib scripts/test_check_local_pb_pin.jl`.
+
 ## Julia performance and correctness
 
 Use Julia 1.13.4 for performance benchmarks and optimization decisions.
@@ -114,7 +145,7 @@ snapshot `9be1773e911a44ec21d49df28cb01fea37c4316e`.
 Restore capabilities selectively with focused numerical checks.
 
 The ProximalBase source pin for this development branch is
-`4a737a521d1028228da41e25c16cf963769cd891`;
+`e03c6d9659365d54f4e0fba1a9cd54490631eea6`;
 the isolated historical comparison baseline is
 `e8a45a8a6ffe2a6f92d83c4c77d62a9b7631e291`.
 Every relevant CI run performs exact-source independent probes in

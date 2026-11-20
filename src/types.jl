@@ -30,6 +30,8 @@ A successful stopping flag is not an exact optimality certificate; see
 [`ADMMSolver`](@ref) uses `maxiter`, `prox_calls_limit` and `time_limit`. It
 checks the limits before starting the next pair of proximal calls. See
 [the ADMM options contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-02).
+For matrix PGD, see the [accepted settings](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-06)
+and [limit checks](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-08).
 
 ## Keywords
 
@@ -207,7 +209,7 @@ end
     OptimizationResults
 
 Result from plain or accelerated proximal gradient descent. `minimizer` aliases
-the caller's coefficient vector; `minimum` is the reported objective there.
+the caller's coefficient array. `minimum` is the reported objective there.
 `iterations` counts steps. `converged` means that a stopping proposal passed
 the applicable computed stationarity check. Copy `minimizer` before reusing the
 coefficient array for another solve.
@@ -237,6 +239,7 @@ optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.
 
 For `NormL1`, `ElasticNet` and `GroupNormL2`, the stop check uses the applicable
 computed KKT residual; `NormLinf` uses the generic proximal-gradient check.
+For the graphical lasso, see the [matrix PGD result fields](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-08).
 A small residual does not bound coefficient error on an ill-conditioned design.
 With `ftol=0`, `f_converged` is false and the objective residual is reported only.
 
