@@ -445,7 +445,7 @@ the start, `solve!` then refuses the coefficients with the `ArgumentError` "star
 a point where f is finite", before any write. In a trial, the line search takes its
 nonfinite-value branch ([LS-02](@ref)) before its zero-step, curvature and `Lexact`
 exits: the trial is not accepted, and the search retries with `L/β`, beyond `Lexact` if
-need be, when `L/β` is a finite increase of `L`; otherwise it raises an error and
+need be, when `L/β`, converted to the type of `L`, is a finite increase of `L`; otherwise it raises an error and
 `solve!` restores the last accepted point ([LS-09](@ref)). The gradient is refreshed
 only at a trial with a finite value. A finite image goes to ProximalBase's loss; for
 example a logit of 800, beyond `log(floatmax(Float64)) ≈ 709.78`, gives the loss 800
@@ -456,7 +456,9 @@ for the label 0.
 uses the factor `¼` where least squares uses its loss scale `s`. The initial inverse
 step is that of [PGD-02](@ref) with `s = ¼`: `min(1, ¼ B²)` rounded to `T`, with `B` the
 computed upper estimate of `‖X‖_F` (`_frobenius_upper`); a positive value that rounds
-below `floatmin(T)`, to zero included, gives `floatmin(T)`, and `X = 0` gives `1`. A
+below `floatmin(T)`, to zero included, gives `floatmin(T)`, and `X = 0` gives `1`. The
+column scan of [PGD-02](@ref) returns the cap `1` without forming `B` when, after some
+column, the `Float64` sum of squares of the entries scanned so far reaches `2/¼ = 8`. A
 rejected trial that is eligible under [LS-03](@ref) is rechecked
 with `c = m ¼ ‖fl(X d̂)‖² / ‖d̂‖²` (`m = 1` in function-value mode and `m = 2` in gradient
 mode). In exact arithmetic, for the trial `x` and the step `d = x - u` from the last
@@ -524,9 +526,10 @@ exists or that the returned point is accurate.
 
 **Shared stopping scale.** The scale `S = max(λ, λmax)` of [STOP-03](@ref) is one number
 for all coordinates, and `λ` is the largest coefficient `T(lambda) * maximum(w)`. With an
-extreme weight on one coordinate, the threshold `τ S` can exceed the derivative of a free
-coordinate far from the minimizer, so that derivative does not keep the full KKT
-residual, the maximum of all the scores, above the threshold; whether a proposed stop
+extreme weight on one coordinate, the threshold `τ S` can exceed the magnitude of the
+derivative of a free coordinate far from the minimizer, so the score of that coordinate,
+the magnitude of its derivative, does not keep the full KKT residual, the maximum of all
+the scores, above the threshold; whether a proposed stop
 passes depends on the other scores and the guards of [STOP-04](@ref). For
 `X = [fill(1e150, 5) zeros(5)]`, `y = [0.0, 1.0, 1.0, 1.0, 1.0]`,
 `NormL1(1e300, [0.0, 1.0])` and the start `b = zeros(2)`, the minimizer is
@@ -534,8 +537,8 @@ passes depends on the other scores and the guards of [STOP-04](@ref). For
 default options, PGD can stop after one iteration at the predictor `1.2`, with
 `converged = true` and an objective about `0.014` above the minimum: `S = 1e300` gives
 the threshold `τ S = 1e295`, while the derivative in the free intercept is about a tenth
-of its value at zero. The same scale is used for the weighted lasso with PGD and APG
-([STOP-03](@ref)).
+of its value at zero. [STOP-03](@ref) forms the scale in the same way for weighted least
+squares with PGD and APG, with the zero gradient of that loss in place of `Xᵀ(½ - y)`.
 
 **Applies to.** `ProximalGradientDescent` with a raw `LogisticLoss{Float64}` and `NormL1` on a dense `Vector{Float64}`; the logistic refusals of `AccProxGradDescent`, `CDSolver` and `ADMMSolver`. The deferred logistic combinations are listed in [DEF-01](@ref).
 

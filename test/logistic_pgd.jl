@@ -274,8 +274,9 @@ end
   n, k = size(X)
   bref, gnorm = newton(X, y)
   @test gnorm < 1e-30
-  # the numerical witness at the Newton point indicates that the data are not separable, so that the loss has a
-  # finite minimizer near bref
+  # numerical evidence that a finite minimizer exists: the witness at the Newton point indicates that the data are
+  # not separable; that bref is close to the minimizer rests separately on its gradient norm above and on the
+  # comparisons below
   @test nonseparable(X, y, bref) > 1
   b64 = Float64.(bref)
   Gref = oracle(X, y, b64).gradient
