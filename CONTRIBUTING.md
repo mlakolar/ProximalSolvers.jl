@@ -135,9 +135,11 @@ depots on Slurm. Capture the ProximalSolvers commit and fetch ProximalBase
 `master` into a separate checkout at the start of the run.
 
 ```sh
+set -eu
 git clone --branch master --single-branch https://github.com/mlakolar/ProximalBase.jl.git
-export PB_REV="$(git -C ProximalBase.jl rev-parse HEAD)"
-export PB_TREE="$(git -C ProximalBase.jl rev-parse 'HEAD^{tree}')"
+PB_REV=$(git -C ProximalBase.jl rev-parse HEAD)
+PB_TREE=$(git -C ProximalBase.jl rev-parse 'HEAD^{tree}')
+export PB_REV PB_TREE
 printf '%s\n' "$PB_REV" "$PB_TREE"
 git -C ProximalSolvers.jl rev-parse HEAD 'HEAD^{tree}'
 ```
