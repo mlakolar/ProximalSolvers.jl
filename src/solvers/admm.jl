@@ -1,8 +1,11 @@
+using ProximalBase: gradient!
+
 """
     ADMMSolver(; ρ=1.0, α=1.0, abstol=1e-6, reltol=1e-4, abstol_dual=abstol, adaptive=false)
 
 Solve `SqrNormL2(λ, c) + NormL1(τ)` by scaled consensus ADMM on a dense
-`Vector{Float32}` or `Vector{Float64}` with a same-type center `c`.
+`Vector{Float32}` or `Vector{Float64}` with a same-type center `c`. It also solves the
+lasso `LeastSquaresLoss(y, X) + NormL1(τ)` on dense `Float64` data with `n ≥ p` (ADM-05).
 `ρ` is the positive penalty and `α ∈ (0, 2)` controls relaxation. The absolute
 and relative tolerances control the primal and dual residual tests. Set
 `adaptive=true` to rebalance the penalty between iterations.
@@ -139,6 +142,12 @@ restart a solve. See [`ADMMResults`](@ref) and the
 A dense `Matrix{Float32}` or `Matrix{Float64}` start selects the graphical lasso
 of ADM-04; Extended help summarizes its inputs.
 
+A raw `f = LeastSquaresLoss(y, X)` with dense `Float64` `y` and `X` of size `n × p`, `n ≥ p ≥ 1`,
+a `Float64` start of length `p` and an unweighted `g = NormL1(τ)` solves the lasso. It reuses the
+cached decomposition of `f` and borrows `y`, `X` and the scratch of `f`, which must not overlap `z`
+or `u`. A wide design (`n < p`) is refused with an `ArgumentError`. See
+[ADM-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-05).
+
 # Extended help
 
 In summary, the graphical lasso uses one element type `T`, Float32 or Float64,
@@ -157,7 +166,10 @@ function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = Proximal
   _solve_admm!(z, f, g, method, options, u)
 end
 
+const _ADMMLeastSquares = LeastSquaresLoss{Float64, Vector{Float64}, Matrix{Float64}, 1, Vector{Float64}}
+
 function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) where T
+  f isa LeastSquaresLoss && return _solve_admm_lasso!(initial_z, f, g, method, options, initial_u)
   f isa SqrNormL2{<:Real, Vector{T}} || throw(ArgumentError("ADMM requires SqrNormL2 with a same-type dense vector center"))
   g isa NormL1{<:Real, Nothing} || throw(ArgumentError("ADMM requires an unweighted NormL1 penalty"))
   c = f.y
@@ -175,13 +187,57 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) wh
 
   λ = _admm_level(f.λ, T, "λ"; positive=true)
   τ = _admm_level(g.λ0, T, "τ")
-  ρ, α, abstol, reltol, abstol_dual = _admm_settings(T, method.ρ, method.α, method.abstol, method.reltol, method.abstol_dual)
-  γ = inv(ρ)
-  isfinite(γ) && γ > zero(T) || throw(ArgumentError("1/ρ must be finite and positive in $T"))
+  settings = _admm_working_settings(T, method)
 
   # Use native levels for the two oracles and the fixed-point check.
-  f = SqrNormL2(λ, c)
-  g = NormL1(τ)
+  _admm_vector!(initial_z, initial_u, SqrNormL2(λ, c), NormL1(τ), method.adaptive, settings, options)
+end
+
+# The lasso LeastSquaresLoss(y, X) + NormL1(τ) with n ≥ p ≥ 1 on dense Float64 data (ADM-05).
+function _solve_admm_lasso!(initial_z::Vector{T}, f, g, method, options, initial_u) where T
+  f isa _ADMMLeastSquares && T === Float64 ||
+    throw(ArgumentError("ADMM requires a raw LeastSquaresLoss with dense Float64 vector y and matrix X, and a Float64 vector z"))
+  g isa NormL1{<:Real, Nothing} || throw(ArgumentError("ADMM requires an unweighted NormL1 penalty"))
+  y, X = f.Y, f.X
+  n, p = size(X)
+  n > 0 && p > 0 && length(y) == n && length(initial_z) == p && size(f.tmp) == (n,) ||
+    throw(DimensionMismatch("z, X and y must be nonempty with length(z) == size(X, 2) and length(y) == size(X, 1)"))
+  n >= p || throw(ArgumentError("ADMM with LeastSquaresLoss does not support a wide design with n < p"))
+  !f.svd_ready || (size(f.V) == (p, p) && length(f.s2) == p && length(f.sUtY) == p && length(f.w) == p) ||
+    throw(DimensionMismatch("the cached decomposition of the loss does not match its design"))
+  _allfinite(y) && _allfinite(X) && _allfinite(initial_z) ||
+    throw(ArgumentError("z, X and y must contain only finite values"))
+  if initial_u !== nothing
+    initial_u isa Vector{T} || throw(ArgumentError("u must be a dense $T vector like z"))
+    length(initial_u) == p || throw(DimensionMismatch("u and z must have the same length"))
+    _allfinite(initial_u) || throw(ArgumentError("u must contain only finite values"))
+  end
+  buffers = Array[initial_z, y, X, f.tmp]
+  initial_u === nothing || push!(buffers, initial_u)
+  f.svd_ready && push!(buffers, f.V, f.s2, f.sUtY, f.w)
+  for i in 1:length(buffers)-1, j in i+1:length(buffers)
+    _admm_mightalias(buffers[i], buffers[j]) &&
+      throw(ArgumentError("z, u, X, y and the scratch of the loss must not overlap"))
+  end
+
+  τ = _admm_level(g.λ0, T, "τ")
+  settings = _admm_working_settings(T, method)
+  _admm_vector!(initial_z, initial_u, f, NormL1(τ), method.adaptive, settings, options)
+end
+
+# The settings in T, with a finite positive step inv(ρ).
+function _admm_working_settings(::Type{T}, method) where T
+  settings = _admm_settings(T, method.ρ, method.α, method.abstol, method.reltol, method.abstol_dual)
+  γ = inv(settings[1])
+  isfinite(γ) && γ > zero(T) || throw(ArgumentError("1/ρ must be finite and positive in $T"))
+  settings
+end
+
+# The recurrence of ADM-02 on validated native data, for f a centered SqrNormL2 or a
+# LeastSquaresLoss and g = NormL1(τ). The caller's buffers change only on normal return.
+function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings, options) where T
+  ρ, α, abstol, reltol, abstol_dual = settings
+  γ = inv(ρ)
   t0 = time_ns()
   z = copy(initial_z)
   next_z = similar(z)
@@ -206,7 +262,7 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) wh
 
     # Apply a change only when an iteration can use it. On exit ρ, u and
     # the residual diagnostics correspond to the same completed iteration.
-    if method.adaptive && iterations > 0 && penalty_changes < 50
+    if adaptive && iterations > 0 && penalty_changes < 50
       balance = _admm_balance(r_norm, eps_pri, s_norm, eps_dual)
       candidate_ρ, candidate_γ = _admm_adjust_penalty!(tmp, u, ρ, γ, balance)
       if candidate_ρ != ρ
@@ -238,7 +294,7 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) wh
     z, next_z = next_z, z
 
     if r_norm <= eps_pri && s_norm <= eps_dual
-      status = if iszero(r_norm) && iszero(s_norm) && !_admm_stationary(z, c, λ, τ, eps_dual)
+      status = if iszero(r_norm) && iszero(s_norm) && !_admm_stationary!(tmp, f, g.λ0, z, eps_dual)
         :stagnated
       else
         :converged
@@ -453,14 +509,29 @@ function _admm_adjust_penalty!(trial, u, ρ::T, γ, balance) where T
 end
 
 # Rounded proximal updates can yield two zero residuals away from a stationary
-# point. Check the centered quadratic/L1 stationarity violation on that exit.
-function _admm_stationary(z, c, λ, τ, tolerance)
+# point. Check the stationarity violation of the loss plus ℓ₁ penalty on that exit.
+# The score of gradient entry q at zᵢ is |q + τ sign(zᵢ)|, or max(|q| - τ, 0) at zero.
+function _admm_violation(q, zi, τ)
+  violation = iszero(zi) ? max(abs(q) - τ, zero(τ)) : abs(q + copysign(τ, zi))
+  isfinite(violation) || error("ADMM produced a nonfinite stationarity diagnostic")
+  violation
+end
+
+function _admm_stationary!(tmp, f::SqrNormL2, τ, z, tolerance)
   stationary = true
+  c, λ = f.y, f.λ
   @inbounds for i in eachindex(z, c)
-    grad = λ * (z[i] - c[i])
-    violation = iszero(z[i]) ? max(abs(grad) - τ, zero(τ)) : abs(grad + copysign(τ, z[i]))
-    isfinite(violation) || error("ADMM produced a nonfinite stationarity diagnostic")
-    stationary &= violation <= tolerance
+    stationary &= _admm_violation(λ * (z[i] - c[i]), z[i], τ) <= tolerance
+  end
+  stationary
+end
+
+# The gradient X'(Xz - y) is formed by ProximalBase in tmp.
+function _admm_stationary!(tmp, f::LeastSquaresLoss, τ, z, tolerance)
+  gradient!(tmp, f, z)
+  stationary = true
+  @inbounds for i in eachindex(z, tmp)
+    stationary &= _admm_violation(tmp[i], z[i], τ) <= tolerance
   end
   stationary
 end

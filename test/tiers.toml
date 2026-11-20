@@ -23,6 +23,7 @@ standard = [
   "accelerated_pgd",
   "admm",
   "admm_graphical_lasso",
+  "admm_leastsquares",
   "initial_curvature",
   "stopping_scale",
   "elasticnet",
