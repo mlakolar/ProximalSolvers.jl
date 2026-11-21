@@ -6,7 +6,8 @@ Least-squares lasso, with or without weights (`NormL1(λ)` or `NormL1(λ, w)`), 
 [`CDSolver`](@ref), [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref).
 [`CDSolver`](@ref) also solves least-squares ridge with uncentered `SqrNormL2`.
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the least-squares
-problem with a `NormLinf` penalty (the largest magnitude of the entries); [`CDSolver`](@ref) does not.
+problem with a `NormLinf` penalty (the largest magnitude of the entries) and with a `NormL2` penalty (the
+Euclidean norm of the whole vector, a single group); [`CDSolver`](@ref) supports neither.
 [`CDSolver`](@ref) also solves the square-root lasso, with ProximalBase's `SqrtLeastSquaresLoss` and
 an unweighted `NormL1`, and reports `converged = true` for it only with a duality certificate.
 [`CDSolver`](@ref) accepts a dense
@@ -35,7 +36,7 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, NormL2, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   prox!, value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")

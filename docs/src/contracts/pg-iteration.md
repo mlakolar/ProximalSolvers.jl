@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` and `ElasticNet` (each with optional weights, [IN-03](@ref)), `NormLinf`, `GroupNormL2`, unweighted `NormL1Nonneg` and `IndNonnegative()`. `NormL1Nonneg` and `IndNonnegative()` enforce `x ≥ 0` under [IN-07](@ref). PGD also accepts `IndBox` (including `IndBallLinf`) and four-coefficient `IndBallL2` under [IN-08](@ref).
+Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` and `ElasticNet` (each with optional weights, [IN-03](@ref)), `NormLinf`, `NormL2` ([IN-11](@ref)), `GroupNormL2`, unweighted `NormL1Nonneg` and `IndNonnegative()`. `NormL1Nonneg` and `IndNonnegative()` enforce `x ≥ 0` under [IN-07](@ref). PGD also accepts `IndBox` (including `IndBallLinf`) and four-coefficient `IndBallL2` under [IN-08](@ref).
 
 ## Notation
 
@@ -43,7 +43,7 @@ At an iteration it saves the last accepted point, objective components and gradi
 
 The accepted point's gradient is refreshed if the line search did not already update it, including a zero-step exit in gradient mode. The gradient engine then checks the accepted objective for finiteness, assesses stopping, traces/calls back, and checks limits and separate exits in that order.
 
-The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weights; soft thresholding followed by the ridge weight for `ElasticNet`; the point minus its projection onto the ℓ1 ball of radius `λ/L` for `NormLinf` (a common clipping level); and block soft thresholding for `GroupNormL2`, scaling a block `v_G` by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at step `γ`, with a zero block left zero. The working-precision conventions for these oracles are [FP-01](@ref).
+The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weights; soft thresholding followed by the ridge weight for `ElasticNet`; the point minus its projection onto the ℓ1 ball of radius `λ/L` for `NormLinf` (a common clipping level); and block soft thresholding for `GroupNormL2`, scaling a block `v_G` by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at step `γ`, with a zero block left zero. For `NormL2(λ)`, the exact-arithmetic formula at step `γ` is zero when `‖v‖₂ ≤ γ λ` and `(1 - γ λ/‖v‖₂) v` otherwise. The solver delegates the evaluation to ProximalBase, which can round the cutoff comparison. The working-precision conventions for these oracles are [FP-01](@ref). The level of `NormL2` is the working level of [IN-02](@ref), and its stop check is [STOP-17](@ref).
 
 For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`. For `IndNonnegative()`, ProximalBase projects componentwise with `max(v, 0)`. Both operators enforce nonnegativity at each step. The feasible-start and input requirements are [IN-07](@ref), and the dedicated constrained stationarity check is [STOP-16](@ref).
 
@@ -62,7 +62,7 @@ For a raw `LogisticLoss` with `NormL1`, the same sequence forms the logistic ima
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/solve.jl: _solve_gradient!`.
 
-**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix buffer shapes, values, gradients and traces. test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix buffer shapes, values, gradients and traces. test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/norml2_pgd.jl: PGD and APG solutions against the orthogonal closed form; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L286`, `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`, `docs/src/numerics.md:L928`. The later nonnegative-lasso addition is documented in [upstream `fd45a427`, PGD docstring](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/solvers/proximal_gradient_descent.jl#L5-L18).
 

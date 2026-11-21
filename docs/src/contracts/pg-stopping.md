@@ -100,9 +100,30 @@ The scale is `S = max(λ, λmax)`, where `λmax` is the computed symmetric magni
 
 **Sources.** Current-source addition after the historical migration baseline: upstream `fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8`, [`src/utils.jl` dedicated check and constrained-residual rule](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156), [level conversion](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L232-L233), and [`test/nonnegative_lasso.jl`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/test/nonnegative_lasso.jl#L12-L67).
 
+### [STOP-17 Euclidean-norm residual and scale](@id STOP-17)
+
+**Statement.** For `NormL2(λ0)`, PGD and APG check the accepted point with ProximalBase's full-point `kkt_violation(g, ∇f(x), x)`, using the working penalty `g` of level `λ = T(λ0)` from [IN-02](@ref). The score computes in working precision the minimum 2-norm over the elements of `∇f(x) + λ ∂‖x‖₂`. In exact arithmetic the residual is `max(‖∇f(x)‖₂ - λ, 0)` at zero and `‖∇f(x) + λ x/‖x‖₂‖₂` elsewhere.
+
+The scale is `S = max(λ, ‖∇f(0)‖₂)`. Form the product `Xᵀy`, then scale that
+vector by `s` as in [FP-03](@ref) before computing its norm with LinearAlgebra's
+`norm`. The norm is cached as `λmax` under [STOP-08](@ref). In exact arithmetic
+zero is a minimizer exactly when `‖∇f(0)‖₂ ≤ λ`. Apply the threshold and
+guards of [STOP-04](@ref) to the residual and scale. A nonfinite computed norm
+of the gradient at zero vetoes the stop, even when that gradient has finite entries.
+
+The check uses the gradient already held (PGD) or the one APG forms at `x`, and makes no proximal evaluation, so it adds no `prox_calls`. The one-group `GroupNormL2` of [IN-11](@ref) has the same residual and scale in exact arithmetic.
+
+**Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64; `NormL2` under [IN-11](@ref).
+
+**Code.** `src/utils.jl`: dedicated `_stationary!`, `_scale_norm`, `_lambda_max!`, `_converted_penalty`, `_l1_level`.
+
+**Tests.** `test/norml2_pgd.jl` independently evaluates the residuals at returned points and checks a direct pass and veto at zero, the cached scale, and the call counts. `test/stopping_scale.jl` checks the shared threshold arithmetic.
+
+**Sources.** [Issue #457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457) and [pull request #494](https://github.com/mlakolar/ProximalSolvers.jl/pull/494).
+
 ### [STOP-04 Threshold arithmetic and scale guards](@id STOP-04)
 
-**Statement.** For a dedicated KKT check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The full-point check requires finite `S`, `threshold ≥ floatmin(T)`, and a finite computed residual **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref)).
+**Statement.** For a dedicated KKT check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The full-point check requires finite `S`, `threshold ≥ floatmin(T)`, and a finite computed residual **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref), [STOP-17](@ref)).
 
 A large `gradtol` can make conversion or multiplication produce an infinite threshold, which passes the full-point check when `S` and the residual are finite. Dividing the residual by `S` and comparing with the unrounded tolerance is the exact-arithmetic interpretation, not an additional floating-point guarantee. A `gradtol` below `64 eps(T)`, including `gradtol = 0`, uses that floor.
 
@@ -205,13 +226,13 @@ Weighted elastic net reuses its native working penalty and scans the weights to 
 
 Each generic check with finite positive `t` adds one proximal evaluation, counted in `prox_calls`; APG additionally counts its gradient at `x`. These costs accrue before call limits are tested. The generic check restores its scratch `delta_x` to `x - x_previous` before the remaining diagnostics read it.
 
-The dedicated nonnegative-penalty check [STOP-16](@ref) uses PGD's held gradient and does not add a proximal evaluation.
+The dedicated nonnegative-penalty check [STOP-16](@ref) and the Euclidean-norm check [STOP-17](@ref) add no proximal evaluation.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
 **Code.** `src/utils.jl: _lambda_max!, _gradient_at_x!, _stationary!`.
 
-**Tests.** test/stopping_scale.jl; test/weighted_lasso.jl; test/weighted_elasticnet.jl; test/linf.jl; test/accelerated_pgd.jl.
+**Tests.** test/stopping_scale.jl; test/weighted_lasso.jl; test/weighted_elasticnet.jl; test/linf.jl; test/accelerated_pgd.jl; test/norml2_pgd.jl: no added proximal call and the cached scale.
 
 **Sources.** `docs/src/numerics.md:L145`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`, `docstring:src/types.jl:L75`. The later NormL1Nonneg check follows [upstream `fd45a427`, `_stationary!`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156).
 
@@ -384,7 +405,7 @@ rounding errors of that evaluation are not bounded here.
 
 ## Tests
 
-The clause-level references identify existing tests; this relocation adds no solver behavior or test obligation. Important suites are `test/stopping_scale.jl`, `test/weighted_lasso.jl`, `test/nonnegative_lasso.jl`, `test/elasticnet.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/core_regressions.jl` and `test/accelerated_pgd.jl`.
+The clause-level references identify existing tests; this relocation adds no solver behavior or test obligation. Important suites are `test/stopping_scale.jl`, `test/weighted_lasso.jl`, `test/nonnegative_lasso.jl`, `test/elasticnet.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/norml2_pgd.jl`, `test/core_regressions.jl` and `test/accelerated_pgd.jl`.
 
 ## Retired historical wording
 

@@ -31,6 +31,7 @@ standard = [
   "elasticnet",
   "cd_elasticnet",
   "linf",
+  "norml2_pgd",
   "sqrt_lasso",
   "weighted_lasso",
   "weighted_elasticnet",

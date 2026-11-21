@@ -7,7 +7,7 @@
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
 
 Accelerated proximal gradient descent for dense Float32/Float64 least squares
-with `NormL1` or `ElasticNet` (each with optional weights), `NormLinf` or
+with `NormL1` or `ElasticNet` (each with optional weights), `NormLinf`, `NormL2` or
 `GroupNormL2`. A dense matrix response with dense same-type coefficients uses
 unweighted `NormL1` on its entries. APG extrapolates
 from previous accepted iterates, takes a backtracked proximal step, and restarts
@@ -41,7 +41,7 @@ the last accepted coefficients and is rethrown.
 
 The supported penalties are `NormL1` and `ElasticNet`, each with optional weights
 ([IN-03](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-03)),
-`NormLinf` and a matching `GroupNormL2{T}` on dense coefficients.
+`NormLinf`, `NormL2` ([IN-11](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-11)) and a matching `GroupNormL2{T}` on dense coefficients.
 Box constraints use `IndBox` or `IndBallLinf`. Euclidean-ball constraints use
 `IndBallL2` with four coefficients and a radius of the same type. These
 indicators require a feasible starting vector.
@@ -316,7 +316,7 @@ end
 """
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
 
-Minimize the same least-squares lasso, elastic net or `NormLinf` problem as [`ProximalGradientDescent`](@ref) with
+Minimize the same least-squares lasso, elastic net, `NormLinf` or `NormL2` problem as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting dense `Vector{T}` coefficients
 with `T = Float32` or `Float64`. A dense matrix response uses same-type dense
 matrix coefficients and unweighted `NormL1` under
