@@ -98,7 +98,7 @@ default `t⁰`.
 | `root_iterations` | all steps of the scalar roots ([LA-03](@ref)), counted in the same way |
 | `r_norm`, `s_norm`, `eps_pri`, `eps_dual` | the residuals and thresholds of [LA-04](@ref) at the last completed iteration; `NaN` when no iteration completed |
 | `inner_kkt`, `inner_met` | the score of the coefficient step of the last completed iteration and whether it met its forcing target ([LA-02](@ref)); `NaN` and `false` when no iteration completed |
-| `dual_kkt` | the `Float64` evaluation of `kkt_violation(g, Xᵀŵ, b)` with `ŵ = ρ .* u` formed first, at the returned `b` and `u`, from a fresh product: the score of `0 ∈ ∂g(b) + ρ Xᵀu`. It has the range limits of that evaluation: it is `Inf`, without an error, when a term `X[i, j] ŵ[i]` or a partial sum of `Xᵀŵ` overflows, also where the exact sum is representable or zero; and an entry `ρ u[i]` that underflows loses its contribution, down to `0` |
+| `dual_kkt` | the `Float64` evaluation of `kkt_violation(g, Xᵀŵ, b)` with `ŵ = ρ .* u` formed first, at the returned `b` and `u`, from a fresh product: the score of `0 ∈ ∂g(b) + ρ Xᵀu`. It has the range limits of that evaluation: it can be `Inf` or `NaN`, without an error, when terms `X[i, j] ŵ[i]` or partial sums of `Xᵀŵ` overflow, also where the exact sum is representable or zero; and subnormal rounding of an entry `ρ u[i]` can distort its contribution, upward or downward, or remove it when the entry rounds to `0` |
 | `predictor_residual` | the largest entry of `abs.(σ.(t) .- y .- ŵ)` at the returned `t` and `u`: the residual of `∇ℓ(t) = ρ u` |
 | `t`, `u` | the returned predictor and dual, each the caller's vector when one was passed (left with its entries when no iteration completed) and a new vector otherwise |
 | `ρ` | the `ρ` of the solver |
@@ -224,8 +224,9 @@ in the source.
   exact `h(v)` is positive.
 - When no `Float64` lies strictly inside the bracket, the end with the smaller computed `|h|` is returned, `lo` on a
   tie: for `y = 0`, `v = 2⁵⁵ + 8` and `ρ = 1/4`, `|h|` is `1` at both ends and `lo` is returned with no step.
-- At the returned `s`, with the dual update `w = ρ (v - s)` from the same `v`, the computed `h` equals the computed
-  `σ(s) - y - w` up to the sign of zero, since `ρ(s - v) = -ρ(v - s)` in floating point. A successful root can have
+- At an `s` returned with success, the dual update `w = ρ (v - s)` is formed from the same `v`, and the computed `h`
+  equals the computed `σ(s) - y - w` up to the sign of zero, since `ρ(s - v) = -ρ(v - s)` in floating point. After a
+  failed root the caller leaves the loop over the observations before it forms `w`. A successful root can have
   `|h| = 1` and need not keep `w` in `[-1, 1]`: in the example above `h = -1` and `w = 2`.
 - `root_iterations` adds up, over the roots, the points that become `s` after `v` (Newton points or midpoints).
 
@@ -253,7 +254,8 @@ subnormal value at `s = -720`; the worked examples above, the midpoint regressio
 the subnormal residual at `v = -720` with `ρ = 1e-10` and its mirror, the zero threshold at `v = -746`, the working
 bracket at `v = 2⁸⁶` and at `v = inv(3.0)`, the failures with budgets of one and two steps at `v = 0` (the second at the
 forced midpoint of the loop at `_la_root`), the plateau root with a budget of one step, the tied ends, `h = -1` and
-`w = 2` at `v = 2⁵⁵ + 8`, the side of the root; a nonfinite argument and a reduced cap giving a failure; a sweep over `v ∈ {±1e300, ±800, -720, -50, -1, 0, 1e-3, 3, 40, 500}`, `y ∈ {0, 1}` and
+`w = 2` at `v = 2⁵⁵ + 8`, the side of the root; the failed returns `(0.0, 0, false)` with a zero budget and
+`(Inf, 0, false)` for `v = Inf`; a nonfinite argument and a reduced cap giving a failure; a sweep over `v ∈ {±1e300, ±800, -720, -50, -1, 0, 1e-3, 3, 40, 500}`, `y ∈ {0, 1}` and
 `ρ ∈ {1e-10, 1e-3, 1/4, 1, 1e3, 1e10}` against a 256-bit `BigFloat` bisection, with the backward error, the working
 bracket as computed and the implied forward bound, and step counts below the budget; each root and dual of one iteration against
 `_la_root` and `ρ (v - s)`.
@@ -361,8 +363,9 @@ unchanged and the passes counted; a solve whose roots fail in the fourth iterati
 coefficients, predictor, dual, objective, score, residuals, thresholds and inner score, and counts the work of the
 discarded iteration; the diagnostics of a reported `u` that rounds `w/ρ` to `0`; the scaled dual formed before the
 product, which gives a finite `dual_kkt` of `1e299` at `ρ = 1e-10` where `Xᵀu` overflows and a subnormal one at
-`ρ = 1e10` where `Xᵀu` underflows; the two documented limits, a `dual_kkt` of `Inf` where the terms `±2¹⁰²⁴` of `Xᵀŵ`
-overflow although their exact sum is `0`, and a `dual_kkt` of `0` where `ρ u[i]` underflows; a `dual_kkt` of `Inf` at
+`ρ = 1e10` where `Xᵀu` underflows; the documented limits, a `dual_kkt` of `Inf` and one of `NaN` where the terms
+`±2¹⁰²⁴` of `Xᵀŵ` overflow although their exact sum is `0`, a `dual_kkt` of `0` where `ρ u[i]` rounds to `0`, and one
+above the exact score where `ρ u[i]` rounds up to the smallest subnormal; a `dual_kkt` of `Inf` at
 `maxiter = 0` where `Xᵀŵ` overflows; a column curvature that underflows (with a supplied `t` and `u`) or overflows, a penalty that
 overflows after an iteration (the `ErrorException`), and starts with a nonfinite predictor or gradient, with the
 caller's arrays and the inputs unchanged.

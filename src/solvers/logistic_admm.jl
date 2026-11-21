@@ -159,9 +159,10 @@ The diagnostics and work counters are:
 - `inner_kkt`, `inner_met`: the KKT score of the coefficient step of the last completed iteration, formed from a fresh
   product at its coefficients, and whether it met its forcing target (`NaN` and `false` when no iteration completed);
 - `dual_kkt`: the largest ProximalBase KKT score of `0 ∈ ∂g(b) + ρ X' u` at the returned `b` and `u`, evaluated in
-  `Float64` from the fresh product `X' * (ρ .* u)` (the scaled dual is formed first). It is `Inf`, without an error,
-  when a term or a partial sum of that product overflows, also where the exact sum is representable or zero, and an
-  entry `ρ * u[i]` that underflows loses its contribution, down to zero;
+  `Float64` from the fresh product `X' * (ρ .* u)` (the scaled dual is formed first). It can be `Inf` or `NaN`, without
+  an error, when terms or partial sums of that product overflow, also where the exact sum is representable or zero, and
+  subnormal rounding of an entry `ρ * u[i]` can distort its contribution, upward or downward, or remove it when the
+  entry rounds to zero;
 - `predictor_residual`: the largest entry of `abs.(σ.(t) .- y .- ρ .* u)` at the returned `t` and `u`; these two are
   formed from the returned values, while the residuals, thresholds and inner score are those of the last completed
   iteration;
@@ -260,9 +261,10 @@ end
 # (s, steps, false) when steps ≥ cap; forms the Newton point s - h/(σ(1 - σ) + ρ) and returns (s, steps, true) when it
 # equals s; replaces it by lo/2 + hi/2 when window ≥ 2 or it is not strictly inside (lo, hi), and, when that midpoint
 # is not strictly inside, returns the end chosen as above; otherwise moves s to the point, adds 1 to `steps` and
-# evaluates h and B at the new s, which the next pass compares. At the returned s the caller forms w = ρ(v - s), and
-# the computed h there equals the computed σ(s) - y - w up to the sign of zero (ρ(s - v) = -ρ(v - s) exactly), which
-# need not be small (|h| = 1 for y = 0, v = 2^55 + 8, ρ = 1/4). A cap below `_LA_ROOT_CAP` is for tests.
+# evaluates h and B at the new s, which the next pass compares. At an s returned with ok = true the caller forms
+# w = ρ(v - s), and the computed h there equals the computed σ(s) - y - w up to the sign of zero (ρ(s - v) = -ρ(v - s)
+# exactly), which need not be small (|h| = 1 for y = 0, v = 2^55 + 8, ρ = 1/4). With ok = false the caller leaves its
+# loop over the observations before it forms w. A cap below `_LA_ROOT_CAP` is for tests.
 function _la_root(v::Float64, one_label::Bool, ρ::Float64, cap::Int = _LA_ROOT_CAP)
   isfinite(v) || return v, 0, false
   γ = inv(ρ)
@@ -532,8 +534,9 @@ function _solve_logistic_admm!(x::Vector{Float64}, f, g::NormL1, method::Logisti
   # vector. dual_kkt and predictor_residual are those of the reported b, t and u, formed before any write to the
   # caller's arrays, from the scaled dual ŵ = ρ .* u (in w.diff, free at this point): dual_kkt is the Float64 score of
   # Xᵀŵ and predictor_residual the largest |σ(t) - y - ŵ|. These are Float64 evaluations with range limits (LA-01):
-  # dual_kkt is Inf when a term X[i, j] ŵ[i] or a partial sum of Xᵀŵ overflows, also where the exact sum is
-  # representable or 0, and an entry ρ u[i] that underflows loses its contribution, down to 0. Neither is refused.
+  # dual_kkt can be Inf or NaN when terms X[i, j] ŵ[i] or partial sums of Xᵀŵ overflow, also where the exact sum is
+  # representable or 0, and subnormal rounding of an entry ρ u[i] can distort its contribution, upward or downward, or
+  # remove it when the entry rounds to 0. Neither is refused.
   kept = iterations == 0 && u0 !== nothing
   uout = kept ? u0 : w.w ./ ρ
   ŵ = w.diff

@@ -307,6 +307,11 @@ end
   @test !ok && k == 1 && isfinite(s)
   s, k, ok = PS._la_root(0.0, false, 1.0, 0)
   @test !ok && k == 0
+  # a failed root returns the point or the nonfinite argument with ok = false; the caller then leaves its loop over the
+  # observations before it forms a dual update (LA-03)
+  @test PS._la_root(0.0, false, 1.0, 0) == (0.0, 0, false)
+  s, k, ok = PS._la_root(Inf, false, 1.0)
+  @test isinf(s) && k == 0 && !ok
   @test PS._LA_ROOT_CAP == 3 * (34 + 1074 + 2)
 end
 
@@ -715,6 +720,20 @@ end
              t = [0.0], u = [nextfloat(0.0)])
   @test r.dual_kkt == 0 && 1e-10 * nextfloat(0.0) == 0
   @test 1.6e-177 < Float64(big(2.0^520) * big(1e-10) * big(nextfloat(0.0))) < 1.8e-177
+  # the same documented limits can give NaN: with ρ = 1, X = 2^520 in four rows and u = ±2^504 alternating, the terms
+  # of Xᵀŵ are ±2^1024, their partial sums Inf - Inf, and dual_kkt is NaN, while the exact sum is 0
+  X4 = fill(2.0^520, 4, 1)
+  u4 = [2.0^504, -2.0^504, 2.0^504, -2.0^504]
+  r = solve!([0.0], LogisticLoss([0.0, 1.0, 0.0, 1.0], X4), NormL1(0.0), LogisticADMM(ρ = 1.0, maxiter = 0);
+             t = zeros(4), u = copy(u4))
+  @test isnan(r.dual_kkt) && isfinite(r.kkt)
+  @test sum(big.(vec(X4)) .* big.(u4)) == 0
+  # and subnormal rounding of ρ u[i] can distort a contribution upward: with ρ = 0.75 and u = nextfloat(0.0), ρ u
+  # rounds up to nextfloat(0.0), so dual_kkt is X u, above the exact score 0.75 X u
+  r = solve!([0.0], LogisticLoss([0.0], fill(2.0^520, 1, 1)), NormL1(0.0), LogisticADMM(ρ = 0.75, maxiter = 0);
+             t = [0.0], u = [nextfloat(0.0)])
+  @test 0.75 * nextfloat(0.0) == nextfloat(0.0) && r.dual_kkt == 2.0^520 * nextfloat(0.0)
+  @test r.dual_kkt > Float64(big(2.0^520) * big(0.75) * big(nextfloat(0.0)))
   # a supplied u with maxiter = 0 is reported as it is, and Xᵀŵ can overflow where the exact sum is out of range too:
   # dual_kkt is Inf, without an error, while the score of the original problem is finite
   X = reshape([1e155, -1e155], 2, 1)

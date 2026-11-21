@@ -172,7 +172,7 @@ includes the `:prox_failed` return of the last completed iteration; a supplied p
 too when an iteration completed, and keep their entries when none did. An exception from its coefficient step, or a
 nonfinite objective or KKT score of the original problem after an iteration, leaves them unchanged. The reported
 `dual_kkt`, a `Float64` evaluation formed at the return, has the range limits stated in [LA-01](@ref) and can be `Inf`
-for valid inputs; it raises no exception ([LA-05](@ref)).
+or `NaN` for valid inputs; it raises no exception ([LA-05](@ref)).
 
 PGD and APG numerical step exceptions restore the last accepted coefficient point
 and rethrow. For [IN-10](@ref) this restoration copies the full accepted
