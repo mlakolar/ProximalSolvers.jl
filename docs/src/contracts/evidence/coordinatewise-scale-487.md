@@ -26,30 +26,38 @@ implementation reads the stored loss value instead, so the decisions of the two 
   the limitation is that an exact or near-exact fit can be left uncertified ([STOP-21](@ref)); the maintainer accepted
   it for this change.
 
-The validation of the implementation and its benchmarks run against production code at the base `a9fb96c8` and at the
-head of [pull request #521](https://github.com/mlakolar/ProximalSolvers.jl/pull/521); their numbers are recorded below
-when the runs finish.
+The validation of the implementation ran production code at the base `a9fb96c8` and at `00a67e3d` of
+[pull request #521](https://github.com/mlakolar/ProximalSolvers.jl/pull/521).
 
-- **Validation.** Design: the round-2 fixtures and the zero-scale, exact-fit and parity fixtures of the plan,
-  Float32 and Float64, PGD and APG, Julia 1.10.13 and 1.13.4, default options and `gradtol = 1e-8`, with BigFloat
-  references on the stored inputs. Each row is classified as converged and accurate, converged and inaccurate, accurate
-  and not converged, or neither (accuracy threshold `1e-6` relative objective excess in Float64), with the refusal
-  cause at the last check and the exit. Results: *to be recorded* (class counts per precision, method and family, at
-  the base and at the head). Two findings of the validation runs at `fdffba3c` are recorded here:
-  - In Float64 a small `gradtol` (`1e-8`) on large-offset problems can leave accurate solves uncertified: the rounding
-    of the computed gradient exceeds `τ sᵢ`.
-  - The coordinatewise scale can need more iterations than the default `maxiter`: on N2 (100×200, `0.01 λmax`), PGD
-    was certified at the base after 146 to 151 iterations and reached `maxiter = 200` at the head, with relative
-    objective excess `4e-9` to `1e-8`.
-- **Benchmarks.** Design: paired in-process comparison with the base loaded as a second module and a head-against-head
-  control, at least 30 rounds in alternating order, on 200×50, 2000×500 and 5000×1000 lasso and elastic-net problems
-  and one offset problem, PGD and APG, Float64 and Float32; the column pass against the `Xᵀy` product it replaces, the
-  time per check, the overhead at a fixed amount of work, and the time to a matched independent-gap target. Results:
-  *to be recorded*.
+- **Validation.** The round-2 fixtures and the zero-scale, exact-fit and parity fixtures of the plan, Float32 and Float64,
+  PGD and APG, with the default options and with `gradtol = 1e-8`, on Julia 1.10.13 and 1.13.4 as separate draws (each
+  version on one node), with 256-bit BigFloat references on the stored inputs: 1640 in-scope rows per side and 96 rows of
+  the problems that keep the `λmax`-based checks. A row is accurate when its relative objective excess is at most `1e-6`
+  (also reported at `1e-4` for Float32). Measured outcomes:
+  - converged and inaccurate: at the base 108 Float64 rows (PGD 48, APG 60) and 87 Float32 rows (37, 50; 55 at `1e-4`);
+    at the head 2 Float64 rows, APG on the nearly collinear free columns of RD1 with the default options in both draws
+    (relative excess `6.3e-2`; also converged and inaccurate at the base), and 0 Float32 rows (0 at `1e-4`). No row is
+    converged and inaccurate at the head that was not at the base.
+  - The 96 rows of the other problems have identical outcomes at the base and the head.
+  - Certified and accurate at the base, accurate and not certified at the head: in Float64, 58 rows of the consistent
+    (exact-fit) fixtures and 25 others. Of the 25, 23 are at `gradtol = 1e-8` (the offset fixtures O1 and O2, the
+    rescalings RS, the duplicated free column RD2, and N2 with APG); they ended by an objective increase or at
+    `maxiter` with relative excess at most `7.2e-12`. The other 2 are N2 (100×200, `0.01 λmax`, unweighted) with PGD and
+    the default options, certified at the base after 154 and 146 iterations, and at `maxiter = 200` at the head with
+    relative excess `3.7e-9` and `4.1e-9`. In Float32, 67 rows (99 at `1e-4`).
+  - Not certified at the base and certified and accurate at the head: 96 rows, among them the zero-response and `X = 0`
+    fixtures.
+  - Iterations, head over base, where both certified accurately: median 1.00 for each precision and method; largest
+    1.27 (Float64 PGD), 1.37 (Float64 APG), 1.18 (Float32 PGD), 1.21 (Float32 APG).
+  - The diagnostic of the validation script applied the earlier case D to a column scaled by `1e-170`, so in eight
+    rows (two draws, two methods, two `gradtol`) it disagreed with the solver, which rescales that column and
+    certified; the maintainer chose the scaled norm.
+
+Paired benchmarks: see [pull request #521](https://github.com/mlakolar/ProximalSolvers.jl/pull/521).
 
 **Observations at the implementation against the base.** On Julia 1.13.4 (AMD EPYC 7513), with the default options
-unless stated, at the base `a9fb96c8` and at the implementation in pull request #521 (`fdffba3c`; the rows were rerun
-after the thresholds were carried as significand and exponent, with the same values):
+unless stated, at the base `a9fb96c8` and at the implementation in pull request #521 (`fdffba3c`, rerun at `00a67e3d`
+with the same values):
 
 | Fixture | Base | Implementation |
 |---|---|---|
@@ -63,9 +71,12 @@ after the thresholds were carried as significand and exponent, with the same val
   coordinate is about `τ` while `x* = 1e-20`; the relative coefficient error of APG's stop is large and its objective
   excess is not. In the #464 row the coordinatewise threshold of `x₂`, about `τ ‖X₂‖ ‖r‖ ≈ 1e7`, is far looser than
   the #464 threshold `τ c₂ ≈ 10`, because the residual is about `1e6`.
-- Exact fits, each with `NormL1(0)` from `x = 0` and the default options unless stated; at the head each proposal is
-  refused by case C (a computed residual parallel to the column, or zero) and the solve returns the exact minimizer at
-  `maxiter` with `converged = false`, PGD and APG:
+- Exact fits, each with `NormL1(0)` from `x = 0` and the default options unless stated. At the head each proposal is
+  refused, by the ordinary comparison where the computed residual is nonzero (it is parallel to the column, so the
+  score is far above its threshold) and by case C where it is zero, and the solve ends at `maxiter` with
+  `converged = false`. The one-column fixtures returned the minimizer for the stored data (relative error 0); the
+  diagonal fixture ended at a point fitted to working precision (relative residual about `5.0e-17` in BigFloat). PGD
+  and APG:
   - `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100` (Float64);
   - `X = [1.0;;]`, `y = [1e160]`, loss scale `5e-100` (Float64);
   - `X = ones(Float32, 5, 1)` with `y = fill(1f20, 5)` and Float64 loss scales `1e-10` and `1e-30`, `y = fill(1f25, 5)`

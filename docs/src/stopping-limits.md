@@ -8,7 +8,8 @@ See the [current section](@ref evidence-stopping-352).
 
 See the [current section](@ref RES-01). For PGD and APG on least squares with
 `NormL1` or `ElasticNet`, a kept stop records that each coordinate's computed score
-passed its computed threshold. In exact arithmetic the same comparison would bound
+passed the rule: below its computed threshold, or at most `0` at an exact zero scale,
+where no threshold is formed. In exact arithmetic the same comparison would bound
 the decrease available from each coordinate, under the conditions of
 [STOP-21](@ref); neither bounds the error of the objective or the coefficients in
 general, and an exact or near-exact fit can return `converged = false`. For square-root lasso, a bounded

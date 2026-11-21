@@ -15,6 +15,11 @@ A tolerance tighter than the working precision does not guarantee corresponding
 coefficient accuracy. `BigFloat` is useful for independent test references, not a
 supported solver working type. The loss-scale type refusals are in [IN-02](@ref).
 
+With subnormal numbers flushed to zero on the solving thread (`set_zero_subnormals(true)`),
+the stopping decisions of PGD and APG are unspecified, the exact zero cases of [STOP-21](@ref)
+included: the solver's arithmetic and its compiled comparisons can treat a stored subnormal
+value as zero.
+
 Finite input entries do not guarantee finite intermediate arithmetic. ProximalBase's
 least-squares kernels selectively recover some overflow/underflow cases with
 representable results. ProximalSolvers adds its own matrix products, curvature
@@ -63,7 +68,7 @@ accounts for feasible directions at a zero coefficient.
 
 **Code.** `src/solvers/image_models.jl`; `src/cd/leastsquares.jl`; `src/solve.jl`; ProximalBase least-squares oracles at the dependency pin.
 
-**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/logistic_proxnewton.jl` (the `ProxNewton` row roots at extreme logits, against analytic references, and the returned point of the public saturated-start fit, against a `BigFloat` oracle), `test/logistic_admm.jl` (the scalar root of `LogisticADMM` against a 256-bit `BigFloat` bisection, with a subnormal residual and extreme arguments) and the solver-specific numerical tests.
+**Tests.** The statement on flushed subnormals has no decision test (the decisions are unspecified); `test/stopping_coordinatewise.jl` checks only that a run with flushing enabled restores the previous setting. `test/core_contracts.jl`, `test/core_regressions.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/logistic_proxnewton.jl` (the `ProxNewton` row roots at extreme logits, against analytic references, and the returned point of the public saturated-start fit, against a `BigFloat` oracle), `test/logistic_admm.jl` (the scalar root of `LogisticADMM` against a 256-bit `BigFloat` bisection, with a subnormal residual and extreme arguments) and the solver-specific numerical tests.
 
 **Sources.** `docs/src/numerics.md:L791`, `docs/src/numerics.md:L800`, `docs/src/numerics.md:L909`, `docs/src/developer/implementation-notes.md:L151`, `docs/src/developer/implementation-notes.md:L169`, `docs/src/getting-started.md:L119`. The constrained-residual application is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
 
@@ -132,11 +137,12 @@ The `λmax`-based PGD/APG stationarity checks can read a computed zero gradient 
 `lambda_max` even where the exact products are nonzero. The coordinatewise check of
 [STOP-21](@ref) can read a computed zero gradient entry where the exact product is not
 zero; its score is then `-cᵢ` at a zero coefficient and `|λ2 xᵢ + cᵢ sign xᵢ|`, which can be
-positive, elsewhere. Its threshold reads `Φ = f(x) + (λ2/2)‖x‖²` from the stored loss value: a
-computed `Φ = 0` refuses each coordinate outside its exact zero scales (a column of stored
-`±0` entries with no ridge term, and `x = y = 0`), while a positive ridge energy can give a
-normal threshold at a zero loss, and a design whose columns are all of the first kind can
-pass at a nontrivial point of zero loss. In CD, a zero computed
+positive, elsewhere. Its threshold is formed from `Φ`, the stored loss value plus the ridge
+contribution `(λ2/2)‖x‖²`: a computed `Φ = 0` refuses each coordinate outside its exact zero
+scales (a column of stored `±0` entries with no ridge term, and `x = y = 0`), while a positive
+ridge contribution can give a normal threshold at a zero stored loss, and a design whose
+columns are all of the first kind can pass at a nontrivial point of zero loss when every
+computed score is at most `0`. In CD, a zero computed
 correlation can make a full pass change nothing and satisfy the change test.
 [ORACLE-03](@ref) preserves executable underflow and cancellation examples, their
 high-precision residuals and their objective errors. Keep data and scales in a range
