@@ -364,8 +364,9 @@ end
   r = solve!(b, f, g, ProxNewton())
   @test r.iterations >= 1 && r.passes > 0 && r.stop_reason !== :stalled
   @test r.minimum < start.objective - 0.2
-  ind = check_result(r, b, X, y, 0.5, w; converged = false)
-  @test ind.objective < start.objective - 0.2 && ind.score < 0.5
+  ind = check_result(r, b, X, y, 0.5, w)
+  @test ind.objective < start.objective - 0.2 && ind.score <= r.tolerance + 1e-12
+  @test abs(r.kkt - ind.score) <= 1e-12
   @test b[1:2] == b0[1:2] && b[3] > 0
   # the fixed model alone, through the private test mode of one step, takes the same step from the same start
   method = ProxNewton()
@@ -373,7 +374,7 @@ end
   @test PS._pn_step!(wk, method, (:fixed,))
   @test wk.b[1:2] == b0[1:2] && wk.b[3] ≈ 1
   indf = independent(X, y, wk.b, 0.5, w)
-  @test wk.F ≈ indf.objective rtol = 1e-12 && wk.F < start.objective - 0.2
+  @test isapprox(wk.F, indf.objective; rtol = 1e-12) && wk.F < start.objective - 0.2
   @test wk.F ≈ 2 * log1p(exp(-1)) + 0.5 rtol = 1e-9
   @test wk.rho < 0.5 && abs(wk.rho - indf.score) <= 1e-12
 end
