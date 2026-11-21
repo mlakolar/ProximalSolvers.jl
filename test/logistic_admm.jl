@@ -543,8 +543,8 @@ end
   r3 = solve!(b, f, g, LogisticADMM(ρ = 0.5); t = copy(r2.t), u = r2.u .* (r2.ρ / 0.5))
   check_result(r3, b, X, y, λ, w)
   @test r3.ρ == 0.5 && r3.iterations <= 3
-  # the default dual makes a minimizer with its own predictor a fixed point: one iteration from the ProxNewton
-  # solution, with the coefficients essentially unchanged
+  # with the default dual, an exact minimizer and its own predictor are a fixed point of the ideal iteration; on this
+  # fixture a start at the ProxNewton solution stops after one iteration with the coefficients essentially unchanged
   b = copy(bpn)
   r = solve!(b, f, g, LogisticADMM())
   check_result(r, b, X, y, λ, w)
