@@ -96,7 +96,7 @@ The scale is `S = max(λ, λmax)`, where `λmax` is the computed symmetric magni
 
 ### [STOP-17 Euclidean-norm residual and scale](@id STOP-17)
 
-**Statement.** For `NormL2(λ0)`, PGD and APG check the accepted point with ProximalBase's full-point `kkt_violation(g, ∇f(x), x)`, using the working penalty `g` of level `λ = T(λ0)` from [IN-02](@ref). It is the least 2-norm element of `∇f(x) + λ ∂‖x‖₂`. If every entry of `x` is zero, the residual is `max(‖∇f(x)‖₂ - λ, 0)`. Otherwise it is `‖∇f(x) + λ x/‖x‖₂‖₂`. Both branches use the 2-norm of the whole vector; the penalty is one group with unit weight.
+**Statement.** For `NormL2(λ0)`, PGD and APG check the accepted point with ProximalBase's full-point `kkt_violation(g, ∇f(x), x)`, using the working penalty `g` of level `λ = T(λ0)` from [IN-02](@ref). The score computes in working precision the minimum 2-norm over the elements of `∇f(x) + λ ∂‖x‖₂`. In exact arithmetic the residual is `max(‖∇f(x)‖₂ - λ, 0)` at zero and `‖∇f(x) + λ x/‖x‖₂‖₂` elsewhere.
 
 The scale is `S = max(λ, ‖∇f(0)‖₂)`. Form the product `Xᵀy`, then scale that
 vector by `s` as in [FP-03](@ref) before computing its norm with LinearAlgebra's
@@ -111,7 +111,7 @@ The check uses the gradient already held (PGD) or the one APG forms at `x`, and 
 
 **Code.** `src/utils.jl`: dedicated `_stationary!`, `_scale_norm`, `_lambda_max!`, `_converted_penalty`, `_l1_level`.
 
-**Tests.** `test/norml2_pgd.jl` checks the residual and scale against BigFloat references at zero and nonzero points, the cached scale, a stop that the check vetoes, and the call counts. `test/stopping_scale.jl` checks the shared threshold arithmetic.
+**Tests.** `test/norml2_pgd.jl` independently evaluates the residuals at returned points and checks a direct pass and veto at zero, the cached scale, and the call counts. `test/stopping_scale.jl` checks the shared threshold arithmetic.
 
 **Sources.** [Issue #457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457) and [pull request #494](https://github.com/mlakolar/ProximalSolvers.jl/pull/494).
 

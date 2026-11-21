@@ -604,7 +604,8 @@ minimize `(s/2) * sum(abs2, y - X*x) + lambda * norm(x, 2)`, with `s = 1` for a 
 loss and `lambda` is the working level. The penalty is the norm of the whole coefficient
 vector. The objective is equivalent to using `GroupNormL2(T(lambda), [1:p], [one(T)])`
 with one group and an explicit unit weight. The two proximal operators can differ in
-their floating-point rounding.
+their floating-point rounding. The `GroupNormL2` input rule in [IN-04](@ref)
+also imposes a separate range check on the group level.
 
 The coefficients are a dense `Vector{T}`, `T` being `Float32` or `Float64`. The data,
 the loss (raw, or one positive `Scaled` under [IN-02](@ref)), shapes, finiteness and
@@ -622,6 +623,11 @@ A proposed stop uses the dedicated check of [STOP-17](@ref); the proximal step i
 
 **Code.** `src/solve.jl`: `_check_penalty` (`NormL2` under the two gradient kinds); `src/utils.jl`: `_converted_penalty`, `_working_gradient_penalty`.
 
-**Tests.** `test/norml2_pgd.jl` checks both methods and element types against the independent references of [STOP-17](@ref): orthogonal and correlated designs, raw and scaled losses, zero and nonzero solutions, `lambda = 0`, the one-group equivalence, and the refusals above with `x` unchanged, including a rollback after a failing trial. The full-message refusals of the other penalties are asserted in `test/core_contracts.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/weighted_lasso.jl` and `test/accelerated_pgd.jl`.
+**Tests.** `test/norml2_pgd.jl` covers both methods and element types, with independent
+references for orthogonal and correlated designs, raw and scaled losses, zero and
+nonzero solutions, and a unit-weight single group. Its refusal cases cover the level
+guard, wrapped penalties, matrix-response PGD and APG, logistic and square-root
+losses, and dense-vector CD, with unchanged coefficients. It also checks rollback
+in both gradient methods.
 
 **Sources.** [Issue #457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457) and [pull request #494](https://github.com/mlakolar/ProximalSolvers.jl/pull/494).

@@ -68,8 +68,8 @@ end
 # representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
 # weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
 # Scaled(NormLinf(λ)) or Scaled(NormL2(λ)) is refused as any other penalty. A NormL2 passes only under the two
-# gradient kinds, whose gate takes a dense Vector: the Matrix gate accepts only an unweighted NormL1, and the
-# BlockIterate, logistic and square-root gates have rules of their own that refuse it.
+# dense vector gradient paths. The matrix-response least-squares gate takes unweighted NormL1. The
+# BlockIterate, logistic and square-root gates also refuse NormL2.
 function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   if g isa NormL1
     g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)

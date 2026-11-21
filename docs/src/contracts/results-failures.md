@@ -60,10 +60,9 @@ that later fallback qualification: an initial uncertified stop need not be the
 final result. A square-root certificate at an exact fit supplies no positive
 scaled-lasso noise-scale minimizer; see [CDQ-06](@ref).
 
-The criterion table above is preserved from the baseline. Its PGD/APG entries describe
-a product-threshold comparison in working precision; [STOP-04](@ref) defines its
-formation and guards. The historical normalized-residual assertion discussed under
-[Unreconciled](@ref RES-UNRECONCILED) must not be inferred from that comparison.
+The PGD/APG rows use a product-threshold comparison in working precision.
+[STOP-04](@ref) defines its formation and guards. The baseline's normalized-residual
+assertion is retained for provenance under [Unreconciled](@ref RES-UNRECONCILED).
 
 For nonnegative least squares and nonnegative lasso, dense PGD uses
 the constrained residual in [STOP-16](@ref), subject to the same computed-threshold

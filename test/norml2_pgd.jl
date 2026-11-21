@@ -43,7 +43,9 @@ end
   f = LeastSquaresLoss(y, X)
   for (s, loss) in ((one(T), f), (T(0.5), T(0.5) * f)), λ in T[0, 0.5, 4.5, 6]
     # With X = I, the solution is y times the analytic shrinkage factor.
-    expected = max(0, 1 - BigFloat(λ) / (5 * BigFloat(s))) * BigFloat.(y)
+    expected = setprecision(BigFloat, 256) do
+      max(0, 1 - BigFloat(λ) / (5 * BigFloat(s))) * BigFloat.(y)
+    end
     x = T[-1, 0.5]
     result = solve!(x, loss, NormL2(λ), method, opts)
     check_solution(x, result, expected, X, y, s, λ)
@@ -88,6 +90,19 @@ end
   if method isa APG
     @test result.prox_calls == result.backtrack_steps
   end
+end
+
+@testset "APG scores the accepted point" begin
+  X, y = Matrix{Float64}(I, 2, 2), [3.0, 4.0]
+  f, g = LeastSquaresLoss(y, X), NormL2(1.0)
+  method, opts = APG(; α=1.0), ProximalOptions(; gradtol=0.6)
+  state = PS.initial_state(method, opts, f, g, zeros(2))
+  state.L = 2.0
+  PS.update_state!(f, g, state, method)
+  @test state.x ≈ [1.2, 1.6]
+  # The accepted-point score is 2. The extrapolated gradient gives 4.
+  @test reference(X, y, 1, 1, state.x).kkt ≈ 2
+  @test PS._stationary!(state, f, g, opts)
 end
 
 @testset "NormL2 with APG certified backtracking ($T)" for T in (Float32, Float64)

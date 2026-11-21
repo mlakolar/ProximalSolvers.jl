@@ -127,8 +127,8 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 
 - **(p)** `NormL2(lambda)` is the Euclidean norm of the whole coefficient vector. PGD and APG accept
   it for a dense `Vector{T}`, raw or one positive `Scaled` least squares, and a level that is
-  finite, nonnegative and representable in `T`; the level need not have type `T` and is
-  rounded to it once ([IN-02](@ref)). The tests check both methods against `BigFloat` objectives and
+  finite, nonnegative and representable in `T`. The solver uses the working level
+  `T(lambda)` described in [IN-02](@ref). The tests check both methods against `BigFloat` objectives and
   stationarity residuals; a `Float32` solve may end without `converged = true`, as in (a). A wrapped
   `NormL2`, matrix or block coefficients, logistic or square-root loss and `CDSolver` are refused
   with an `ArgumentError`. The rules are [IN-11](@ref) and [STOP-17](@ref).
