@@ -37,7 +37,7 @@ function check_solution(x, result, expected, X, y, s, λ)
 end
 
 @testset "NormL2 minimizers ($T, $method)" for T in (Float32, Float64), method in (PGD(), APG())
-  opts = ProximalOptions(; maxiter=2000, allow_f_increases=true, ftol=0.0, xtol=1e-300, gradtol=1e-10)
+  opts = ProximalOptions(; maxiter=2000, allow_f_increases=true, gradtol=1e-10)
   X = Matrix{T}(I, 2, 2)
   y = T[3, 4]
   f = LeastSquaresLoss(y, X)
@@ -92,7 +92,7 @@ end
 
 @testset "NormL2 with APG certified backtracking ($T)" for T in (Float32, Float64)
   X, y = T[1 1; 0 1], T[3, 4]
-  f, g, method = LeastSquaresLoss(y, X), NormL2(T(0.5)), APG(; α=1)
+  f, g, method = LeastSquaresLoss(y, X), NormL2(T(0.5)), APG(; α=1.0)
   state = PS.initial_state(method, ProximalOptions(), f, g, zeros(T, 2))
   state.L = T(0.125)
   PS.update_state!(f, g, state, method)
