@@ -102,9 +102,9 @@ The scale is `S = max(λ, λmax)`, where `λmax` is the computed symmetric magni
 
 ### [STOP-04 Threshold arithmetic and scale guards](@id STOP-04)
 
-**Statement.** For a dedicated KKT check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The stop passes precisely when `S` is finite, `threshold ≥ floatmin(T)`, the computed residual is finite, and that residual is **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref)).
+**Statement.** For a dedicated KKT check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The full-point check requires finite `S`, `threshold ≥ floatmin(T)`, and a finite computed residual **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref)).
 
-The threshold need not be finite: a huge `gradtol` can make conversion or multiplication produce `Inf`, and a finite residual then passes. Dividing the residual by `S` and comparing with the unrounded tolerance is the exact-arithmetic interpretation, not an additional floating-point guarantee. A `gradtol` below `64 eps(T)`, including `gradtol = 0`, uses that floor.
+A large `gradtol` can make conversion or multiplication produce an infinite threshold, which passes the full-point check when `S` and the residual are finite. Dividing the residual by `S` and comparing with the unrounded tolerance is the exact-arithmetic interpretation, not an additional floating-point guarantee. A `gradtol` below `64 eps(T)`, including `gradtol = 0`, uses that floor.
 
 Common positive rescaling of loss and penalty preserves the normalized inequality in exact arithmetic. In working precision the rounded quantities and the normal-threshold guard can change the outcome even when the scales remain representable. For Float32 `X = [1]`, response `y = [1]`, `x = 0` and default `gradtol`, `s = λ = 1` passes while `s = λ = 1f-35` does not: the latter threshold is below `floatmin(Float32)`.
 

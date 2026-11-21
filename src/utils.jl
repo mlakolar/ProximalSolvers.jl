@@ -108,7 +108,7 @@ end
 # for NormL1, |∇fᵢ| - cᵢ clipped at 0 where xᵢ = 0 and |∇fᵢ + cᵢ sign xᵢ| otherwise, with cᵢ = λ (cᵢ = λ wᵢ
 # with weights); for ElasticNet, the same with cᵢ = λ1 (cᵢ = λ1 wᵢ with weights) and the term λ2 xᵢ added to ∇fᵢ
 # where xᵢ ≠ 0. A zero weight gives cᵢ = 0, so its score is |∇fᵢ| for NormL1 and |∇fᵢ + λ2 xᵢ| for
-# ElasticNet. The stop is kept when ‖G‖∞ < τ S, with S = max(maxᵢ cᵢ, λmax), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞,
+# ElasticNet. The full-point check requires ‖G‖∞ < τ S, with S = max(maxᵢ cᵢ, λmax), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞,
 # and τ = max(gradtol, 64 eps(T)). S does not depend on λ2. In exact arithmetic the ElasticNet objective is
 # a lasso with the same L1 coefficients on the data [√α X; √λ2 I], [√α y; 0], whose
 # gradient is ∇f(x) + λ2 x and whose λmax is the λmax above. The threshold is relative to S, which a
@@ -166,8 +166,8 @@ end
 
 # Each entry (each group) of a weighted penalty against its own threshold τ max(cᵢ, λmax), when the full-point
 # comparison has passed and the largest coefficient exceeds λmax (see above). The unweighted penalties take
-# the fallback, since their entry thresholds are τ S. A weight vector of ones takes the pass, with
-# every threshold equal to τ S.
+# the fallback, since their entry thresholds are τ S. If unit weights reach the entry check, each threshold
+# equals τ S.
 _entry_thresholds_hold(g, grad, x, τ, λmax) = true
 function _entry_thresholds_hold(g::NormL1{T, Vector{T}}, grad, x, τ::T, λmax::T) where T
   @inbounds for i in eachindex(x, grad, g.w)

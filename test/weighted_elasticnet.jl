@@ -136,7 +136,7 @@ end
   X = Matrix{T}(I, 2, 2)
   for (y, x, a, b, w, gradtol, expected) in (
       (T[0.9, 0], T[0.5, 0], one(T), T(0.25), T[1, 1000], 0.01, false),
-      (T[0, 100], T[0, 0.25], one(T), T(0.25), T[1, 1000], 0.95, true),
+      (T[0, 100], T[0, 0.25], T(2), T(0.25), T[0.5, 500], 0.95, true),
       (T[1, 0], T[0.25, 0], one(T), one(T), T[0, 1000], 0.5, false),
       (T[1, 0], T[0, 0], T(0.5), T(0.25), T[0, 1], 0.6, false),
       (T[1, 0], T[0.5, 0], T(0.5), T(0.25), T[0, 1], 0.2, false),
@@ -166,7 +166,9 @@ end
     @test !PS._stationary!(state, f, g, opts)
   end
   g = ElasticNet(one(T), T(0.5), T[0, 1])
-  @test !PS._entry_thresholds_hold(g, zeros(T, 2), zeros(T, 2), T(0.5), floatmin(T))
+  grad, x = zeros(T, 2), zeros(T, 2)
+  @test !PS._entry_thresholds_hold(g, grad, x, T(0.5), floatmin(T))
+  @test PS._entry_thresholds_hold(g, grad, x, T(0.5), T(2) * floatmin(T))
 end
 
 @testset "Weighted ElasticNet public PG result flags ($T)" for T in (Float32, Float64), method in PG_METHODS
