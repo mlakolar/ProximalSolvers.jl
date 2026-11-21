@@ -29,7 +29,19 @@ function _logdet_pgd_preflight(Θ::Matrix{T}, f, g, ls, options) where T
   scratch = similar(Θ)
   _admm_passes_cholesky!(scratch, Θ) ||
     throw(ArgumentError("Θ must have a successful Cholesky factorization in $T"))
-  C, max(one(T), maximum(abs, S), maximum(C)), α, β, scratch
+  # Finite Sᵢᵢ and Cᵢᵢ can have a sum that overflows in T. An infinite aᵢ makes dᵢⱼ infinite where the
+  # partner root sⱼ is positive, which scores a finite violation as 0, and NaN where sⱼ = 0 (Inf·0);
+  # this check prevents both. Under round-to-nearest, sqrt(floatmax(T)) rounds below the next power of
+  # two in Float32 and Float64 and its square is finite, so a product sᵢsⱼ of two roots does not
+  # overflow. A product that underflows is below the unit floor of dᵢⱼ. A subnormal aᵢ alone does not
+  # give dᵢⱼ = 1: in Float64, aᵢ = prevfloat(floatmin) with aⱼ = 0.75 floatmax gives sᵢsⱼ ≈ sqrt(3).
+  scales = Vector{T}(undef, size(S, 1))
+  for i in axes(S, 1)
+    a = S[i, i] + C[i, i]
+    isfinite(a) || throw(ArgumentError("matrix PGD requires finite sums Sᵢᵢ + Cᵢᵢ of the diagonal data and effective weights in $T"))
+    scales[i] = sqrt(abs(a))
+  end
+  C, scales, α, β, scratch
 end
 
 function _logdet_pgd_symmetrize!(G::Matrix{T}, S) where T
@@ -44,15 +56,102 @@ function _logdet_pgd_symmetrize!(G::Matrix{T}, S) where T
   nothing
 end
 
-function _logdet_pgd_kkt(Θ, G, C, scale)
-  worst = zero(eltype(Θ))
-  @inbounds for i in eachindex(Θ, G, C)
-    violation = iszero(Θ[i]) ? max(abs(G[i]) - C[i], zero(worst)) :
-                               abs(G[i] + C[i] * sign(Θ[i]))
-    worst = max(worst, violation)
+# The first-pass KKT violation of entry (i, j) from the gradient G = S - inv(Θ), diagonal included:
+# |Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ)| at a nonzero Θᵢⱼ and max(|Gᵢⱼ| - Cᵢⱼ, 0) at an exact zero.
+@inline _logdet_pgd_violation(θ, g, c) =
+  iszero(θ) ? max(abs(g) - c, zero(g)) : abs(g + c * sign(θ))
+
+# Knuth's TwoSum: s = fl(a + b), and e with a + b = s + e. The pair is an exact decomposition under
+# round-to-nearest with gradual underflow when s and e are both finite. The code is written without
+# @fastmath, which permits reassociation, and without muladd, which permits contraction.
+@inline function _logdet_pgd_two_sum(a, b)
+  s = a + b
+  bb = s - a
+  s, (a - (s - bb)) + (b - bb)
+end
+
+# One side of the violation at a zero entry, in the working precision. TwoSum gives a + b = u + lu and the
+# side is u + (lu + l). If u is not finite the side is -Inf and `gside`, the first-pass value of the
+# side, is discarded. If u is finite but u + (lu + l) is not, the side is `gside`.
+@inline function _logdet_pgd_side(a, b, l, gside)
+  u, lu = _logdet_pgd_two_sum(a, b)
+  isfinite(u) || return oftype(u, -Inf)
+  v = u + (lu + l)
+  isfinite(v) ? v : gside
+end
+
+# The violation of entry (i, j) from the stored Sᵢⱼ, the weight cᵢⱼ and the inverse entry wᵢⱼ = (Θ⁻¹)ᵢⱼ,
+# attempted without forming Sᵢⱼ ± cᵢⱼ. Every operation is in the working precision. TwoSum of Sᵢⱼ and -wᵢⱼ
+# gives (h, l). At a nonzero θ, TwoSum of h and cᵢⱼ sign(θ) gives (h2, l2) and the violation is
+# abs(h2 + (l + l2)). At a zero, `_logdet_pgd_side` gives the two sides, u + (lu + l) from the TwoSum of h
+# and -cᵢⱼ and u + (lu + (-l)) from the TwoSum of -h and -cᵢⱼ, and the violation is the larger of the
+# two sides and 0. The additions of the recombinations round. Three cases handle nonfinite terms:
+# (a) if h or l is not finite, the whole entry takes its first-pass violation; (b) at a zero, a
+# side whose u is not finite is -Inf and its first-pass value g - c or -g - c is discarded, and a side
+# whose u is finite but whose recombination is not takes that first-pass value; (c) at a nonzero θ, if
+# the recombination is not finite the entry takes its first-pass violation.
+@inline function _logdet_pgd_violation(θ, g, c, sij, w)
+  h, l = _logdet_pgd_two_sum(sij, -w)
+  isfinite(h) && isfinite(l) || return _logdet_pgd_violation(θ, g, c)
+  if iszero(θ)
+    upper = _logdet_pgd_side(h, -c, l, g - c)
+    lower = _logdet_pgd_side(-h, -c, -l, -g - c)
+    max(upper, lower, zero(upper))
+  else
+    h2, l2 = _logdet_pgd_two_sum(h, c * sign(θ))
+    r = abs(h2 + (l + l2))
+    isfinite(r) ? r : _logdet_pgd_violation(θ, g, c)
+  end
+end
+
+# The first-pass score R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ) of PGD-08 over the upper triangle, diagonal included,
+# and a flag for uncertain entries. Θ, G, C and S are symmetric by entrywise equality when this runs (G
+# after `_logdet_pgd_symmetrize!`), so the entries below the diagonal equal those above it. In the
+# working precision, entry (i, j) is uncertain if m * T(0.25) > d, with d = max(1, sᵢsⱼ),
+# m = (|Sᵢⱼ| + |Gᵢⱼ|) + c̃ᵢⱼ, and c̃ᵢⱼ = Cᵢⱼ if Θᵢⱼ ≠ 0 or 2|Gᵢⱼ| ≥ Cᵢⱼ, else 0. An m that overflows is
+# uncertain. The test is a heuristic on computed values. It compares m * T(0.25) with d, not m with 4d,
+# because 4d can overflow.
+function _logdet_pgd_gform(Θ::Matrix{T}, S, G, C, scales) where T
+  worst = zero(T)
+  uncertain = false
+  @inbounds for j in axes(Θ, 2), i in 1:j
+    θ, g, c = Θ[i, j], G[i, j], C[i, j]
+    d = max(one(T), scales[i] * scales[j])
+    worst = max(worst, _logdet_pgd_violation(θ, g, c) / d)
+    m = abs(S[i, j]) + abs(g) + ifelse(!iszero(θ) || 2abs(g) >= c, c, zero(T))
+    uncertain |= m * T(0.25) > d
+  end
+  worst, uncertain
+end
+
+# The same score from the inputs and W = inv(Θ). Each entry is evaluated by
+# `_logdet_pgd_violation(θ, g, c, S, W)`, which attempts the evaluation from the inputs and has the
+# three cases for nonfinite terms listed there. The returned score is checked for finiteness.
+function _logdet_pgd_wform(Θ::Matrix{T}, S, W, G, C, scales) where T
+  worst = zero(T)
+  @inbounds for j in axes(Θ, 2), i in 1:j
+    violation = _logdet_pgd_violation(Θ[i, j], G[i, j], C[i, j], S[i, j], W[i, j])
+    worst = max(worst, violation / max(one(T), scales[i] * scales[j]))
   end
   isfinite(worst) || error("matrix PGD produced a nonfinite KKT violation")
-  Float64(worst / scale)
+  Float64(worst)
+end
+
+# The score of a point Θ whose upper Cholesky factor, from `_admm_passes_cholesky!`, is in `scratch`.
+# If the first pass finds an uncertain entry, W = inv(Θ) is rebuilt in place from that factor and the
+# score is the one from the inputs and W, which attempts every entry. The factor is then overwritten, so
+# a later use of `scratch` as a factor must factorize into it again; a trial that reaches its
+# factorization does. The returned score is checked for finiteness: the first-pass score on the first
+# path and the score from the inputs on the second. The first-pass score that the second path discards
+# is not checked.
+function _logdet_pgd_kkt!(scratch, Θ, S, G, C, scales)
+  worst, uncertain = _logdet_pgd_gform(Θ, S, G, C, scales)
+  if !uncertain
+    isfinite(worst) || error("matrix PGD produced a nonfinite KKT violation")
+    return Float64(worst)
+  end
+  W = LinearAlgebra.inv!(Cholesky(scratch, 'U', 0))
+  _logdet_pgd_wform(Θ, S, W, G, C, scales)
 end
 
 function _logdet_pgd_trial_argument!(V, Θ, G, t)
@@ -87,7 +186,7 @@ mutable struct LogDetPGDState{T}
   displacement::Matrix{T}
   cholesky_scratch::Matrix{T}
   weights::Matrix{T}
-  scale::T
+  scales::Vector{T}
   step::T
   α::T
   β::T
@@ -144,7 +243,11 @@ function _gradient_step!(state::LogDetPGDState{T}, f, g, method, options, t0) wh
             state.grad_calls += 1
             gradient!(G, f, Z)
             _logdet_pgd_symmetrize!(G, f.S)
-            state.score = _logdet_pgd_kkt(Z, G, state.weights, state.scale)
+            # The check of Z above factored it into `scratch`, and no later trial has written to it,
+            # so it holds the upper factor of Z. An uncertain score overwrites it with inv(Z); the
+            # next trial that reaches its factorization writes it again.
+            state.score = _logdet_pgd_kkt!(state.cholesky_scratch, Z, f.S, G, state.weights,
+                                          state.scales)
             state.x_change = Float64(norm(D))
             state.unchanged = Z == Θ
             state.f_x_previous, state.g_x_previous = state.f_x, state.g_x
@@ -168,14 +271,15 @@ function solve!(Θ::Matrix{T}, f::LogDetLoss{T}, g::NormL1, method::ProximalGrad
                 options::ProximalOptions = ProximalOptions(); kwargs...) where T
   _check_keywords(kwargs)
   start = time_ns()
-  C, scale, α, β, scratch = _logdet_pgd_preflight(Θ, f, g, method.ls, options)
+  C, scales, α, β, scratch = _logdet_pgd_preflight(Θ, f, g, method.ls, options)
   G = similar(Θ)
   loss, penalty = value_and_gradient!(G, f, Θ), g(Θ)
   isfinite(loss + penalty) || throw(ArgumentError("matrix PGD requires a finite starting objective"))
   _logdet_pgd_symmetrize!(G, f.S)
-  score = _logdet_pgd_kkt(Θ, G, C, scale)
+  # `scratch` holds the upper factor of Θ from the preflight check: nothing has written to it since.
+  score = _logdet_pgd_kkt!(scratch, Θ, f.S, G, C, scales)
   state = LogDetPGDState(Θ, loss, penalty, T(NaN), T(NaN), G, similar(Θ), similar(Θ),
-                         similar(Θ), scratch, C, scale, one(T), α, β, score, NaN, false,
+                         similar(Θ), scratch, C, scales, one(T), α, β, score, NaN, false,
                          0, 1, 1, 0)
   _solve_gradient!(state, f, g, method, options, start)
 end

@@ -20,8 +20,10 @@ function full_weights(T, p, level, diagonal)
 end
 offdiagonal(p) = [(i, j) for j in 1:p for i in 1:p if i != j]
 soft(x, level) = sign(x) * max(abs(x) - level, 0)
-# The effective weights λ₀Λ of the penalty λ₀ Σᵢⱼ Λᵢⱼ|Θᵢⱼ|, in BigFloat.
-effective(g) = BigFloat(g.λ0) .* BigFloat.(g.w)
+# The effective weights Cᵢⱼ = T(λ₀)Λᵢⱼ of PGD-06, the products rounded in T as the solver forms them,
+# converted to BigFloat. The helper `independent` below judges a point against this rounded-coefficient
+# problem; for the fixtures whose coefficient products are exact, it is the original problem.
+effective(g) = BigFloat.(eltype(g.w)(g.λ0) .* g.w)
 target(::Type{Float32}) = 5e-4
 target(::Type{Float64}) = 1e-8
 pg_options() = ProximalOptions(; maxiter=20000, gradtol=5e-10, ftol=0)
@@ -43,7 +45,10 @@ function positive_definite_exactly(M)
   true
 end
 
-# Use BigFloat independently of PB and the solver's working-precision gradient.
+# Use BigFloat independently of PB and the solver's working-precision gradient. The score is
+# rule F of PGD-08: each entry's violation over max(1, sᵢsⱼ), sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|). The score, the
+# primal objective, the dual candidate and the gap all use the rounded effective coefficients Cᵢⱼ
+# of `effective`, which give the original problem where the coefficient products are exact.
 # The dual candidate W is built in BigFloat with Wᵢᵢ = Sᵢᵢ + Cᵢᵢ and, off the diagonal,
 # Wᵢⱼ = Sᵢⱼ + clamp((Θ⁻¹ - S)ᵢⱼ, -Cᵢⱼ, Cᵢⱼ). A symmetric W ≻ 0 with
 # |Wᵢⱼ - Sᵢⱼ| ≤ Cᵢⱼ for all entries, diagonal included, gives logdet(W) + p as a lower
@@ -58,10 +63,12 @@ function independent(Θ, S, g)
   factor = cholesky(Symmetric(X))
   inverse = inv(factor)
   G = A - inverse
-  scale = max(big(1), maximum(abs, A), maximum(C))
-  score = maximum(eachindex(G)) do i
-    iszero(X[i]) ? max(abs(G[i]) - C[i], 0) : abs(G[i] + sign(X[i]) * C[i])
-  end / scale
+  s = [sqrt(abs(A[i, i] + C[i, i])) for i in axes(A, 1)]
+  score = maximum(CartesianIndices(G)) do I
+    i, j = Tuple(I)
+    violation = iszero(X[I]) ? max(abs(G[I]) - C[I], 0) : abs(G[I] + sign(X[I]) * C[I])
+    violation / max(big(1), s[i] * s[j])
+  end
   trace, ld, penalty = dot(A, X), logdet(factor), dot(C, abs.(X))
   primal = trace - ld + penalty
   W = copy(A)
@@ -102,9 +109,15 @@ function check_solution!(Θ, S, g; method=ProximalGradientDescent(), reference=n
   @test isnan(r.gap) && isempty(r.trace)
   d = independent(Θ, original === nothing ? S : original[1], original === nothing ? g : original[2])
   @test d.score <= target(T)
-  # The score comparison runs when `original === nothing`. The reported score is
-  # normalized by the solved problem's S and weights, which can differ from the original's.
-  original === nothing && @test abs(d.score - r.g_residual) <= 32eps(T)
+  # The reported score is that of the solved problem's stored S and weights; d.score is that
+  # of the original problem. The entry scales sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|) of PGD-08 are the same in
+  # exact arithmetic for the shifted problem, so the two scores can differ by the rounding of the
+  # stored Sᵢᵢ + Cᵢᵢ, of the computed inverse and of the residual itself, and, in the reported score, of
+  # the roots, their product and the quotient.
+  # With Θ = 1, S = -eps(T)/2 and C = 1, the shift and the inverse are exact, yet the first pass from G
+  # scores 0 for the direct problem (fl(S - 1) = -1) and eps(T)/2 for the shifted one, both far below the
+  # floor of g_tol.
+  @test abs(d.score - r.g_residual) <= 32eps(T)
   @test abs(r.minimum - d.primal) <= 32 * size(Θ, 1) * eps(T) * d.scale_objective
   @test -big"1e-60" <= d.gap <= target(T) * max(1, abs(d.primal))
   if reference !== nothing
@@ -355,6 +368,8 @@ end
     refused(ArgumentError, Θ, f, NormL1(1//3, g.w))
     refused(ArgumentError, Θ, f, NormL1(floatmax(T), weights(T, 2, 2)))
     refused(ArgumentError, Θ, f, NormL1(floatmax(T), T[2 0; 0 0]))
+    # Finite Sᵢᵢ and Cᵢᵢ whose sum overflows in T: floatmax(T) + floatmax(T)/2.
+    refused(ArgumentError, Θ, LogDetLoss(T[floatmax(T) 0; 0 1]), NormL1(floatmax(T) / 2, T[1 0; 0 0]))
     refused(ArgumentError, Θ, f, g, AccProxGradDescent())
     for bad in (T(0.5), T(NaN))
       modified = LogDetLoss(f.S)
@@ -461,13 +476,20 @@ end
     G = only(f.S) - inv(only(z))
     V1, V2 = only(z) - G, only(z) - G / 2
     @test (G, V1, V2) == (-3/4, 7/4, 11/8) && V1 < 1 * 2 && V2 > 1/2 * 2
+    # At Θ = 1 the violation is |G + C| = |-3/4 + 2| = 5/4 and the entry scale is
+    # max(1, sqrt(|S + C|)²) = 9/4, so the exact-arithmetic score is (5/4)/(9/4) = 5/9, the reference
+    # for the approximate assertion below. Before the entrywise scale of #492 it was
+    # (5/4)/max(1, S, C) = 5/8.
     r = solve!(z, f, g, m, ProximalOptions(time_limit=0))
-    @test !r.converged && z == array(1) && r.g_residual == 5/8
+    @test !r.converged && z == array(1)
+    @test r.g_residual ≈ 5/9 rtol=4eps(T)
     @test (r.iterations, r.backtrack_steps, r.prox_calls, r.f_calls, r.grad_calls) == (0, 0, 0, 1, 1)
     r = solve!(z, f, g, m, ProximalOptions(prox_calls_limit=2))
     @test r.call_limit_reached && !r.converged && z == array(3/8) && r.x_residual == 5/8
     @test (r.iterations, r.backtrack_steps, r.prox_calls, r.f_calls, r.grad_calls) == (1, 2, 2, 2, 2)
-    @test r.g_residual ≈ 5/24 rtol=64eps(T)
+    # At Θ = 3/8, G = 1/4 - 8/3 = -29/12, the violation is |G + 2| = 5/12 and the exact-arithmetic score
+    # (5/12)/(9/4) = 5/27 (5/24 before #492), the reference for the approximate assertion below.
+    @test r.g_residual ≈ 5/27 rtol=64eps(T)
     check_solution!(array(1), S, g; reference=fill(inv(BigFloat(1/4) + 2), 1, 1))
   end
 end
