@@ -93,7 +93,10 @@ const EXAMPLES = [
    gallery = "Solver comparisons", description = "Compare coordinate and gradient methods on one weighted-lasso problem with unpenalized coordinates."),
   (section = "Solver comparisons", path = "comparisons/graphical_lasso_solvers.jl",
    title = "Graphical lasso: ADMM and proximal gradient", notebook = false,
-   gallery = "Covariance and graphs", description = "Compare two solvers on the same graphical-lasso objective at each of three diagonal penalties, at matched accuracy.")]
+   gallery = "Covariance and graphs", description = "Compare two solvers on the same graphical-lasso objective at each of three diagonal penalties, at matched accuracy."),
+  (section = "Solver comparisons", path = "comparisons/logistic_solvers.jl",
+   title = "Sparse logistic regression: PGD, proximal Newton and ADMM", notebook = false,
+   gallery = "Solver comparisons", description = "Compare three solvers on one sparse logistic regression at matched accuracy, and the effect of the ADMM penalty.")]
 
 # The set of scripts under `examples/`, in subfolders too, equals the registry.
 let root = joinpath(@__DIR__, "..", "examples"), found = String[]
@@ -207,6 +210,7 @@ makedocs(sitename = "ProximalSolvers.jl", authors = "Mladen Kolar",
       "Consensus ADMM" => "contracts/admm.md",
       "Matrix PGD" => "contracts/pg-logdet.md",
       "Proximal Newton (logistic)" => "contracts/logistic-proxnewton.md",
+      "ADMM (logistic)" => "contracts/logistic-admm.md",
       "Line search" => "contracts/line-search.md",
       "PG stopping" => "contracts/pg-stopping.md",
       "Results and failures" => "contracts/results-failures.md",

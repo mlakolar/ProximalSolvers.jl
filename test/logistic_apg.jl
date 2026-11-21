@@ -769,10 +769,10 @@ end
   reweighted(v) = (wm = copy(w); gm = NormL1(1.0, wm); wm[2] = v; gm)
   cases = [
     # CDSolver on a dense Vector: the solver-kind check, the first check of the gate (`kind` :cd), refuses the loss and
-    # names PGD, APG and ProxNewton
+    # names PGD, APG, ProxNewton and LogisticADMM
     (copy(start), f, g, CDSolver(), ArgumentError,
-     "supported only by ProximalGradientDescent, AccProxGradDescent and ProxNewton, on a dense Vector{Float64} " *
-     "with a NormL1 penalty; CDSolver does not support it"),
+     "supported only by ProximalGradientDescent, AccProxGradDescent, ProxNewton and LogisticADMM, on a dense " *
+     "Vector{Float64} with a NormL1 penalty; CDSolver does not support it"),
     # matrix coefficients: APG's matrix method needs a least-squares loss, so the logistic gate refuses them
     ([1.0 0.1; 0.1 1.0], f, NormL1(1.0), apg, ArgumentError, "x to be a dense Vector{Float64}"),
     ([1.0 0.1; 0.1 1.0], (1 / n) * f, NormL1(1.0), apg, ArgumentError, "Scaled(LogisticLoss) is not supported"),

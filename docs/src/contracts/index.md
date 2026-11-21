@@ -45,6 +45,7 @@ Clause IDs are permanent. When a clause is replaced, keep its heading, mark it
 | `CDQ` | Square-root lasso and certificates | [Square-root lasso](@ref CDQ-01) |
 | `PGD` | Iteration, initialization, traces and limits | [Vector PGD](@ref PGD-01), [matrix PGD](@ref PGD-06) |
 | `PN` | Proximal Newton for sparse logistic regression: inputs, models, inner solve, search and result | [Proximal Newton](@ref PN-01) |
+| `LA` | ADMM for sparse logistic regression: inputs, coefficient step, scalar root, residuals and result | [Logistic ADMM](@ref LA-01) |
 | `APG` | Extrapolation, restart and the bound test | [Accelerated PG](@ref APG-01) |
 | `ADM` | Two-function consensus ADMM | [Consensus ADMM](@ref ADM-01) |
 | `LS` | Backtracking, acceptance and range recovery | [Line search](@ref LS-01) |

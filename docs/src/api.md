@@ -17,11 +17,13 @@ CDSolver
 ProximalGradientDescent
 AccProxGradDescent
 ProxNewton
+LogisticADMM
 ADMMSolver
 solve!
 ProximalOptions
 CDResults
 ProxNewtonResults
+LogisticADMMResults
 ADMMResults
 OptimizationState
 OptimizationTrace
