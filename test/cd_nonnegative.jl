@@ -573,7 +573,7 @@ end
     refused(ArgumentError, "x must be a dense Vector", zeros(T, 2, 2), f, g)
     refused(ArgumentError, "x must be a dense Vector", view(copy(x0), :), f, g)
     # losses and penalties
-    refused(ArgumentError, "matrix responses", copy(x0), LeastSquaresLoss(hcat(y, y), X), g)
+    refused(ArgumentError, "Matrix responses need a compatible matrix coefficient layout", copy(x0), LeastSquaresLoss(hcat(y, y), X), g)
     refused(ArgumentError, "unsupported type", copy(x0), big"2.0" * f, g)
     refused(ArgumentError, "unsupported type", copy(x0), (1 // 3) * f, g)
     # a logistic loss, raw or scaled (Float64 data only)
