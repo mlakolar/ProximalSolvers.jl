@@ -639,6 +639,17 @@ end
   end
   @test err isa ArgumentError && occursin("not finite", sprint(showerror, err))
   @test x == zeros(2) && X == Xc && y == yc
+  # a nonfinite objective after an iteration: the dual u = -1e308 gives the response 1e308, the coefficient step moves b
+  # to about 1e308, and the penalty 10 |b| overflows
+  x, t0, u0 = [0.0], [0.0], [-1e308]
+  err = try
+    solve!(x, LogisticLoss([0.0], ones(1, 1)), NormL1(10.0), LogisticADMM(); t = t0, u = u0)
+    nothing
+  catch e
+    e
+  end
+  @test err isa ErrorException && occursin("nonfinite objective", sprint(showerror, err))
+  @test x == [0.0] && t0 == [0.0] && u0 == [-1e308]
   # starts with a nonfinite predictor or gradient are refused before any write
   X1 = fill(1e308, 3, 1)
   y1 = zeros(3)

@@ -309,8 +309,9 @@ coefficients of an iteration is not finite.
 **Tests.** `test/logistic_admm.jl`: an iteration with a failed root (a reduced cap) leaves the completed state as it
 was; a solve with a zero cap returns the start with `:prox_failed`, `NaN` residuals, the supplied `t` and `u`
 unchanged and the passes counted; a failure after three completed iterations returns them; a column curvature that
-underflows (with a supplied `t` and `u`) or overflows, and starts with a nonfinite predictor or gradient, with the
-caller's arrays and the inputs unchanged.
+underflows (with a supplied `t` and `u`) or overflows, a penalty that overflows after an iteration (the
+`ErrorException`), and starts with a nonfinite predictor or gradient, with the caller's arrays and the inputs
+unchanged.
 
 **Sources.** [Issue #448](https://github.com/mlakolar/ProximalSolvers.jl/issues/448) and
 [pull request #507](https://github.com/mlakolar/ProximalSolvers.jl/pull/507).
