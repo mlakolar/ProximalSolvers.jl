@@ -174,7 +174,7 @@ r_warm = solve!(b_warm, f, g, LogisticADMM(tol = 1e-8))
 # forms products with ``\tilde X`` and its transpose, a coordinate pass visits each coordinate of the
 # inner problem, and a root step evaluates one exponential. The counts are therefore not a measure of
 # speed, and the page makes no timing claim. The tolerances of the three solvers mean different things;
-# only the independent score and objective above are common to them.
+# the independent score and objective above are the measure the page applies to all three.
 #
 # ## What we learned
 #

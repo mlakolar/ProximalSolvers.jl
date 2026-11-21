@@ -554,7 +554,8 @@ end
   tight = solve!(b, f, g, LogisticADMM(abstol = 1e-2, reltol = 1e-2, tol = 1e-9))
   check_result(tight, b, X, y, λ, w)
   @test tight.kkt <= 1e-9
-  # the same residual tolerances with a tol above every score stop at the first residual pass, with a larger score
+  # the same residual tolerances with tol = 1e10, far above the scores of these iterates, stop at the first residual
+  # pass, with a larger score
   b = zeros(k)
   loose = solve!(b, f, g, LogisticADMM(abstol = 1e-2, reltol = 1e-2, tol = 1e10))
   @test loose.converged && loose.kkt > 1e-9 && loose.iterations < tight.iterations

@@ -403,8 +403,8 @@ function _la_beta_step!(w::_LAWork, method::LogisticADMM)
 end
 
 # The t and u steps (LA-03): for each observation, v = X b_new + w/ρ, t_new the scalar root of σ(t) - y + ρ(t - v) and
-# w_new = ρ(v - t_new), from the same v. Returns false at the first root that fails (a nonfinite v or the step cap);
-# the steps of every root, including the failed one, are counted.
+# w_new = ρ(v - t_new), from the same v. Returns false at the first root that fails (a nonfinite v or the step cap),
+# without computing the later roots; the steps of the roots computed, including the failed one, are counted.
 function _la_predictor_step!(w::_LAWork)
   ρ, y = w.rho, w.y
   steps = 0
