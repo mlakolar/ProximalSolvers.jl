@@ -77,7 +77,7 @@ curvature uses the same design Frobenius norm for any number of responses.
 
 When the positive Frobenius bound is below one, it exceeds the spectral curvature `s ‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²`, at most the rank of `X`, up to rounding and the floor. A positive bound far below one therefore starts below one; a bound at least one starts at one. For example, `X = I(256)/16` with `s = 1` has curvature `1/256` and starts at `1`. The line search multiplies this estimate by its decrease factor (default `0.9`) before each iteration and raises it on rejected trials. Historical extreme-scale measurements are retained in [ORACLE-01](@ref).
 
-PGD obtains the same initialization through a column-wise scan, with the Frobenius-bound calculation when required; APG uses the shared bound machinery directly. For a raw `LogisticLoss`, PGD uses the factor `¼` in place of `s` ([IN-09](@ref)). This is an initial estimate, not a change to the subsequent acceptance tests. A finite starting loss is required; penalty overflow at a finite starting point follows [RES-01](@ref).
+PGD obtains the same initialization through a column-wise scan, with the Frobenius-bound calculation when required; APG uses the shared bound machinery directly. For a raw `LogisticLoss`, PGD uses the factor `¼` in place of `s` ([IN-09](@ref)), and APG the same factor ([APG-08](@ref)). This is an initial estimate, not a change to the subsequent acceptance tests. A finite starting loss is required; penalty overflow at a finite starting point follows [RES-01](@ref).
 
 **Applies to.** PGD and APG; dense vectors and the matrices in [IN-10](@ref).
 

@@ -1,7 +1,8 @@
 # The accelerated proximal gradient method of Parikh and Boyd, Proximal Algorithms,
 # section 4.3, with adaptive restart on an objective increase (O'Donoghue and Candès,
 # Adaptive restart for accelerated gradient schemes, 2015), for the dense
-# least-squares lasso of the minimal core.
+# least-squares lasso of the minimal core and, with the curvature factor ¼ in its line search, the raw logistic loss
+# of IN-09 (APG-08).
 
 """
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
@@ -9,7 +10,8 @@
 Accelerated proximal gradient descent for dense Float32/Float64 least squares
 with `NormL1` (optional weights), unweighted `ElasticNet`, `NormLinf`, `NormL2` or
 `GroupNormL2`. A dense matrix response with dense same-type coefficients uses
-unweighted `NormL1` on its entries. APG extrapolates
+unweighted `NormL1` on its entries. A raw `LogisticLoss(y, X)` with `NormL1` on a
+`Vector{Float64}` is also supported (see below). APG extrapolates
 from previous accepted iterates, takes a backtracked proximal step, and restarts
 momentum on an objective increase. Pass [`ProximalOptions`](@ref) as the fifth
 argument to [`solve!`](@ref); the result and stopping interface are shared with PGD.
@@ -48,6 +50,18 @@ Box constraints use `IndBox` or `IndBallLinf`. Euclidean-ball constraints use
 indicators require a feasible starting vector.
 Use [`ProximalGradientDescent`](@ref), or [`CDSolver`](@ref) on a dense `Vector`,
 for unweighted `NormL1Nonneg`; APG does not support that constrained penalty.
+
+Sparse logistic regression takes a raw `LogisticLoss(y, X)` (dense `Matrix{Float64}` design, binary
+`Vector{Float64}` response, no observation weights or offset) with `NormL1`, with or without penalty weights, on a
+`Vector{Float64}`; a zero penalty weight leaves an intercept column unpenalized. The inputs are those of
+[`ProximalGradientDescent`](@ref). The line search uses the factor `1/4` of the logistic Hessian bound where least
+squares uses its loss scale, and accepts a nonzero step only when `‖X d‖/2 ≤ (1 + 4eps) √L ‖d‖` is certified, with
+`d` the step from the extrapolated point. In exact arithmetic that implies the descent inequality of the loss with `L`
+replaced by `(1 + 4eps)² L`; the test does not use the local curvature, so a step can be shorter than a test on the
+loss value would allow. See
+[the logistic input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09) and
+[APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
+
 A proposed stop is checked at the accepted point. The iteration's reported
 gradient-mapping residual is measured from the extrapolated point, so use the
 stopping documentation when interpreting it. The extra gradient for a proposed
@@ -107,9 +121,10 @@ mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z}
     z_x::Z
     z_previous::Z
     z_y::Z
-    dz::Z             # residual A y - response (before the loss scale); buffer of the fresh A d
+    dz::Z             # observation derivative at A y (the residual A y - response before the loss scale, σ(A y) - y for a
+                      # logistic loss), written by the value and gradient at y; buffer of the fresh A d
     bound::_BoundConstants{T}  # constants of the bound test (dimensions, ‖A‖_F)
-    rootα::_SE{T}     # √ of the loss scale as given (see _root_scale)
+    rootα::_SE{T}     # √ of the loss scale as given (see _root_scale); ½ = √¼ for a logistic loss
     image_error_y::_SE{T}  # bound on the error of z_y as an image of y
     normx::_SE{T}     # ‖x‖ of the accepted iterate
     normx_previous::_SE{T}  # ‖x_previous‖
@@ -217,9 +232,10 @@ function update_state!(
     state
 end
 
-# x = prox_{g/L}(y - ∇f(y)/L), increasing L until _bound_certified! certifies
-# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖² (with legacy's slack 8eps on L), or until
-# x == y entrywise.
+# x = prox_{g/L}(y - ∇f(y)/L), increasing L until _bound_certified! certifies the image inequality
+# √α ‖X (x - y)‖ ≤ (1 + 4eps) √L ‖x - y‖, or until x == y entrywise. For least squares it is equivalent to
+# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖² (with legacy's slack 8eps on L); for a logistic loss (α = ¼) it implies the
+# same inequality in exact arithmetic (APG-08).
 function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
     f_y = _value_and_gradient!(state.grad_f_y, state.y, f, state.z_y, state.dz)
     state.f_calls += 1
@@ -322,6 +338,12 @@ accelerated proximal gradient descent, overwriting dense `Vector{T}` coefficient
 with `T = Float32` or `Float64`. A dense matrix response uses same-type dense
 matrix coefficients and unweighted `NormL1` under
 [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
+
+# Extended help
+
+A raw `LogisticLoss(y, X)` with `NormL1` on a `Vector{Float64}` is minimized under the gate of
+[IN-09](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09) and the line search of
+[APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
 The inputs, the options and their validation are those
 of `ProximalGradientDescent`, including a `GroupNormL2` penalty with its group stopping check (see `ProximalGradientDescent` and
 [`ProximalOptions`](@ref)); in addition `β` and `α` must satisfy their bounds after

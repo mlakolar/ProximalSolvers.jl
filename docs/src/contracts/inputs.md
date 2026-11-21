@@ -28,7 +28,7 @@ the design requirement.
 | `ProximalGradientDescent`, `AccProxGradDescent`, matrix-response least squares | dense `Matrix{T}` | unweighted `NormL1` under [IN-10](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
 | `ProximalGradientDescent` or `CDSolver`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` (not a `SparseIterate`) | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
-| `ProximalGradientDescent`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) |
+| `ProximalGradientDescent`, `AccProxGradDescent`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) and, for APG, [APG-08](@ref) |
 | `ProxNewton`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) and [PN-01](@ref) |
 | `ADMMSolver`, centered `SqrNormL2` | dense `Vector{T}` | unweighted `NormL1` under [ADM-01](@ref) |
 | `ADMMSolver`, raw least squares | dense `Vector{Float64}` with a `Matrix{Float64}` design, `Vector{Float64}` response and `n ≥ p` | unweighted `NormL1`, level `nλ` for the normalized lasso, under [ADM-05](@ref) |
@@ -380,12 +380,12 @@ The coordinate-descent solver and coefficient storage other than a dense
 
 **Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/docs/src/numerics.md#L176-L187).
 
-## [IN-09 Sparse logistic regression with proximal gradient descent](@id IN-09)
+## [IN-09 Sparse logistic regression with proximal gradient methods](@id IN-09)
 
 **Statement.**
 
-`ProximalGradientDescent` accepts ProximalBase's raw `LogisticLoss(y, X)` with
-`NormL1(lambda)` or `NormL1(lambda, w)` on a dense `Vector{Float64}` and minimizes
+`ProximalGradientDescent` and `AccProxGradDescent` accept ProximalBase's raw `LogisticLoss(y, X)` with
+`NormL1(lambda)` or `NormL1(lambda, w)` on a dense `Vector{Float64}` and minimize
 (`ProxNewton` accepts the same inputs through the same gate and minimizes the same
 objective; its solver, models, search and result are specified in [PN-01](@ref) to [PN-05](@ref))
 
@@ -423,22 +423,23 @@ with supported keywords and options, and with coefficient storage that the solve
 gate accepts, the checks run in the order below; the keyword checks of `solve!`, the
 option check of `ADMMSolver` and the storage-type checks of the CD gates (a
 `SparseIterate` or `BlockIterate` of `Float32` or `Float64`) come first. The order is:
-a solver other than PGD and `ProxNewton` (`ProxNewton` first refuses a loss that is not a
+a solver other than PGD, APG and `ProxNewton` (`ProxNewton` first refuses a loss that is not a
 `LogisticLoss`, [PN-01](@ref)); a `Scaled` wrapper; the element type of the loss
 and the array types of `X`, `y` and `x`; observation weights or an offset; the
 shapes; a penalty that is not a `NormL1`, then the rules of [IN-02](@ref) and
 [IN-03](@ref), including the alias check of the weights; aliasing of `x` with `X`, `y`
 or `f.tmp`; nonfinite entries of `x` or `X`; an entry of `y` other than `0` and `1`.
 
-`AccProxGradDescent` and `CDSolver` (dense `Vector`, `SparseIterate`, `BlockIterate`
-and `Matrix` coefficients) refuse a `LogisticLoss` or a `Scaled` one with an
-`ArgumentError` that names `ProximalGradientDescent` and `ProxNewton`, without a write to the
+`CDSolver` (dense `Vector`, `SparseIterate`, `BlockIterate`
+and `Matrix` coefficients) refuses a `LogisticLoss` or a `Scaled` one with an
+`ArgumentError` that names `ProximalGradientDescent`, `AccProxGradDescent` and `ProxNewton`, without a write to the
 coefficients or a draw from the RNG; for a `BlockIterate` this refusal comes before the
 momentum check. `ADMMSolver` refuses it with an `ArgumentError` before a write to `z`
 or to a supplied `u`: on a `Vector`, through the loss check that admits a raw
 `LeastSquaresLoss` ([ADM-05](@ref)) or its quadratic ([ADM-01](@ref)); on a `Matrix`,
 through the check that requires a `LogDetLoss` ([ADM-04](@ref)). `ProximalGradientDescent`
-on a `Matrix` coefficient has a method only for a `LogDetLoss` ([PGD-06](@ref)); a
+on a `Matrix` coefficient has a method only for a `LogDetLoss` ([PGD-06](@ref)), and `AccProxGradDescent`
+on one has a method only for a least-squares loss with a matrix response ([IN-10](@ref)); a
 logistic loss there reaches the gate described above and is refused. `Scaled(LogisticLoss(y, X), a)` is refused because ProximalBase
 provides no predictor oracles for it. For a positive finite `a`, the raw loss with the
 level `lambda / a` has the same minimizers in exact arithmetic, and is accepted when
@@ -446,7 +447,7 @@ the penalty with that level passes [IN-02](@ref) and, with weights, all of
 [IN-03](@ref) (its level, weights and coefficients). Other penalties, including wrapped ones,
 `Float32` data, sparse designs, views and other array types are refused.
 
-**Iteration.** The trial sequence of [PGD-01](@ref) is unchanged. As for least squares,
+**Iteration.** The trial sequence of `ProximalGradientDescent`, [PGD-01](@ref), is unchanged. As for least squares,
 an unweighted `NormL1` enters through the working penalty with level `T(lambda)` of
 [IN-02](@ref); a weighted one is used as supplied in the trial steps, and
 [STOP-03](@ref) gives its stationarity check. A trial forms the
@@ -457,6 +458,11 @@ image `z = X x` once, in a private buffer, and takes its value from ProximalBase
 and ProximalBase evaluates the loss and `d` with formulas that avoid cancellation in
 the saturated tails. The image, derivative and gradient buffers are private to the
 solve and disjoint from `X`, `y`, `f.tmp` and `x`.
+
+**`AccProxGradDescent`.** It takes the images, values and gradients of the paragraph above, the trial sequence of
+[APG-01](@ref), the initial curvature of [PGD-02](@ref) with the factor `¼`, and the stopping check below. In place of PGD's
+loss-value test and its recheck, it decides a nonzero trial by the certified test of [APG-06](@ref) with `s = ¼`. [APG-08](@ref)
+states that rule, what it certifies and what it leaves to the computed values.
 
 **Overflowed images.** When the image `z` has a nonfinite entry, a guard skips
 ProximalBase's predictor oracle and the loss value is `Inf`. (ProximalBase gives a
@@ -469,11 +475,13 @@ need be, when `L/β`, converted to the type of `L`, is a finite increase of `L`;
 `solve!` restores the last accepted point ([LS-09](@ref)). The gradient is refreshed
 only at a trial with a finite value. A finite image goes to ProximalBase's loss; for
 example a logit of 800, beyond `log(floatmax(Float64)) ≈ 709.78`, gives the loss 800
-for the label 0.
+for the label 0. For `AccProxGradDescent` a nonfinite trial image is rejected and `L` is raised, and a nonfinite value or
+gradient at the extrapolated point restarts the step or, without momentum, fails with rollback ([APG-03](@ref), [APG-08](@ref)).
 
 **Curvature factor.** For this loss, in exact arithmetic,
 `∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX`, since `0 ≤ σᵢ(1 - σᵢ) ≤ ¼`. The line search
-uses the factor `¼` where least squares uses its loss scale `s`. The initial inverse
+uses the factor `¼` where least squares uses its loss scale `s`; `AccProxGradDescent` uses it in its certified
+test ([APG-08](@ref)), and the recheck below is that of `ProximalGradientDescent`. The initial inverse
 step is that of [PGD-02](@ref) with `s = ¼`: `min(1, ¼ B²)` rounded to `T`, with `B` the
 computed upper estimate of `‖X‖_F` (`_frobenius_upper`); a positive value that rounds
 below `floatmin(T)`, to zero included, gives `floatmin(T)`, and `X = 0` gives `1`. The
@@ -558,11 +566,11 @@ outcomes measured with the single threshold and with the entry thresholds
 still use `λmax = ‖∇f(0)‖∞`, which a free intercept can inflate when the response is far
 from balanced ([STOP-12](@ref)).
 
-**Applies to.** `ProximalGradientDescent` with a raw `LogisticLoss{Float64}` and `NormL1` on a dense `Vector{Float64}`; the input gate of `ProxNewton` for the same loss and penalty ([PN-01](@ref)); the logistic refusals of `AccProxGradDescent`, `CDSolver` and `ADMMSolver`. The deferred logistic combinations are listed in [DEF-01](@ref).
+**Applies to.** `ProximalGradientDescent` and `AccProxGradDescent` with a raw `LogisticLoss{Float64}` and `NormL1` on a dense `Vector{Float64}`; the input gate of `ProxNewton` for the same loss and penalty ([PN-01](@ref)); the logistic refusals of `CDSolver` and `ADMMSolver`. The deferred logistic combinations are listed in [DEF-01](@ref).
 
-**Code.** `src/solve.jl`: `_is_logistic_loss`, `_check_logistic_problem`, `_logistic_method_error`, the logistic branch of `_check_data` and of `_check_problem`; `src/solvers/image_models.jl`: `_LogisticImage`, `_image_model`, `_image_buffer`, `_image!`; `src/utils.jl`: `_lambda_max!` and `_zero_gradient!`.
+**Code.** `src/solve.jl`: `_is_logistic_loss`, `_check_logistic_problem`, `_logistic_method_error`, the logistic branch of `_check_data` and of `_check_problem`; `src/solvers/image_models.jl`: `_LogisticImage`, `_image_model`, `_image_buffer`, `_image!`, `_bound_certified!`; `src/utils.jl`: `_lambda_max!` and `_zero_gradient!`.
 
-**Tests.** `test/logistic_pgd.jl`: the stopping scale against `‖Xᵀ(½ - y)‖∞`, and a stop through the engine checked with ProximalBase's scorer and with the independent residual; the value and gradient at zero and at a representative point against label-wise BigFloat formulas and central differences; the inequalities behind the factor `¼`, the initial curvature, and the recheck of a rejected trial in each mode (`c = ¼` and `c = ½` for a unit step, at least TFOCS's estimate); a regularized nonseparable fit with an unpenalized intercept (objective, the KKT scores of the intercept and of the active and inactive slopes, `minimizer === b`, rejected trials, the `F/n` scaling); the intercept-only model and levels at and above the slope threshold; an unpenalized fit against a damped Newton reference, with a numerical witness that its data are not separable; unit weights against the unweighted penalty; checked rejections; rollback after a fault and through `solve!`; overflowed images at the start (refused, coefficients unchanged) and in a trial (retried, on the side of the label and against it), and a finite logit of 800; iteration and call limits; steep, separated and almost separated regularized problems, including a start with logits beyond `log(floatmax(Float64))`; a one-class sample with an unpenalized intercept (finite coefficients, objective and diagnostics; when convergence is reported, the solver's criterion re-formed at the returned point and the independent residual against the same threshold; neither outcome required); the refusals above with the coefficients unchanged, including `CDSolver` on each storage with raw and scaled losses and an unchanged RNG, `ProximalGradientDescent` on a `Matrix` coefficient, and `ADMMSolver` on a `Vector` and a `Matrix` with raw and scaled losses and a supplied `u` that is left unchanged; for one fixture, warmed iterations that allocate nothing and whole solves against the least-squares control. Where the independent residual is compared with `KKT_TOL`, the test also checks a first-order estimate of the rounding of the solver's gradient. `examples/problems/logistic_regression.jl` checks its fit independently. `test/logistic_proxnewton.jl` repeats the refusals for `ProxNewton`, with the coefficients unchanged, and the text of the refusals that name it. `test/entry_thresholds.jl` checks the entry thresholds on the #464 fixture against its analytic minimizer, and on a free intercept with an excluded or all-zero column.
+**Tests.** `test/logistic_pgd.jl`: the stopping scale against `‖Xᵀ(½ - y)‖∞`, and a stop through the engine checked with ProximalBase's scorer and with the independent residual; the value and gradient at zero and at a representative point against label-wise BigFloat formulas and central differences; the inequalities behind the factor `¼`, the initial curvature, and the recheck of a rejected trial in each mode (`c = ¼` and `c = ½` for a unit step, at least TFOCS's estimate); a regularized nonseparable fit with an unpenalized intercept (objective, the KKT scores of the intercept and of the active and inactive slopes, `minimizer === b`, rejected trials, the `F/n` scaling); the intercept-only model and levels at and above the slope threshold; an unpenalized fit against a damped Newton reference, with a numerical witness that its data are not separable; unit weights against the unweighted penalty; checked rejections; rollback after a fault and through `solve!`; overflowed images at the start (refused, coefficients unchanged) and in a trial (retried, on the side of the label and against it), and a finite logit of 800; iteration and call limits; steep, separated and almost separated regularized problems, including a start with logits beyond `log(floatmax(Float64))`; a one-class sample with an unpenalized intercept (finite coefficients, objective and diagnostics; when convergence is reported, the solver's criterion re-formed at the returned point and the independent residual against the same threshold; neither outcome required); the refusals above with the coefficients unchanged, including `CDSolver` on each storage with raw and scaled losses and an unchanged RNG, `ProximalGradientDescent` on a `Matrix` coefficient, and `ADMMSolver` on a `Vector` and a `Matrix` with raw and scaled losses and a supplied `u` that is left unchanged; for one fixture, warmed iterations that allocate nothing and whole solves against the least-squares control. Where the independent residual is compared with `KKT_TOL`, the test also checks a first-order estimate of the rounding of the solver's gradient. `examples/problems/logistic_regression.jl` checks its fit independently. `test/logistic_apg.jl` repeats the accuracy cases and the refusals for `AccProxGradDescent`, with the coefficients unchanged and the text of the refusal of a nonbinary response that names it, and checks its line search ([APG-08](@ref)). `test/logistic_proxnewton.jl` repeats the refusals for `ProxNewton`, with the coefficients unchanged, and the text of the refusals that name it. `test/entry_thresholds.jl` checks the entry thresholds on the #464 fixture against its analytic minimizer, and on a free intercept with an excluded or all-zero column.
 
 **Sources.** [Issue #438](https://github.com/mlakolar/ProximalSolvers.jl/issues/438) (scope, mathematical contract and tests) and [pull request #439](https://github.com/mlakolar/ProximalSolvers.jl/pull/439) (mini-design); ProximalBase [`LogisticLoss` at 4a737a52](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/src/functions/logisticloss.jl), the merge of [ProximalBase #1033](https://github.com/mlakolar/ProximalBase.jl/pull/1033).
 
