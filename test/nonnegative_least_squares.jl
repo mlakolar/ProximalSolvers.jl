@@ -65,6 +65,17 @@ end
     @test !result.converged
   end
 
+  @testset "CDSolver on a dense Vector" begin
+    # one correlated fixture solved by dense CD (test/cd_nonnegative.jl checks CD against references and refusals); a SparseIterate or a BlockIterate is refused below
+    cd_A = T[1 0.8 0; 0 0.6 0; 0 0 1]
+    cd_b = cd_A * T[2, -1, -2]
+    beta = fill(T(0.5), 3)
+    result = solve!(beta, LeastSquaresLoss(cd_b, cd_A), g, CDSolver(order=:cyclic, momentum=false, tol=T === Float32 ? 1e-6 : 1e-12))
+    @test result.minimizer === beta
+    @test all(>=(0), beta)
+    @test beta ≈ T[1.2, 0, 0] atol=tol rtol=0
+  end
+
   @testset "Refusals before writes" begin
     f = LeastSquaresLoss(y, X)
     start = fill(T(0.3), 4)
@@ -75,7 +86,6 @@ end
         (copy(start), LeastSquaresLoss(y, sparse(X)), g, method),
         (copy(start), LeastSquaresLoss(hcat(y, y), X), g, method),
         (copy(start), f, g, AccProxGradDescent()),
-        (copy(start), f, g, CDSolver()),
         (copy(start), f, 2 * g, method),
         (copy(start), zero(T) * f, g, method),
         (copy(start), SqrtLeastSquaresLoss(y, X), g, method),

@@ -24,8 +24,9 @@ The following remain deferred:
   including a zero-valued center or a union-typed center holding `nothing`.
   The uncentered scalar least-squares CD form is specified in [IN-01](@ref).
   PGD/APG, square-root CD and group/matrix CD also exclude `SqrNormL2` penalties;
-- weighted `NormL1Nonneg`, nonnegative least squares or nonnegative lasso with APG or CD, and the other
-  constrained-penalty combinations excluded by [IN-07](@ref);
+- weighted `NormL1Nonneg`, nonnegative least squares or nonnegative lasso with APG or with CD on a
+  `SparseIterate`, `BlockIterate` or `Matrix`, and the other constrained-penalty combinations
+  excluded by [IN-07](@ref) (CD on a dense `Vector` supports the unweighted forms);
 - automatic intercept handling and offsets (a column of ones can be supplied as an
   unpenalized coordinate, with penalty weight zero, under the input rules of a weighted
   `NormL1`); generalized losses and
@@ -65,6 +66,6 @@ workspace API; see [ARCH-03](@ref).
 
 **Code.** `src/types.jl`: constructor validation; `src/solve.jl`: supported dispatch and input gates; `src/cd/models.jl`: private seams.
 
-**Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl`, `test/logistic_pgd.jl` (the logistic refusals), `test/logistic_proxnewton.jl` (the same refusals for `ProxNewton`) and solver-specific unsupported-input tests.
+**Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl`, `test/logistic_pgd.jl` (the logistic refusals), `test/logistic_proxnewton.jl` (the same refusals for `ProxNewton`) and solver-specific unsupported-input tests.
 
 **Sources.** `docs/src/support.md:L385`, `docs/src/developer/implementation-notes.md:L238`, `docs/src/developer/implementation-notes.md:L240`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/index.md:L9`, `README.md:L96`; the later nonnegative-lasso refusals are specified by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The narrow ridge extension and remaining refusals are [upstream #420 at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/commit/217cde72cad2b324e174012accc949da59c1bba5).

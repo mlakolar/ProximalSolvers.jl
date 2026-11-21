@@ -55,18 +55,22 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
   throw(ArgumentError("loss scale $α of type $(typeof(α)) $why; only Float32 and Float64 scales and fixed-width integer scales that $T represents exactly are supported$hint"))
 end
 
-# IndNonnegative and unweighted NormL1Nonneg are accepted only under :pgd, with a feasible start
-# checked by _check_problem. :gradient retains the APG gate.
+# IndNonnegative and unweighted NormL1Nonneg are accepted under :pgd and :cd, with the vector-response
+# LeastSquaresLoss (raw or one supported positive Scaled, IN-02) and a feasible start checked by _check_problem on a dense Vector (a SparseIterate is refused by _check_owner_problem).
+# :gradient retains the APG gate.
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
 # :gradient (APG), :pgd (PGD) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
 # without `kind`) accept a NormL1, with or without weights, and an unweighted ElasticNet. :cd also accepts
 # SqrNormL2 with the Nothing center type. Both gradient kinds also accept a NormLinf, which :cd refuses
 # with a message of its own (this CDSolver needs a separable penalty for
-# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
+# its coordinate step), a NormL2 (the Euclidean norm of the whole vector; :cd refuses it with the general list of
+# its penalties) and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
 # pointer to the supported alternatives. The levels must pass _scalar_parameter for T (finite, nonnegative,
 # representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
 # weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
-# Scaled(NormLinf(λ)) is refused as any other penalty.
+# Scaled(NormLinf(λ)) or Scaled(NormL2(λ)) is refused as any other penalty. A NormL2 passes only under the two
+# dense vector gradient paths. The matrix-response least-squares gate takes unweighted NormL1. The
+# BlockIterate, logistic and square-root gates also refuse NormL2.
 function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   if g isa NormL1
     g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
@@ -82,6 +86,8 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
     _scalar_parameter(g.λ, T, "penalty lambda")
   elseif g isa NormLinf
     throw(ArgumentError("CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"))
+  elseif g isa NormL2 && kind in (:gradient, :pgd)
+    _scalar_parameter(g.λ, T, "penalty lambda")
   elseif g isa GroupNormL2 && kind in (:gradient, :pgd)
     _check_dense_group_penalty(g, x, T)
   elseif g isa GroupNormL2
@@ -93,17 +99,19 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
     g.r isa T || throw(ArgumentError("IndBallL2 requires a radius of type $T"))
     _scalar_parameter(g.r, T, "ball radius")
   elseif g isa NormL1Nonneg
-    kind === :pgd || throw(ArgumentError("NormL1Nonneg is supported only by ProximalGradientDescent on a dense Vector"))
+    kind in (:pgd, :cd) ||
+      throw(ArgumentError("NormL1Nonneg is supported only by ProximalGradientDescent and CDSolver on a dense Vector"))
     g.w === nothing || throw(ArgumentError("weighted NormL1Nonneg is not supported"))
     _scalar_parameter(g.λ0, T, "penalty lambda")
   elseif g isa IndNonnegative
-    kind === :pgd || throw(ArgumentError("IndNonnegative is supported only by ProximalGradientDescent on a dense Vector"))
+    kind in (:pgd, :cd) ||
+      throw(ArgumentError("IndNonnegative is supported only by ProximalGradientDescent and CDSolver on a dense Vector"))
   elseif kind === :pgd
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"))
   elseif kind === :gradient
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, IndBox or IndBallL2 is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"))
   else
-    throw(ArgumentError("CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2"))
+    throw(ArgumentError("CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2, and on a dense Vector also unweighted NormL1Nonneg and IndNonnegative"))
   end
   nothing
 end
@@ -416,7 +424,9 @@ end
 
 # The dense gate: :cd for CDSolver, :pgd for PGD and :gradient (the default) for APG.
 # Both gradient kinds refuse square-root loss and accept NormLinf and GroupNormL2;
-# only :pgd also accepts IndNonnegative and unweighted NormL1Nonneg, with a feasible start.
+# :pgd and :cd also accept IndNonnegative and unweighted NormL1Nonneg, with the vector-response least-squares
+# loss and a feasible start (checked here, before any write, for each of these kinds; a negative entry
+# is refused rather than projected).
 # A logistic loss goes to _check_logistic_problem, whatever the kind.
 function _check_problem(x, f, g, kind::Symbol = :gradient)
   _is_logistic_loss(f) && return _check_logistic_problem(x, f, g, kind)
@@ -467,6 +477,10 @@ _is_cd_owner(x) = x isa SparseIterate{<:Any, 1} && eltype(x) in (Float32, Float6
 function _check_owner_problem(x, f, g)
   _is_cd_owner(x) ||
     throw(ArgumentError("x must be a dense Vector or a one-dimensional SparseIterate of Float32 or Float64"))
+  # The nonnegative penalties are supported for a dense Vector only; this refusal is before any copy of x or
+  # draw from the RNG.
+  g isa Union{NormL1Nonneg, IndNonnegative} &&
+    throw(ArgumentError("$(nameof(typeof(g))) is supported by CDSolver on a dense Vector only; a SparseIterate is not supported for it"))
   base = _is_sqrt_loss(f) ? _check_sqrt_data(x, f, g, eltype(x), :cd) : _check_data(x, f, g, eltype(x), :cd)
   all(isfinite, activevalues(x)) && _allfinite(base.Y) && _allfinite(base.X) ||
     throw(ArgumentError("x, X and y must contain only finite values"))

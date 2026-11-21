@@ -6,7 +6,8 @@ unweighted `ElasticNet`) with dense Matrix designs, for
 [`CDSolver`](@ref), [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref).
 [`CDSolver`](@ref) also solves least-squares ridge with uncentered `SqrNormL2`.
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the least-squares
-problem with a `NormLinf` penalty (the largest magnitude of the entries); [`CDSolver`](@ref) does not.
+problem with a `NormLinf` penalty (the largest magnitude of the entries) and with a `NormL2` penalty (the
+Euclidean norm of the whole vector, a single group); [`CDSolver`](@ref) supports neither.
 [`CDSolver`](@ref) also solves the square-root lasso, with ProximalBase's `SqrtLeastSquaresLoss` and
 an unweighted `NormL1`, and reports `converged = true` for it only with a duality certificate.
 [`CDSolver`](@ref) accepts a dense
@@ -19,7 +20,7 @@ over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradie
 For a dense matrix response, both accept a same-type dense matrix of coefficients
 and an unweighted entrywise `NormL1` penalty under
 [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
-[`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
+[`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`, and [`CDSolver`](@ref) does too with a vector-response `LeastSquaresLoss`, raw or with one supported positive scale (the input rules are [IN-01](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01) and [IN-02](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-02)).
 [`ProximalGradientDescent`](@ref) also fits sparse logistic regression with a raw `LogisticLoss` (binary
 response, no observation weights or offset), dense `Float64` data and `NormL1`.
 [`ProxNewton`](@ref) fits the same problem by proximal Newton steps, each solved by cyclic coordinate descent on a
@@ -35,7 +36,7 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, NormL2, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   prox!, value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
