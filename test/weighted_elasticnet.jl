@@ -26,12 +26,13 @@ function reference_at(X, y, s, coefficients, ridge, x)
     residual = A * b - d
     gradient = α * (A' * residual)
     objective = (α * sum(abs2, residual) + r * sum(abs2, b)) / 2 + dot(c, abs.(b))
-    kkt = maximum(eachindex(b)) do j
+    scores = map(eachindex(b)) do j
       iszero(b[j]) ? max(abs(gradient[j]) - c[j], 0) :
         abs(gradient[j] + r * b[j] + c[j] * sign(b[j]))
     end
-    scale = max(maximum(c), norm(α * (A' * d), Inf))
-    (; objective, gradient, kkt, scale)
+    λmax = norm(α * (A' * d), Inf)
+    (; objective, gradient, scores, kkt = maximum(scores), scale = max(maximum(c), λmax),
+      entry_scales = max.(c, λmax))
   end
 end
 
@@ -62,7 +63,7 @@ function fit_and_check(X::Matrix{T}, y, s, a, b, w, x0, expected, method, sparse
   else
     @test result.x_converged || result.f_converged || result.grad_converged
     # A small allowance covers the difference between the native and independent products.
-    @test reference.kkt < max(opts.gradtol, 64eps(T)) * reference.scale + 32eps(T)
+    @test all(reference.scores .< max(opts.gradtol, 64eps(T)) .* reference.entry_scales .+ 32eps(T))
   end
   v
 end
@@ -130,11 +131,13 @@ end
   end
 end
 
-@testset "The PG stop uses the weighted residual and largest coefficient ($T)" for
+@testset "The PG stop uses per-coordinate ElasticNet thresholds ($T)" for
     T in (Float32, Float64), method in PG_METHODS
   X = Matrix{T}(I, 2, 2)
   for (y, x, a, b, w, gradtol, expected) in (
-      (T[0.9, 0], T[0.5, 0], one(T), T(0.25), T[1, 1000], 0.01, true),
+      (T[0.9, 0], T[0.5, 0], one(T), T(0.25), T[1, 1000], 0.01, false),
+      (T[0, 100], T[0, 0.25], one(T), T(0.25), T[1, 1000], 0.95, true),
+      (T[1, 0], T[0.25, 0], one(T), one(T), T[0, 1000], 0.5, false),
       (T[1, 0], T[0, 0], T(0.5), T(0.25), T[0, 1], 0.6, false),
       (T[1, 0], T[0.5, 0], T(0.5), T(0.25), T[0, 1], 0.2, false),
       (T[1, 0], T[0.8, 0], T(0.5), T(0.25), T[0, 1], 0.2, true))
@@ -142,12 +145,13 @@ end
     opts = ProximalOptions(; gradtol)
     state = PS.initial_state(method, opts, f, g, copy(x))
     ref = reference_at(X, y, one(T), exact_coefficients(a, w), b, x)
-    @test (ref.kkt < gradtol * ref.scale) == expected
+    @test all(ref.scores .< gradtol .* ref.entry_scales) == expected
     @test PS._stationary!(state, f, g, opts) == expected
     @test state.λmax == maximum(abs, y)
     @test PS._l1_level(g) == a * maximum(w)
     if maximum(w) > 1
-      @test ref.kkt >= gradtol * max(a, maximum(abs, y))
+      @test ref.kkt < gradtol * ref.scale
+      @test ref.kkt >= gradtol * maximum(abs, y)
     else
       unweighted = reference_at(X, y, one(T), fill(a, 2), b, x)
       @test (unweighted.kkt < gradtol * unweighted.scale) != expected
@@ -155,28 +159,38 @@ end
   end
 
   f = LeastSquaresLoss(zeros(T, 2), X)
-  g = ElasticNet(one(T), T(0.5), zeros(T, 2))
   opts = ProximalOptions()
-  state = PS.initial_state(method, opts, f, g, zeros(T, 2))
-  @test !PS._stationary!(state, f, g, opts)
+  for w in (T[0, 0], T[0, 1000])
+    g = ElasticNet(one(T), T(0.5), w)
+    state = PS.initial_state(method, opts, f, g, zeros(T, 2))
+    @test !PS._stationary!(state, f, g, opts)
+  end
+  g = ElasticNet(one(T), T(0.5), T[0, 1])
+  @test !PS._entry_thresholds_hold(g, zeros(T, 2), zeros(T, 2), T(0.5), floatmin(T))
 end
 
 @testset "Weighted ElasticNet public PG result flags ($T)" for T in (Float32, Float64), method in PG_METHODS
   X, y = T[1 0; 0 2], T[2, 0]
   f = LeastSquaresLoss(y, X)
-  w = T[0, 1000]
   x = zeros(T, 2)
-  opts = ProximalOptions(maxiter = 2, gradtol = 0.01, ftol = 100)
-  result = solve!(x, f, ElasticNet(one(T), one(T), w), method, opts)
-  at_x = reference_at(X, y, one(T), w, one(T), x)
-  @test result.converged && result.f_converged && result.iterations == 1
-  threshold = T(opts.gradtol) * T(at_x.scale)
-  @test threshold == T(10)
-  @test 0.02 < at_x.kkt < threshold
+  opts = ProximalOptions(maxiter = 2, gradtol = 0.01, ftol = 100, prox_calls_limit = 1)
+  for w in (T[0, 1000], T[0.125, 1e6])
+    fill!(x, zero(T))
+    result = solve!(x, f, ElasticNet(one(T), one(T), w), method, opts)
+    at_x = reference_at(X, y, one(T), w, one(T), x)
+    @test result.iterations == 1 && result.call_limit_reached && !result.converged
+    @test !(result.x_converged || result.f_converged || result.grad_converged)
+    @test at_x.kkt < opts.gradtol * at_x.scale
+    @test at_x.scores[1] > opts.gradtol * at_x.entry_scales[1]
+
+    expected = T[(y[1] - w[1]) / 2, 0]
+    fit_and_check(X, y, one(T), one(T), one(T), w, zeros(T, 2), expected, method, false)
+  end
 
   fill!(x, zero(T))
   zero_loss = LeastSquaresLoss(zeros(T, 2), X)
-  result = solve!(x, zero_loss, ElasticNet(one(T), one(T), zeros(T, 2)), method, opts)
+  result = solve!(x, zero_loss, ElasticNet(one(T), one(T), zeros(T, 2)), method,
+                  ProximalOptions(maxiter = 2, gradtol = 0.01, ftol = 100))
   @test iszero(x) && result.iteration_converged && !result.converged
   @test !(result.x_converged || result.f_converged || result.grad_converged)
 end

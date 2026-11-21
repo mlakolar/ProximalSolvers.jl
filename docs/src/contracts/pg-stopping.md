@@ -108,7 +108,7 @@ The threshold need not be finite: a huge `gradtol` can make conversion or multip
 
 Common positive rescaling of loss and penalty preserves the normalized inequality in exact arithmetic. In working precision the rounded quantities and the normal-threshold guard can change the outcome even when the scales remain representable. For Float32 `X = [1]`, response `y = [1]`, `x = 0` and default `gradtol`, `s = λ = 1` passes while `s = λ = 1f-35` does not: the latter threshold is below `floatmin(Float32)`.
 
-With weights, the entry thresholds of [STOP-03](@ref) and [STOP-05](@ref) must also hold, under the same strict comparison and normal-threshold guard. If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives `G = 0` and stops at the first proposal when `S > 0` and the normal-threshold guard holds. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
+With weights, the entry or group thresholds of [STOP-03](@ref), [STOP-05](@ref) and [STOP-06](@ref) must also hold, under the same strict comparison and normal-threshold guard. If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives `G = 0` and stops at the first proposal when `S > 0` and the normal-threshold guard holds. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
 
 **Applies to.** PGD and APG; dense vectors and the matrices in [IN-10](@ref).
 
@@ -141,12 +141,25 @@ Each group norm is LinearAlgebra's `norm`: it scales a block before squaring whe
 The scale is `S = max(T(λ1), λmax)` and contains neither `λ2` nor `λ2‖x‖∞`. In exact arithmetic the problem is the lasso at level `λ1` on `X̃ = [√s X; √λ2 I]`, `ỹ = [√s y; 0]`: its squared-error loss is `s‖Xx-y‖²/2 + λ2‖x‖²/2`, its gradient adds `λ2 x`, and its `λ̃max = s‖Xᵀy‖∞`. This explains the same scale covariance under a common positive factor on `s`, `λ1` and `λ2`.
 
 With `ElasticNet(λ1, λ2, w)`, pass the working penalty from [IN-03](@ref) to
-ProximalBase's `kkt_violation` at the accepted point. In each entry, with
-`cᵢ = T(λ1) wᵢ` rounded in `T`, the score is `max(|∇fᵢ| - cᵢ, 0)` at zero and
-`|∇fᵢ + T(λ2)xᵢ + cᵢ sign(xᵢ)|` elsewhere. The residual is the maximum
-entry score. The scale is `S = max(maxᵢ cᵢ, λmax)`, with
+ProximalBase's `kkt_violation` at the accepted point. For each entry, with
+`cᵢ = T(λ1) * wᵢ` rounded in `T`, the mathematical score is `|∇fᵢ| - cᵢ`
+at zero and `|∇fᵢ + T(λ2)xᵢ + cᵢ sign(xᵢ)|` elsewhere. The full-point
+residual is the maximum of zero and the entry scores. The scale is
+`S = max(maxᵢ cᵢ, λmax)`, with
 `maxᵢ cᵢ = T(λ1) * maximum(w)` by monotone rounding. All-zero weights give
-`S = λmax`. The threshold guards are those of [STOP-04](@ref).
+`S = λmax`.
+
+After the full-point comparison of [STOP-04](@ref) passes, if `maxᵢ cᵢ > λmax`,
+form `tᵢ = τ * max(cᵢ, λmax)` in `T` for each entry. Require
+`tᵢ ≥ floatmin(T)` and the computed per-entry score
+`kkt_violation(g, ∇f(x), x, i)` strictly below `tᵢ`, using the same working
+penalty `g`. End the scan at the first failure. If `maxᵢ cᵢ ≤ λmax`,
+all entry thresholds equal the full-point threshold and that comparison
+decides alone. Unweighted elastic net uses only its full-point comparison.
+A zero-weight entry still includes the ridge derivative in its score and
+uses the threshold `τ * λmax`. The normal-threshold guard can veto the stop
+there even when the full-point threshold is normal, including when the
+computed `λmax` is zero. The scale still has the limitation in [STOP-12](@ref).
 
 With `ElasticNet(0, λ2)` and zero response, computed `S = 0` refuses all stops even though zero is the ridge solution; the solve can run to `maxiter` with `converged=false`, as `NormL1(0)` does at zero response unless another exit applies. The relevant zero is the *computed* scale. For `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` and `y = ones(Float32, 4)`, the exact `Xᵀy = 0` need not give a computed `λmax = 0`: summation in that order can produce `λmax = 1`, because `2^24 + 1` rounds to `2^24`. The resulting check can pass at a point whose exact-data residual is not small relative to computed `S`.
 
@@ -154,9 +167,9 @@ Initialization can accept finite `f(x0)` with `g(x0)` overflowing in `T` (for ex
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
-**Code.** `src/utils.jl: convergence_assessment, _stationary!`.
+**Code.** `src/utils.jl: convergence_assessment, _stationary!, _entry_thresholds_hold`.
 
-**Tests.** test/elasticnet.jl: residual conversion, stopping honesty, ridge zero-scale and overflowing-start testsets. test/weighted_elasticnet.jl: prescribed-iterate probes isolate the weighted scale and residual. Public solves cover the large-weight scale and the zero-scale veto through their result flags.
+**Tests.** `test/elasticnet.jl` checks residual conversion, stopping honesty, ridge zero scale and overflowing starts. `test/weighted_elasticnet.jl` checks prescribed-point and public PGD/APG results in Float32 and Float64 with independent BigFloat residuals, including proposals rejected at a zero or small weight when a large coefficient dominates the full-point scale, and acceptance at an entry whose large coefficient sets its own threshold. It also checks equality and the zero and subnormal threshold guards.
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L168`, `docstring:src/types.jl:L23`, `docs/src/developer/implementation-notes.md:L286`, `README.md:L79`.
 
@@ -188,7 +201,7 @@ A small accepted `L` makes `t` large and this mapping a weaker stationarity meas
 
 `λmax` is computed once per solve at the first check that reaches that stage, by one product of `Xᵀ` with the loss's zero-point vector (`Xᵀy` for least squares, `Xᵀ(½ - y)` for the logistic loss of [IN-09](@ref)), and stored in state field `λmax`; that product is not counted. Weighted lasso adds two scans of `w` to the KKT pass: one maximum scan and one scan in construction of the penalty with converted level. When the largest coefficient exceeds `λmax` (`Λ` for groups), a check that passes the full-point comparison adds one more traversal of the entries (of the groups for `GroupNormL2`) with ProximalBase's per-entry score, ending at the first failed comparison ([STOP-03](@ref), [STOP-05](@ref)). It creates no coefficient array. With groups given as vectors of `Int` indices or as ranges it allocates nothing. Other accepted group layouts (abstractly typed containers, or non-`Int` index types) can allocate in ProximalBase's group scorer during this pass, including some for which the full-point group residual allocates nothing.
 
-Weighted ElasticNet reuses its native working penalty and scans the weights to find the maximum [STOP-06](@ref).
+Weighted elastic net reuses its native working penalty and scans the weights to find the maximum. Its entry check uses the same conditional traversal and creates no coefficient array ([STOP-06](@ref)).
 
 Each generic check with finite positive `t` adds one proximal evaluation, counted in `prox_calls`; APG additionally counts its gradient at `x`. These costs accrue before call limits are tested. The generic check restores its scratch `delta_x` to `x - x_previous` before the remaining diagnostics read it.
 

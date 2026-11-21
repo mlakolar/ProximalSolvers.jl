@@ -124,7 +124,7 @@ end
 # stop adds to the O(p) pass of kkt_violation one O(p) scan of w for `maximum` and one in the constructor of
 # the NormL1 that holds the converted level; for w ≡ 1 the coefficients and S are those of NormL1(λ0).
 # Weighted ElasticNet reuses the already-native working penalty for scoring (IN-03, STOP-06).
-# For weighted NormL1, each entry is also held to its own scale (#464): the signed score sᵢ of entry i (ProximalBase's
+# For weighted NormL1 and ElasticNet, each entry is also held to its own scale: the signed score sᵢ (ProximalBase's
 # kkt_violation(h, ∇f(x), x, i), negative at a zero entry with |∇fᵢ| < cᵢ) must be below τ max(cᵢ, λmax). That
 # threshold is at most τ S, so the comparison with τ S above is necessary; when maxᵢ cᵢ ≤ λmax every entry threshold
 # equals τ S and nothing more is done. Otherwise, after that comparison has passed, _entry_thresholds_hold compares each score with its threshold, which
@@ -165,13 +165,20 @@ function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, E
 end
 
 # Each entry (each group) of a weighted penalty against its own threshold τ max(cᵢ, λmax), when the full-point
-# comparison has passed and the largest coefficient exceeds λmax (see above). The penalties without weights (unweighted NormL1, NormL1Nonneg, IndNonnegative,
-# ElasticNet) take this method, since all their entry thresholds are τ S; a weight vector of ones takes the pass, with
+# comparison has passed and the largest coefficient exceeds λmax (see above). The unweighted penalties take
+# the fallback, since their entry thresholds are τ S. A weight vector of ones takes the pass, with
 # every threshold equal to τ S.
 _entry_thresholds_hold(g, grad, x, τ, λmax) = true
 function _entry_thresholds_hold(g::NormL1{T, Vector{T}}, grad, x, τ::T, λmax::T) where T
   @inbounds for i in eachindex(x, grad, g.w)
     t = τ * max(g.λ0 * g.w[i], λmax)
+    (t >= floatmin(T) && kkt_violation(g, grad, x, i) < t) || return false
+  end
+  true
+end
+function _entry_thresholds_hold(g::ElasticNet{T, Vector{T}}, grad, x, τ::T, λmax::T) where T
+  @inbounds for i in eachindex(x, grad, g.w)
+    t = τ * max(g.λ1 * g.w[i], λmax)
     (t >= floatmin(T) && kkt_violation(g, grad, x, i) < t) || return false
   end
   true
