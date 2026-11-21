@@ -7,9 +7,8 @@ module LogDetKKTScale
 # from G = S - inv(Θ) and tests each entry for an uncertain rounding of that form (uncertain if
 # mᵢⱼ/4 > dᵢⱼ, with mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ). If one is uncertain, the solver rebuilds W = inv(Θ) from
 # the Cholesky factor and attempts to evaluate every violation from the inputs and W through TwoSum
-# decompositions. The recombinations round, and an entry or side whose terms are not finite falls back
-# to the first-pass value (PGD-08). S - inv(Θ) can round a decisive residual away, which the fixtures
-# below exercise.
+# decompositions. The recombinations round, and nonfinite terms are handled by the three cases of PGD-08.
+# S - inv(Θ) can round a decisive residual away, which the fixtures below exercise.
 #
 # References computed here in BigFloat (256 bits unless a test says otherwise; 2048 bits is a chosen
 # reference precision) from the stored data and the returned matrices, without ProximalBase's gradient or
@@ -215,7 +214,7 @@ end
 @testset "the uncertainty test of the pass from G" begin
   # The code flags an entry if mᵢⱼ T(0.25) > dᵢⱼ, with mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ and c̃ᵢⱼ = Cᵢⱼ at a nonzero Θᵢⱼ
   # or where 2|Gᵢⱼ| ≥ Cᵢⱼ, else 0; the cases below are written as mᵢⱼ against 4dᵢⱼ. The helper is called with
-  # chosen matrices; the scales are those of S + C (here 1, so dᵢⱼ = 1 or the unit floor).
+  # chosen matrices and with the scale roots injected directly, to isolate the comparison and the unit floor.
   gform(Θ, S, G, C, s) = PS._logdet_pgd_gform(Θ, S, G, C, s)
   for T in (Float64, Float32)
     I1 = Matrix{T}(I, 1, 1)

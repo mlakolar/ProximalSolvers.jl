@@ -85,8 +85,8 @@ end
 # gives (h, l). At a nonzero θ, TwoSum of h and cᵢⱼ sign(θ) gives (h2, l2) and the violation is
 # abs(h2 + (l + l2)). At a zero, `_logdet_pgd_side` gives the two sides, u + (lu + l) from the TwoSum of h
 # and -cᵢⱼ and u + (lu + (-l)) from the TwoSum of -h and -cᵢⱼ, and the violation is the larger of the
-# two sides and 0. The additions of the recombinations round. Three cases fall back to the first-pass
-# value: (a) if h or l is not finite, the whole entry takes its first-pass violation; (b) at a zero, a
+# two sides and 0. The additions of the recombinations round. Three cases handle nonfinite terms:
+# (a) if h or l is not finite, the whole entry takes its first-pass violation; (b) at a zero, a
 # side whose u is not finite is -Inf and its first-pass value g - c or -g - c is discarded, and a side
 # whose u is finite but whose recombination is not takes that first-pass value; (c) at a nonzero θ, if
 # the recombination is not finite the entry takes its first-pass violation.
@@ -126,7 +126,7 @@ end
 
 # The same score from the inputs and W = inv(Θ). Each entry is evaluated by
 # `_logdet_pgd_violation(θ, g, c, S, W)`, which attempts the evaluation from the inputs and has the
-# three fallback cases listed there. The returned score is checked for finiteness.
+# three cases for nonfinite terms listed there. The returned score is checked for finiteness.
 function _logdet_pgd_wform(Θ::Matrix{T}, S, W, G, C, scales) where T
   worst = zero(T)
   @inbounds for j in axes(Θ, 2), i in 1:j

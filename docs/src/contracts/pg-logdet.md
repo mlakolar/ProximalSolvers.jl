@@ -128,7 +128,7 @@ with gradual underflow when both of its outputs are finite. Let `(h, l) = TwoSum
 - At a zero, let `(u, lu) = TwoSum(h, -Cᵢⱼ)` and `(v, lv) = TwoSum(-h, -Cᵢⱼ)`. Then
   `rᵢⱼ = max(u + (lu + l), v + (lv - l), 0)`.
 
-The additions of the recombinations round. Three cases fall back to the first-pass values:
+The additions of the recombinations round. Three cases handle nonfinite terms:
 1. If `h` or `l` is not finite, the entry takes its first-pass violation.
 2. At a zero, each side is handled separately. If its high term (`u` or `v`) is not finite, the side
    is `-Inf` and its first-pass value, `Gᵢⱼ - Cᵢⱼ` or `-Gᵢⱼ - Cᵢⱼ`, is discarded. If the high term
