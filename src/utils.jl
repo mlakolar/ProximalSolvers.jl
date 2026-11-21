@@ -105,26 +105,47 @@ end
 # on a dense Vector{Float32} or Vector{Float64}: the state carries a _CoordinateScales (see _coordinate_scales) and
 # the coordinatewise check below decides (STOP-21).
 #
-# The column data of the coordinatewise check: hⱼ = √(a nⱼ² + λ2) for each column j, with -1 marking a zero column
-# when λ2 = 0 and NaN marking a nonzero column whose Float64 sum of squares is below floatmin(Float64), and whether
-# the response is zero. Filled at the first check of a solve, for the λ2 of that check (the penalty is fixed in a
-# solve); `filled` is false until then.
+# The column data of the coordinatewise check, filled at the first check of a solve for the λ2 of that check (the
+# penalty is fixed in a solve); `filled` is false until then. h[j] is hⱼ = √(a nⱼ² + λ2) as an _SE{Float64}
+# (significand × 2^exponent, see src/solvers/image_models.jl), or one of two markers: _CASE_A (significand -1) for a
+# column whose stored entries are all ±0 when λ2 is a stored ±0, and _REFUSED (significand NaN) for a nonzero column
+# whose norm, computed with scaling, is 0 or not finite. y_zero says that every stored entry of y is ±0.
 mutable struct _CoordinateScales
-  h::Vector{Float64}
+  h::Vector{_SE{Float64}}
   y_zero::Bool
   filled::Bool
 end
+const _CASE_A = _SE{Float64}(-1.0, 0)
+const _REFUSED = _SE{Float64}(NaN, 0)
 
 # The column data for the problems of the coordinatewise check, allocated (length p) and not filled; nothing for
 # the other problems, which keep the λmax-based or the generic check.
 _coordinate_scales(model, g, x) = nothing
 _coordinate_scales(::_LSImage, ::Union{NormL1, ElasticNet}, x::Vector{T}) where {T<:Union{Float32, Float64}} =
-  _CoordinateScales(Vector{Float64}(undef, length(x)), false, false)
+  _CoordinateScales(Vector{_SE{Float64}}(undef, length(x)), false, false)
 
 # The states that carry the column data
 const _CoordinatewiseState{T<:Union{Float32, Float64}} = Union{
   ProximalGradientDescentState{T, Vector{T}, Vector{T}, <:_LSImage, <:Any, _CoordinateScales},
   AccProxGradDescentState{T, Vector{T}, <:_LSImage, <:Any, _CoordinateScales}}
+
+# Whether the stored value is +0.0 or -0.0, from its bits: a subnormal is not zero here, also on a thread that flushes
+# subnormals to zero (where iszero and == treat it as 0)
+_stored_zero(v::Base.IEEEFloat) = (reinterpret(Unsigned, v) << 1) == 0
+
+# √a and 2a for an _SE a = s·2^e: for √a an odd e is lowered by one with s doubled (s in [2, 4)), so that √a = √s·2^(e/2)
+# with one Float64 rounding of √s
+function _se_sqrt(a::_SE{T}) where {T}
+  iszero(a.s) && return a
+  s, e = a.s, a.e
+  if isodd(e)
+    s *= 2
+    e -= 1
+  end
+  r = _SE{T}(sqrt(s))
+  _SE{T}(r.s, r.e + e ÷ 2)
+end
+_se_twice(a::_SE{T}) where {T} = iszero(a.s) ? a : _SE{T}(a.s, a.e + 1)
 
 # h = λ‖·‖₁ for NormL1(λ), h = Σⱼ λ wⱼ |bⱼ| for NormL1(λ, w), h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2), and
 # h = Σⱼ λ1 wⱼ |bⱼ| + (λ2/2)‖·‖² for ElasticNet(λ1, λ2, w). The working penalty gT has its levels in T
@@ -132,27 +153,26 @@ const _CoordinatewiseState{T<:Union{Float32, Float64}} = Union{
 # signed kkt_violation(gT, ∇f(x), x, i): |∇fᵢ| - cᵢ where xᵢ = 0, and |∇fᵢ + λ2 xᵢ + cᵢ sign xᵢ| otherwise (λ2 = 0 for
 # NormL1). A zero weight gives cᵢ = 0, so its score is |∇fᵢ + λ2 xᵢ| at a nonzero xᵢ.
 #
-# In exact arithmetic t ↦ F(x + t eᵢ) is μᵢ-strongly convex with μᵢ = α‖Xᵢ‖² + λ2, and the magnitude of its least-norm
-# subgradient at t = 0 is max(Gᵢ, 0) for the signed score Gᵢ, so the decrease of F that coordinate i alone can give is
-# at most max(Gᵢ, 0)²/(2μᵢ). With the smooth part Φ = ½α‖Xx - y‖² + (λ2/2)‖x‖², a score Gᵢ < τ sᵢ, sᵢ = √(2μᵢΦ),
-# bounds that decrease by τ²Φ when μᵢ > 0. The check
-# keeps a proposed stop when every coordinate passes, in one pass that ends at the first failure:
-# - when λ2 = 0, a coordinate whose column is identically zero (μᵢ = 0; the computed ∇fᵢ is ±0 for a finite
-#   residual) passes when its computed score is finite and at most 0. The column class is stored by the column
-#   pass, not inferred from a computed threshold;
-# - when x = 0 and y = 0 elementwise (F(0) = 0 is the minimum), every coordinate passes when its computed score is
-#   finite and at most 0. This is tested only when ρ below is computed as 0;
+# In exact arithmetic t ↦ F(x + t eᵢ) is convex with curvature μᵢ = α‖Xᵢ‖² + λ2, and the magnitude of its least-norm
+# subgradient at t = 0 is g⁺ᵢ = max(Gᵢ, 0) for the signed score Gᵢ. When μᵢ > 0 the decrease of F that coordinate i
+# alone can give is at most (g⁺ᵢ)²/(2μᵢ); with the smooth part Φ = ½α‖Xx - y‖² + (λ2/2)‖x‖² and sᵢ = √(2μᵢΦ), a score
+# Gᵢ < τ sᵢ makes that decrease less than τ²Φ. The check keeps a proposed stop when every coordinate passes, in one
+# pass that ends at the first failure:
+# - when λ2 is a stored ±0, a coordinate whose column has only stored ±0 entries (μᵢ = 0; the computed ∇fᵢ is ±0 for
+#   a finite residual) passes when its computed score is finite and at most 0 (case A);
+# - when every stored entry of x and of y is ±0 (F(0) = 0 is the minimum), every coordinate passes when its computed
+#   score is finite and at most 0 (case B); x is scanned only when y is zero;
 # - every other coordinate passes when its score is finite and below the threshold tᵢ = T(τ hᵢ ρ), which must be
 #   finite and at least floatmin(T). Here τ = T(max(gradtol, 64 eps(T))), hᵢ = √(a nᵢ² + λ2) from the column data,
-#   a = Float64(α), nᵢ = ‖Xᵢ‖, and ρ = √(2Φ). The product is formed in Float64 and rounded once to T, so a score
-#   up to half a unit in the last place of T above τ hᵢ ρ can pass. A threshold of such a coordinate refuses the stop
-#   when it is NaN (the column data of a nonzero column whose Float64 sum of squares is below floatmin(Float64), or
-#   an infinite τ times a zero hᵢ ρ), infinite (an infinite τ, or an overflow) or below floatmin(T) (which includes a
-#   computed ρ = 0 at a point other than x = 0, y = 0).
-# Φ is formed from state.f_x, the loss value that ProximalBase computed at the accepted x, and (λ2/2)‖x‖²; the check
-# does not form Xx - y. After the column pass of the first check, a check adds to the gradient at x (PGD holds it;
-# APG forms it from the cached image, see _gradient_at_x!) O(p) work: the pass over the coordinates, ‖x‖ when λ2 > 0,
-# the zero test of x when ρ = 0 and y = 0 and, for a weighted NormL1, the scan of the weights in the constructor of the
+#   a = Float64(α), nᵢ = ‖Xᵢ‖, and ρ = √(2Φ). The factors are carried as _SE{Float64} values, whose exponents do not
+#   overflow or underflow, and the product is rounded once to T. A threshold refuses the stop when it is NaN (the
+#   _REFUSED marker), infinite or below floatmin(T) (which includes a computed ρ = 0 outside case B), and when τ, the
+#   loss value or ‖x‖ is not finite.
+# The case predicates read stored bits, not computed values; the column class is stored by the column pass.
+# Φ is formed from state.f_x, the loss value that ProximalBase computed at the accepted x, and (λ2/2)‖x‖²; the scale
+# does not form Xx - y (APG's gradient at x, see _gradient_at_x!, forms the residual from the cached image). After the
+# column pass of the first check, a check adds O(p) work to that gradient: the pass over the coordinates, ‖x‖ when
+# λ2 > 0, the zero test of x when y = 0 and, for a weighted NormL1, the scan of the weights in the constructor of the
 # converted penalty. It does not compute λmax.
 # The decision compares computed scores with computed thresholds; it is not a certificate in exact arithmetic.
 function _stationary!(state::_CoordinatewiseState{T}, f, g::Union{NormL1, ElasticNet},
@@ -161,87 +181,89 @@ function _stationary!(state::_CoordinatewiseState{T}, f, g::Union{NormL1, Elasti
   gT = _converted_penalty(g, T)
   λ2 = _ridge_level(gT)
   scales = _filled_scales!(state.scales, state.model, λ2)
-  τ = Float64(T(max(options.gradtol, 64 * Float64(eps(T)))))
-  ρ = _root_twice_smooth(state.f_x, λ2, state.x)
-  trivial = iszero(ρ) && scales.y_zero && all(iszero, state.x)
-  _coordinates_pass(gT, grad, state.x, scales.h, τ, ρ, trivial)
+  τ = T(max(options.gradtol, 64 * Float64(eps(T))))
+  trivial = scales.y_zero && all(_stored_zero, state.x)
+  c = _threshold_factor(τ, state.f_x, λ2, state.x)
+  _coordinates_pass(gT, grad, state.x, scales.h, c, trivial)
 end
 
-# The coordinates of the check above: with `trivial` (x = 0 and y = 0), and where hᵢ < 0 (a zero column with λ2 = 0),
-# the score must be finite and at most 0; elsewhere it must be finite and below the threshold T((τ hᵢ) ρ), which must
-# be finite and at least floatmin(T). A NaN hᵢ (a nonzero column whose sum of squares is below floatmin(Float64))
-# gives a NaN threshold, which refuses.
-function _coordinates_pass(gT, grad::Vector{T}, x::Vector{T}, h::Vector{Float64}, τ::Float64, ρ::Float64,
-                           trivial::Bool) where T
+# The coordinates of the check above. With `trivial` (case B), and where hᵢ is _CASE_A, the score must be finite and at
+# most 0; elsewhere it must be finite and below the threshold _coordinate_threshold(T, c, hᵢ), which must be finite and
+# at least floatmin(T). c = nothing (an infinite τ, or a nonfinite loss value or ‖x‖) refuses those coordinates, and so
+# does the NaN threshold of a _REFUSED column.
+function _coordinates_pass(gT, grad::Vector{T}, x::Vector{T}, h::Vector{_SE{Float64}}, c, trivial::Bool) where T
   for i in eachindex(x, grad, h)
     G = kkt_violation(gT, grad, x, i)
     hᵢ = @inbounds h[i]
-    if trivial || hᵢ < 0
+    if trivial || hᵢ.s < 0
       (isfinite(G) && G <= 0) || return false
     else
-      t = _coordinate_threshold(T, τ, hᵢ, ρ)
+      c === nothing && return false
+      t = _coordinate_threshold(T, c, hᵢ)
       (isfinite(t) && t >= floatmin(T) && isfinite(G) && G < t) || return false
     end
   end
   true
 end
 
-# The threshold of coordinate i: the Float64 product (τ hᵢ) ρ rounded once to T
-_coordinate_threshold(::Type{T}, τ::Float64, hᵢ::Float64, ρ::Float64) where T = T((τ * hᵢ) * ρ)
+# The threshold of coordinate i from c = τ ρ and hᵢ, both _SE{Float64}: the significands' product (in [1, 4), one Float64
+# rounding) scaled by 2^(exponents' sum), which is exact in the normal range of Float64, then rounded once to T. A zero c
+# gives 0 and a NaN hᵢ gives NaN.
+_coordinate_threshold(::Type{T}, c::_SE{Float64}, hᵢ::_SE{Float64}) where T = T(ldexp(c.s * hᵢ.s, c.e + hᵢ.e))
 
-# λ2 of the working penalty, in Float64 (exact for a level of type T); 0 for NormL1
-_ridge_level(g::NormL1) = 0.0
-_ridge_level(g::ElasticNet) = Float64(g.λ2)
+# λ2 of the working penalty, of type T; nothing for NormL1
+_ridge_level(g::NormL1) = nothing
+_ridge_level(g::ElasticNet) = g.λ2
 
-# ρ = √(2Φ), Φ = f_x + (λ2/2)‖x‖², in Float64: √2 √f_x, and with λ2 > 0 its hypot with √λ2 ‖x‖, so that neither 2Φ
-# nor λ2‖x‖² is formed. f_x is the stored least-squares value, which is not negative.
-function _root_twice_smooth(f_x, λ2::Float64, x)
-  r = sqrt(2.0) * sqrt(Float64(f_x))
-  iszero(λ2) ? r : hypot(r, sqrt(λ2) * _norm2_64(x))
-end
-
-# ‖x‖₂ in Float64: one pass of Float64 squares, exact for Float32 entries, and, when that sum is not finite, the scaled
-# form m √(Σ (xᵢ/m)²) with m = max|xᵢ|. Squares of Float64 entries below about 1.5e-154 in magnitude are rounded to
-# subnormal numbers or to zero.
-function _norm2_64(x)
-  s = _sumsq64(x)
-  isfinite(s) && return sqrt(s)
-  m = Float64(_norm_inf(x))
-  isfinite(m) || return m
-  m * sqrt(sum(v -> abs2(Float64(v) / m), x))
+# c = τ ρ as an _SE{Float64}, ρ = √(2 f_x + λ2 ‖x‖²): 2 f_x and λ2 ‖x‖² are formed and added as _SE values, with ‖x‖ from
+# a Float64 sum of squares or, when that sum is not finite or below 4 p floatmin(Float64), the scaled form of _se_norm.
+# nothing when τ, f_x or ‖x‖ is not finite. f_x is the stored least-squares value, which is not negative.
+function _threshold_factor(τ, f_x, λ2, x)
+  isfinite(τ) && isfinite(f_x) || return nothing
+  ρ2 = _se_twice(_SE{Float64}(Float64(f_x)))
+  if !(λ2 === nothing || _stored_zero(λ2))
+    nx = _se_norm_onepass(Float64, _sumsq64(x), x)
+    nx === nothing && return nothing
+    ρ2 = _se_add(ρ2, _se_mul(_SE{Float64}(Float64(λ2)), _se_mul(nx, nx)))
+  end
+  _se_mul(_SE{Float64}(Float64(τ)), _se_sqrt(ρ2))
 end
 
 # One pass over the columns of X, at the first check of a solve. sⱼ = Σᵢ Float64(Xᵢⱼ)² (exact squares for Float32
-# entries). For sⱼ ≥ floatmin(Float64), nⱼ = √sⱼ, or, when sⱼ is not finite (for example with an entry above about
-# 1.3e154), the scaled
-# norm of the column; then hⱼ = hypot(√a nⱼ, √λ2). Otherwise a zero column gets -1 when λ2 = 0 and √λ2 when λ2 > 0,
-# and a nonzero column gets NaN. y is scanned for zeros once.
-function _filled_scales!(c::_CoordinateScales, m::_LSImage, λ2::Float64)
+# entries, rounded sum). nⱼ = √sⱼ when sⱼ is finite and at least floatmin(Float64); otherwise a column whose stored
+# entries are all ±0 is a zero column, and any other column has nⱼ from _se_norm of the column (scaled by its largest
+# magnitude). hⱼ = √a nⱼ, or √(a nⱼ² + λ2) when λ2 is not a stored ±0, formed with _SE values; a zero column has _CASE_A
+# when λ2 is a stored ±0 and √λ2 otherwise; a nonzero column whose nⱼ is 0 or not finite has _REFUSED. The stored
+# entries of y are tested for ±0 once.
+function _filled_scales!(c::_CoordinateScales, m::_LSImage, λ2)
   c.filled && return c
   X = m.X
-  ra, rl = sqrt(Float64(m.α)), sqrt(λ2)
+  ra = _root_scale(Float64, m.α)
+  ridge = !(λ2 === nothing || _stored_zero(λ2))
+  l2 = ridge ? _SE{Float64}(Float64(λ2)) : _se_zero(Float64)
   for (k, j) in enumerate(axes(X, 2))
     s = 0.0
     @inbounds @simd for i in axes(X, 1)
       s += abs2(Float64(X[i, j]))
     end
-    c.h[k] = if s >= floatmin(Float64)
-      hypot(ra * (isfinite(s) ? sqrt(s) : _scaled_column_norm(X, j)), rl)
-    elseif all(iszero, view(X, :, j))
-      iszero(λ2) ? -1.0 : rl
+    c.h[k] = if isfinite(s) && s >= floatmin(Float64)
+      _column_scale(ra, _SE{Float64}(sqrt(s)), l2, ridge)
+    elseif all(_stored_zero, view(X, :, j))
+      ridge ? _se_sqrt(l2) : _CASE_A
     else
-      NaN
+      n = _se_norm(Float64, view(X, :, j))
+      n === nothing || iszero(n.s) || !isfinite(n.s) ? _REFUSED : _column_scale(ra, n, l2, ridge)
     end
   end
-  c.y_zero = all(iszero, m.Y)
+  c.y_zero = all(_stored_zero, m.Y)
   c.filled = true
   c
 end
 
-# ‖X[:, j]‖ in Float64 as m √(Σ (Xᵢⱼ/m)²), m = max|Xᵢⱼ| > 0, for a column whose plain sum of squares overflows
-function _scaled_column_norm(X, j)
-  m = maximum(i -> abs(Float64(X[i, j])), axes(X, 1))
-  m * sqrt(sum(i -> abs2(Float64(X[i, j]) / m), axes(X, 1)))
+# √(a n² + λ2) from √a and n, as _SE values; √a n without a ridge term
+function _column_scale(ra::_SE{Float64}, n::_SE{Float64}, l2::_SE{Float64}, ridge::Bool)
+  u = _se_mul(ra, n)
+  ridge ? _se_sqrt(_se_add(_se_mul(u, u), l2)) : u
 end
 
 # The λmax-based check, for the other problems with a dedicated penalty: a logistic loss with NormL1 (PGD and APG,
