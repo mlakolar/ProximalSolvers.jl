@@ -130,8 +130,13 @@ gradient would lie in range.
 A stopping test that reads the same rounded product can be met at a nonminimizer.
 The `λmax`-based PGD/APG stationarity checks can read a computed zero gradient and a computed zero
 `lambda_max` even where the exact products are nonzero. The coordinatewise check of
-[STOP-21](@ref) can read a computed zero gradient entry, a score of at most `0`, where the
-exact product is not zero; a computed zero loss value refuses there unless `x = 0` and `y = 0`. In CD, a zero computed
+[STOP-21](@ref) can read a computed zero gradient entry where the exact product is not
+zero; its score is then `-cᵢ` at a zero coefficient and `|λ2 xᵢ + cᵢ sign xᵢ|`, which can be
+positive, elsewhere. Its threshold reads `Φ = f(x) + (λ2/2)‖x‖²` from the stored loss value: a
+computed `Φ = 0` refuses each coordinate outside its exact zero scales (a column of stored
+`±0` entries with no ridge term, and `x = y = 0`), while a positive ridge energy can give a
+normal threshold at a zero loss, and a design whose columns are all of the first kind can
+pass at a nontrivial point of zero loss. In CD, a zero computed
 correlation can make a full pass change nothing and satisfy the change test.
 [ORACLE-03](@ref) preserves executable underflow and cancellation examples, their
 high-precision residuals and their objective errors. Keep data and scales in a range

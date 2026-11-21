@@ -257,11 +257,11 @@ The level and weights pass [IN-03](@ref), with one rounded
 `x` must not alias `X`, `y` or the weights. The checks complete before any write to
 `x`. ProximalBase supplies the block soft-threshold step. A proposed stop must pass
 the [group stationarity check](@ref STOP-05); APG forms one gradient at the accepted
-`x` for each such check and includes it in `grad_calls`. Singleton groups with unit
-weights have the scale `S = max(λ, λmax)` of the `λmax`-based `NormL1` check
-([STOP-03](@ref)) when no entry of `gradient(f, 0)` has a subnormal square; least squares
-with `NormL1(lambda)` uses the coordinatewise check of [STOP-21](@ref) instead, so the
-two penalties' stopping decisions can differ.
+`x` for each such check and includes it in `grad_calls`. For singleton groups with unit
+weights the group scale `S = max(λ, maxₖ ‖[∇f(0)]_{Gₖ}‖₂)` equals `max(λ, ‖∇f(0)‖∞)` when no
+entry of `gradient(f, 0)` has a subnormal square. Least squares with `NormL1(lambda)` uses
+the coordinatewise check of [STOP-21](@ref), not that scale, so the two penalties'
+stopping decisions can differ.
 
 **Applies to.** Dense-vector group least squares with PGD or APG. Scalar CD refuses this penalty; group CD uses its own `BlockIterate` contract.
 

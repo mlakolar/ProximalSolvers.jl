@@ -22,8 +22,9 @@ implementation reads the stored loss value instead, so the decisions of the two 
   free block (RD1); in Float32 in 30 (27) rows against 0 (0). On the 80 ordinary least-squares rows per type B changed one
   Float64 decision (a false stop removed), and lost certification on 8 (5) accurate Float32 rows while gaining it on 1 (2).
   Iterations of Float64 rows certified under both rules: median ratio 1.00, largest 1.32.
-- **Consistent systems.** The study's exact-fit fixture (`F* ≈ 0`) was refused under B and E, and the report stated
-  that exact fits do not certify under B; the maintainer accepted that limitation for this change.
+- **Consistent systems.** The study's exact-fit fixture (`F* ≈ 0`) was refused under B and E. For the implementation
+  the limitation is that an exact or near-exact fit can be left uncertified ([STOP-21](@ref)); the maintainer accepted
+  it for this change.
 
 The validation of the implementation and its benchmarks run against production code at the base `a9fb96c8` and at the
 head of [pull request #521](https://github.com/mlakolar/ProximalSolvers.jl/pull/521); their numbers are recorded below
@@ -33,7 +34,13 @@ when the runs finish.
   Float32 and Float64, PGD and APG, Julia 1.10.13 and 1.13.4, default options and `gradtol = 1e-8`, with BigFloat
   references on the stored inputs. Each row is classified as converged and accurate, converged and inaccurate, accurate
   and not converged, or neither (accuracy threshold `1e-6` relative objective excess in Float64), with the refusal
-  cause at the last check and the exit. Results: *to be recorded*.
+  cause at the last check and the exit. Results: *to be recorded* (class counts per precision, method and family, at
+  the base and at the head). Two findings of the validation runs at `fdffba3c` are recorded here:
+  - In Float64 a small `gradtol` (`1e-8`) on large-offset problems can leave accurate solves uncertified: the rounding
+    of the computed gradient exceeds `τ sᵢ`.
+  - The coordinatewise scale can need more iterations than the default `maxiter`: on N2 (100×200, `0.01 λmax`), PGD
+    was certified at the base after 146 to 151 iterations and reached `maxiter = 200` at the head, with relative
+    objective excess `4e-9` to `1e-8`.
 - **Benchmarks.** Design: paired in-process comparison with the base loaded as a second module and a head-against-head
   control, at least 30 rounds in alternating order, on 200×50, 2000×500 and 5000×1000 lasso and elastic-net problems
   and one offset problem, PGD and APG, Float64 and Float32; the column pass against the `Xᵀy` product it replaces, the
@@ -41,7 +48,8 @@ when the runs finish.
   *to be recorded*.
 
 **Observations at the implementation against the base.** On Julia 1.13.4 (AMD EPYC 7513), with the default options
-unless stated, at the base `a9fb96c8` and at the implementation in pull request #521:
+unless stated, at the base `a9fb96c8` and at the implementation in pull request #521 (`fdffba3c`; the rows were rerun
+after the thresholds were carried as significand and exponent, with the same values):
 
 | Fixture | Base | Implementation |
 |---|---|---|
@@ -55,9 +63,14 @@ unless stated, at the base `a9fb96c8` and at the implementation in pull request 
   coordinate is about `τ` while `x* = 1e-20`; the relative coefficient error of APG's stop is large and its objective
   excess is not. In the #464 row the coordinatewise threshold of `x₂`, about `τ ‖X₂‖ ‖r‖ ≈ 1e7`, is far looser than
   the #464 threshold `τ c₂ ≈ 10`, because the residual is about `1e6`.
-- Exact fits: `X = ones(5, 1)`, `y = fill(1e160, 5)` with `NormL1(0)`, the fixture `X = [1.0;;]`, `y = [1e160]`, the four
-  Float32 fixtures of the same form in `test/initial_curvature.jl`, and `X = diag(1, 1e-6)`, `y = (0, 1e-156)`
-  (`maxiter = 20_000`) return the exact minimizer at `maxiter` with `converged = false`.
+- Exact fits, each with `NormL1(0)` from `x = 0` and the default options unless stated; at the head each proposal is
+  refused by case C (a computed residual parallel to the column, or zero) and the solve returns the exact minimizer at
+  `maxiter` with `converged = false`, PGD and APG:
+  - `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100` (Float64);
+  - `X = [1.0;;]`, `y = [1e160]`, loss scale `5e-100` (Float64);
+  - `X = ones(Float32, 5, 1)` with `y = fill(1f20, 5)` and Float64 loss scales `1e-10` and `1e-30`, `y = fill(1f25, 5)`
+    with loss scale `1f-20`, and `y = fill(1f30, 5)` with loss scale `1f-30`;
+  - `X = diag(1, 1e-6)`, `y = (0, 1e-156)`, raw loss, `maxiter = 20_000` (PGD).
 - In the Learn chapter on floating point, the underflow example (case 2) now returns `converged = false` from PGD and
   APG at the coefficient `0` (`converged = true` at the base); the other Learn examples keep their flags.
 - Benchmark campaign baselines of [STOP-20](@ref), whose Float64 options use `gradtol = 1e-11`, are not comparable
