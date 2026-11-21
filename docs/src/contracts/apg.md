@@ -2,11 +2,11 @@
 
 ## Scope
 
-`AccProxGradDescent` supports dense `Vector{Float32}` and `Vector{Float64}` coefficients and the matrices in [IN-10](@ref) for the least-squares penalties in the [support matrix](../support.md). It uses the common least-squares image model, gradient engine, options and results. It has no metric, tuple, owner or generic smooth-loss path.
+`AccProxGradDescent` supports dense `Vector{Float32}` and `Vector{Float64}` coefficients and the matrices in [IN-10](@ref) for the least-squares penalties in the [support matrix](../support.md). It uses the common least-squares image model, gradient engine, options and results. It also accepts a raw `LogisticLoss(y, X)` with `NormL1` on a dense `Vector{Float64}` under [IN-09](@ref), with the line search of [APG-08](@ref). It has no metric, tuple, owner or generic smooth-loss path.
 
 ## Problem
 
-Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` or `ElasticNet` with optional weights under [IN-03](@ref), `NormLinf`, `NormL2` ([IN-11](@ref)) or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref). The penalty prox is described in [PGD-01](@ref).
+Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` or `ElasticNet` with optional weights under [IN-03](@ref), `NormLinf`, `NormL2` ([IN-11](@ref)) or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref). The penalty prox is described in [PGD-01](@ref). For a raw `LogisticLoss(y, X)` the smooth term is the summed logistic loss of [IN-09](@ref) and the penalty is `NormL1` (optional weights); [APG-08](@ref) gives its line search.
 
 ## Notation
 
@@ -38,7 +38,7 @@ Form `y = x + k/(k+3) * (x - x_previous)` from the two accepted iterates, then t
 
 The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. Each trial uses `value_and_prox!` and a fresh image of its candidate. The unweighted lasso level follows [IN-02](@ref). Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its value is finite. The shared engine then applies [STOP-01](@ref).
 
-**Applies to.** AccProxGradDescent; supported dense least-squares problems.
+**Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: initial_state, update_state!, _prox_grad_step!`.
 
@@ -52,7 +52,7 @@ The image `X y` is formed by the same linear combination of cached `X x` and `X 
 
 A nonfinite value or gradient at the extrapolated point is treated the same way: restart when momentum was used, otherwise fail. A nonfinite trial value is rejected, raising `L` through `next_curvature` rather than immediately accepting or silently ending. If `L/β` cannot increase finitely, the search errors; [RES-01](@ref) specifies restoration of the last accepted iterate and rethrow. A trial with a nonfinite value is never accepted.
 
-**Applies to.** AccProxGradDescent; supported dense least-squares problems.
+**Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: update_state!, _prox_grad_step!; src/solve.jl: _solve_gradient!`.
 
@@ -106,7 +106,7 @@ Result identity, trace/callback ownership, limit ordering and mutation rules are
 
 The baseline proof below uses one response. [APG-07](@ref) gives the matrix-response dimensions and error bounds. In this proof `α` is the loss scale `s`, and all dimensions, rounding assumptions, underflow terms and exponent arithmetic are part of the stated conditions. Its final validation paragraph is historical empirical evidence, not an additional guarantee.
 
-**Applies to.** AccProxGradDescent least-squares line-search trials under the stated arithmetic and size assumptions.
+**Applies to.** AccProxGradDescent least-squares line-search trials under the stated arithmetic and size assumptions; for a logistic loss, the same test with `s = ¼` ([APG-08](@ref)).
 
 **Code.** `src/solvers/image_models.jl: _bound_certified!, _frobenius_upper, _root_scale; src/solvers/accelerated_proximal_gradient_descent.jl: _check_bound_size`.
 
@@ -243,13 +243,41 @@ full majorization condition, since the exact quadratic remainder is
 `s ‖X(B − B_y)‖_F²/2`. The rounding constants and size limits describe the
 implementation and its proof.
 
+### [APG-08 Logistic loss: the certified bound with curvature factor ¼](@id APG-08)
+
+**Statement.** For a supported solve of a raw `LogisticLoss(y, X)` accepted by the gate of [IN-09](@ref), APG runs the iteration of [APG-01](@ref) with the curvature factor `¼` in place of the loss scale `s`, that is `√s = ½` in the certified test of [APG-06](@ref), and with the initial curvature of [PGD-02](@ref) at that factor (its rules for a zero design and its floor included). Extrapolation, momentum, restart, the growth of `L` on a rejected trial, the counters and rollback are those of [APG-01](@ref) to [APG-04](@ref). The value and the gradient come from ProximalBase's predictor oracles, which run only for a finite image ([IN-09](@ref)). In this clause `y` is the extrapolated point, as in the notation above, and the response is not written.
+
+*Line-search decision.* A trial `x` from `y` at the curvature `L` can be accepted only when its smooth value is finite and the computed norm of `x` and the computed norm of the rounded displacement `d̂ = fl(d)`, with `d = x - y`, are finite; each norm is carried with its own exponent, so neither has to fit in a scalar `Float64`. Then `d̂ = 0` entrywise is accepted, and a nonzero displacement is accepted when `½‖X d‖ ≤ (1 + 4eps(T)) √L ‖d‖` is certified for the stored `x` and `y` under the arithmetic and size assumptions of [APG-06](@ref), with `T = Float64`. Any other trial is rejected. [APG-03](@ref) gives what follows a rejection, a restart or a failed step.
+
+*Inequality in exact arithmetic.* With `σᵢ = σ((X b)ᵢ)`, `0 ⪯ ∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX`, and Taylor's formula with integral remainder gives `f(x) ≤ f(y) + ⟨∇f(y), d⟩ + ⅛‖X d‖²`. Hence, if the image inequality `¼‖X d‖² ≤ (1 + 4eps(T))² L ‖d‖²` holds, then `f(x) ≤ f(y) + ⟨∇f(y), d⟩ + (L/2)(1 + 4eps(T))²‖d‖²`, the descent inequality relaxed in `L` by the factor `(1 + 4eps(T))²`. For least squares the remainder `f(x) - f(y) - ⟨∇f(y), d⟩` is `(s/2)‖X d‖²`, so the least-squares image inequality with scale `s` is equivalent to the correspondingly relaxed descent inequality. For the logistic loss the remainder is at most `⅛‖X d‖²`, and it is smaller when `X d ≠ 0`: the weights `σᵢ(1 - σᵢ)` equal `¼` only where a logit is zero, and a logit with `(X d)ᵢ ≠ 0` is zero at one point of the segment from `y` to `x` at most. The image inequality is sufficient for the descent inequality, not equivalent to it.
+
+*What is certified.* The certificate of [APG-06](@ref) is sufficient for the image inequality at the stored points, under the assumptions and error bounds of that clause: it accepts only a certified trial and rejects an inconclusive one, so it can reject a trial for which the image inequality holds. The certificate does not cover the computed `f(y)` and `∇f(y)`, which come from the extrapolated image `z_y` (error `E_y` in [APG-06](@ref)) and from the roundings of ProximalBase's oracles, or the restart test of [APG-03](@ref), which compares computed objective values. The descent inequality above is a consequence in exact arithmetic, not a statement about the computed values.
+
+*Conservatism.* The factor `¼` does not use the local weights, so where the logits are saturated the accepted `L` can be well above the local curvature, and the step `1/L` shorter than a test on the loss value would allow. The tests assert the following fixtures, all with `X = fill(2e154, n, 1)`, `NormL1(0.0)` and `AccProxGradDescent()` with its default factors.
+
+- One row, response `[1.0]` or `[0.0]`, start `[0.0]`. The first trial has an image beyond `floatmax(Float64)`, so its value is `Inf` and `L` is raised. The first iteration takes at least 1024 trials and accepts a finite `L` of at least `¼X²/(1 + 4eps)²`, about `1e308`, which is below `floatmax(Float64)`; the image and the value at the accepted point are finite. The test of `ProximalGradientDescent` with `BackTracking(Lexact = 0.9)` accepts the same fixture at `L = 1.8` (`test/logistic_pgd.jl`).
+- Three rows, response `[1.0, 1.0, 0.0]`, start `[0.0]`. For this one-column design the test needs `L` of at least about `3e308` for the nonzero first displacement, above `floatmax(Float64)`; `solve!` raises the error of `next_curvature` and restores the start ([APG-03](@ref)).
+- A zero displacement needs no such `L`. From the start `[1e-150]` with every response entry `1`, for one row and for three, the first iteration accepts the trial `x = y` at `L = 0.9` after one trial.
+
+*Nonfinite images.* The logistic value of an image with a nonfinite entry is `Inf` ([IN-09](@ref)), so such a trial is rejected; a nonfinite value or gradient at the extrapolated point restarts the step or, without momentum, fails with rollback ([APG-03](@ref)). A point accepted by the line search has a finite image: each trial it accepts, a zero step included, is decided inside the finite-value branch of `_prox_grad_step!`, where a logistic value is finite only for a finite image. The gradient at the accepted point used by the stopping check ([STOP-08](@ref)) is formed from that image; for a nonfinite image the logistic `_value_and_gradient!` returns `Inf` without writing the gradient.
+
+*Stopping.* A proposed stop is checked by [STOP-03](@ref) with the logistic gradient and the `λmax = ‖∇f(0)‖∞` of [IN-09](@ref). The difference `½ - response` that defines `∇f(0)` is formed in the image-length buffer, which APG writes before it reads it at each of its other uses.
+
+**Applies to.** `AccProxGradDescent` with a raw `LogisticLoss{Float64}` (no observation weights or offset) and `NormL1`, with or without weights, on a dense `Vector{Float64}`, under the arithmetic and size assumptions of [APG-06](@ref) and the size limits of [APG-02](@ref).
+
+**Code.** `src/solve.jl: _check_logistic_problem, _logistic_solver_name`; `src/solvers/image_models.jl: _LogisticImage, _image_model, _bound_certified!`; `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!`; `src/utils.jl: _zero_gradient!, _gradient_at_x!`.
+
+**Tests.** `test/logistic_apg.jl` compares the decisions of `_bound_certified!` for the logistic image with those for least squares at `s = ¼` on random samples. It calls `update_state!` directly for 100 updates on each of two fits (`n > p` and `p > n`) and, for the final trial of each sampled update with a nonzero displacement, checks the image inequality and the descent inequality in BigFloat from the stored data; it counts, among the sampled updates with a nonzero final displacement, those whose completed `L` exceeds the decreased initial `L`, those with momentum and no restart, and those with a restart. It compares the initial curvature with PGD's, including a zero design and the floor. Four regularized fits (`n > p`, `p > n`, unweighted and with random penalty weights) are checked by the BigFloat objective, the scores of each coordinate and the convexity bound `|F(a) - F(b)| ≤ max(KKT∞(a), KKT∞(b)) ‖a - b‖₁` against a PGD solve and a tighter PGD reference, each converged and with an independent BigFloat residual check of its own. The same residual check of a reported stop, with a margin for the rounding of the solver's gradient estimated from the data, is made in the intercept-only, unpenalized, strong-logit, momentum, rejected-trial and counter cases, and in the one-class case when it reports convergence. The file also covers rollback, the zero solution under `ftol = 0` ([STOP-10](@ref)), the overflow fixtures above, an overflowed start and an overflowed extrapolated point, the counter identities of [APG-04](@ref), allocations against the least-squares control and the refusals before any write. The shared gate, scale and stopping rules are tested in `test/logistic_pgd.jl` ([IN-09](@ref)).
+
+**Sources.** [Issue #501](https://github.com/mlakolar/ProximalSolvers.jl/issues/501), [IN-09](@ref) and the proof in [APG-06](@ref).
+
 ## Known limits
 
-The proof assumptions include IEEE arithmetic with gradual underflow and matrix-vector products evaluated as dot products. Native products and extrapolation still use `T`; exponent-separated bound arithmetic does not recover those products. Deep subnormal data can make the absolute error terms dominate, requiring a curvature far above the true curvature or ending in rollback. A curvature above `floatmax(T)` is not certified. Float32 more often needs the fresh-product decision late in a solve. General coefficient-accuracy limitations are [STOP-12](@ref).
+The proof assumptions include IEEE arithmetic with gradual underflow and matrix-vector products evaluated as dot products. Native products and extrapolation still use `T`; exponent-separated bound arithmetic does not recover those products. Deep subnormal data can make the absolute error terms dominate, requiring a curvature far above the true curvature or ending in rollback. A curvature above `floatmax(T)` is not certified. Float32 more often needs the fresh-product decision late in a solve. For a logistic loss the factor `¼` ignores the local curvature, so steps can be shorter than the loss allows ([APG-08](@ref)). General coefficient-accuracy limitations are [STOP-12](@ref).
 
 ## Tests
 
-`test/accelerated_pgd.jl` uses independent BigFloat references from raw data, rather than agreement with another solver alone. The preserved proof paragraph details the sampled conditions and their limits. `test/elasticnet.jl`, `test/group_pgd.jl` and `test/linf.jl` cover the supported penalties.
+`test/accelerated_pgd.jl` uses independent BigFloat references from raw data, rather than agreement with another solver alone. The preserved proof paragraph details the sampled conditions and their limits. `test/elasticnet.jl`, `test/group_pgd.jl` and `test/linf.jl` cover the supported penalties. `test/logistic_apg.jl` covers the logistic loss ([APG-08](@ref)).
 
 ## Retired historical wording
 
