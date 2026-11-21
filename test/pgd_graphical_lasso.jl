@@ -20,8 +20,9 @@ function full_weights(T, p, level, diagonal)
 end
 offdiagonal(p) = [(i, j) for j in 1:p for i in 1:p if i != j]
 soft(x, level) = sign(x) * max(abs(x) - level, 0)
-# The effective weights λ₀Λ of the penalty λ₀ Σᵢⱼ Λᵢⱼ|Θᵢⱼ|, in BigFloat.
-effective(g) = BigFloat(g.λ0) .* BigFloat.(g.w)
+# The effective weights Cᵢⱼ = T(λ₀)Λᵢⱼ of PGD-06, the products rounded in T as the solver forms them,
+# converted to BigFloat.
+effective(g) = BigFloat.(eltype(g.w)(g.λ0) .* g.w)
 target(::Type{Float32}) = 5e-4
 target(::Type{Float64}) = 1e-8
 pg_options() = ProximalOptions(; maxiter=20000, gradtol=5e-10, ftol=0)

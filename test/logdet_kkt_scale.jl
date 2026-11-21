@@ -3,16 +3,20 @@ module LogDetKKTScale
 # the solver divides the violation rᵢⱼ of entry (i, j) by max(1, sᵢsⱼ), sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|), and
 # reports R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ). Before #492 it divided every entry by the single scale
 # max(1, maximum(abs, S), maximum(C)), so one large entry of S or C loosened the stop of every
-# other entry. When some stored |Sᵢⱼ| exceeds 2 max(1, sᵢsⱼ), it also forms each violation from the
-# input combination Sᵢⱼ ± Cᵢⱼ and W = inv(Θ), because S - inv(Θ) can round a decisive residual away.
+# other entry. It forms the violations from G = S - inv(Θ) and tests each entry for an uncertain
+# rounding of that form (mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ). If one is uncertain it rebuilds W = inv(Θ)
+# from the Cholesky factor and evaluates every violation from the inputs and W by error-free sums,
+# because S - inv(Θ) can round a decisive residual away.
 #
-# Independent references, computed here in 256-bit BigFloat from the stored data and the returned
-# matrices, without ProximalBase's gradient or the solver's helpers (the helpers are called only
-# as the objects under test): the inverse, every violation, the scales, R, and a first-order
-# allowance for the rounding of the computed score (`rulef`). Fixed points check the reported
-# `g_residual` against the definition. Each solve below that reports converged = true is checked
-# against R ≤ max(gradtol, 64eps(T)) plus that allowance, and the analytic optima of the 2 × 2
-# fixtures are checked directly.
+# References computed here in BigFloat (256 bits unless a test needs more) from the stored data and the
+# returned matrices, without ProximalBase's gradient or the solver's helpers (the helpers are called
+# only as the objects under test): the inverse, every violation, the scales, R, and a first-order
+# estimate of the rounding of the computed score (`rulef`; it compares in Float64). The tests use
+# analytic values where an optimum or a fixed point is known (the 2 × 2 fixtures, the 1 × 1 cases, the
+# two blockers of the review, the rescaling), direct assertions on the helpers (the uncertainty
+# test, the evaluation of one entry), and BigFloat scores at returned points. Fixed points check the
+# reported `g_residual` against the definition. Each solve below that reports converged = true is
+# checked against R ≤ max(gradtol, 64eps(T)) plus the estimate.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 const PGD = ProximalGradientDescent
@@ -39,14 +43,16 @@ end
 
 # ---------------------------------------------------------------------------------------------------------
 # BigFloat oracle for the score R of PGD-08 at a point Θ, from the stored S and the effective weights
-# c = T(λ0) Λ of PGD-06. The allowance bounds the rounding of the computed R in working precision with
+# c = T(λ0) Λ of PGD-06. The allowance estimates the rounding of the computed R in working precision with
 # the unit roundoff u: a first-order estimate with slack, not a bound for the BLAS kernel in use. The
-# inverse from the Cholesky factor has an error of about (p + 4) u κ₁(Θ) ‖Θ⁻¹‖₁ in each entry, and the
-# gradient form S - W adds u(|Sᵢⱼ| + |Wᵢⱼ|); the input form adds the rounding of its input combination
-# instead of u|Sᵢⱼ|. Each entry is divided by its scale, as in R.
+# inverse from the Cholesky factor has an error of about (p + 4) u κ₁(Θ) ‖Θ⁻¹‖₁ in each entry. The form from
+# G = S - W adds u(|Sᵢⱼ| + |Wᵢⱼ|); the form from the inputs adds about 4u rᵢⱼ. Which form the solver uses
+# is decided here, as in PGD-08, from the exact gradient: the inputs form if some entry has
+# |Sᵢⱼ| + |gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ. `inputs` forces the choice. Each entry is divided by its scale, as in R.
+# The values are rounded to Float64.
 # ---------------------------------------------------------------------------------------------------------
-function rulef(Θ, S, c, ::Type{T}; inputs = false) where T
-  big256() do
+function rulef(Θ, S, c, ::Type{T}; inputs = nothing, bits = 256) where T
+  setprecision(BigFloat, bits) do
     p = size(Θ, 1)
     X, A, C = big.(Θ), big.(S), big.(c)
     W = inv(cholesky(Symmetric(X)))
@@ -54,24 +60,29 @@ function rulef(Θ, S, c, ::Type{T}; inputs = false) where T
     u = big(eps(T)) / 2
     Wnorm = opnorm(W, 1)
     κ = opnorm(X, 1) * Wnorm
+    d(i, j) = max(big(1), s[i] * s[j])
+    violation(i, j) = (g = A[i, j] - W[i, j];
+                       iszero(X[i, j]) ? max(abs(g) - C[i, j], big(0)) : abs(g + sign(X[i, j]) * C[i, j]))
+    uncertain = any(Iterators.product(1:p, 1:p)) do (i, j)
+      g = A[i, j] - W[i, j]
+      ct = (!iszero(X[i, j]) || 2abs(g) >= C[i, j]) ? C[i, j] : big(0)
+      abs(A[i, j]) + abs(g) + ct > 4d(i, j)
+    end
+    compensated = inputs === nothing ? uncertain : inputs
     R, e = big(0), big(0)
     for j in 1:p, i in 1:p
-      d = max(big(1), s[i] * s[j])
-      g = A[i, j] - W[i, j]
-      r = iszero(X[i, j]) ? max(abs(g) - C[i, j], big(0)) : abs(g + sign(X[i, j]) * C[i, j])
-      combination = iszero(X[i, j]) ? max(abs(A[i, j] - C[i, j]), abs(A[i, j] + C[i, j])) :
-                    abs(A[i, j] + sign(X[i, j]) * C[i, j])
-      rounding = (p + 4) * u * κ * Wnorm + u * (inputs ? combination + abs(W[i, j]) : abs(A[i, j]) + abs(W[i, j]))
-      R, e = max(R, r / d), max(e, rounding / d)
+      r = violation(i, j)
+      rounding = (p + 4) * u * κ * Wnorm + (compensated ? 4u * r : u * (abs(A[i, j]) + abs(W[i, j])))
+      R, e = max(R, r / d(i, j)), max(e, rounding / d(i, j))
     end
-    (R = Float64(R), e = Float64(e))
+    (R = Float64(R), e = Float64(e), uncertain)
   end
 end
 
 # The reported residual is the definition, up to the allowance; a converged solve meets the stop rule of
 # PGD-08 recomputed here. Returns the BigFloat score and its allowance.
-function check_result(r, Θ, S, λ0, Λ, ::Type{T}, o; inputs = false) where T
-  b = rulef(Θ, S, T(λ0) .* Λ, T; inputs)
+function check_result(r, Θ, S, λ0, Λ, ::Type{T}, o; inputs = nothing, bits = 256) where T
+  b = rulef(Θ, S, T(λ0) .* Λ, T; inputs, bits)
   @test abs(r.g_residual - b.R) <= b.e
   @test !r.converged || b.R <= τof(T, o) * (1 + 4 * eps(T)) + b.e
   b
@@ -101,18 +112,18 @@ end
 @testset "indefinite S: an off-diagonal entry that cancels its penalty" begin
   # S₁₂ = 1e9 (Float64) or 2¹⁶ (Float32) against C₁₂ = S₁₂ - e, with e = 0.4 or 0.375 up to the stored
   # numbers. The optimum is Θ = inv([1 e; e 1]) with Θ₁₂ < 0. Before #492 the solve converged after one step,
-  # 26% from the optimum. Here |S₁₂| exceeds 2 max(1, s₁s₂) = 2, so each violation is formed from
-  # S₁₂ - C₁₂ and W = inv(Θ).
+  # 26% from the optimum. Here the zero entry has |G₁₂| ≥ C₁₂/2 and mᵢⱼ far above 4 max(1, s₁s₂) = 4, so the
+  # violations are formed from the inputs and W = inv(Θ).
   for (T, S12, λ0, δ) in ((Float64, 1e9, 1e9 - 0.4, 4e-8), (Float32, 2f0^16, Float64(Float32(65536 - 0.375)), 1e-3))
     S, Λ = T[1 S12; S12 1], ones0(T, 2)
     c = T(λ0) .* Λ
     e = big(S[1, 2]) - big(c[1, 2])                  # the stored S₁₂ - C₁₂, exact
-    @test PS._logdet_pgd_cancellation(S, ones(T, 2))
     point(x) = T.(big256(() -> inv2(big(1), big(x))))
     # At Θ = I the diagonal violations vanish and the zero entry has violation S₁₂ - C₁₂ = e, so R = e.
     Θ = Matrix{T}(I, 2, 2)
     r, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
-    b = check_result(r, Θ, S, λ0, Λ, T, options(T); inputs = true)
+    b = check_result(r, Θ, S, λ0, Λ, T, options(T))
+    @test b.uncertain && PS._logdet_pgd_gform(Θ, S, S .- inv(Θ), c, T[1, 1])[2]
     @test abs(b.R - Float64(e)) <= 1e-12 && abs(r.g_residual - Float64(e)) <= 4 * Float64(eps(T))
     # At the optimum W₁₂ = e. At W₁₂ = e + δ the spacing of the numbers near S₁₂ is more than 2δ, so the
     # computed S₁₂ - W₁₂ is C₁₂ and the gradient form scores the entry as 0, while its violation is δ.
@@ -120,7 +131,7 @@ end
       Θ = point(e + offset)
       @test Θ[1, 2] < 0
       r, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
-      b = check_result(r, Θ, S, λ0, Λ, T, options(T); inputs = true)
+      b = check_result(r, Θ, S, λ0, Λ, T, options(T))
       if offset > 0
         G = S .- inv(cholesky(Symmetric(Θ)))
         @test iszero(G[1, 2] - c[1, 2])
@@ -134,10 +145,10 @@ end
     # reuse of the Cholesky factor inside a step.
     o = options(T; maxiter = 200)
     r, Θ = solve_from(Matrix{T}(2I, 2, 2), S, λ0, Λ, o)
-    check_result(r, Θ, S, λ0, Λ, T, o; inputs = true)
+    check_result(r, Θ, S, λ0, Λ, T, o)
     o = options(T; maxiter = 2)
     r, Θ = solve_from(Matrix{T}(2I, 2, 2), S, λ0, Λ, o)
-    b = check_result(r, Θ, S, λ0, Λ, T, o; inputs = true)
+    b = check_result(r, Θ, S, λ0, Λ, T, o)
     @test r.iterations == 2 && b.R > 1e-3
   end
 end
@@ -190,24 +201,45 @@ end
   end
 end
 
-@testset "the trigger of the cancellation path" begin
-  # |Sᵢⱼ| > 2 max(1, sᵢsⱼ): with a = (4, 4) the scale is 4 and the threshold 8, a strict inequality.
+@testset "the uncertainty test of the pass from G" begin
+  # mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ against 4dᵢⱼ, with c̃ᵢⱼ = Cᵢⱼ at a nonzero Θᵢⱼ or at a zero with |Gᵢⱼ| ≥ Cᵢⱼ/2, else 0.
+  # The helper is called with chosen matrices; the scales are those of S + C (here 1, so dᵢⱼ = 1 or the unit floor).
+  gform(Θ, S, G, C, s) = PS._logdet_pgd_gform(Θ, S, G, C, s)
   for T in (Float64, Float32)
-    s = T[2, 2]
-    @test !PS._logdet_pgd_cancellation(T[4 8; 8 4], s)
-    @test PS._logdet_pgd_cancellation(T[4 nextfloat(T(8)); nextfloat(T(8)) 4], s)
-    @test PS._logdet_pgd_cancellation(T[4 -nextfloat(T(8)); -nextfloat(T(8)) 4], s)
-    @test !PS._logdet_pgd_cancellation(T[4 0; 0 4], s)
-    @test !PS._logdet_pgd_cancellation(T[4 -8; -8 4], s)
-    # the unit floor applies to small scales
-    @test !PS._logdet_pgd_cancellation(T[0.25 2; 2 0.25], T[0.5, 0.5])
-    @test PS._logdet_pgd_cancellation(T[0.25 nextfloat(T(2)); nextfloat(T(2)) 0.25], T[0.5, 0.5])
-    # a sample covariance, which is positive semidefinite, does not set it in these draws
+    I1 = Matrix{T}(I, 1, 1)
+    # a nonzero entry: m = 2 + |g| + 1 against 4, a strict inequality
+    @test !gform(I1, fill(T(2), 1, 1), fill(T(1), 1, 1), fill(T(1), 1, 1), T[1])[2]
+    @test gform(I1, fill(T(2), 1, 1), fill(T(1.0625), 1, 1), fill(T(1), 1, 1), T[1])[2]
+    @test gform(I1, fill(T(2), 1, 1), fill(-T(1.0625), 1, 1), fill(T(1), 1, 1), T[1])[2]
+    # the same m with the unit floor of a scale below one
+    @test gform(I1, fill(T(2), 1, 1), fill(T(1.0625), 1, 1), fill(T(1), 1, 1), T[0.5])[2]
+    # a larger scale raises the threshold: s = 2 gives d = 4 and the threshold 16
+    @test !gform(I1, fill(T(8), 1, 1), fill(T(4), 1, 1), fill(T(3), 1, 1), T[2])[2]
+    @test gform(I1, fill(T(8), 1, 1), fill(T(6), 1, 1), fill(T(3), 1, 1), T[2])[2]
+    # a zero entry: |G₁₂| < C₁₂/2 gives c̃ = 0 and m = 2.9, while |G₁₂| = C₁₂/2 gives c̃ = C₁₂ and m = 9
+    Θ0 = T[1 0; 0 1]
+    S0 = T[1 0; 0 1]
+    C0 = T[0 6; 6 0]
+    @test !gform(Θ0, S0, T[0 2.9; 2.9 0], C0, T[1, 1])[2]
+    @test gform(Θ0, S0, T[0 3; 3 0], C0, T[1, 1])[2]
+    # an entry whose m overflows is uncertain, also where 4dᵢⱼ would overflow
+    big_s = T[sqrt(floatmax(T)), sqrt(floatmax(T))]
+    @test gform(Θ0, T[1 floatmax(T); floatmax(T) 1], T[0 floatmax(T); floatmax(T) 0], T[0 1; 1 0], big_s)[2]
+    # ordinary problems are certain: a positive semidefinite S, zero weights and Θ = I, so Θᵢⱼ = 0 and
+    # |Sᵢⱼ| ≤ sᵢsⱼ; a positive-definite S with moderate weights at its optimum; a positive diagonal weight
     for seed in 1:20, p in (2, 5, 12)
       X = randn(Xoshiro(seed), 3, p)                       # fewer rows than columns: rank deficient
       S = Matrix{T}(Symmetric(X' * X ./ 3))
-      @test !PS._logdet_pgd_cancellation(S, T[sqrt(abs(S[i, i])) for i in 1:p])
+      s = T[sqrt(abs(S[i, i])) for i in 1:p]
+      Θ = Matrix{T}(I, p, p)
+      @test !gform(Θ, S, S .- Θ, zeros(T, p, p), s)[2]
     end
+    S = T[1 0.1; 0.1 1]
+    Θ = T[1 0; 0 1] .* T(0.9)
+    @test !gform(Θ, S, S .- inv(Θ), T[0 0.5; 0.5 0], T[1, 1])[2]            # Θ₁₂ = 0, |G₁₂| = 0.1 < 0.25
+    @test !gform(Θ, T[1 0; 0 1], T[-2 0; 0 -2], T[2 0; 0 2], T[sqrt(3), sqrt(3)])[2]   # Sᵢᵢ = 1, Cᵢᵢ = 2, Gᵢᵢ = -2
+    # a diagonal weight that cancels a negative Sᵢᵢ is uncertain
+    @test gform(I1, fill(-T(2)^16, 1, 1), fill(-T(2)^16 - 1, 1, 1), fill(T(2)^16 + 1, 1, 1), T[1])[2]
   end
 end
 
@@ -271,7 +303,7 @@ end
         @test r.converged && !r.stagnated
       end
     end
-    # no penalty: the optimum is inv(S), and the start of a nearby point scores its own residual
+    # no penalty, positive-definite S: the returned point is checked against the optimum inv(S) and its score
     S = T[2 0.5 0; 0.5 1 0.125; 0 0.125 1.25]
     Θ0 = Matrix{T}(I, 3, 3)
     r, Θ = solve_from(Θ0, S, 0.0, zeros(T, 3, 3), o)
@@ -280,11 +312,12 @@ end
   end
 end
 
-@testset "a power-of-two rescaling of S, Λ and Θ scores alike where the unit floor does not apply" begin
+@testset "a power-of-two rescaling of S, Λ and Θ scores alike on these fixtures, where the unit floor does not apply" begin
   # S → DSD, Λ → DΛD and Θ → D⁻¹ΘD⁻¹ with D = diag(2ᵏ), k ≥ 0, map the stored problem and the point to an
   # equivalent pair. Cholesky and the inverse commute with a power-of-two scaling unless something under-
   # or overflows, so the gradient becomes DGD and a violation rᵢⱼ becomes DᵢDⱼrᵢⱼ. The scale max(1, sᵢsⱼ)
-  # becomes DᵢDⱼ sᵢsⱼ when every Sᵢᵢ ≥ 1 (then sᵢsⱼ ≥ 1 and DᵢDⱼsᵢsⱼ ≥ 1), and R is unchanged. The unit
+  # becomes DᵢDⱼ sᵢsⱼ when every Sᵢᵢ ≥ 1 (then sᵢsⱼ ≥ 1 and DᵢDⱼsᵢsⱼ ≥ 1), and R is unchanged. The test
+  # observes this agreement on its seeded fixtures; it does not prove it. The unit
   # floor is absolute, so R is not invariant where it applies. The weights here have a zero diagonal; the
   # shift S → S + Diagonal(C) of positive diagonal weights is tested in its own testset below.
   for T in (Float64, Float32)
@@ -313,10 +346,10 @@ end
 
 # ---------------------------------------------------------------------------------------------------------
 @testset "the 2^51 numerator: S - W rounds a decisive residual to zero" begin
-  # Sᵢᵢ = -B, Cᵢᵢ = B + 1, Θᵢᵢ = 1.25 with B = 2^51 (Float64) or 2^22 (Float32): (S - W) + C is 0 for the
-  # computed W = inv(Θ), while (S + C) - W = 1 - W is about 0.2. The solver reaches this input through a
-  # positive diagonal weight (the next testset runs it through solve!); here the helper is called directly
-  # with the flag set, which also exercises the evaluation from the factor in the scratch matrix.
+  # Sᵢᵢ = -B, Cᵢᵢ = B + 1, Θᵢᵢ = 1.25 with B = 2^51 (Float64) or 2^22 (Float32, an analogue): (S - W) + C is 0
+  # for the computed W = inv(Θ), while (S + C) - W = 1 - W is about 0.2. The solver reaches this input through a
+  # positive diagonal weight (a later testset runs it through solve!); here the helpers are called directly, which
+  # also exercises the evaluation from the factor in the scratch matrix.
   for (T, B) in ((Float64, 2.0^51), (Float32, 2f0^22))
     S, C, Θ = fill(-B, 1, 1), fill(B + 1, 1, 1), fill(T(1.25), 1, 1)
     W = inv(Θ)
@@ -325,16 +358,22 @@ end
     exact = big256(() -> Float64((big(S[1]) + big(C[1])) - 1 / big(Θ[1])))
     @test scales == [1] && 0.19 < exact < 0.21
     @test G[1] + C[1] == 0
-    @test PS._logdet_pgd_kkt(Θ, G, C, scales) == 0                       # the gradient form
-    @test abs(PS._logdet_pgd_kkt(Θ, S, W, G, C, scales) - exact) <= 4 * Float64(eps(T))
+    worst, uncertain = PS._logdet_pgd_gform(Θ, S, G, C, scales)
+    @test worst == 0 && uncertain                                        # the form from G, and its flag
+    @test abs(PS._logdet_pgd_wform(Θ, S, W, G, C, scales) - exact) <= 4 * Float64(eps(T))
     # from the factor in the scratch matrix, which the call overwrites by inv(Θ)
     scratch = copy(Θ)
     @test issuccess(cholesky!(Symmetric(scratch); check = false))
-    @test abs(PS._logdet_pgd_kkt!(scratch, Θ, S, G, C, scales, true) - exact) <= 8 * Float64(eps(T))
+    @test abs(PS._logdet_pgd_kkt!(scratch, Θ, S, G, C, scales) - exact) <= 8 * Float64(eps(T))
+    @test abs(scratch[1] - W[1]) <= 2 * eps(T)
+    # a certain point leaves the factor alone
+    S2, G2, C2 = fill(T(1.5), 1, 1), fill(T(1.5) - W[1], 1, 1), fill(T(0.25), 1, 1)
+    scales2 = T[sqrt(T(1.75))]
+    @test !PS._logdet_pgd_gform(Θ, S2, G2, C2, scales2)[2]
     scratch = copy(Θ)
     cholesky!(Symmetric(scratch))
-    @test PS._logdet_pgd_kkt!(scratch, Θ, S, G, C, scales, false) == 0   # not flagged: the gradient form
-    @test scratch == cholesky(Symmetric(Θ)).U                           # and the factor is left alone
+    @test PS._logdet_pgd_kkt!(scratch, Θ, S2, G2, C2, scales2) == PS._logdet_pgd_gform(Θ, S2, G2, C2, scales2)[1]
+    @test scratch == cholesky(Symmetric(Θ)).U
   end
 end
 
@@ -353,15 +392,15 @@ end
     λ0 = Float64(B - 3 // 2)
     @test T(λ0) == B - T(3) / 2
     c = T(λ0) .* Λ
-    b = rulef(Θ, S, c, T; inputs = true)
+    b = rulef(Θ, S, c, T)
     s = T[sqrt(W[1, 1]), sqrt(W[2, 2]), sqrt(W[3, 3])]
-    @test PS._logdet_pgd_cancellation(S, s)
     @test abs(b.R - 5 / 4) <= 1e-5
     r, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
     @test abs(r.g_residual - 5 / 4) <= 1e-5
     G = S .- inv(cholesky(Symmetric(Θ)))
-    # the gradient form scores the entry as 1 or 3/2, not 5/4
-    @test PS._logdet_pgd_kkt(Θ, G, c, s) in (1, 3 / 2)
+    # the form from G scores the entry as 1 or 3/2, not 5/4, and flags it
+    worst, uncertain = PS._logdet_pgd_gform(Θ, S, G, c, s)
+    @test worst in (1, 3 / 2) && uncertain
   end
 end
 
@@ -376,10 +415,10 @@ end
     c = T(λ0) .* Λ
     Θ = T.(big256(() -> inv2(big(2), big(7) / 8)))
     @test Θ[1, 2] < 0 && issuccess(cholesky(Symmetric(Θ); check = false)) && c[1, 2] == B - 1
-    @test PS._logdet_pgd_cancellation(S, T[sqrt(2), sqrt(2)])
     G = S .- inv(cholesky(Symmetric(Θ)))
-    @test abs(G[1, 2] - c[1, 2]) == 0                                      # the gradient form: 0
-    b = rulef(Θ, S, c, T; inputs = true)
+    @test abs(G[1, 2] - c[1, 2]) == 0                                      # the form from G: 0
+    @test PS._logdet_pgd_gform(Θ, S, G, c, T[sqrt(2), sqrt(2)])[2]
+    b = rulef(Θ, S, c, T)
     @test abs(b.R - 1 / 16) <= 1e-5
     r, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
     @test abs(r.g_residual - b.R) <= b.e
@@ -387,7 +426,7 @@ end
     # a solve from here does not stop at the gradient form's zero residual
     o = options(T; maxiter = 200)
     r, Θ1 = solve_from(Θ, S, λ0, Λ, o)
-    check_result(r, Θ1, S, λ0, Λ, T, o; inputs = true)
+    check_result(r, Θ1, S, λ0, Λ, T, o)
   end
 end
 
@@ -404,14 +443,14 @@ end
                     (Float32, -2f0^16, 2f0^16 + 1), (Float32, -4096f0, 4097f0))
     S, Λ, λ0 = fill(T(s), 1, 1), ones(T, 1, 1), Float64(c)
     @test T(λ0) == c && S[1] + T(λ0) == 1
-    @test PS._logdet_pgd_cancellation(S, T[1])
     Θ = fill(T(1.5), 1, 1)
     r, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
-    b = check_result(r, Θ, S, λ0, Λ, T, options(T); inputs = true)
+    b = check_result(r, Θ, S, λ0, Λ, T, options(T))
+    @test b.uncertain && PS._logdet_pgd_gform(Θ, S, S .- inv(Θ), T(λ0) .* Λ, T[1])[2]
     @test abs(b.R - 1 / 3) <= 1e-15 && abs(r.g_residual - 1 / 3) <= b.e
     o = ProximalOptions(maxiter = 100, gradtol = gradtol(T), ftol = 0)
     r, Θ = solve_from(fill(T(2), 1, 1), S, λ0, Λ, o)
-    check_result(r, Θ, S, λ0, Λ, T, o; inputs = true)
+    check_result(r, Θ, S, λ0, Λ, T, o)
     # a = 1, so R is the distance of 1/θ from 1: a converged solve is within the stop tolerance of θ = 1
     @test !r.converged || abs(Θ[1] - 1) <= 4 * τof(T, o)
   end
@@ -425,12 +464,12 @@ end
     Θ = fill(T(1.25), 1, 1)
     @test (S .- inv(Θ))[1] + T(λ0) == 0
     r, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
-    b = check_result(r, Θ, S, λ0, Λ, T, options(T); inputs = true)
+    b = check_result(r, Θ, S, λ0, Λ, T, options(T))
     @test abs(b.R - 0.2) <= 1e-12 && abs(r.g_residual - 0.2) <= b.e && r.g_residual > 0.19
     # a solve from this point does not stop where the gradient form scores 0
     o = options(T; maxiter = 100)
     r, Θ1 = solve_from(Θ, S, λ0, Λ, o)
-    check_result(r, Θ1, S, λ0, Λ, T, o; inputs = true)
+    check_result(r, Θ1, S, λ0, Λ, T, o)
     @test !r.converged || abs(Θ1[1] - 1) <= 4 * τof(T, o)
   end
 end
@@ -463,17 +502,16 @@ end
       Sshift[i, i] += T(λ0) * Λ[i, i]
       Λshift[i, i] = 0
     end
-    direct_flag = PS._logdet_pgd_cancellation(S, T[sqrt(abs(S[i, i] + T(λ0) * Λ[i, i])) for i in 1:p])
     r1, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
     r2, _ = solve_from(Θ, Sshift, λ0, Λshift, ProximalOptions(time_limit = 0))
     @test abs(r1.g_residual - r2.g_residual) <= 8 * Float64(eps(T))
-    check_result(r1, Θ, S, λ0, Λ, T, options(T); inputs = direct_flag)
+    check_result(r1, Θ, S, λ0, Λ, T, options(T))
     check_result(r2, Θ, Sshift, λ0, Λshift, T, options(T))
     o = p == 1 ? ProximalOptions(maxiter = 100, gradtol = gradtol(T), ftol = 0) : options(T)
     start = p == 1 ? fill(T(2), 1, 1) : Matrix{T}(I, p, p)
     q1, Θ1 = solve_from(start, S, λ0, Λ, o)
     q2, Θ2 = solve_from(start, Sshift, λ0, Λshift, o)
-    check_result(q1, Θ1, S, λ0, Λ, T, o; inputs = direct_flag)
+    check_result(q1, Θ1, S, λ0, Λ, T, o)
     check_result(q2, Θ2, Sshift, λ0, Λshift, T, o)
     q1.converged && q2.converged && @test maximum(abs, Θ1 - Θ2) <= target(T)
     # the 3 × 3 problems are well conditioned and converge
@@ -481,24 +519,100 @@ end
   end
 end
 
+# ---------------------------------------------------------------------------------------------------------
+# The two inputs on which the first implementation of #492 stopped at a decisive violation (round 1 of its review)
+# ---------------------------------------------------------------------------------------------------------
+@testset "cancellation of W against C where S is small: the unit floor does not bound |W₁₂|" begin
+  # D = diag(2ᵃ, 2⁻ᵇ, 1), M = [1 0 1; 0 1 -1; 1 -1 3] with M⁻¹ = [2 -1 -1; -1 2 1; -1 1 1] (det M = 1), Θ = DMD,
+  # S = [2^(-2b-1) 1/4 0; 1/4 2^(2b+1) 2ᵇ; 0 2ᵇ 1], and zero weights except C₁₂ = C₂₁ = B = 2^(b-a). Every entry is
+  # a power of two times a small integer, so Θ, S and W = D⁻¹M⁻¹D⁻¹ are exact in T, and the computed inverse is W
+  # because the scaling by powers of two commutes with the rounding of the Cholesky inverse. W₁₂ = -B, S₁₂ = 1/4,
+  # Θ₁₂ = 0, so the violation of entry (1, 2) is (|S₁₂ - W₁₂| - C₁₂) = 1/4 with d₁₂ = 1; the form from G rounds
+  # fl(1/4 + B) - B to 0. The small diagonal S₁₁ passes through the unit floor, so |W₁₂| is not bounded by a multiple of d₁₂
+  # (the scales are s₁ = 2^(-b-1/2), s₂ = 2^(b+1/2)). The references are analytic: W is built here from the integers,
+  # and BigFloat uses 2048 bits because κ(Θ) is about 2^(2a+2b+...) (the 256-bit default does not resolve Θ⁻¹).
+  for (T, a, b) in ((Float32, 30, 58), (Float64, 55, 110))
+    pw(k) = ldexp(one(T), k)
+    D = Diagonal(T[pw(a), pw(-b), 1])
+    M = T[1 0 1; 0 1 -1; 1 -1 3]
+    Θ = Matrix{T}(D * M * D)
+    S = T[pw(-2b - 1) 1/4 0; 1/4 pw(2b + 1) pw(b); 0 pw(b) 1]
+    B = pw(b - a)
+    Λ = zeros(T, 3, 3)
+    Λ[1, 2] = Λ[2, 1] = B
+    @test Θ == Θ' && S == S'
+    setprecision(BigFloat, 2048) do
+      Dinv = Diagonal(BigFloat[ldexp(big(1.0), -a), ldexp(big(1.0), b), 1])
+      W = Dinv * BigFloat[2 -1 -1; -1 2 1; -1 1 1] * Dinv
+      @test big.(Θ) * W == I                                # the analytic inverse, exactly
+      @test W[1, 2] == -big(B)
+      @test issuccess(cholesky(Symmetric(big.(S)); check = false))
+    end
+    scales = T[sqrt(abs(S[i, i])) for i in 1:3]
+    G = S .- inv(cholesky(Symmetric(Θ)))
+    @test G[1, 2] == B                                       # the form from G: fl(1/4 + B) = B
+    @test PS._logdet_pgd_violation(Θ[1, 2], G[1, 2], Λ[1, 2]) == 0
+    @test PS._logdet_pgd_gform(Θ, S, G, Λ, scales)[2]        # and the entry is flagged
+    @test PS._logdet_pgd_violation(Θ[1, 2], G[1, 2], Λ[1, 2], S[1, 2], -B) == 1 / 4
+    r, _ = solve_from(Θ, S, 1.0, Λ, ProximalOptions(time_limit = 0))
+    b2 = rulef(Θ, S, Λ, T; bits = 2048)
+    @test abs(b2.R - 1 / 4) <= 1e-12 && abs(r.g_residual - 1 / 4) <= 8 * Float64(eps(T))
+    o = options(T; maxiter = 20)
+    r, Θ1 = solve_from(Θ, S, 1.0, Λ, o)
+    @test !r.converged || rulef(Θ1, S, Λ, T; bits = 2048).R <= τof(T, o) * (1 + 4 * eps(T)) + 64 * Float64(eps(T))
+  end
+end
+
+@testset "an overflowing unused endpoint does not discard the violation at the other" begin
+  # B = 0.75 floatmax(T), σ = ±1, Θ = [2 0 1; 0 2 -σ; 1 -σ 2], and S equal to W = Θ⁻¹ = [3 -σ -2; -σ 3 2σ; -2 2σ 4] / 4
+  # except that S₁₂ = σB. With C₁₂ = B and every other weight zero, x = S₁₂ - W₁₂ = σ(B + 1/4) at the zero entry. The
+  # side of x - C or -x - C that has the sign of x is (|x| - B) = 1/4, and the opposite side is about -2B, whose
+  # TwoSum overflows outward, so that side cannot be violated. The first form from the inputs would add S₁₂ + C₁₂
+  # (σ = 1) or S₁₂ - C₁₂ (σ = -1) beyond floatmax and fall back to G, which rounds the violation to 0. The scales are
+  # s₁ = s₂ = sqrt(0.75), so d₁₂ = 1 and R = 1/4.
+  for T in (Float32, Float64), σ in (1, -1)
+    B = T(0.75) * floatmax(T)
+    Θ = T[2 0 1; 0 2 -σ; 1 -σ 2]
+    S = T[0.75 σ*B -0.5; σ*B 0.75 σ/2; -0.5 σ/2 1]
+    Λ = zeros(T, 3, 3)
+    Λ[1, 2] = Λ[2, 1] = B
+    scales = T[sqrt(abs(S[i, i])) for i in 1:3]
+    G = S .- inv(cholesky(Symmetric(Θ)))
+    # the endpoint on the side of the sign of S₁₂ overflows: S₁₂ + C₁₂ for σ = 1, S₁₂ - C₁₂ for σ = -1
+    @test !isfinite(σ == 1 ? S[1, 2] + Λ[1, 2] : S[1, 2] - Λ[1, 2])
+    @test abs(G[1, 2]) == B && PS._logdet_pgd_violation(Θ[1, 2], G[1, 2], Λ[1, 2]) == 0
+    @test PS._logdet_pgd_gform(Θ, S, G, Λ, scales)[2]
+    @test PS._logdet_pgd_violation(Θ[1, 2], G[1, 2], Λ[1, 2], S[1, 2], T(-σ / 4)) == 1 / 4
+    r, _ = solve_from(Θ, S, 1.0, Λ, ProximalOptions(time_limit = 0))
+    b2 = rulef(Θ, S, Λ, T; bits = 2048)
+    @test abs(b2.R - 1 / 4) <= 1e-12 && abs(r.g_residual - 1 / 4) <= 8 * Float64(eps(T)) && abs(r.g_residual - b2.R) <= b2.e
+    o = options(T; maxiter = 50)
+    r, Θ1 = solve_from(Θ, S, 1.0, Λ, o)
+    @test !r.converged || rulef(Θ1, S, Λ, T; bits = 2048).R <= τof(T, o) * (1 + 4 * eps(T)) + 64 * Float64(eps(T))
+  end
+end
+
 kkt_allocations(args...) = @allocated PS._logdet_pgd_kkt!(args...)
 
 @testset "the KKT evaluation allocates no memory that grows with the dimension" begin
-  # The evaluation after the factorization, which the solver's trial has done into the scratch matrix. A warmed
-  # call allocates nothing on Julia 1.13; on Julia 1.10 a call that returns a Float64 reports 16 bytes (the
-  # evaluation before #492 did as well), which does not depend on the dimension.
-  for T in (Float64, Float32), flagged in (false, true)
+  # The evaluation after the factorization, which the solver's trial has done into the scratch matrix, with a
+  # certain point (the pass from G only) and an uncertain one (a large S₁₂ also rebuilds W and evaluates from the
+  # inputs). A warmed call allocates nothing on Julia 1.13; on Julia 1.10 a call that returns a Float64 reports
+  # 16 bytes (the evaluation before #492 did as well), which does not depend on the dimension.
+  for T in (Float64, Float32), uncertain in (false, true)
     bytes = map((12, 36)) do p
       S = wishart(T, p, 5)
+      uncertain && (S[1, 2] = S[2, 1] = T(1000))
       Λ, Θ = ones0(T, p) .* T(0.1), Matrix{T}(I, p, p)
       G = S .- inv(Θ)
       scales = T[sqrt(abs(S[i, i])) for i in 1:p]
+      @test PS._logdet_pgd_gform(Θ, S, G, Λ, scales)[2] == uncertain
       scratch = similar(Θ)
       measured = 0
       for _ in 1:2
         copyto!(scratch, Θ)
         cholesky!(Symmetric(scratch))
-        measured = kkt_allocations(scratch, Θ, S, G, Λ, scales, flagged)
+        measured = kkt_allocations(scratch, Θ, S, G, Λ, scales)
       end
       measured
     end
