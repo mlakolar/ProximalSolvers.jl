@@ -8,7 +8,8 @@
 
 Accelerated proximal gradient descent for dense Float32/Float64 least squares
 with `NormL1` (optional weights), unweighted `ElasticNet`, `NormLinf` or
-`GroupNormL2`. It extrapolates
+`GroupNormL2`. A dense matrix response with dense same-type coefficients uses
+unweighted `NormL1` on its entries. APG extrapolates
 from previous accepted iterates, takes a backtracked proximal step, and restarts
 momentum on an objective increase. Pass [`ProximalOptions`](@ref) as the fifth
 argument to [`solve!`](@ref); the result and stopping interface are shared with PGD.
@@ -36,7 +37,7 @@ Parameter bounds must also hold after conversion to the working type, and
 additional dimension bounds apply. The extrapolation weight is `k/(k+3)`,
 counting from the start or last restart; this is not the textbook FISTA recurrence.
 A restart repeats the step without momentum. An error in backtracking restores
-the last accepted coefficient vector and is rethrown.
+the last accepted coefficients and is rethrown.
 
 The supported penalties are `NormL1` with optional weights, unweighted
 `ElasticNet`, `NormLinf` and a matching `GroupNormL2{T}` on dense coefficients.
@@ -79,7 +80,7 @@ end
 
 # Dense iterates and gradient with the LS image cache: z_x = A x (of the current
 # trial point once a step starts), z_previous = A x_previous and z_y = A y.
-mutable struct AccProxGradDescentState{T, X<:Vector{T}, M, Z}
+mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z}
     x::X
     f_x::T
     g_x::T
@@ -119,7 +120,7 @@ function initial_state(
           options,
           f,
           g,
-          x0::Vector{T}) where T
+          x0::VecOrMat{T}) where T
 
     model = _image_model(f)
     z_x = _image_buffer(model)
@@ -153,7 +154,7 @@ function initial_state(
                          copy(z_x),   # A x_previous
                          similar(z_x), # A y
                          similar(z_x), # residual at A y
-                         _bound_constants(T, model.X, normX),
+                         _bound_constants(T, model.X, normX, size(x0, 2)),
                          rootα,
                          _se_zero(T),
                          normx0,
@@ -274,12 +275,24 @@ function _check_method(m::AccProxGradDescent, ::Type{T}) where T
   nothing
 end
 
-# The error bounds of the bound test need k u < 1/8 for k = max(n, p) + 4 in T, and for
-# k = n p + 3 in Float64, where ‖X‖_F is accumulated.
+# Subtract the margins from the exact powers of two before comparing array lengths.
+_bound_size_ok(::Type{T}, q, r, design) where T =
+  max(q, r) < 1 / (4eps(T)) - 4 && design < 1 / (4eps(Float64)) - 3
+
 function _check_bound_size(f, ::Type{T}) where T
-  n, p = size(_image_model(f).X)
-  (max(n, p) + 4) * _unit(T) < 1 / 8 && (n * p + 3) * _unit(Float64) < 1 / 8 ||
+  X = _image_model(f).X
+  n, p = size(X)
+  _bound_size_ok(T, n, p, length(X)) ||
     throw(ArgumentError("AccProxGradDescent needs max(n, p) + 4 < 1/(4 eps($T)) and n p + 3 < 1/(4 eps(Float64)) for its rounding-error bounds"))
+  nothing
+end
+
+_check_bound_size(f, x::Vector{T}) where T = _check_bound_size(f, T)
+
+function _check_bound_size(f, B::Matrix{T}) where T
+  model = _image_model(f)
+  _bound_size_ok(T, length(model.Y), length(B), length(model.X)) ||
+    throw(ArgumentError("AccProxGradDescent needs max(nK, pK) + 4 < 1/(4 eps($T)) and n p + 3 < 1/(4 eps(Float64)) for its rounding-error bounds"))
   nothing
 end
 
@@ -303,13 +316,19 @@ end
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
 
 Minimize the same least-squares lasso, elastic net or `NormLinf` problem as [`ProximalGradientDescent`](@ref) with
-accelerated proximal gradient descent, overwriting `x`, a dense `Vector{T}` with
-`T = Float32` or `Float64`. The inputs, the options and their validation are those
+accelerated proximal gradient descent, overwriting dense `Vector{T}` coefficients
+with `T = Float32` or `Float64`. A dense matrix response uses same-type dense
+matrix coefficients and unweighted `NormL1` under
+[IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
+The inputs, the options and their validation are those
 of `ProximalGradientDescent`, including a `GroupNormL2` penalty with its group stopping check (see `ProximalGradientDescent` and
 [`ProximalOptions`](@ref)); in addition `β` and `α` must satisfy their bounds after
 conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
 `n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
-rounding-error bounds of the line search need. Every refusal of an input, option or
+rounding-error bounds of the line search need for one response. For `K` response
+columns, the first bound uses `max(nK, pK)`. See
+[APG-07](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-07).
+Every refusal of an input, option or
 method setting happens before `x` is modified. A step error
 restores the last accepted `x` and rethrows, without a transaction guarantee for
 internal counters. The result shares `x`.
@@ -317,9 +336,9 @@ internal counters. The result shares `x`.
 function solve!(x, f, g, method::AccProxGradDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_problem(x, f, g)
+  _check_gradient_problem(x, f, g, :gradient)
   _check_method(method, eltype(x))
-  _check_bound_size(f, eltype(x))
+  _check_bound_size(f, x)
   t0 = time()
   g_work = _working_gradient_penalty(g, eltype(x))
   state = initial_state(method, options, f, g_work, x)
