@@ -320,6 +320,29 @@ still move at a later iteration if the solve continued. For `Float64` data, for
 
 ## Postconditions
 
+### [STOP-18 Exit classes and the evidence each carries](@id STOP-18)
+
+**Statement.** Every return is classified by its final-iteration flags. When several exits apply at that iteration, [STOP-09](@ref) sets all of their flags. The first matching row below names the return's class for reporting; the order does not rank the evidence.
+
+| Class | Result fields | Evidence about the returned point |
+| --- | --- | --- |
+| Computed-KKT convergence | `converged = true` | A proposal passed the computed stationarity check of [STOP-01](@ref) to [STOP-07](@ref). This is not an accuracy target; for the lasso, [STOP-19](@ref) states the duality gap it implies. |
+| Float32 PGD stagnation | `stagnated = true` | No accepted progress under `ftol = 0` ([STOP-11](@ref)). The point is not checked. |
+| Objective increase | `f_increased = true` with `allow_f_increases = false` | A computed objective rise ended the solve ([STOP-09](@ref)). The result does not store the size of the rise, so a rise of one unit in the last place and a large rise are reported alike. With `allow_f_increases = true`, `f_increased` describes only the last comparison; read the remaining rows. |
+| Iteration limit | `iteration_converged = true` | The budget `maxiter` was used. |
+| Call limit | `call_limit_reached = true` | A positive call limit was reached ([PGD-04](@ref)). |
+| Callback or time limit | none of the fields above is set, `f_increased` excepted when `allow_f_increases = true`, and `iterations < maxiter` | A callback returned `true` or the time limit elapsed. The result has no field that distinguishes them. |
+
+No class carries independently verified target accuracy. PGD and APG compute no duality gap: `gap` is `NaN`, and a positive `gaptol` is refused ([PGD-05](@ref)). Only square-root-lasso CD returns a bounded gap ([CDQ-03](@ref)). Elsewhere an accuracy target must be evaluated outside the solver, for example by [STOP-13](@ref). A return in any row except the first can still be accurate to the stationarity bound; [STOP-15](@ref) describes one such case.
+
+**Applies to.** PGD and APG on the regression routes; dense Vector{T} and the matrices in [IN-10](@ref); T = Float32 or Float64. Graphical-lasso PGD reports through [PGD-08](@ref).
+
+**Code.** `src/solve.jl: _solve_gradient!`; `src/types.jl: OptimizationResults`.
+
+**Tests.** No new test: the clause reads the flags already specified by [STOP-09](@ref), [STOP-11](@ref), [PGD-04](@ref) and [RES-02](@ref) and changes no behavior. `test/core_regressions.jl`, `test/accelerated_pgd.jl` and `test/minimal_core_characterization.jl` cover the individual flags. That a callback stop and a time-limit stop set the same fields follows from the result constructor, which records neither cause.
+
+**Sources.** [Issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320), Stage 1 of the maintainer's 0.7 plan; current source `src/solve.jl` at `1a9f196b`.
+
 The flags above have their final-iteration meanings even when another exit also applies. Minimizer ownership, failure mutation and result fields are specified by [RES-01](@ref); trace and limit sequencing are [PGD-04](@ref).
 
 ## Floating-point rules
@@ -403,6 +426,42 @@ rounding errors of that evaluation are not bounded here.
 
 **Sources.** `docs/src/stopping-limits.md:L397`, `docs/src/stopping-limits.md:L399`, `docs/src/stopping-limits.md:L427`, `docs/src/numerics.md:L928`.
 
+### [STOP-19 The duality gap implied by a passed lasso check](@id STOP-19)
+
+**Statement.** Take the problem of [STOP-13](@ref): unweighted `NormL1(λ)`, `s > 0`, `λ > 0` and `F(x) > 0`. Suppose the check of [STOP-03](@ref) and [STOP-04](@ref) passes at `x`, and suppose that the exact residual also satisfies `‖G‖∞ ≤ τ S`, with `τ` and `S = max(λ, λmax)` from those clauses. Then [STOP-13](@ref) applies with
+
+```
+k ≤ τ S / λ = τ max(1, λmax / λ),
+```
+
+and in exact arithmetic the relative duality gap at the dual point of [STOP-13](@ref) is at most `2k + k²`.
+
+The bound is at least `2τ + τ²`. At the Float32 floor `τ = 64 eps(Float32) ≈ 7.63e-6`, it is `1.53e-5` for `λ ≥ λmax`, `1.02e-4` for `λ = 0.15 λmax` and `7.6e-4` for `λ = 0.02 λmax`. A passed Float32 check therefore implies no relative gap of `1e-5` at any penalty level or `gradtol`, since [STOP-04](@ref) does not let `gradtol` go below the floor. At the Float64 floor (`τ ≈ 1.42e-14`), the bound at `λ = 0.02 λmax` is `1.4e-12`. To imply a relative gap `ε` this way, `τ` must be at most about `ε λ / (2S)`.
+
+This is an upper bound, and gaps observed at Float32 stops are usually smaller ([Float32 stopping evidence](@ref evidence-float32-stopping-320)). The clause does not bound the difference between the computed and exact residuals ([STOP-12](@ref)), and it does not apply to weighted, group, elastic-net or constrained penalties.
+
+**Applies to.** PGD and APG with unweighted `NormL1`; dense Vector{T}; T = Float32 or Float64; positive `s`, `λ` and `F(x)`.
+
+**Code.** Analytic consequence of [STOP-04](@ref) and [STOP-13](@ref); no implementation.
+
+**Tests.** No test: the statement is an exact-arithmetic consequence of two specified clauses. The [evidence page](@ref evidence-float32-stopping-320) checks it against archived independent gaps and KKT residuals.
+
+**Sources.** [Issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320): the Phase 0 report and the archive `archive/issue-320-evidence` at `fb8fb87d`.
+
+### [STOP-20 Benchmark targets and harness options are not library contracts](@id STOP-20)
+
+**Statement.** The benchmark harness's accuracy target and options are measurement settings specified in `benchmark/HARNESS.md`. The target is an independent relative duality gap of `1e-5` for Float32 or `1e-8` for Float64, evaluated in Float64 on the rounded inputs. The options are `benchmark_options(residual = true)`: `maxiter = 10_000`, `ftol = 1e-15`, `xtol = 1e-14`, `gradtol = 1e-11` and `allow_f_increases = false`. They are not the library defaults of [STOP-12](@ref), and the solvers promise neither.
+
+A `target_missed` record says only that the independent gap exceeded the target. It does not name the exit, and it can carry `converged = true` ([STOP-19](@ref)). Float32 stops depend on objective rounding ([STOP-14](@ref)), so a change that alters rounding without changing any stopping rule can move individual Float32 records between `ok` and `target_missed`. Evidence for or against such a change compares counts over draws and records each return's class from [STOP-18](@ref). A future solver claim of target accuracy needs its own clause and certificate.
+
+**Applies to.** Benchmark records of PGD and APG; T = Float32 or Float64.
+
+**Code.** `benchmark/cases.jl: benchmark_options, CORE_TARGETS`.
+
+**Tests.** No test: the clause separates measurement settings from solver contracts and changes no behavior.
+
+**Sources.** [Issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320) and its [Phase 0 report](https://github.com/mlakolar/ProximalSolvers.jl/issues/320#issuecomment-6967100343); `benchmark/HARNESS.md`, section "Float32 PGD and APG against the `1e-5` target".
+
 ## Tests
 
 The clause-level references identify existing tests; this relocation adds no solver behavior or test obligation. Important suites are `test/stopping_scale.jl`, `test/weighted_lasso.jl`, `test/nonnegative_lasso.jl`, `test/elasticnet.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/norml2_pgd.jl`, `test/core_regressions.jl` and `test/accelerated_pgd.jl`.
@@ -455,6 +514,8 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 **Sources.** `README.md:L52`, `docs/src/working-with-results.md:L29`, `docstring:src/types.jl:L23`, `docstring:src/solvers/proximal_gradient_descent.jl:L30`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/numerics.md:L86`.
 
 ## Change log
+
+[#320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320), Stage 1: [STOP-18](@ref) classifies returns by their flags, [STOP-19](@ref) states the lasso duality gap implied by a passed check, and [STOP-20](@ref) separates benchmark settings from library contracts. No solver behavior changes. Measurements: [Float32 stopping evidence](evidence/float32-stopping-320.md).
 
 [#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464): weighted `NormL1` holds each entry to `τ max(cᵢ, λmax)` when its largest coefficient exceeds `λmax` ([STOP-03](@ref)), and `GroupNormL2` holds each group to `τ max(cₖ, Λ)` when its largest coefficient exceeds `Λ` ([STOP-05](@ref)); see also [STOP-04](@ref) and [STOP-08](@ref). Otherwise the decisions are unchanged. The offset-response limitation is stated in [STOP-12](@ref). Measurements: [entry-threshold evidence](evidence/entry-thresholds-464.md).
 
