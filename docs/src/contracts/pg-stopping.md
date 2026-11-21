@@ -134,6 +134,14 @@ Each group norm is LinearAlgebra's `norm`: it scales a block before squaring whe
 
 The scale is `S = max(T(λ1), λmax)` and contains neither `λ2` nor `λ2‖x‖∞`. In exact arithmetic the problem is the lasso at level `λ1` on `X̃ = [√s X; √λ2 I]`, `ỹ = [√s y; 0]`: its squared-error loss is `s‖Xx-y‖²/2 + λ2‖x‖²/2`, its gradient adds `λ2 x`, and its `λ̃max = s‖Xᵀy‖∞`. This explains the same scale covariance under a common positive factor on `s`, `λ1` and `λ2`.
 
+With `ElasticNet(λ1, λ2, w)`, pass the working penalty from [IN-03](@ref) to
+ProximalBase's `kkt_violation` at the accepted point. In each entry, with
+`cᵢ = T(λ1) wᵢ` rounded in `T`, the score is `max(|∇fᵢ| - cᵢ, 0)` at zero and
+`|∇fᵢ + T(λ2)xᵢ + cᵢ sign(xᵢ)|` elsewhere. The residual is the maximum
+entry score. The scale is `S = max(maxᵢ cᵢ, λmax)`, with
+`maxᵢ cᵢ = T(λ1) * maximum(w)` by monotone rounding. All-zero weights give
+`S = λmax`. The threshold guards are those of [STOP-04](@ref).
+
 With `ElasticNet(0, λ2)` and zero response, computed `S = 0` refuses all stops even though zero is the ridge solution; the solve can run to `maxiter` with `converged=false`, as `NormL1(0)` does at zero response unless another exit applies. The relevant zero is the *computed* scale. For `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` and `y = ones(Float32, 4)`, the exact `Xᵀy = 0` need not give a computed `λmax = 0`: summation in that order can produce `λmax = 1`, because `2^24 + 1` rounds to `2^24`. The resulting check can pass at a point whose exact-data residual is not small relative to computed `S`.
 
 Initialization can accept finite `f(x0)` with `g(x0)` overflowing in `T` (for example the ridge term `(λ2/2)‖x0‖²` above `floatmax(T)`); the common start and rollback policy is [RES-01](@ref). This KKT check is not the change test used by `CDSolver` on a dense vector or a one-dimensional `SparseIterate`.
@@ -142,7 +150,7 @@ Initialization can accept finite `f(x0)` with `g(x0)` overflowing in `T` (for ex
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** test/elasticnet.jl: residual conversion, stopping honesty, ridge zero-scale and overflowing-start testsets.
+**Tests.** test/elasticnet.jl: residual conversion, stopping honesty, ridge zero-scale and overflowing-start testsets. test/weighted_elasticnet.jl: the weighted scale and the weighted residual are probed separately, at fixed points, against independent BigFloat values.
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L168`, `docstring:src/types.jl:L23`, `docs/src/developer/implementation-notes.md:L286`, `README.md:L79`.
 
@@ -172,7 +180,7 @@ A small accepted `L` makes `t` large and this mapping a weaker stationarity meas
 
 **Statement.** Checks run only when a proposal survives the exact-stall rule. PGD already holds `∇f(x)`. APG holds the gradient at its extrapolated point and computes `∇f(x)` from cached `A x`, using the same gradient oracle and preallocated `xhat` and `dz` buffers. Those buffers are overwritten before their next iteration use. This adds one transposed product per APG check that reaches this evaluation, counted in `grad_calls` and not in `f_calls`. A generic check with invalid `t` returns before computing `λmax`, this gradient or the prox.
 
-`λmax` is computed once per solve at the first check that reaches that stage, by one `Xᵀy` product, and stored in state field `λmax`; that product is not counted. Weighted lasso adds two scans of `w` to the KKT pass: one maximum scan and one scan in construction of the penalty with converted level. It creates no coefficient array.
+`λmax` is computed once per solve at the first check that reaches that stage, by one `Xᵀy` product, and stored in state field `λmax`; that product is not counted. Weighted lasso adds two scans of `w` to the KKT pass: one maximum scan and one scan in construction of the penalty with converted level. It creates no coefficient array. A weighted `ElasticNet` adds one scan, the maximum: its working penalty is already native and is used as it is ([IN-03](@ref), [STOP-06](@ref)).
 
 Each generic check with finite positive `t` adds one proximal evaluation, counted in `prox_calls`; APG additionally counts its gradient at `x`. These costs accrue before call limits are tested. The generic check restores its scratch `delta_x` to `x - x_previous` before the remaining diagnostics read it.
 
@@ -182,7 +190,7 @@ The dedicated nonnegative-penalty check [STOP-16](@ref) uses PGD's held gradient
 
 **Code.** `src/utils.jl: _lambda_max!, _gradient_at_x!, _stationary!`.
 
-**Tests.** test/stopping_scale.jl; test/weighted_lasso.jl; test/linf.jl; test/accelerated_pgd.jl.
+**Tests.** test/stopping_scale.jl; test/weighted_lasso.jl; test/weighted_elasticnet.jl; test/linf.jl; test/accelerated_pgd.jl.
 
 **Sources.** `docs/src/numerics.md:L145`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`, `docstring:src/types.jl:L75`. The later NormL1Nonneg check follows [upstream `fd45a427`, `_stationary!`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156).
 

@@ -33,6 +33,7 @@ standard = [
   "linf",
   "sqrt_lasso",
   "weighted_lasso",
+  "weighted_elasticnet",
   "scaled_lasso",
   "logistic_pgd",
 ]

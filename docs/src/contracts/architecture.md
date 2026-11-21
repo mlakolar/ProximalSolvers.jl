@@ -11,7 +11,8 @@ the methods. These internal relationships do not create public extension APIs.
 
 The development core keeps coordinate descent separate from proximal gradient
 descent. Both least-squares engines support the lasso, weighted `NormL1` and
-unweighted `ElasticNet`; the full dispatch matrix is [IN-01](@ref). CD retains its
+`ElasticNet`, with or without weights on its L1 term ([IN-03](@ref)); the full
+dispatch matrix is [IN-01](@ref). CD retains its
 own options and result type. PGD and APG share the least-squares image model, dense
 iterate/gradient buffers, gradient engine `_solve_gradient!`, stopping rules and
 `OptimizationResults`. APG adds its own extrapolation, restart state and line

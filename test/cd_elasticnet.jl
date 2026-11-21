@@ -650,11 +650,12 @@ end
     X, y = T[1 0; 0 2; 1 1], T[1, -1, 0.5]
     f = LeastSquaresLoss(y, X)
     en = ElasticNet(T(0.1), T(0.2))
-    shared = "CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2"
+    shared = "CDSolver supports NormL1, ElasticNet (with optional weights), and uncentered SqrNormL2"
     for kind in (:dense, :warm)
       x0 = T[0.3, -0.2]
-      for g in (ElasticNet(T(0.1), T(0.2), ones(T, 2)), ElasticNet(T(0.1), T(0.2), zeros(T, 2)), Scaled(en, 2),
-                Scaled(NormL1(T(0.1), ones(T, 2)), 2), Scaled(SqrNormL2(T(0.1)), 2))
+      # a weighted ElasticNet is accepted (IN-03; test/weighted_elasticnet.jl); its Scaled wrapper is refused
+      for g in (Scaled(ElasticNet(T(0.1), T(0.2), ones(T, 2)), 2), Scaled(ElasticNet(T(0.1), T(0.2), zeros(T, 2)), 2),
+                Scaled(en, 2), Scaled(NormL1(T(0.1), ones(T, 2)), 2), Scaled(SqrNormL2(T(0.1)), 2))
         refused(ArgumentError, shared, startof(kind, x0), f, g)
       end
       refused(ArgumentError, "penalty lambda1 must be finite and nonnegative", startof(kind, x0), f, ElasticNet(T(Inf), zero(T)))

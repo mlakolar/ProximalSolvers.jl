@@ -11,7 +11,8 @@
 #
 # ``\min_b \; \frac{1}{2n}\|y - Xb\|^2 + \lambda_1 \|b\|_1 + \frac{\lambda_2}{2}\|b\|^2``.
 #
-# `ElasticNet(λ1, λ2)` is accepted by `ProximalGradientDescent`, `AccProxGradDescent` and `CDSolver`.
+# `ElasticNet(λ1, λ2)` is accepted by `ProximalGradientDescent`, `AccProxGradDescent` and `CDSolver`,
+# and `ElasticNet(λ1, λ2, w)` adds weights on the ℓ₁ term (see the weighted fit below).
 # This page solves the problem with `AccProxGradDescent` and `ProximalGradientDescent` on a dense
 # `Vector`, and with `CDSolver` on a dense `Vector` and on a `SparseIterate`; see
 # [Supported problems](../../support.md). Accuracy is checked with the objective computed from X and y
@@ -99,6 +100,32 @@ ridge = solve!(beta_ridge, f, SqrNormL2(lambda2), cd_solver)
 beta_reference = (X' * X / n + lambda2 * I) \ (X' * y / n)
 @assert ridge.minimizer === beta_ridge
 @assert norm(beta_ridge - beta_reference, Inf) <= 1e-7
+
+# ## Weights on the ℓ₁ term
+#
+# `ElasticNet(λ1, λ2, w)` takes a `Vector` of finite nonnegative weights with the element type of the data.
+# The weights scale the ℓ₁ term only, ``\lambda_1 \sum_j w_j |b_j| + \frac{\lambda_2}{2}\|b\|^2``, so the
+# squared-norm term still applies to a coefficient whose weight is zero. All three solvers accept it;
+# [Supported problems](../../support.md) gives the rule on the products ``\lambda_1 w_j``. Here the first
+# predictor, which carries signal, is left free of the ℓ₁ term. The check is the weighted residual of
+# ``0 \in X^\top(X\beta - y)/n + \lambda_2\beta + \lambda_1\, w \odot \partial|\beta|``, computed directly from the data.
+w = ones(p)
+w[1] = 0.0
+g_weighted = ElasticNet(lambda1, lambda2, w)
+function weighted_elasticnet_residual(beta)
+    grad = X' * (X * beta - y) / n
+    maximum(iszero(beta[j]) ? max(abs(grad[j]) - lambda1 * w[j], 0.0) :
+            abs(grad[j] + lambda2 * beta[j] + lambda1 * w[j] * sign(beta[j])) for j in eachindex(beta))
+end
+beta_w_apg, beta_w_pgd, beta_w_cd = zeros(p), zeros(p), zeros(p)
+solve!(beta_w_apg, f, g_weighted, AccProxGradDescent(), options)
+solve!(beta_w_pgd, f, g_weighted, ProximalGradientDescent(), options)
+solve!(beta_w_cd, f, g_weighted, cd_solver)
+for beta in (beta_w_apg, beta_w_pgd, beta_w_cd)
+  @assert weighted_elasticnet_residual(beta) <= 1e-6
+end
+@assert maximum(abs, beta_w_pgd - beta_w_apg) <= 1e-5 && maximum(abs, beta_w_cd - beta_w_apg) <= 1e-5
+@assert !iszero(beta_w_apg[1])      # the unweighted coordinate is not shrunk to zero by the ℓ₁ term
 
 # ## Reading the shrinkage paths
 #

@@ -182,14 +182,10 @@ function _weighted_level(λ0, ::Type{T}, name::String = "penalty lambda") where 
   λ
 end
 
-# The weights w of a weighted NormL1 (unit :entry, one weight per entry) or of a GroupNormL2 (unit :group, one
-# weight per group) at the level λ, both of type T. Each weight must be finite and nonnegative. The coefficient
-# checked is c = λ w of the entry or group, the product rounded in T (the stopping check of PGD and APG and the
-# exceptional CD step use this c; ProximalBase's ordinary steps form their thresholds from λ0 and w in its working
-# type): it must be finite and, where λ and w are both positive, a normal number of T (so not zero and not
-# subnormal). The rule is on the rounded c: an exact product slightly below floatmin(T) that rounds up to
-# floatmin(T) passes. A zero level or weight gives the coefficient 0, which leaves the entry or group
-# unpenalized when it comes from w = 0.
+# The weights of NormL1 and ElasticNet (one per entry, at the L1 level) and GroupNormL2 (one per group)
+# must be finite and nonnegative. Check the coefficient c = λ w rounded in T. It must be finite and,
+# for positive factors, normal. An exact product slightly below floatmin(T) can round up and pass.
+# A zero factor gives coefficient zero here. ElasticNet's separate ridge term still applies.
 function _check_coefficients(λ::T, w::Vector{T}, unit::Symbol) where T
   @inbounds for j in eachindex(w)
     wj = w[j]
