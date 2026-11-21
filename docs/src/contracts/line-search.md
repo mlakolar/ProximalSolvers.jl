@@ -46,7 +46,7 @@ Accepted trials are not checked again. In particular, a rounding-decided estimat
 
 ### [LS-03 Rechecking a rejected least-squares trial](@id LS-03)
 
-**Statement.** For an unscaled trial, `d̂ = x - x_previous`; when [LS-06](@ref) scales the trial displacement, `d̂` denotes that scaled vector. When eligible, a rejected trial is decided again from one product `X d̂`, using `c = m s ‖fl(X d̂)‖² / ‖d̂‖²`. Here `m = 1` for a function-value estimate and `m = 2` for a gradient estimate, matching TFOCS's gradient test `2s ‖X d‖² ≤ L ‖d‖²`.
+**Statement.** For an unscaled trial, `d̂ = x - x_previous`; when [LS-06](@ref) scales the trial displacement, `d̂` denotes that scaled displacement. When eligible, a rejected trial is decided again from one product `X d̂`, using `c = m s ‖fl(X d̂)‖² / ‖d̂‖²`. Here `m = 1` for a function-value estimate and `m = 2` for a gradient estimate, matching TFOCS's gradient test `2s ‖X d‖² ≤ L ‖d‖²`.
 
 If `L ≥ c` in the comparison precision, accept and keep the current estimate mode. Otherwise, replace `L̂` only when the returned curvature in the working type is finite; if not, retain TFOCS's estimate. For Float32, the Float64 comparison value and the returned Float32 retry value are distinct, as specified in [LS-04](@ref).
 
@@ -54,13 +54,13 @@ With `c` denoting the finite returned curvature, the retry is `L ← min(Lexact,
 
 For a raw `LogisticLoss` the check uses the factor `¼` in place of `s`; [IN-09](@ref) gives the bounds that make it conservative in exact arithmetic.
 
-Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` local estimate, or a gradient-mode estimate formed from a gradient with a nonfinite entry. Every checked rejection costs one matrix-vector product. This check reduces inflated local estimates caused by rounding of `f(x) - q(x)` (loss minus the local quadratic model) or by differences of gradients. Near a minimizer that rounding can inflate `L̂` by orders of magnitude, shrinking the step until `x` stops moving. The check provides no rounding certificate. A decision near directional curvature can go either way, and a direction nearly in the null space of `X` can have a large relative curvature error.
+Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` local estimate, or a gradient-mode estimate formed from a gradient with a nonfinite entry. Every checked rejection costs one product with `X`. For [IN-10](@ref) the product `X d̂` is a matrix and both norms in `c` are Frobenius. This check reduces inflated local estimates caused by rounding of `f(x) - q(x)` (loss minus the local quadratic model) or by differences of gradients. Near a minimizer that rounding can inflate `L̂` by orders of magnitude, shrinking the step until `x` stops moving. The check provides no rounding certificate. A decision near directional curvature can go either way, and a direction nearly in the null space of `X` can have a large relative curvature error.
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: LineSearches.check_rejection!, _step_curvature; src/line_searches.jl: backtrack!`.
 
-**Tests.** test/core_regressions.jl: PGD checked rejections and nonfinite-gradient/tiny-step cases; test/logistic_pgd.jl: the bounds behind the factor `¼` and checked rejections of logistic solves.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` forces checked matrix rejections in both modes. test/core_regressions.jl: PGD checked rejections and nonfinite-gradient/tiny-step cases; test/logistic_pgd.jl: the bounds behind the factor `¼` and checked rejections of logistic solves.
 
 **Sources.** `docstring:src/line_searches.jl:L26`, `docs/src/numerics.md:L928`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`.
 
@@ -88,6 +88,14 @@ A line-search acceptance is an iteration decision. Convergence, exact stalls and
 
 **Statement.** Accumulate the two squared norms in Float64, where the square of a finite Float32 is exact. Before squaring `w = ‖fl(X d̂)‖`, add `2√n p floatmin(Float32)` for underflow of product results and `√n floatmin(Float32) ‖d̂‖₁` for subnormal matrix entries that a flushing calling or BLAS thread can drop. These allowances assume flushing affects only subnormal operands and results. They bound those effects, not the full rounding error of the matrix-vector product, and give no certificate.
 
+For a displacement with `K` response columns, use
+`2p √(nK) floatmin(Float32) + √n floatmin(Float32) ‖d̂‖₁`
+as the total allowance, with `‖d̂‖₁` summing absolute values across all entries.
+The first term combines the per-output absolute error in the Frobenius norm.
+For the second, the design entries dropped by flushing contribute at most
+`√n floatmin(Float32) sum(abs, d̂[:,k])` in column `k`. The sum of those bounds
+bounds their joint Frobenius norm. The one-response formula is unchanged.
+
 Compare the resulting curvature `c64` with `L` in Float64. It is positive when finite, so a product lost to underflow or flushing does not make it zero. The returned retry value is `cT = Float32(c64)`, used only after a rejection. It replaces `L̂` only when `cT` is finite; if a finite `c64` overflows in that conversion, TFOCS's estimate is retained. Under round-to-nearest, if the allowances sum to less than `eps(w)/2`, they leave the computed norm unchanged.
 
 Keep TFOCS's estimate when a product entry overflows, when the calling thread flushes subnormals (`set_zero_subnormals(true)`), or when `d̂` has a nonzero subnormal entry that a flushing thread could lose. These cases do not accept through the curvature check. For a scaled displacement, `d̂` is the scaled vector; the undetected zero-rounding limitation is [LS-07](@ref).
@@ -96,7 +104,7 @@ Keep TFOCS's estimate when a product entry overflows, when the calling thread fl
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: _step_curvature(::ProximalGradientDescentState{Float32}), _step_norms64`.
 
-**Tests.** test/core_regressions.jl: Float32 computed curvature under over/underflow, BLAS flushing and overflowing-step testsets.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks the matrix underflow allowance and one-column agreement. test/core_regressions.jl: Float32 computed curvature under over/underflow, BLAS flushing and overflowing-step testsets.
 
 **Sources.** `docstring:src/line_searches.jl:L26`, `docs/src/numerics.md:L928`, `docs/src/numerics.md:L1036`.
 

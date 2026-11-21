@@ -14,8 +14,10 @@ The following remain deferred:
 - matrix-shaped coefficient owners except the dense `Matrix` coefficient of
   least-squares CD with a matrix response and native row-group `GroupNormL2`
   ([CDM-01](@ref), #396) and the dense `Matrix` iterate of the graphical
-  lasso with ADMM or PGD ([ADM-04](@ref), [PGD-06](@ref)); matrix responses outside the CD case, which uses a private
-  `BlockIterate` over `vec(B)`;
+  lasso with ADMM or PGD ([ADM-04](@ref), [PGD-06](@ref)), and the matrix-response
+  entrywise lasso with PGD or APG ([IN-10](@ref)); matrix-response regression
+  penalties and storage outside those solver contracts, including weighted
+  matrix `NormL1`;
 - weighted `ElasticNet`, `Scaled` penalties, and CD group penalties other than
   `GroupNormL2`;
 - `SqrNormL2` as a CD penalty with a declared center type other than `Nothing`,

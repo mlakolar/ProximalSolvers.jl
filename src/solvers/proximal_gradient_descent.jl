@@ -5,8 +5,9 @@
 Proximal gradient descent for least squares with `NormL1` (optionally weighted),
 unweighted `ElasticNet`, `NormLinf`, `GroupNormL2`, unweighted `NormL1Nonneg` or
 `IndNonnegative()`.
-Coefficients are a dense
-`Vector{Float32}` or `Vector{Float64}` with same-type dense data.
+Vector regression uses dense Float32 or Float64 coefficients and same-type data.
+For a matrix response, use dense same-type `X`, `Y` and `B` with unweighted
+`NormL1(lambda)`.
 Each iteration combines a smooth-loss gradient step with the penalty's proximal
 operator, using backtracking. Pass [`ProximalOptions`](@ref) as the fifth argument
 to [`solve!`](@ref) for stopping and tracing.
@@ -33,8 +34,10 @@ zero-diagonal `Matrix` weights in `NormL1(λ₀, Λ)`. Start from a same-type de
 Float32 or Float64 SPD matrix. See [matrix PGD](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-06)
 for the supported options and the KKT stopping check.
 
-PGD requires dense coefficients and refuses `SparseIterate`, `BlockIterate`,
-matrix responses and square-root loss. A group penalty must have the same
+The entrywise matrix lasso applies the penalty to every coefficient, including
+diagonal entries. See [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
+Weighted matrix regression penalties are deferred. PGD requires dense
+coefficients and refuses `SparseIterate`, `BlockIterate` and square-root loss. A group penalty must have the same
 parameter type as the data and groups partitioning the coefficients.
 
 PGD also fits sparse logistic regression with a raw `LogisticLoss(y, X)` (dense
@@ -62,7 +65,7 @@ four-coefficient Euclidean ball with a same-type radius. These indicators
 require a feasible start and use the generic proximal-gradient check, as does
 `NormLinf`. Assess fits with an
 independent diagnostic, particularly for Float32 or ill-conditioned designs.
-An error in an iteration restores the last accepted coefficient vector and
+An error in an iteration restores the last accepted coefficients and
 is rethrown.
 
 - [Iteration sequence, cache and tracing](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-iteration/#PGD-01).
@@ -92,7 +95,7 @@ function ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized:
 end
 
 # Native dense iterates/gradients with retained LS image buffers.
-mutable struct ProximalGradientDescentState{T, X<:Vector{T}, G<:Vector{T}, M, Z}
+mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M, Z}
     x::X
     f_x::T
     g_x::T
@@ -129,7 +132,7 @@ function initial_state(
           options,
           f,
           g,
-          x0::Vector{T}) where T
+          x0::VecOrMat{T}) where T
 
     grad_f_x = _dense_similar(x0)
     model = _image_model(f)
@@ -284,7 +287,10 @@ function _step_curvature(state::ProximalGradientDescentState{Float32}, m)
     subnormal && return false, Inf32
     n, p = size(state.model.X)
     fm, rn = Float64(floatmin(Float32)), sqrt(Float64(n))
-    w = sqrt(_sumsq64(state.dz)) + 2 * rn * p * fm + rn * fm * l1
+    # Each product entry has p terms. Combine the absolute errors over nK entries,
+    # and sum the errors from subnormal design entries over the coefficient columns.
+    rout = state.dz isa Vector ? rn : sqrt(Float64(length(state.dz)))
+    w = sqrt(_sumsq64(state.dz)) + 2 * rout * p * fm + rn * fm * l1
     c = m * (Float64(state.model.α) * (w^2 / den))
     c <= state.L, Float32(c)
 end
@@ -319,8 +325,9 @@ end
 Minimize a supported penalized regression objective, overwriting `x`, and return
 a result whose `minimizer` is that coefficient storage. Use matching
 Float32/Float64 data and coefficients. CD additionally accepts sparse/group
-iterate storage and row-group matrix-response problems; PGD and APG require a
-dense coefficient vector. Choose a method and penalty from the
+iterate storage and row-group matrix-response problems. PGD and APG accept
+entrywise matrix-response lasso with unweighted `NormL1` under
+[IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10). Choose a method and penalty from the
 [support matrix](https://mlakolar.github.io/ProximalSolvers.jl/dev/support/).
 
 ```julia
@@ -384,7 +391,7 @@ and [stopping](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-st
 function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); kwargs...)
   _check_keywords(kwargs)
-  _check_problem(x, f, g, :pgd)
+  _check_gradient_problem(x, f, g, :pgd)
   t0 = time()
   g_work = _working_gradient_penalty(g, eltype(x))
   state = initial_state(method, options, f, g_work, x)

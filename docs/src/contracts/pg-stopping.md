@@ -62,15 +62,21 @@ The comparisons use the floating-point products `gradtol * m` and `gradtol * N`;
 
 The scale is `S = max(λ, λmax)`, where `λ = T(λ0)` without weights and `λ = maxᵢ cᵢ` with weights, and `λmax` is the computed `s‖Xᵀy‖∞`. The equality `maxᵢ cᵢ = T(λ0) * maximum(w)` uses monotonicity of rounding. Unit weights reproduce the unweighted coefficients and scale. All-zero weights remove the penalty and give the least-squares scale `S = λmax`; with zero response as well, the zero-scale rule in [STOP-04](@ref) applies.
 
+For [IN-10](@ref), use the unweighted scores above at every entry of `B`
+with `∇f(B) = s Xᵀ(XB − Y)`. Take the largest score over all entries, with
+`λmax` the largest absolute entry of the computed `s XᵀY`. Both quantities
+use the working arithmetic of the vector test. This is the entrywise maximum
+over the full matrix.
+
 For a raw `LogisticLoss`, `∇f` is the logistic gradient and `λmax = ‖Xᵀ(½ - y)‖∞`, the norm of its value at zero ([IN-09](@ref)).
 
 A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its full `|∇fᵢ|`, even with a large `λ0`. Each coefficient must already satisfy [IN-01](@ref): it is finite and normal when both factors are positive; a zero level or weight gives zero. An infinite coefficient iterate gives a nonfinite residual (`Inf`, or `NaN` if a `NaN` is read), which cannot pass.
 
-**Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
+**Applies to.** PGD and APG; dense vectors and the matrices in [IN-10](@ref).
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** `test/core_regressions.jl`, “Working ℓ₁ levels”, checks stopping flags and residuals against explicit working-level controls. See also `test/stopping_scale.jl`, `test/weighted_lasso.jl` and `test/logistic_pgd.jl` (the logistic scale `‖Xᵀ(½ - y)‖∞` and independent KKT scores).
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks full-matrix scores, the zero-solution threshold and independent accepted-point residuals. `test/core_regressions.jl`, “Working ℓ₁ levels”, checks stopping flags and residuals against explicit working-level controls. See also `test/stopping_scale.jl`, `test/weighted_lasso.jl` and `test/logistic_pgd.jl` (the logistic scale `‖Xᵀ(½ - y)‖∞` and independent KKT scores).
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L145`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`.
 
@@ -98,11 +104,11 @@ Common positive rescaling of loss and penalty preserves the normalized inequalit
 
 If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives `G = 0` and stops at the first proposal when `S > 0` and the normal-threshold guard holds. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
 
-**Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
+**Applies to.** PGD and APG; dense vectors and the matrices in [IN-10](@ref).
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks accepted stops and the zero-scale guard. test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L105`, `docs/src/numerics.md:L109`, `docs/src/numerics.md:L123`, `docs/src/numerics.md:L127`, `docs/src/numerics.md:L135`, `docs/src/numerics.md:L137`, `docs/src/numerics.md:L142`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`, `docs/src/choosing-solver.md:L167`. The later NormL1Nonneg dispatch uses the same guards in [upstream `fd45a427`, `_stationary!`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156).
 

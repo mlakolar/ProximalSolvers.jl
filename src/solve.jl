@@ -295,7 +295,7 @@ function _check_data(x, f, g, ::Type{T}, kind::Symbol) where T
     throw(ArgumentError("only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported"))
   end
   base.X isa Matrix{T} && base.Y isa Vector{T} ||
-    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs and mixed array types are deferred, and matrix responses are supported only by CDSolver with a row-group GroupNormL2 on a Matrix or BlockIterate coefficient"))
+    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs and mixed array types are deferred. Matrix responses need a compatible matrix coefficient layout and penalty"))
   n, p = size(base.X)
   n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
   length(base.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
@@ -419,6 +419,32 @@ function _check_problem(x, f, g, kind::Symbol = :gradient)
   elseif g isa Union{IndBox, IndBallL2}
     iszero(g(x)) || throw(ArgumentError("$(nameof(typeof(g))) requires a feasible starting point"))
   end
+  nothing
+end
+
+_check_gradient_problem(x, f, g, kind) = _check_problem(x, f, g, kind)
+
+function _check_gradient_problem(B::Matrix{T}, f, g, kind) where T
+  _is_logistic_loss(f) && return _check_logistic_problem(B, f, g, kind)
+  _is_matrix_response(f) ||
+    throw(ArgumentError("a matrix coefficient needs a LeastSquaresLoss, or one positive Scaled of it, with a matrix response Y"))
+  base = f isa Scaled ? f.f : f
+  T in (Float32, Float64) && base.X isa Matrix{T} && base.Y isa Matrix{T} ||
+    throw(ArgumentError("matrix-response PGD and APG need dense Matrix inputs B, X and Y of the same Float32 or Float64 type"))
+  f isa Scaled && _check_loss_scale(leastsquares_data(f).α, T)
+  n, p = size(base.X)
+  K = size(base.Y, 2)
+  n > 0 && p > 0 && K > 0 || throw(DimensionMismatch("X and Y must have positive row and column counts"))
+  size(base.Y, 1) == n || throw(DimensionMismatch("X has $n rows but Y has $(size(base.Y, 1))"))
+  size(B) == (p, K) ||
+    throw(DimensionMismatch("B has size $(size(B)), expected ($p, $K) from X and Y"))
+  g isa NormL1 && g.w === nothing ||
+    throw(ArgumentError("matrix-response PGD and APG require an unweighted NormL1 penalty; their other regression penalties require a dense Vector"))
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  (Base.mightalias(B, base.X) || Base.mightalias(B, base.Y) || Base.mightalias(B, base.tmp)) &&
+    throw(ArgumentError("mutable B must not alias borrowed X or Y or the scratch of the loss"))
+  _allfinite(B) && _allfinite(base.X) && _allfinite(base.Y) ||
+    throw(ArgumentError("B, X and Y must contain only finite values"))
   nothing
 end
 

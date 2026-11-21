@@ -21,6 +21,11 @@ reasonable first choice, especially when you want active-coordinate storage.
 PGD offers full-vector gradient iterations and detailed traces. APG accelerates
 those updates while sharing PGD's options and results.
 
+With several responses on a shared design, use PGD or APG and unweighted
+`NormL1(lambda)` for [entrywise sparsity](examples/problems/multiresponse_lasso.md).
+For shared predictor selection across tasks, use the
+[row-group penalty with CD](examples/problems/multitask_group_lasso.md).
+
 ## Coordinate descent
 
 ~~~@example choosing_cd

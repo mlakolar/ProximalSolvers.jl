@@ -19,6 +19,9 @@ certified optimum. The solvers stop on three kinds of evidence:
 | `ProximalGradientDescent`, `AccProxGradDescent`, `NormLinf` | the same | the generic check | a test proposed a stop and the proximal-gradient residual is below `max(gradtol, 64 eps(T)) * max(‖∇f(0)‖∞, ‖∇f(x)‖∞)` (see [the generic check](@ref STOP-07)) | a working-precision indication; weaker when the accepted `L` is small |
 | `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
 
+The entrywise matrix lasso uses the same PGD/APG result flags, with the
+full-matrix scores and scale in [STOP-03](@ref).
+
 For PGD/APG, the products displayed in the stopping rows are formed in the working
 type `T`, not evaluated as unrounded real-number inequalities. In particular,
 [STOP-04](@ref) specifies the finite-scale/finite-residual guards, the lower
@@ -81,14 +84,14 @@ the stagnation guard, counters, limit statuses and numerical failure boundary.
 For the graphical lasso, [ADM-04](@ref) replaces the stagnation score and adds
 the symmetry and Cholesky rules. For the least-squares lasso, [ADM-05](@ref) replaces
 only the stagnation score.
-Matrix PGD uses the KKT check and result fields in [PGD-08](@ref), with the
+Graphical-lasso PGD uses the KKT check and result fields in [PGD-08](@ref), with the
 rollback boundary in [PGD-07](@ref).
 
 **Applies to.** All solver result types; each solver retains its specified loss, penalty and precision scope.
 
 **Code.** `src/cd/solver.jl`: completed passes and CD results; `src/solve.jl`: gradient iteration/stationarity decisions; `src/types.jl`: result fields.
 
-**Tests.** `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl` and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl` and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
 
 **Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`. The later nonnegative-lasso result interpretation follows [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The square-root fallback qualification is from [f573224f](https://github.com/mlakolar/ProximalSolvers.jl/commit/f573224f70058be24b81378ab2d6e1c752eb93e8), as retained in [the integrated result guidance at ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/blob/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7/docs/src/stopping-limits.md#L35-L45).
 
@@ -98,9 +101,9 @@ The later ridge result assertions are [217cde72, shared result checks](https://g
 
 **Statement.**
 
-This clause describes `OptimizationResults` for vector PGD and APG. See
-[PGD-08](@ref) for matrix PGD.
-`minimizer` aliases the caller's coefficient vector and `minimum` is the reported
+This clause describes `OptimizationResults` for PGD and APG with regression
+coefficients, including [IN-10](@ref). See [PGD-08](@ref) for graphical-lasso PGD.
+`minimizer` aliases the caller's coefficient storage and `minimum` is the reported
 objective at that iterate. `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.
 
@@ -158,7 +161,8 @@ propagated exception, including a nonfinite final objective, retains the outer
 transaction guarantee.
 
 PGD and APG numerical step exceptions restore the last accepted coefficient point
-and rethrow. They do not provide a general transaction for internal counters or
+and rethrow. For [IN-10](@ref) this restoration copies the full accepted
+coefficient matrix into the supplied storage. They do not provide a general transaction for internal counters or
 buffers. The line-search boundary is [LS-09](@ref) and the accelerated trial/restart
 boundary is [APG-03](@ref). A finite run that reaches a limit may still commit or
 return its point with `converged = false`; this is distinct from a thrown numerical
@@ -172,7 +176,7 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 **Code.** `src/solve.jl`: validation, solve wrappers and restoration; `src/cd/solver.jl`: private run and finite-objective completion.
 
-**Tests.** `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/core_contracts.jl`, `test/core_regressions.jl`.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks pre-write refusals and full-matrix restoration after a failing trial. `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/core_contracts.jl`, `test/core_regressions.jl`.
 
 **Sources.** `docs/src/numerics.md:L921`, `docs/src/numerics.md:L923`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/developer/implementation-notes.md:L205`, `docstring:src/solvers/proximal_gradient_descent.jl:L334`. The later caught-stage refusal follows [the fallback at f573224f](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/sqrtlasso.jl#L602-L665) and its unchanged outer finite-objective commit boundary.
 
