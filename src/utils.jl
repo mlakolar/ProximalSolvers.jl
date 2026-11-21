@@ -141,7 +141,10 @@ end
 # S equals the S of NormL1(λ0) where no entry of ∇f(0) has a subnormal square (there the computed norm of a one-entry
 # block is its magnitude); the iterates and the residuals of the two penalties can differ by rounding, since
 # ProximalBase's group operations are not its ℓ1 operations.
-function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, ElasticNet, GroupNormL2}, options::ProximalOptions)
+#
+# NormL2 uses the full-point KKT score and the zero-gradient norm of a single
+# group with unit weight. See STOP-17 for the score and scale.
+function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, ElasticNet, GroupNormL2, NormL2}, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state, _scale_norm(g))   # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
@@ -221,6 +224,8 @@ end
 # The norm of ∇f(0) in the stop scale S: the ∞-norm, and for GroupNormL2 the largest 2-norm of a group block
 _scale_norm(g) = _norm_inf
 _scale_norm(g::GroupNormL2) = v -> maximum(G -> norm(view(v, G)), g.groups)
+# NormL2 is one group of all the entries: the 2-norm of the whole vector
+_scale_norm(::NormL2) = norm
 
 # ∇f at the accepted x. PGD holds it.
 _gradient_at_x!(state::ProximalGradientDescentState, f) = state.grad_f_x
@@ -235,10 +240,10 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.xhat
 end
 
-# After validation, unweighted lasso solves share a working-type penalty across
+# After validation, these solves share a working-type penalty across
 # the initial value, the fused trial steps and the stationarity check.
 _working_gradient_penalty(g, ::Type) = g
-_working_gradient_penalty(g::Union{NormL1{<:Real, Nothing}, NormL1Nonneg{<:Real, Nothing}}, ::Type{T}) where T =
+_working_gradient_penalty(g::Union{NormL1{<:Real, Nothing}, NormL1Nonneg{<:Real, Nothing}, NormL2}, ::Type{T}) where T =
   _converted_penalty(g, T)
 
 # Penalties with levels in T for the dedicated stationarity check.
@@ -264,6 +269,9 @@ _l1_level(g::NormL1) = g.λ0
 # the largest coefficient λ0 wᵢ of a penalty with weights in T and a level in T
 _l1_level(g::NormL1{<:Real, <:Vector}) = g.λ0 * maximum(g.w)
 _l1_level(g::ElasticNet) = g.λ1
+_converted_penalty(g::NormL2{T}, ::Type{T}) where {T<:Real} = g
+_converted_penalty(g::NormL2, ::Type{T}) where T = NormL2(T(g.λ))
+_l1_level(g::NormL2) = g.λ
 # solve! requires the parameters of a GroupNormL2 to be of type T; the level of the scale is the largest coefficient
 _converted_penalty(g::GroupNormL2{T}, ::Type{T}) where T = g
 _l1_level(g::GroupNormL2) = g.λ0 * maximum(g.w)

@@ -22,6 +22,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | [Elastic net](examples/problems/elastic_net.md) |
 | Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | — | Float32 (a, b, h), Float64 (b, h) | — | — | — | [Group lasso](examples/problems/group_lasso.md) |
+| Euclidean-norm penalty: `LeastSquaresLoss`, `NormL2` ([IN-11](@ref)) | — | — | — | — | Float32 (a, p), Float64 (p) | — | Float32 (a, b, p), Float64 (b, p) | — | — | — | [One group is the Euclidean norm](examples/problems/group_lasso.md#One-group-is-the-Euclidean-norm) |
 | Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | — | — | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
 | Multi-response entrywise lasso: `LeastSquaresLoss` with a matrix response, unweighted `NormL1` | — | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, o), Float64 (o) | — | — | [Multi-response lasso: entrywise sparsity](examples/problems/multiresponse_lasso.md) |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
@@ -123,6 +124,14 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 
 - **(o)** APG's certified backtracking limits use the sizes of the image and
   coefficient matrices. See [APG-07](@ref).
+
+- **(p)** `NormL2(lambda)` is the Euclidean norm of the whole coefficient vector. PGD and APG accept
+  it for a dense `Vector{T}`, raw or one positive `Scaled` least squares, and a level that is
+  finite, nonnegative and representable in `T`; the level need not have type `T` and is
+  rounded to it once ([IN-02](@ref)). The tests check both methods against `BigFloat` objectives and
+  stationarity residuals; a `Float32` solve may end without `converged = true`, as in (a). A wrapped
+  `NormL2`, matrix or block coefficients, logistic or square-root loss and `CDSolver` are refused
+  with an `ArgumentError`. The rules are [IN-11](@ref) and [STOP-17](@ref).
 
 ### Statistical applications
 
@@ -304,6 +313,17 @@ weight leaves its group unpenalized. Weight ranges and alias restrictions are
 specified in [the group input contract](@ref IN-04), and proposed stops must
 pass [the group stationarity check](@ref STOP-01).
 
+### Euclidean-norm penalty with PGD and APG
+
+~~~math
+\min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_2,
+~~~
+
+Use `NormL2(lambda)` with PGD or APG and a dense coefficient vector. The proximal
+operator shrinks the whole vector by a common factor. See [IN-11](@ref) for inputs,
+[STOP-17](@ref) for the stopping check, and the [group lasso tutorial](examples/problems/group_lasso.md)
+for the one-group comparison.
+
 ### Multi-response entrywise lasso with gradient methods
 
 Use `ProximalGradientDescent()` or `AccProxGradDescent()` with an unweighted
@@ -454,6 +474,7 @@ The current development core intentionally excludes the following:
 | PGD or APG with `SparseIterate` coefficients | Deferred |
 | PGD or APG with `BlockIterate` coefficients or matrix coefficients outside [IN-10](@ref) and the graphical-lasso PGD contract [PGD-06](@ref) | Deferred; refused with an `ArgumentError` |
 | `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
+| `CDSolver` with `NormL2`; `Scaled(NormL2)`; `NormL2` with a matrix or block coefficient, `LogisticLoss` or `SqrtLeastSquaresLoss` | Refused with an `ArgumentError`; PGD and APG on a dense `Vector` are the supported route ([IN-11](@ref)) |
 | `NormL0` with `solve!` | The [ℓ₀ sparse-regression tutorial](examples/problems/l0_sparse_regression.md) runs its own IHT routine with the ProximalBase prox. |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
 | Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |
