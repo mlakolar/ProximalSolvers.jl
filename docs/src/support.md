@@ -13,25 +13,25 @@ means both; a letter refers to a limit in the notes below the table. A dash mean
 as supported in the table is not verified; the sections below give the exact input rules, and
 [What is not supported yet?](@ref "What is not supported yet?") lists what is deferred.
 
-| Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `CDSolver` on a `Matrix` | `ProximalGradientDescent` on a `Vector` | `ProximalGradientDescent` on a `Matrix` | `AccProxGradDescent` on a `Vector` | `AccProxGradDescent` on a `Matrix` | `ProxNewton` on a `Vector` | `ADMMSolver` on a `Vector` | `ADMMSolver` on a `Matrix` | Tutorial |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | Float64 (l) | — | [Lasso](examples/problems/lasso.md) |
-| Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | — | — | [Weighted lasso](examples/problems/weighted_lasso.md), [solver comparison](examples/comparisons/weighted_lasso_solvers.md) |
-| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | Float32, Float64 (i) | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
-| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | Float32, Float64 (i) | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
-| Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | — | [Elastic net](examples/problems/elastic_net.md) |
-| Weighted elastic net: `LeastSquaresLoss`, `ElasticNet(lambda1, lambda2, w)` | Float32, Float64 (c, f) | Float32, Float64 (c, f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | — | — | [Elastic net](examples/problems/elastic_net.md) |
-| Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | — | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
-| Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | — | Float32 (a, b, h), Float64 (b, h) | — | — | — | — | [Group lasso](examples/problems/group_lasso.md) |
-| Euclidean-norm penalty: `LeastSquaresLoss`, `NormL2` ([IN-11](@ref)) | — | — | — | — | Float32 (a, q), Float64 (q) | — | Float32 (a, b, q), Float64 (b, q) | — | — | — | — | [One group is the Euclidean norm](examples/problems/group_lasso.md#One-group-is-the-Euclidean-norm) |
-| Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | — | — | — | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
-| Multi-response entrywise lasso: `LeastSquaresLoss` with a matrix response, unweighted `NormL1` | — | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, o), Float64 (o) | — | — | — | [Multi-response lasso: entrywise sparsity](examples/problems/multiresponse_lasso.md) |
-| Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | — | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
-| Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | — | Float32, Float64 | — | — | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
-| ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
-| Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
-| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric `Matrix` weights | — | — | — | — | — | Float32, Float64, full weights (m) | — | — | — | — | Float32, Float64, full weights (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
-| Sparse logistic regression: raw `LogisticLoss` with a binary response, `NormL1` or `NormL1(lambda, w)` | — | — | — | — | Float64 (n) | — | — | — | Float64 (n, p) | — | — | [Sparse logistic regression](examples/problems/logistic_regression.md) |
+| Problem | `CDSolver` on a `Vector` | `CDSolver` on a `SparseIterate` | `CDSolver` on a `BlockIterate` | `CDSolver` on a `Matrix` | `ProximalGradientDescent` on a `Vector` | `ProximalGradientDescent` on a `Matrix` | `AccProxGradDescent` on a `Vector` | `AccProxGradDescent` on a `Matrix` | `ProxNewton` on a `Vector` | `LogisticADMM` on a `Vector` | `ADMMSolver` on a `Vector` | `ADMMSolver` on a `Matrix` | Tutorial |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | Float64 (l) | — | [Lasso](examples/problems/lasso.md) |
+| Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | — | — | — | [Weighted lasso](examples/problems/weighted_lasso.md), [solver comparison](examples/comparisons/weighted_lasso_solvers.md) |
+| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | Float32, Float64 (i) | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
+| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | Float32, Float64 (i) | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
+| Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | — | — | [Elastic net](examples/problems/elastic_net.md) |
+| Weighted elastic net: `LeastSquaresLoss`, `ElasticNet(lambda1, lambda2, w)` | Float32, Float64 (c, f) | Float32, Float64 (c, f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | — | — | — | [Elastic net](examples/problems/elastic_net.md) |
+| Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | — | — | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
+| Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | — | Float32 (a, b, h), Float64 (b, h) | — | — | — | — | — | [Group lasso](examples/problems/group_lasso.md) |
+| Euclidean-norm penalty: `LeastSquaresLoss`, `NormL2` ([IN-11](@ref)) | — | — | — | — | Float32 (a, q), Float64 (q) | — | Float32 (a, b, q), Float64 (b, q) | — | — | — | — | — | [One group is the Euclidean norm](examples/problems/group_lasso.md#One-group-is-the-Euclidean-norm) |
+| Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | — | — | — | — | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
+| Multi-response entrywise lasso: `LeastSquaresLoss` with a matrix response, unweighted `NormL1` | — | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, o), Float64 (o) | — | — | — | — | [Multi-response lasso: entrywise sparsity](examples/problems/multiresponse_lasso.md) |
+| Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | — | — | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
+| Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | — | Float32, Float64 | — | — | — | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
+| ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
+| Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
+| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric `Matrix` weights | — | — | — | — | — | Float32, Float64, full weights (m) | — | — | — | — | — | Float32, Float64, full weights (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
+| Sparse logistic regression: raw `LogisticLoss` with a binary response, `NormL1` or `NormL1(lambda, w)` | — | — | — | — | Float64 (n) | — | — | — | Float64 (n, p) | Float64 (n, r) | — | — | [Sparse logistic regression](examples/problems/logistic_regression.md), [solver comparison](examples/comparisons/logistic_solvers.md) |
 
 `ElasticNet` is unweighted except in the weighted elastic-net row, where `ElasticNet(lambda1, lambda2, w)` has one
 weight per coefficient on its L1 term only. `NormL1` is unweighted except in three rows: in the
@@ -137,6 +137,11 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
   `ProxNewtonResults`, whose `converged` is a computed KKT residual at the returned point, not a certificate
   ([PN-05](@ref), [RES-01](@ref)). The tests check the returned point against the objective and KKT residual
   computed from the data in `BigFloat`.
+- **(r)** `LogisticADMM` takes the inputs of (n) and the same `NormL1` rules, with a `ρ` in `[1e-10, 1e10]` and a
+  `CDSolver` in cyclic order as `inner` ([LA-01](@ref); see also [Sparse logistic regression with ADMM](@ref)). It
+  returns a `LogisticADMMResults`, whose `converged` combines the primal and dual residual tests with a computed KKT
+  residual at the returned point, not a certificate ([LA-04](@ref), [RES-01](@ref)). The tests check the returned
+  point against the objective and KKT residual computed from the data in `BigFloat` and against `ProxNewton`.
 
 - **(o)** APG's certified backtracking limits use the sizes of the image and
   coefficient matrices. See [APG-07](@ref).
@@ -197,8 +202,8 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Design matrix `X` | Nonempty, finite, dense `Matrix{Float32}` or `Matrix{Float64}` |
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)`; for `LogisticLoss`, a `Vector{Float64}` whose entries are 0 or 1 |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
-| Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below); for `ProximalGradientDescent` on a `Vector{Float64}`, also the raw `LogisticLoss` with `NormL1` (see below) |
-| Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; `ElasticNet(lambda1, lambda2)` with nonnegative finite levels, or `ElasticNet(lambda1, lambda2, w)` with the weights and the range rule of [IN-03](@ref) (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`); with `LogisticLoss`, `NormL1(lambda)` or `NormL1(lambda, w)` for `ProximalGradientDescent` on a `Vector{Float64}` ([IN-09](@ref)) |
+| Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below); for `ProximalGradientDescent`, `ProxNewton` and `LogisticADMM` on a `Vector{Float64}`, also the raw `LogisticLoss` with `NormL1` (see below) |
+| Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; `ElasticNet(lambda1, lambda2)` with nonnegative finite levels, or `ElasticNet(lambda1, lambda2, w)` with the weights and the range rule of [IN-03](@ref) (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`); with `LogisticLoss`, `NormL1(lambda)` or `NormL1(lambda, w)` for `ProximalGradientDescent`, `ProxNewton` and `LogisticADMM` on a `Vector{Float64}` ([IN-09](@ref)) |
 | Ridge penalty | Uncentered `SqrNormL2(lambda)` with the least-squares loss and `CDSolver` on a dense vector or a one-dimensional `SparseIterate` (note j above) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
@@ -491,6 +496,31 @@ result.converged, result.kkt, result.iterations, result.passes, result.stop_reas
 last accepted point with `converged = false` (the [results contract](@ref RES-01) gives the meaning of the flag). The weighted design costs
 one `n × p` array. The rules are in [PN-01](@ref) to [PN-05](@ref).
 
+### Sparse logistic regression with ADMM
+
+`LogisticADMM` minimizes the same objective with the same inputs by ADMM on the split `t = X * b`, with a predictor
+`t` and a scaled dual `u` of length `n`. Each iteration solves a lasso problem in the coefficients by warm-started
+cyclic coordinate descent, one scalar logistic proximal problem per observation for `t`, and updates `u`. The method
+is useful for teaching: it separates the loss, which acts on the predictor, from the penalty, which acts on the
+coefficients, and the subproblems are a lasso and scalar roots. It is not presumed to be faster than
+`ProximalGradientDescent` or `ProxNewton`; its iteration count depends on the penalty `ρ` of the augmented
+Lagrangian, a tuning parameter.
+
+~~~julia
+using ProximalBase, ProximalSolvers
+result = solve!(beta, LogisticLoss(y, X), NormL1(lambda, [0.0; ones(size(X, 2) - 1)]), LogisticADMM())
+result.converged, result.kkt, result.iterations, result.passes, result.stop_reason
+~~~
+
+The solve stops with `converged = true` when the primal residual `‖X b - t‖`, the dual residual
+`ρ ‖Xᵀ(t - t_previous)‖` and the largest KKT score of the original problem at the returned coefficients are within
+their thresholds (`abstol`, `reltol` and `abstol_dual` for the residuals, `tol` for the score). Without `t` and `u`
+the solve starts from `t = X b` and the dual `(σ(t) - y)/ρ`, with which, in exact arithmetic, a minimizer and its
+predictor are a fixed point, so a warm start from another solver's solution does not restart the transient of the dual. `solve!(beta, f, g, LogisticADMM(); t = t, u = u)` restarts from
+a returned predictor and dual; with another `ρ`, rescale `u` by `ρ_old / ρ_new`. The `stop_reason` is `:converged`,
+`:maxiter`, `:stalled` or `:prox_failed`. The rules are in [LA-01](@ref) to [LA-05](@ref), and the
+[solver comparison](examples/comparisons/logistic_solvers.md) runs the three logistic solvers on one problem.
+
 ### [Nonnegative least squares and lasso](@id Nonnegative-lasso-with-proximal-gradient-descent)
 
 **(i)** With dense least-squares data and a feasible nonnegative starting vector,
@@ -515,15 +545,15 @@ The current development core intentionally excludes the following:
 | Feature | Current status |
 | --- | --- |
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
-| Generalized losses other than the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent` in [IN-09](@ref) or `ProxNewton` in [PN-01](@ref); automatic intercept handling and offsets (a column of ones can be supplied as an unpenalized coordinate, with penalty weight zero, under the input rules of a weighted `NormL1`); matrix-response problems outside the two matrix-response rows above | Deferred |
-| `LogisticLoss` with `AccProxGradDescent`, `CDSolver` or `ADMMSolver`, with observation weights or an offset, `Scaled(LogisticLoss)`, `Float32` data, a sparse design or a penalty other than `NormL1`; `ProxNewton` with any other loss | Refused with an `ArgumentError` (deferred) |
+| Generalized losses other than the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent` in [IN-09](@ref), `ProxNewton` in [PN-01](@ref) or `LogisticADMM` in [LA-01](@ref); automatic intercept handling and offsets (a column of ones can be supplied as an unpenalized coordinate, with penalty weight zero, under the input rules of a weighted `NormL1`); matrix-response problems outside the two matrix-response rows above | Deferred |
+| `LogisticLoss` with `AccProxGradDescent`, `CDSolver` or `ADMMSolver` (whose refusal names `LogisticADMM`), with observation weights or an offset, `Scaled(LogisticLoss)`, `Float32` data, a sparse design or a penalty other than `NormL1`; `ProxNewton` or `LogisticADMM` with any other loss | Refused with an `ArgumentError` (deferred) |
 | Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
 | Weighted `NormL1(lambda, w)` in matrix-response regression | Deferred |
 | Observation weights; infinite penalty weights; penalty weight storage or types outside the solver's contract, including graphical-lasso weights outside [ADM-04](@ref) or [PGD-06](@ref) | Deferred; each solver's contract lists the weights it accepts |
 | Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
 | Weighted square-root lasso, `Scaled(SqrtLeastSquaresLoss)`, `SqrtLeastSquaresLoss` with an `ElasticNet` or a `BlockIterate`, or with PGD or APG | Refused with an `ArgumentError` (weights and `Scaled` deferred) |
 | Newton methods other than `ProxNewton` for the raw logistic loss ([PN-01](@ref)), monotone or active-set accelerated gradient, primal-dual, SLOPE; graphical lasso (log-determinant estimation of a precision matrix) with QUIC or other solvers outside [ADM-04](@ref) and [PGD-06](@ref) | Deferred |
-| ADMM with other functions or storage than the supported problems ([ADM-01](@ref), [ADM-05](@ref), [ADM-04](@ref)), product spaces, general linear constraints, custom norms, or over-relaxation or the adaptive penalty on a `Matrix` | Deferred |
+| ADMM with other functions or storage than the supported problems ([ADM-01](@ref), [ADM-05](@ref), [ADM-04](@ref), [LA-01](@ref)), product spaces, general linear constraints, custom norms, or over-relaxation or the adaptive penalty on a `Matrix`; over-relaxation or an adaptive `ρ` with `LogisticADMM` | Deferred |
 | ADMM with `LeastSquaresLoss` and a wide design (`n < p`), `Float32` or mixed types, a scaled loss or a weighted penalty | Refused with an `ArgumentError`; wide designs are an upstream follow-up |
 | Generic workspaces, refitting, reweighting | Deferred |
 | PGD or APG with `SparseIterate` coefficients | Deferred |

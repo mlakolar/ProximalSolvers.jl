@@ -32,8 +32,10 @@ The following remain deferred:
   unpenalized coordinate, with penalty weight zero, under the input rules of a weighted
   `NormL1`); generalized losses and
   compositions, except the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent`
-  in the scope of [IN-09](@ref), and with `ProxNewton` in the scope of [PN-01](@ref). For the
-  logistic loss, `AccProxGradDescent`, `CDSolver`, Newton-type methods other than `ProxNewton`,
+  in the scope of [IN-09](@ref), with `ProxNewton` in the scope of [PN-01](@ref), and with
+  `LogisticADMM` in the scope of [LA-01](@ref). For the logistic loss, `AccProxGradDescent`,
+  `CDSolver`, `ADMMSolver`, Newton-type methods other than `ProxNewton`, ADMM variants other than
+  `LogisticADMM` (adaptive `ρ`, over-relaxation, general linear constraints),
   `Scaled(LogisticLoss)`, observation weights and
   offsets, `Float32` data, sparse designs and penalties other than `NormL1` remain
   deferred, as do Poisson and other generalized linear model losses;
@@ -42,8 +44,9 @@ The following remain deferred:
   primal-dual methods, SLOPE and direct precision-matrix solvers other than the
   graphical-lasso routes in [ADM-04](@ref) and [PGD-06](@ref);
 - ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref),
-  the least-squares lasso with a tall or square `Float64` design in [ADM-05](@ref)
-  and the graphical lasso in [ADM-04](@ref), including arbitrary function pairs,
+  the least-squares lasso with a tall or square `Float64` design in [ADM-05](@ref),
+  the graphical lasso in [ADM-04](@ref) and the predictor split of sparse logistic
+  regression in [LA-01](@ref), including arbitrary function pairs,
   product spaces, linear constraints, custom norms, scaled or `Float32`
   least-squares losses, wide designs (`n < p`), and over-relaxation or the
   adaptive penalty on a matrix;
@@ -67,6 +70,6 @@ workspace API; see [ARCH-03](@ref).
 
 **Code.** `src/types.jl`: constructor validation; `src/solve.jl`: supported dispatch and input gates; `src/cd/models.jl`: private seams.
 
-**Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl`, `test/logistic_pgd.jl` (the logistic refusals), `test/logistic_proxnewton.jl` (the same refusals for `ProxNewton`) and solver-specific unsupported-input tests.
+**Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl`, `test/logistic_pgd.jl` (the logistic refusals), `test/logistic_proxnewton.jl` (the same refusals for `ProxNewton`), `test/logistic_admm.jl` (the same refusals for `LogisticADMM`) and solver-specific unsupported-input tests.
 
 **Sources.** `docs/src/support.md:L385`, `docs/src/developer/implementation-notes.md:L238`, `docs/src/developer/implementation-notes.md:L240`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/index.md:L9`, `README.md:L96`; the later nonnegative-lasso refusals are specified by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The narrow ridge extension and remaining refusals are [upstream #420 at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/commit/217cde72cad2b324e174012accc949da59c1bba5).

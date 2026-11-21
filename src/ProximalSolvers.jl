@@ -25,6 +25,8 @@ and an unweighted entrywise `NormL1` penalty under
 response, no observation weights or offset), dense `Float64` data and `NormL1`.
 [`ProxNewton`](@ref) fits the same problem by proximal Newton steps, each solved by cyclic coordinate descent on a
 weighted least-squares model ([PN-01](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/logistic-proxnewton/#PN-01)).
+[`LogisticADMM`](@ref) fits it by ADMM on the split `t = X * b`, with a length-`n` predictor and dual
+([LA-01](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/logistic-admm/#LA-01)).
 [`ADMMSolver`](@ref) solves centered `SqrNormL2` with unweighted `NormL1` on dense vectors.
 [`ADMMSolver`](@ref) also solves the lasso with a raw `LeastSquaresLoss` and unweighted `NormL1` for `Float64` data with a tall or square design, specified in [ADM-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-05).
 [`ADMMSolver`](@ref) also supports the graphical-lasso combination of `LogDetLoss` and matrix-weighted `NormL1` on a dense `Matrix` specified in [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
@@ -43,8 +45,9 @@ include("blocks.jl")
 using .Blocks
 include("line_searches.jl")
 using .LineSearches
-export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, solve!, ProximalSolver, ProximalOptions,
-       ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, OptimizationState, OptimizationTrace
+export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, LogisticADMM, solve!, ProximalSolver,
+       ProximalOptions, ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, LogisticADMMResults, OptimizationState,
+       OptimizationTrace
 @static if VERSION >= v"1.11.0-DEV.469"
   eval(Expr(:public, :OptimizationResults, :LineSearches))
 end
@@ -61,6 +64,7 @@ include("cd/multiresponse.jl")
 include("cd/leastsquares.jl")
 include("cd/sqrtlasso.jl")
 include("solvers/logistic_proxnewton.jl")
+include("solvers/logistic_admm.jl")
 include("utils.jl")
 include("precompile.jl")
 end

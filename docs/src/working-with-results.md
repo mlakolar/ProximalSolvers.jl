@@ -26,7 +26,10 @@ PGD and APG provide `iterations`, more detailed stopping residuals and
 an optional iteration `trace`. ADMM provides `iterations`, `status`, and
 primal and dual residuals with their tolerances. `ProxNewton` provides `iterations`,
 `passes`, the largest KKT score `kkt` of the returned point, its `tolerance` and a
-`stop_reason` (`:converged`, `:maxiter` or `:stalled`).
+`stop_reason` (`:converged`, `:maxiter` or `:stalled`). `LogisticADMM` provides the same, the
+steps of its scalar roots, its primal and dual residuals with their thresholds, two diagnostics of
+its optimality conditions (`dual_kkt` and `predictor_residual`), its predictor `t` and dual `u`, with
+one entry per observation, and the stop reason `:prox_failed` for a failed scalar root.
 
 A convergence flag reports the solver's implemented stopping criterion;
 [the result contract](@ref RES-01) gives the precise meaning and qualifications.
@@ -36,6 +39,7 @@ A convergence flag reports the solver's implemented stopping criterion;
 | Least-squares CD, including group and multi-response fits | The pass-change test succeeded; it is not an independent optimality check |
 | PGD/APG | A stopping proposal passed the applicable computed stationarity check |
 | `ProxNewton` (logistic regression) | The largest KKT score of the returned point is finite and at most `tol`; see [PN-05](@ref) |
+| `LogisticADMM` (logistic regression) | The primal and dual residual tests passed and the largest KKT score of the returned point is at most `tol`; see [LA-04](@ref) |
 | Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |
 | Consensus ADMM | The primal and dual residual tests and any required stagnation check passed. See [ADM-02](@ref) |
 
@@ -96,7 +100,7 @@ diagnostics, not changes to the statistical model.
 | PGD rejects `SparseIterate` | PGD needs a dense coefficient vector; CD supports one-dimensional `SparseIterate` |
 | PGD or APG rejects `BlockIterate` | PGD and APG take a dense `Vector{T}`, with a `GroupNormL2{T}` penalty for the group lasso; only CD takes a `BlockIterate` |
 | `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
-| Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md); for `ProxNewton`, read `stop_reason` (`:maxiter` spent the iteration budget, `:stalled` found no accepted step) |
+| Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md); for `ProxNewton`, read `stop_reason` (`:maxiter` spent the iteration budget, `:stalled` found no accepted step); for `LogisticADMM`, compare `r_norm`, `s_norm` and `kkt` with their thresholds, and try another `ρ` when the residuals decrease slowly |
 | `gap` is NaN | Gap certification is implemented only for the square-root lasso with CD; there, `NaN` means that the run stopped without a certificate |
 | Square-root lasso: `converged = false` with a warning about a missing duality certificate | No certificate was proved, at the stop or in the fallback that follows it (where the fallback runs), for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum and the fallback need not recover; see [`CDSolver`](@ref) and [an example](@ref sqrt-lasso-exact-fit) |
 | Float32 precision looks poor | Start with native Float32 inputs/scales, check the KKT residual; Float32 has lower precision |

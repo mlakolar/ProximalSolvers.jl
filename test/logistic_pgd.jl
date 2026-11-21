@@ -547,8 +547,8 @@ end
      "CDSolver does not support it"),
     (zeros(k, 2), f, GroupNormL2(1.0, [collect(j:k:2k) for j in 1:k]), CDSolver(), ArgumentError,
      "CDSolver does not support it"),
-    (copy(start), f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMM requires SqrNormL2"),
-    (copy(start), (1 / n) * f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMM requires SqrNormL2"),
+    (copy(start), f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMMSolver does not support LogisticLoss; use LogisticADMM"),
+    (copy(start), (1 / n) * f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMMSolver does not support LogisticLoss; use LogisticADMM"),
     (copy(start), (1 / n) * f, g, AccProxGradDescent(), ArgumentError, "supported only by ProximalGradientDescent"),
     (copy(start), (1 / n) * f, g, CDSolver(), ArgumentError, "CDSolver does not support it"),
     # matrix coefficients: PGD's matrix method takes only a LogDetLoss, so the logistic gate refuses them
@@ -618,9 +618,9 @@ end
   X, y = logistic_data(40, 3; seed = 12)
   n, k = size(X)
   Λ = [0.0 1.0; 1.0 0.0]
-  storages = [(() -> [0.1, -0.2, 0.3, 0.0], () -> [0.01, 0.02, -0.03, 0.04], NormL1(1.0), "ADMM requires SqrNormL2"),
+  storages = [(() -> [0.1, -0.2, 0.3, 0.0], () -> [0.01, 0.02, -0.03, 0.04], NormL1(1.0), "ADMMSolver does not support LogisticLoss; use LogisticADMM"),
               (() -> [1.0 0.1; 0.1 1.0], () -> [0.01 0.02; 0.02 0.03], NormL1(1.0, Λ),
-               "ADMM on a matrix requires LogDetLoss")]
+               "ADMMSolver does not support LogisticLoss; use LogisticADMM")]
   for loss in (LogisticLoss(y, X), (1 / n) * LogisticLoss(y, X)), (makez, makeu, g, message) in storages
     z, u = makez(), makeu()
     zbefore, ubefore = copy(z), copy(u)

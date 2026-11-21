@@ -160,6 +160,10 @@ for the complete conditions, including the method settings.
 function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = ProximalOptions(); u=nothing, kwargs...)
   _check_keywords(kwargs)
   _check_admm_options(options)
+  # a logistic loss, raw or in a Scaled wrapper, with any z: the predictor-splitting method is a solver of its own (LA-01)
+  _is_logistic_loss(f) &&
+    throw(ArgumentError("ADMMSolver does not support LogisticLoss; use LogisticADMM for the raw LogisticLoss(y, X) " *
+                        "with NormL1 on a dense Vector{Float64}"))
   z isa Union{Vector{Float32}, Vector{Float64}, Matrix{Float32}, Matrix{Float64}} ||
     throw(ArgumentError("z must be a dense Float32 or Float64 vector, or a dense Float32 or Float64 matrix for the graphical lasso"))
   _solve_admm!(z, f, g, method, options, u)
