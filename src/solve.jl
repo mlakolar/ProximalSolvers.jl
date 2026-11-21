@@ -393,8 +393,9 @@ _logistic_solver_name(kind::Symbol) =
   kind === :newton ? "ProxNewton" : kind === :gradient ? "AccProxGradDescent" : "ProximalGradientDescent"
 
 # The gate of a logistic loss (IN-09, PN-01, APG-08), in place of the checks below, at each call of PGD, APG and ProxNewton
-# and before any write to x; the dense CD route calls it only for the refusal of its own kind. Each refusal is an ArgumentError (a DimensionMismatch for the shapes), in this order: a solver other than PGD, APG
-# and ProxNewton (`kind` is none of :pgd, :gradient and :newton); a Scaled wrapper; a loss, X, y or x that is not
+# that reaches it (after the keyword check of solve!) and before any write to x; the dense CD route calls it only for the
+# refusal of its own kind. Each refusal is an ArgumentError (a DimensionMismatch for the shapes), in this order: a solver
+# other than PGD, APG and ProxNewton (`kind` is none of :pgd, :gradient and :newton); a Scaled wrapper; a loss, X, y or x that is not
 # LogisticLoss{Float64}, Matrix{Float64}, Vector{Float64} and Vector{Float64}; observation weights or an offset; X
 # without rows or columns, y without one entry per row of X, x without one entry per column; a penalty that is not a
 # NormL1, then the NormL1 rules of _check_penalty (with weights, _check_l1_weights, which also refuses an x that may

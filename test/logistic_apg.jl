@@ -140,14 +140,14 @@ function check_stop(X, y, b, λ, w, options; margin = true)
   residual
 end
 
-# The objectives of two points compared through convexity. At a point b, the element G of the subdifferential of F with
-# the smallest entries has |Gⱼ| equal to the score of coordinate j: ∇fⱼ plus a value of the penalty's subdifferential
-# in [-cⱼ, cⱼ] at bⱼ = 0 and ∇fⱼ + cⱼ sign(bⱼ) elsewhere. By convexity F(other) ≥ F(b) + ⟨G, other - b⟩, so
+# The objectives of two points compared through convexity. At a point b, take the element G of the subdifferential of F
+# whose coordinates have the smallest magnitudes: |Gⱼ| is the score of coordinate j, with Gⱼ = ∇fⱼ plus the value of
+# smallest magnitude in [-cⱼ, cⱼ] at bⱼ = 0 and ∇fⱼ + cⱼ sign(bⱼ) elsewhere. By convexity F(other) ≥ F(b) + ⟨G, other - b⟩, so
 # F(b) - F(other) ≤ Σⱼ |Gⱼ| |otherⱼ - bⱼ| ≤ KKT∞(b) ‖b - other‖₁; with the roles exchanged,
 # |F(a) - F(b)| ≤ max(KKT∞(a), KKT∞(b)) ‖a - b‖₁. The scores, the objectives and the bound are all BigFloat from the stored
-# points. The rounding term covers the rounding of that evaluation: BigFloat has 256 bits (relative error about 1e-77 per
-# operation), the sums have at most a few hundred terms, and 1e-60 relative to the size of the objectives is far above
-# their rounding and far below any Float64 quantity compared.
+# points. The rounding term covers the rounding of that evaluation at the default BigFloat precision of 256 bits, which
+# nothing in this file changes (relative error about 1e-77 per operation): the sums have at most a few hundred terms,
+# and 1e-60 relative to the size of the objectives is far above their rounding and far below any Float64 quantity compared.
 function objective_gap(X, y, λ, w, a, b)
   ka, kb = kkt_residual(X, y, a, λ, w), kkt_residual(X, y, b, λ, w)
   Fa, Fb = objective(X, y, a, λ, w), objective(X, y, b, λ, w)
@@ -224,7 +224,8 @@ end
     d = big.(x) .- big.(y0)
     iszero(sum(abs2, d)) && continue
     # the directional curvature ¼‖X d‖²/‖d‖², formed in BigFloat and rounded to Float64; the factors below put L below, at
-    # and above it. The relaxed image inequality of the certified test holds from L = curvature / (1 + 4eps)².
+    # and above it. In exact arithmetic the relaxed image inequality holds from L = q / (1 + 4eps)², with q the BigFloat
+    # quotient before that rounding.
     curvature = Float64(sum(abs2, big.(X) * d) / 4 / sum(abs2, d))
     for factor in (1 / 4, 1 / 2, 1, 2, 4), use_fresh in (false, true)
       a = decision(logistic, X, x, xa, xb, ω, curvature * factor; fresh_only = use_fresh)
@@ -627,7 +628,8 @@ end
   # y = ones(8) with an intercept column of ones and weight zero: F(b₁) = 8 log(1 + e^{-b₁}) decreases toward 0 as b₁ → +∞,
   # its derivative -8σ(-b₁) is negative at every finite b₁, and no minimizer exists (IN-09). The computed residual can still
   # fall below the threshold, so neither outcome of `converged` is required. The results must be finite, and when
-  # convergence is reported the independent BigFloat residual is checked against the threshold of the stop.
+  # convergence is reported the independent BigFloat residual is checked against the threshold of the stop plus the
+  # rounding allowance of check_stop.
   X1, y1 = ones(8, 1), ones(8)
   λ, w = 0.1, [0.0]
   options = ProximalOptions(maxiter = 1000, gradtol = 1e-10)

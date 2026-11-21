@@ -48,16 +48,15 @@ Box constraints use `IndBox` or `IndBallLinf`. Euclidean-ball constraints use
 `IndBallL2` with four coefficients and a radius of the same type. These
 indicators require a feasible starting vector.
 Use [`ProximalGradientDescent`](@ref), or [`CDSolver`](@ref) on a dense `Vector`,
-for unweighted `NormL1Nonneg`; APG does not support that constrained penalty.
+for `IndNonnegative()` and unweighted `NormL1Nonneg`; APG does not support those constrained penalties.
 
 Sparse logistic regression takes a raw `LogisticLoss(y, X)` (dense `Matrix{Float64}` design, binary
 `Vector{Float64}` response, no observation weights or offset) with `NormL1`, with or without penalty weights, on a
 `Vector{Float64}`; a zero penalty weight leaves an intercept column unpenalized. The loss, coefficient and penalty
-rules are those of the gate of [`ProximalGradientDescent`](@ref), and the dimension limits above also apply. The line search uses the factor `1/4` of the logistic Hessian bound where least
-squares uses its loss scale, and accepts a nonzero step only when `‖X d‖/2 ≤ (1 + 4eps) √L ‖d‖` is certified, with
-`d` the step from the extrapolated point. In exact arithmetic that implies the descent inequality of the loss with `L`
-replaced by `(1 + 4eps)² L`; the test does not use the local curvature, so a step can be shorter than a test on the
-loss value would allow. See
+rules are those of the gate of [`ProximalGradientDescent`](@ref), and the dimension limits above also apply. The factor
+`1/4` of the logistic Hessian bound takes the place of the loss scale in the certified line-search test, which decides a
+nonzero step from the extrapolated point. The test does not use the local curvature, so a step can be shorter than a test on
+the loss value would allow. See
 [the logistic input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09) and
 [APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
 
@@ -120,8 +119,9 @@ mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z}
     z_x::Z
     z_previous::Z
     z_y::Z
-    dz::Z             # observation derivative at A y (the residual A y - response before the loss scale, σ(A y) - response
-                      # for a logistic loss), written by the value and gradient at y; buffer of the fresh A d
+    dz::Z             # observation derivative at the cached image z_y (z_y minus the response before the loss scale for
+                      # least squares, σ(z_y) minus the response for a logistic loss), written by the value and gradient
+                      # oracle when it runs (a logistic oracle is skipped for a nonfinite image); buffer of the fresh A d
     bound::_BoundConstants{T}  # constants of the bound test (dimensions, ‖A‖_F)
     rootα::_SE{T}     # √ of the loss scale as given (see _root_scale); ½ = √¼ for a logistic loss
     image_error_y::_SE{T}  # bound on the error of z_y as an image of y
@@ -231,12 +231,13 @@ function update_state!(
     state
 end
 
-# x = prox_{g/L}(y - ∇f(y)/L), increasing L until _bound_certified! certifies, for a trial with a finite value and
-# iterate norm, the image inequality √α ‖X (x - y)‖ ≤ (1 + 4eps) √L ‖x - y‖, or until x == y entrywise. The gradient
-# ∇f(y) comes from the cached image z_y, and the derivative buffer state.dz receives the observation derivative at z_y
-# (z_y minus the response for least squares, σ(z_y) minus the response for a logistic loss). In exact arithmetic the
-# image inequality is, for least squares, equivalent to f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + (1 + 4eps)² L/2 ‖x - y‖²;
-# for a logistic loss (α = ¼) it implies that inequality (APG-08).
+# x = prox_{g/L}(y - ∇f(y)/L). Both exits require that the smooth value of the trial and the computed norms of x and of
+# the rounded displacement x - y are finite. Then x == y entrywise is accepted, and a nonzero displacement is accepted when
+# _bound_certified! certifies the image inequality √α ‖X (x - y)‖ ≤ (1 + 4eps) √L ‖x - y‖. Any other trial raises L through
+# next_curvature, a finite increase or else an error. The gradient ∇f(y) comes from the cached image z_y, which can differ
+# from the product X y, and the derivative buffer state.dz receives the observation derivative at z_y when the oracle runs.
+# In exact arithmetic the image inequality is, for least squares, equivalent to
+# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + (1 + 4eps)² L/2 ‖x - y‖²; for a logistic loss (α = ¼) it implies that inequality (APG-08).
 function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
     f_y = _value_and_gradient!(state.grad_f_y, state.y, f, state.z_y, state.dz)
     state.f_calls += 1
@@ -342,10 +343,12 @@ matrix coefficients and unweighted `NormL1` under
 
 # Extended help
 
-For least squares, the inputs, the options and their validation are those
-of `ProximalGradientDescent`, including a `GroupNormL2` penalty with its group stopping check (see `ProximalGradientDescent` and
-[`ProximalOptions`](@ref)); in addition `β` and `α` must satisfy their bounds after
-conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
+For least squares, the options and their validation are those of
+`ProximalGradientDescent` (see [`ProximalOptions`](@ref)), and the penalties are those listed for
+[`AccProxGradDescent`](@ref); `IndNonnegative()` and `NormL1Nonneg` are accepted by `ProximalGradientDescent` and
+`CDSolver` only. The listed penalties, a weighted `ElasticNet` and a `GroupNormL2` included, apply to dense vector
+coefficients with least squares, and the group stopping check is described under `ProximalGradientDescent`. In addition `β`
+and `α` must satisfy their bounds after conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
 `n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
 rounding-error bounds of the line search need for one response. For `K` response
 columns, the first bound uses `max(nK, pK)`. See
