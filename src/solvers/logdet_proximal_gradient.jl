@@ -29,13 +29,12 @@ function _logdet_pgd_preflight(Θ::Matrix{T}, f, g, ls, options) where T
   scratch = similar(Θ)
   _admm_passes_cholesky!(scratch, Θ) ||
     throw(ArgumentError("Θ must have a successful Cholesky factorization in $T"))
-  # Finite Sᵢᵢ and Cᵢᵢ can have a sum that overflows in T. An infinite aᵢ would make every scale
-  # dᵢⱼ of its row infinite, so that its violations score 0, and beside a zero root sⱼ it would give a
-  # NaN scale (Inf·0); this check prevents both. Under round-to-nearest, sqrt(floatmax(T)) rounds below
-  # the next power of two in Float32 and Float64 and its square is finite, so a product sᵢsⱼ of two
-  # roots does not overflow. A product that underflows is below the unit floor of dᵢⱼ. A subnormal aᵢ
-  # alone does not give dᵢⱼ = 1: in Float64, aᵢ = prevfloat(floatmin) with aⱼ = 0.75 floatmax gives
-  # sᵢsⱼ ≈ sqrt(3).
+  # Finite Sᵢᵢ and Cᵢᵢ can have a sum that overflows in T. An infinite aᵢ makes dᵢⱼ infinite where the
+  # partner root sⱼ is positive, which scores a finite violation as 0, and NaN where sⱼ = 0 (Inf·0);
+  # this check prevents both. Under round-to-nearest, sqrt(floatmax(T)) rounds below the next power of
+  # two in Float32 and Float64 and its square is finite, so a product sᵢsⱼ of two roots does not
+  # overflow. A product that underflows is below the unit floor of dᵢⱼ. A subnormal aᵢ alone does not
+  # give dᵢⱼ = 1: in Float64, aᵢ = prevfloat(floatmin) with aⱼ = 0.75 floatmax gives sᵢsⱼ ≈ sqrt(3).
   scales = Vector{T}(undef, size(S, 1))
   for i in axes(S, 1)
     a = S[i, i] + C[i, i]
@@ -62,18 +61,18 @@ end
 @inline _logdet_pgd_violation(θ, g, c) =
   iszero(θ) ? max(abs(g) - c, zero(g)) : abs(g + c * sign(θ))
 
-# Knuth's TwoSum: s = fl(a + b) and e with a + b = s + e exactly when s and e are both finite. These
-# operations are written without @fastmath, which permits reassociation, and without muladd, which
-# permits contraction.
+# Knuth's TwoSum: s = fl(a + b), and e with a + b = s + e when s and e are both finite. The code is
+# written without @fastmath, which permits reassociation, and without muladd, which permits contraction.
 @inline function _logdet_pgd_two_sum(a, b)
   s = a + b
   bb = s - a
   s, (a - (s - bb)) + (b - bb)
 end
 
-# One side of the zero-entry violation, a + b + l with the sum a + b = u + lu from TwoSum. With a
-# finite inverse entry, a sum u that overflows outward has the sign that makes the side negative, so
-# the side cannot be violated. A side whose other terms are not finite takes its value `gside` from G.
+# One side of the zero-entry violation, a + b + l, where TwoSum gives a + b = u + lu. If u is not finite,
+# the sum overflowed and the side is -Inf: G is not read, because with a finite inverse entry an
+# outward overflow has the sign that makes the side negative. If u is finite but u + (lu + l) is not,
+# the side takes its value `gside` from G.
 @inline function _logdet_pgd_side(a, b, l, gside)
   u, lu = _logdet_pgd_two_sum(a, b)
   isfinite(u) || return oftype(u, -Inf)
@@ -82,12 +81,14 @@ end
 end
 
 # The same violation from the stored Sᵢⱼ, the weight cᵢⱼ and the inverse entry wᵢⱼ = (Θ⁻¹)ᵢⱼ, without
-# forming Sᵢⱼ ± cᵢⱼ. TwoSum gives x = Sᵢⱼ - wᵢⱼ as h + l when h and l are both finite. At a nonzero Θᵢⱼ the
-# violation is |x + cᵢⱼ sign(Θᵢⱼ)|; at a zero it is the larger of x - cᵢⱼ, -x - cᵢⱼ and 0, each side
-# computed from its own two-sum, and the final recombination rounds. Each sum keeps the cancellation of a
-# large Sᵢⱼ against wᵢⱼ and cᵢⱼ. Starting from wᵢⱼ, the violation has a relative error of a few eps(T); the
-# error of wᵢⱼ itself is separate. An entry whose h, l or result is not finite takes its value from G, and
-# so does a side of a zero entry whose other terms are not finite.
+# forming Sᵢⱼ ± cᵢⱼ. TwoSum gives x = Sᵢⱼ - wᵢⱼ as h + l when h and l are both finite; each recombination
+# below rounds once. At a nonzero Θᵢⱼ the violation is |x + cᵢⱼ sign(Θᵢⱼ)|, with h + cᵢⱼ sign(Θᵢⱼ) also a
+# two-sum. At a zero it is the larger of x - cᵢⱼ, -x - cᵢⱼ and 0, each side from its own two-sum. Three cases
+# use the form from G or discard a side: (a) if h or l of the first two-sum is not finite, the whole entry takes
+# its violation from G; (b) at a zero, a side whose two-sum high term is not finite is -Inf, without reading G
+# (see `_logdet_pgd_side`), and a side whose high term is finite but whose recombination is not takes its own
+# value from G, g - c or -g - c; (c) at a nonzero Θᵢⱼ, a recombination that is not finite gives the entry's
+# violation from G.
 @inline function _logdet_pgd_violation(θ, g, c, sij, w)
   h, l = _logdet_pgd_two_sum(sij, -w)
   isfinite(h) && isfinite(l) || return _logdet_pgd_violation(θ, g, c)
@@ -102,17 +103,14 @@ end
   end
 end
 
-# The score R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ) of PGD-08 from G, over the upper triangle, with a flag for
-# entries whose computed violation may carry an absolute error above about 8eps(T) dᵢⱼ. Θ, G, C and S
-# are symmetric by entrywise equality when this runs (G after `_logdet_pgd_symmetrize!`), so the
-# entries below the diagonal equal those above it. Starting from the working inverse, the violation from
-# G is a few roundings of terms bounded by mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ, where c̃ᵢⱼ = Cᵢⱼ at a nonzero Θᵢⱼ or at
-# a zero with |Gᵢⱼ| ≥ Cᵢⱼ/2, and c̃ᵢⱼ = 0 at a zero with |Gᵢⱼ| < Cᵢⱼ/2. There, the computed violation is 0
-# and so is the true one unless the error of |Gᵢⱼ| reaches Cᵢⱼ/2. This is an estimate, not a proof: the
-# absolute error of that arithmetic is about 2eps(T) mᵢⱼ, which for mᵢⱼ ≤ 4dᵢⱼ is at most about
-# 8eps(T) dᵢⱼ, an eighth of the floor of g_tol. The error of the working inverse itself also enters G
-# and the score, and this estimate does not cover it. An entry is uncertain if mᵢⱼ > 4dᵢⱼ; an
-# overflowing mᵢⱼ is uncertain. The comparison uses mᵢⱼ/4, which does not overflow where 4dᵢⱼ could.
+# The score R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ) of PGD-08 from G, over the upper triangle, and a flag for
+# uncertain entries. Θ, G, C and S are symmetric by entrywise equality when this runs (G after
+# `_logdet_pgd_symmetrize!`), so the entries below the diagonal equal those above it. An entry is
+# uncertain if mᵢⱼ > 4dᵢⱼ, with mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ, where c̃ᵢⱼ = Cᵢⱼ at a nonzero Θᵢⱼ or at a zero
+# with |Gᵢⱼ| ≥ Cᵢⱼ/2, and c̃ᵢⱼ = 0 at a zero with |Gᵢⱼ| < Cᵢⱼ/2; an overflowing mᵢⱼ is uncertain. The test
+# is a heuristic bound, chosen so that for entries below it the rounding of the form from G is small
+# relative to dᵢⱼ. It does not cover the error of the working inverse. The comparison uses mᵢⱼ/4, which
+# does not overflow where 4dᵢⱼ could.
 function _logdet_pgd_gform(Θ::Matrix{T}, S, G, C, scales) where T
   worst = zero(T)
   uncertain = false
@@ -127,8 +125,7 @@ function _logdet_pgd_gform(Θ::Matrix{T}, S, G, C, scales) where T
 end
 
 # The same score from the inputs and W = inv(Θ). Every entry is evaluated by
-# `_logdet_pgd_violation(θ, g, c, S, W)`, with that method's fallback to G for an entry whose terms are
-# not finite. Its violations equal those of the method above up to the rounding of G. The returned score
+# `_logdet_pgd_violation(θ, g, c, S, W)`, with the three fallback cases listed there. The returned score
 # is checked for finiteness.
 function _logdet_pgd_wform(Θ::Matrix{T}, S, W, G, C, scales) where T
   worst = zero(T)
@@ -142,11 +139,10 @@ end
 
 # The score of a point Θ whose upper Cholesky factor, from `_admm_passes_cholesky!`, is in `scratch`.
 # If the pass from G finds an uncertain entry, W = inv(Θ) is rebuilt in place from that factor and the
-# score is the one from the inputs and W, which evaluates every entry (with the fallback to G for an entry
-# whose terms are not finite). The factor is then overwritten, so a later use of `scratch` as a factor
-# must factorize into it again; a trial that reaches its factorization does. The returned score is checked
-# for finiteness: the score from G on the first path and the score from the inputs on the second. The
-# score from G that the second path discards is not checked.
+# score is the one from the inputs and W, which evaluates every entry. The factor is then overwritten, so a
+# later use of `scratch` as a factor must factorize into it again; a trial that reaches its factorization
+# does. The returned score is checked for finiteness: the score from G on the first path and the score from
+# the inputs on the second. The score from G that the second path discards is not checked.
 function _logdet_pgd_kkt!(scratch, Θ, S, G, C, scales)
   worst, uncertain = _logdet_pgd_gform(Θ, S, G, C, scales)
   if !uncertain

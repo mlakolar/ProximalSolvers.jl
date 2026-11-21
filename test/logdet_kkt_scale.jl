@@ -17,7 +17,8 @@ module LogDetKKTScale
 # test, the evaluation of one entry), and BigFloat scores at fixed points and returned points. Fixed
 # points check the reported `g_residual` against the definition. A solve that reports converged = true
 # and is checked with `check_result` or `rulef` is compared with R ≤ max(gradtol, 64eps(T)) plus the
-# estimate; the analytic tests use their own assertions.
+# estimated allowance. The analytic tests and some direct `rulef` assertions (the two review inputs) use
+# explicit tolerances stated beside them instead.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 const PGD = ProximalGradientDescent
@@ -44,14 +45,14 @@ end
 
 # ---------------------------------------------------------------------------------------------------------
 # BigFloat oracle for the score R of PGD-08 at a point Θ, from the stored S and the effective weights
-# c = T(λ0) Λ of PGD-06. The allowance estimates the rounding of the computed R in working precision with
-# the unit roundoff u: a first-order estimate with slack, not a bound for the BLAS kernel in use. The
-# inverse from the Cholesky factor has an error of about (p + 4) u κ₁(Θ) ‖Θ⁻¹‖₁ in each entry. The form from
-# G = S - W adds u(|Sᵢⱼ| + |Wᵢⱼ|); the form from the inputs adds about 4u rᵢⱼ. Which form the solver uses
-# is decided here, as in PGD-08, from the BigFloat gradient of the stored point: the inputs form if some
-# entry has |Sᵢⱼ| + |gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ. That selection can differ from the working-precision trigger of the
-# solver near the boundary mᵢⱼ = 4dᵢⱼ. `inputs` forces the choice. Each entry is divided by its scale, as in R.
-# The values are rounded to Float64.
+# c = T(λ0) Λ of PGD-06. The allowance is a first-order model of the rounding of the computed R in working
+# precision with the unit roundoff u, with slack; it is not a bound for the BLAS kernel in use. It models the
+# error of the inverse from the Cholesky factor as (p + 4) u κ₁(Θ) ‖Θ⁻¹‖₁ in each entry, the form from
+# G = S - W as adding u(|Sᵢⱼ| + |Wᵢⱼ|), and the form from the inputs as adding 4u rᵢⱼ. The allowance is chosen
+# here from a BigFloat estimate of the gradient, the scale and the trigger of PGD-08 (the inputs form if some
+# entry has |Sᵢⱼ| + |gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ); the solver's branch can differ from that choice where the
+# working-precision gradient, scale or range rounding differs. `inputs` forces the choice. Each entry is
+# divided by its scale, as in R. The values are rounded to Float64.
 # ---------------------------------------------------------------------------------------------------------
 function rulef(Θ, S, c, ::Type{T}; inputs = nothing, bits = 256) where T
   setprecision(BigFloat, bits) do
@@ -598,7 +599,7 @@ end
 
 kkt_allocations(args...) = @allocated PS._logdet_pgd_kkt!(args...)
 
-@testset "the KKT evaluation allocates no memory that grows with the dimension" begin
+@testset "the KKT evaluation allocates the same bytes at dimensions 12 and 36" begin
   # The evaluation after the factorization, which the solver's trial has done into the scratch matrix, with a
   # certain point (the pass from G only) and an uncertain one (a large S₁₂ also rebuilds W and evaluates from the
   # inputs). A warmed call allocates nothing on Julia 1.13; on Julia 1.10 a call that returns a Float64 reports

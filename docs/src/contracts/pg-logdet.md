@@ -104,8 +104,9 @@ root taken in `T` before any product. Entry `(i, j)` has the scale
 `aᵢ = prevfloat(floatmin(Float64))` with `aⱼ = 0.75 floatmax(Float64)` gives `dᵢⱼ ≈ sqrt(3)`.
 Under round-to-nearest, `sqrt(floatmax(T))` rounds below the next power of two in both supported
 formats and its square is finite, so the root product does not overflow; an underflowing product is
-below the unit floor. An infinite sum `aᵢ` would give an infinite scale, or a NaN scale (`Inf·0`) next
-to a zero root; the finiteness guard of [PGD-06](@ref) prevents both.
+below the unit floor. An infinite sum `aᵢ` gives an infinite scale beside a positive root (a finite
+violation then scores 0) and a NaN scale beside a zero root (`Inf·0`); the finiteness guard of
+[PGD-06](@ref) prevents both.
 At a committed point, with `G` the symmetrized gradient `S - inv(Θ)` of [PGD-07](@ref), the
 violation `rᵢⱼ` of entry `(i, j)` is `abs(Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ))` where `Θᵢⱼ ≠ 0`, and
 `max(abs(Gᵢⱼ) - Cᵢⱼ, 0)` at exact zeros. The start and each committed point have passed
@@ -123,55 +124,54 @@ independent of the trial step and the iterate and objective change tests. An acc
 elementwise unchanged point outside the KKT threshold sets
 `stagnated=true` and `converged=false`.
 
-**Uncertain entries and the evaluation from the inputs.** The violations above come from `G`,
-which carries the rounding of `Sᵢⱼ - (Θ⁻¹)ᵢⱼ`. For each entry the solver evaluates, in `T`, from
-the stored `Sᵢⱼ` and the computed `Gᵢⱼ`,
-`mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ`, where `c̃ᵢⱼ = Cᵢⱼ` at a nonzero `Θᵢⱼ` and at a zero with
-`|Gᵢⱼ| ≥ Cᵢⱼ/2`, and `c̃ᵢⱼ = 0` at a zero with `|Gᵢⱼ| < Cᵢⱼ/2`. The entry is *uncertain* if
-`mᵢⱼ/4 > dᵢⱼ`; an overflowing `mᵢⱼ` is uncertain. The rationale is an estimate, not a proof.
-Starting from the working inverse, the violation from `G` is a few roundings of terms bounded by
-`mᵢⱼ`, so the absolute error of that arithmetic is about `2eps(T) mᵢⱼ`; below the threshold that is
-at most about `8eps(T) dᵢⱼ`, an eighth of the floor of `g_tol`. The error of the working inverse
-itself also enters `G` and the score, and this estimate does not cover it (see the limits). At a zero
-with `|Gᵢⱼ| < Cᵢⱼ/2` the computed violation is 0, and the true one is 0 when the error of `|Gᵢⱼ|` is
-below `Cᵢⱼ/2`. The test uses stored entries and the computed `G`. The mathematical root product of a
-stored positive semidefinite `S` satisfies `|Sᵢⱼ| ≤ sqrt(Sᵢᵢ Sⱼⱼ) ≤ sqrt(aᵢ aⱼ)`, because
-`aᵢ = Sᵢᵢ + Cᵢᵢ ≥ Sᵢᵢ ≥ 0` under the nonnegative weights of [PGD-06](@ref). The rounded product
-`sᵢ sⱼ` can be slightly below `|Sᵢⱼ|`: stored `S = [3 3; 3 3]` with zero weights gives
-`2.9999999999999996` in Float64. Data rounded before storage can also be indefinite, and a large
-near-active weight gives a large `Gᵢⱼ`. Where `S` is small but `Wᵢⱼ` and the weight are both large (the
-unit floor lets a small diagonal pass), `|Gᵢⱼ|` is about `|Wᵢⱼ|` and the entry is uncertain.
+**Uncertain entries and the evaluation from the inputs.** The violations above come from `G`, which
+carries the rounding of `Sᵢⱼ - (Θ⁻¹)ᵢⱼ`. For each entry the solver evaluates, in `T`, from the stored
+`Sᵢⱼ` and the computed `Gᵢⱼ`, `mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ`, where `c̃ᵢⱼ = Cᵢⱼ` at a nonzero `Θᵢⱼ` and at a
+zero with `|Gᵢⱼ| ≥ Cᵢⱼ/2`, and `c̃ᵢⱼ = 0` at a zero with `|Gᵢⱼ| < Cᵢⱼ/2`. The entry is *uncertain* if
+`mᵢⱼ/4 > dᵢⱼ`; an overflowing `mᵢⱼ` is uncertain. The test is a heuristic bound, chosen so that for
+entries below it the rounding of the form from `G` is small relative to `dᵢⱼ`. It does not cover the
+error of the working inverse. The test uses stored entries and the computed `G`, and an entry becomes
+uncertain when `|Sᵢⱼ|`, `|Gᵢⱼ|` or a near-active weight is large relative to `dᵢⱼ`: for example indefinite
+data, data rounded before storage, or a small `Sᵢⱼ` with `Wᵢⱼ` and the weight both large (the unit floor lets
+a small diagonal pass). For a stored positive semidefinite `S` the mathematical root product satisfies
+`|Sᵢⱼ| ≤ sqrt(Sᵢᵢ Sⱼⱼ) ≤ sqrt(aᵢ aⱼ)` under the nonnegative weights of [PGD-06](@ref), while the rounded
+product `sᵢ sⱼ` can be slightly below `|Sᵢⱼ|`: stored `S = [3 3; 3 3]` with zero weights gives
+`2.9999999999999996` in Float64.
 
-If no entry is uncertain, `g_residual` is the single pass above. If one is, `W = inv(Θ)` is
-rebuilt in place from the upper Cholesky factor that the SPD check of that point left in the
-solver's scratch matrix ([PGD-07](@ref)), and the violation of every entry is evaluated from `Sᵢⱼ`,
-`Wᵢⱼ` and `Cᵢⱼ` by two-sums, without forming `Sᵢⱼ ± Cᵢⱼ` and subject to the fallback below. With
-`x = Sᵢⱼ - Wᵢⱼ` written as `h + l` (Knuth's two-sum, written without `@fastmath`, which permits
-reassociation, or `muladd`, which permits contraction; the decomposition is exact when `h` and `l`
-are both finite, and the final recombination rounds):
-- at a nonzero `Θᵢⱼ`, `rᵢⱼ = |x + Cᵢⱼ sign(Θᵢⱼ)|`, with `h + Cᵢⱼ sign(Θᵢⱼ)` also an error-free sum;
-- at a zero, `rᵢⱼ = max(x - Cᵢⱼ, -x - Cᵢⱼ, 0)`, each side from its own error-free sum. With a finite
-  `Wᵢⱼ`, a side whose sum overflows outward is negative and cannot be violated, so it contributes
-  zero and does not discard the other side.
+If no entry is uncertain, `g_residual` is the single pass above. If one is, `W = inv(Θ)` is rebuilt in
+place from the upper Cholesky factor that the SPD check of that point left in the solver's scratch matrix
+([PGD-07](@ref)), and the violation of every entry is evaluated from `Sᵢⱼ`, `Wᵢⱼ` and `Cᵢⱼ` by two-sums,
+without forming `Sᵢⱼ ± Cᵢⱼ`. Write `x = Sᵢⱼ - Wᵢⱼ` as `h + l` by Knuth's two-sum, written without
+`@fastmath` (which permits reassociation) and without `muladd` (which permits contraction). The
+decomposition is exact when `h` and `l` are both finite, and each recombination below rounds once:
+- at a nonzero `Θᵢⱼ`, `rᵢⱼ = |x + Cᵢⱼ sign(Θᵢⱼ)|`, from a second two-sum of `h` and `Cᵢⱼ sign(Θᵢⱼ)`;
+- at a zero, `rᵢⱼ = max(x - Cᵢⱼ, -x - Cᵢⱼ, 0)`, each side from its own two-sum.
 
-A term that is not finite sends that entry (that side of a zero entry) back to the value from `G`. For
-example, with `M = floatmax(T)` and `u = M - prevfloat(M)`, the two-sum of `1.5u` and `-M` has a finite
-high term and a NaN low term in Float32 and Float64, so `Sᵢⱼ = 1.5u` with `Wᵢⱼ = M` takes the value from
-`G`. Where no fallback applies, the evaluation from the inputs has a relative error of a few `eps(T)` in
-the violation, plus the error of `Wᵢⱼ`; an entry that takes the fallback has the error of the form from
-`G`. The uncertain path adds one inverse from an existing factor to the evaluations that take it. The
-factor is then overwritten, and the next trial that reaches its factorization writes it again.
+Three cases use the violation from `G` or discard a side:
+1. If `h` or `l` of the first two-sum is not finite, the whole entry takes its violation from `G`. For
+   example, with `M = floatmax(T)` and `u = M - prevfloat(M)`, the two-sum of `1.5u` and `-M` has a
+   finite high term and a NaN low term in Float32 and Float64, so `Sᵢⱼ = 1.5u` with `Wᵢⱼ = M` takes
+   this case.
+2. At a zero, each side is handled separately. If the high term of that side's two-sum is not finite
+   (an outward overflow), the side is `-Inf` and `G` is not read: with a finite `Wᵢⱼ` it is negative and
+   cannot be violated, and the other side is still evaluated. If the high term is finite but the
+   recombination is not, only that side takes its value from `G`, `Gᵢⱼ - Cᵢⱼ` for `x - Cᵢⱼ` and
+   `-Gᵢⱼ - Cᵢⱼ` for `-x - Cᵢⱼ`.
+3. At a nonzero `Θᵢⱼ`, a recombination that is not finite gives the entry's violation from `G`.
+
+The uncertain path adds one inverse from an existing factor to the evaluations that take it. The factor
+is then overwritten, and the next trial that reaches its factorization writes it again.
 
 **Limits.**
-- Where `|Sᵢⱼ|` is far above `dᵢⱼ`, the step `Θ - tG` uses `G` as ProximalBase rounds it. That rounding
-  is about `eps(T) |Sᵢⱼ|` in `Gᵢⱼ`, so the iterate can lose resolution of about `eps(T) t |Sᵢⱼ|`. A solve may
-  then end by stagnation or at an iteration limit with `converged=false`. The off-diagonal cases measured in
-  `test/logdet_kkt_scale.jl` did, while its `1 × 1` diagonal cases converged.
-- `Wᵢⱼ` carries the rounding of the Cholesky inverse. Its error follows the sensitivity of `Θ`, and the
-  score has that error in either evaluation. For `Θ = [2 2; 2 nextfloat(T(2))]` with `S` equal to its stored
-  Cholesky inverse and no penalty, `g_residual = 0` and the solve reported `converged=true` in both
-  precisions, against independent scores of about 0.5 (Float32) and 1 (Float64). The inverse in `T` does not
-  resolve that point.
+- Where `|Sᵢⱼ|` is large relative to `dᵢⱼ`, the step `Θ - tG` uses `G` as ProximalBase rounds it. That
+  rounding can be of the order of `eps(T) |Sᵢⱼ|` in `Gᵢⱼ`, so the iterate can lose resolution of the order
+  of `eps(T) t |Sᵢⱼ|`, and a solve can end by stagnation or at an iteration limit with `converged=false`. The
+  off-diagonal cases measured in `test/logdet_kkt_scale.jl` did, while its `1 × 1` diagonal cases converged.
+- `Wᵢⱼ` carries the rounding of the Cholesky inverse, which can be large for an ill-conditioned `Θ`. That
+  error enters the violation in absolute units and is divided by `dᵢⱼ` in the score, in either evaluation.
+  For `Θ = [2 2; 2 nextfloat(T(2))]` with `S` equal to its stored Cholesky inverse and no penalty,
+  `g_residual = 0` and the solve reported `converged=true` in both precisions, against independent scores
+  of about 0.5 (Float32) and 1 (Float64).
 - Where a diagonal weight cancels a negative `Sᵢᵢ`, state the problem as `S + Diagonal(C)` with
   zero diagonal weight, so that the sum is formed once in `T`.
 
@@ -234,8 +234,8 @@ precisions). It also uses direct assertions on the scales, the uncertainty test 
 evaluation of single entries, and BigFloat scores at fixed points and at returned points where
 stated (an estimate of the rounding of the computed score is allowed; the two inputs above use
 2048 bits, for the condition number of the first and for the exponent gap between the weight
-and `1/4` in the second, whose iterate is well conditioned). It covers the diagonal-weight cancellation cases and the `2^51` numerator through
-`solve!` (the Float32 case is an analogue), the direct and covariance-shifted formulations,
+and `1/4` in the second, whose iterate is well conditioned). It covers the diagonal-weight
+cancellation cases and the `2^51` numerator through `solve!` (the Float32 case is an analogue), the direct and covariance-shifted formulations,
 seeded heterogeneous and ordinary problems, and a power-of-two rescaling on its fixtures. It also
 compares the allocation of warmed evaluations at dimensions 12 and 36.
 

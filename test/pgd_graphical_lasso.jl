@@ -111,11 +111,11 @@ function check_solution!(Θ, S, g; method=ProximalGradientDescent(), reference=n
   @test d.score <= target(T)
   # The reported score is that of the solved problem's stored S and weights; d.score is that
   # of the original problem. The entry scales sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|) of PGD-08 are the same in
-  # exact arithmetic for the shifted problem, so the two scores differ by the rounding of the
-  # stored Sᵢᵢ + Cᵢᵢ (a relative eps(T) in a violation of order dᵢᵢ and in each scale), by the
-  # rounding of the computed inverse and by the rounding of the residual itself. With Θ = 1, S = -eps(T)/2
-  # and C = 1, the shift and the inverse are exact, yet the certain form from G scores 0 for the direct
-  # problem (fl(S - 1) = -1) and eps(T)/2 for the shifted one, both far below the floor of g_tol.
+  # exact arithmetic for the shifted problem, so the two scores can differ by the rounding of the
+  # stored Sᵢᵢ + Cᵢᵢ, by the rounding of the computed inverse and by the rounding of the residual itself.
+  # With Θ = 1, S = -eps(T)/2 and C = 1, the shift and the inverse are exact, yet the certain form from G
+  # scores 0 for the direct problem (fl(S - 1) = -1) and eps(T)/2 for the shifted one, both far below the
+  # floor of g_tol.
   @test abs(d.score - r.g_residual) <= 32eps(T)
   @test abs(r.minimum - d.primal) <= 32 * size(Θ, 1) * eps(T) * d.scale_objective
   @test -big"1e-60" <= d.gap <= target(T) * max(1, abs(d.primal))
