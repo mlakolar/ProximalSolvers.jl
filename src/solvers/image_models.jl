@@ -14,8 +14,9 @@ function _image_model(f)
 end
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
-# The image model of PGD for a raw LogisticLoss, which the gate of solve! accepts with PGD only and
-# without observation weights or offset (IN-09): Y = f.y, X = f.X and the image z = X x. α is not a
+# The image model of PGD for a raw LogisticLoss, which the gate of solve! accepts without observation weights or
+# offset (IN-09): Y = f.y, X = f.X and the image z = X x. ProxNewton, the other solver that the gate admits for this
+# loss, forms its own images (src/solvers/logistic_proxnewton.jl) and does not use this model. α is not a
 # loss scale but the factor 1/4 of the Hessian bound ∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX (a formula
 # in exact arithmetic), read where least squares reads its scale: the initial curvature min(1, α B²), with B the
 # upper estimate of ‖X‖_F from _frobenius_upper (PGD-02, with its floor and its fallback for X = 0), and the

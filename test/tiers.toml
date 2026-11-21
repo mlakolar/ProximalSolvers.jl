@@ -36,6 +36,8 @@ standard = [
   "weighted_elasticnet",
   "scaled_lasso",
   "logistic_pgd",
+  "entry_thresholds",
+  "logistic_proxnewton",
 ]
 full = [
   "examples",
