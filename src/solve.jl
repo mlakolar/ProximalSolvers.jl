@@ -295,7 +295,7 @@ function _check_data(x, f, g, ::Type{T}, kind::Symbol) where T
     throw(ArgumentError("only LeastSquaresLoss or one positive Scaled(LeastSquaresLoss) is supported"))
   end
   base.X isa Matrix{T} && base.Y isa Vector{T} ||
-    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs and mixed array types are deferred, and matrix responses are supported only by CDSolver with a row-group GroupNormL2 on a Matrix or BlockIterate coefficient"))
+    throw(ArgumentError("X must be Matrix{$T} and y Vector{$T}; sparse designs and mixed array types are deferred. Matrix responses need a compatible matrix coefficient layout and penalty"))
   n, p = size(base.X)
   n > 0 && p > 0 || throw(DimensionMismatch("X must have positive row and column counts"))
   length(base.Y) == n && length(x) == p || throw(DimensionMismatch("x/y dimensions do not match X"))
@@ -356,19 +356,22 @@ end
 _is_logistic_loss(f) = f isa LogisticLoss || (f isa Scaled && f.f isa LogisticLoss)
 
 @noinline _logistic_method_error(kind::Symbol) =
-  throw(ArgumentError("LogisticLoss is supported only by ProximalGradientDescent, on a dense Vector{Float64} with a NormL1 " *
-                      "penalty; $(kind === :gradient ? "AccProxGradDescent" : "CDSolver") does not support it"))
+  throw(ArgumentError("LogisticLoss is supported only by ProximalGradientDescent and ProxNewton, on a dense Vector{Float64} " *
+                      "with a NormL1 penalty; $(kind === :gradient ? "AccProxGradDescent" : "CDSolver") does not support it"))
 
-# The gate of a logistic loss (IN-09), in place of the checks below, on every solve and before any write to x. Each
-# refusal is an ArgumentError (a DimensionMismatch for the shapes), in this order: a solver other than PGD (`kind` is
-# not :pgd); a Scaled wrapper; a loss, X, y or x that is not LogisticLoss{Float64}, Matrix{Float64}, Vector{Float64} and
-# Vector{Float64}; observation weights or an offset; X without rows or columns, y without one entry per row of X, x
-# without one entry per column; a penalty that is not a NormL1, then the NormL1 rules of _check_penalty (with weights,
-# _check_l1_weights, which also refuses an x that may alias the weights); an x that may alias X, y or the scratch
-# f.tmp of the loss; a nonfinite entry of x or X; an entry of y other than 0 and 1 (a NaN included), read at this
-# call, so a change of y after the construction of the loss is checked.
+# The solver named in the refusal of a nonbinary response: the gate runs for PGD (`kind` :pgd) and ProxNewton (:newton).
+_logistic_solver_name(kind::Symbol) = kind === :newton ? "ProxNewton" : "ProximalGradientDescent"
+
+# The gate of a logistic loss (IN-09, PN-01), in place of the checks below, on every solve and before any write to x. Each
+# refusal is an ArgumentError (a DimensionMismatch for the shapes), in this order: a solver other than PGD and ProxNewton
+# (`kind` is neither :pgd nor :newton); a Scaled wrapper; a loss, X, y or x that is not LogisticLoss{Float64},
+# Matrix{Float64}, Vector{Float64} and Vector{Float64}; observation weights or an offset; X without rows or columns, y
+# without one entry per row of X, x without one entry per column; a penalty that is not a NormL1, then the NormL1 rules of
+# _check_penalty (with weights, _check_l1_weights, which also refuses an x that may alias the weights); an x that may
+# alias X, y or the scratch f.tmp of the loss; a nonfinite entry of x or X; an entry of y other than 0 and 1 (a NaN
+# included), read at this call, so a change of y after the construction of the loss is checked.
 function _check_logistic_problem(x, f, g, kind::Symbol)
-  kind === :pgd || _logistic_method_error(kind)
+  kind === :pgd || kind === :newton || _logistic_method_error(kind)
   f isa Scaled &&
     throw(ArgumentError("Scaled(LogisticLoss) is not supported (ProximalBase provides no predictor oracles for it); " *
                         "for a positive finite scale a, use the raw LogisticLoss(y, X) with the penalty level lambda/a, " *
@@ -397,9 +400,18 @@ function _check_logistic_problem(x, f, g, kind::Symbol)
   @inbounds for i in eachindex(y)
     yi = y[i]
     iszero(yi) || isone(yi) ||
-      throw(ArgumentError("LogisticLoss with ProximalGradientDescent needs a binary response: entry $i of y is $yi, not 0 or 1"))
+      throw(ArgumentError("LogisticLoss with $(_logistic_solver_name(kind)) needs a binary response: entry $i of y is $yi, not 0 or 1"))
   end
   nothing
+end
+
+# The gate of ProxNewton (PN-01): the raw logistic loss only, then the gate of _check_logistic_problem with
+# `kind = :newton`. Any other loss is refused before the coefficients are read, with a pointer to the solvers that take it.
+function _check_newton_problem(x, f, g)
+  _is_logistic_loss(f) ||
+    throw(ArgumentError("ProxNewton supports only the raw LogisticLoss(y, X) with NormL1 on a dense Vector{Float64}; " *
+                        "use CDSolver, ProximalGradientDescent or AccProxGradDescent for least squares"))
+  _check_logistic_problem(x, f, g, :newton)
 end
 
 # The dense gate: :cd for CDSolver, :pgd for PGD and :gradient (the default) for APG.
@@ -419,6 +431,32 @@ function _check_problem(x, f, g, kind::Symbol = :gradient)
   elseif g isa Union{IndBox, IndBallL2}
     iszero(g(x)) || throw(ArgumentError("$(nameof(typeof(g))) requires a feasible starting point"))
   end
+  nothing
+end
+
+_check_gradient_problem(x, f, g, kind) = _check_problem(x, f, g, kind)
+
+function _check_gradient_problem(B::Matrix{T}, f, g, kind) where T
+  _is_logistic_loss(f) && return _check_logistic_problem(B, f, g, kind)
+  _is_matrix_response(f) ||
+    throw(ArgumentError("a matrix coefficient needs a LeastSquaresLoss, or one positive Scaled of it, with a matrix response Y"))
+  base = f isa Scaled ? f.f : f
+  T in (Float32, Float64) && base.X isa Matrix{T} && base.Y isa Matrix{T} ||
+    throw(ArgumentError("matrix-response PGD and APG need dense Matrix inputs B, X and Y of the same Float32 or Float64 type"))
+  f isa Scaled && _check_loss_scale(leastsquares_data(f).α, T)
+  n, p = size(base.X)
+  K = size(base.Y, 2)
+  n > 0 && p > 0 && K > 0 || throw(DimensionMismatch("X and Y must have positive row and column counts"))
+  size(base.Y, 1) == n || throw(DimensionMismatch("X has $n rows but Y has $(size(base.Y, 1))"))
+  size(B) == (p, K) ||
+    throw(DimensionMismatch("B has size $(size(B)), expected ($p, $K) from X and Y"))
+  g isa NormL1 && g.w === nothing ||
+    throw(ArgumentError("matrix-response PGD and APG require an unweighted NormL1 penalty; their other regression penalties require a dense Vector"))
+  _scalar_parameter(g.λ0, T, "penalty lambda")
+  (Base.mightalias(B, base.X) || Base.mightalias(B, base.Y) || Base.mightalias(B, base.tmp)) &&
+    throw(ArgumentError("mutable B must not alias borrowed X or Y or the scratch of the loss"))
+  _allfinite(B) && _allfinite(base.X) && _allfinite(base.Y) ||
+    throw(ArgumentError("B, X and Y must contain only finite values"))
   nothing
 end
 

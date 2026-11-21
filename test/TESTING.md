@@ -23,6 +23,11 @@ comparison); a PR that edits a harness file runs the latter. Tiers are cumulativ
 Pkg.test defaults full. Every regular file is listed once, missing/duplicate/
 unlisted tests and empty selections fail; unknown source defaults full.
 
+The standard `multiresponse_lasso_pgd_apg` tests cover native dense entrywise
+lasso in both precisions, with analytic, QR, separate-response CD and BigFloat
+references. They check ownership and refusals, traces and rollback, PGD
+curvature recovery and APG's Frobenius bound against independent majorization.
+
 The standard `admm` tests cover centered quadratic denoising with an unweighted
 ℓ₁ penalty in Float32 and Float64. They compare against BigFloat soft thresholding,
 check the raw objective and coordinatewise KKT conditions, and independently

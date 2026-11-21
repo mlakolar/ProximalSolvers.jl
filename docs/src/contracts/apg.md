@@ -2,7 +2,7 @@
 
 ## Scope
 
-`AccProxGradDescent` supports dense `Vector{Float32}` and `Vector{Float64}` coefficients for the least-squares penalties in the [support matrix](../support.md). It uses the common least-squares image model, gradient engine, options and results. It has no metric, tuple, owner or generic smooth-loss path.
+`AccProxGradDescent` supports dense `Vector{Float32}` and `Vector{Float64}` coefficients and the matrices in [IN-10](@ref) for the least-squares penalties in the [support matrix](../support.md). It uses the common least-squares image model, gradient engine, options and results. It has no metric, tuple, owner or generic smooth-loss path.
 
 ## Problem
 
@@ -18,9 +18,9 @@ Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` (optional weights), `El
 
 **Statement.** The defaults are `AccProxGradDescent(β=0.5, α=0.9, preconditioner=:none)`. Require `0 < β < 1` and `0 < α ≤ 1`; the factors are validated as given and after promotion, and then again in the iterate type before state creation (`T(β) < 1` and `T(α) > 0` must survive rounding). `preconditioner=:diagonal` is deferred and rejected.
 
-The error bounds require `max(n, p) + 4 < 1/(4 eps(T))` and `n*p + 3 < 1/(4 eps(Float64))`. This refuses `max(n, p) ≥ 2,097,148` for Float32. Oversize problems are refused before the caller's iterate changes. Input shape, scale and ownership conditions are [IN-01](@ref).
+For one response the error bounds require `max(n, p) + 4 < 1/(4 eps(T))` and `n*p + 3 < 1/(4 eps(Float64))`. This refuses `max(n, p) ≥ 2,097,148` for Float32. Oversize problems are refused before the caller's iterate changes. The matrix-response dimension rule is [APG-07](@ref). Input shape, scale and ownership conditions are [IN-01](@ref).
 
-**Applies to.** AccProxGradDescent; dense Vector{T}; T = Float32 or Float64.
+**Applies to.** AccProxGradDescent; dense vectors and the matrices in [IN-10](@ref).
 
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: AccProxGradDescent, _check_method, _check_bound_size, solve!`.
 
@@ -104,13 +104,13 @@ Result identity, trace/callback ownership, limit ordering and mutation rules are
 
 **Statement.** A nonzero displacement is accepted only when the least-squares bound, with relative slack `4eps(T)` on `√L`, is certified for the stored trial and extrapolated points under the assumptions below. Use the cached-image difference first, then a fresh product when the bounds are inconclusive; reject a still-inconclusive trial. This avoids subtracting nearly equal objective values. It is a certificate for this line-search inequality, not a solver optimality certificate.
 
-The complete baseline proof sketch follows without rewriting. In this proof `α` is the loss scale `s`, and all dimensions, rounding assumptions, underflow terms and exponent arithmetic are part of the stated conditions. Its final validation paragraph is historical empirical evidence, not an additional guarantee.
+The baseline proof below uses one response. [APG-07](@ref) gives the matrix-response dimensions and error bounds. In this proof `α` is the loss scale `s`, and all dimensions, rounding assumptions, underflow terms and exponent arithmetic are part of the stated conditions. Its final validation paragraph is historical empirical evidence, not an additional guarantee.
 
 **Applies to.** AccProxGradDescent least-squares line-search trials under the stated arithmetic and size assumptions.
 
 **Code.** `src/solvers/image_models.jl: _bound_certified!, _frobenius_upper, _root_scale; src/solvers/accelerated_proximal_gradient_descent.jl: _check_bound_size`.
 
-**Tests.** test/accelerated_pgd.jl: certified backtracking against BigFloat, subnormal norms, wide scales, nonfinite inputs and fresh-product reference.
+**Tests.** The matrix validation is in [APG-07](@ref). test/accelerated_pgd.jl: certified backtracking against BigFloat, subnormal norms, wide scales, nonfinite inputs and fresh-product reference.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L344`, `docs/src/developer/implementation-notes.md:L346`, `docs/src/developer/implementation-notes.md:L352`, `docs/src/developer/implementation-notes.md:L361`, `docs/src/developer/implementation-notes.md:L375`, `docs/src/developer/implementation-notes.md:L394`, `docs/src/developer/implementation-notes.md:L401`, `docs/src/developer/implementation-notes.md:L406`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docs/src/numerics.md:L1045`.
 
@@ -187,6 +187,61 @@ well; the underflow, narrower-scale and long-reduction cases found in review; an
 needed the fresh product; every solve is bit-identical to the fresh-product-only decision,
 571 are bit-identical to `legacy/full`, and the 5 that differ (Float32) change the objective
 by at most 2e-7 relative.
+
+### [APG-07 Matrix-response Frobenius certificate](@id APG-07)
+
+**Statement.** For `K` responses, the certified bound in [APG-06](@ref) uses
+Frobenius norms for coefficients, images and displacements. The test uses
+`q = nK` image entries, `r = pK` coefficient entries, and `p` terms per
+product entry. It requires `max(q,r) + 4 < 1/(4 eps(T))` and
+`np + 3 < 1/(4 eps(Float64))`. Before creating a state, it compares the
+existing array lengths against the limits with the additive margins
+subtracted. This avoids overflowing integer products or sums. The range
+conditions coincide with the vector conditions at `K = 1`.
+
+**Applies to.** APG under [IN-10](@ref) and the arithmetic and product
+assumptions in [APG-06](@ref).
+
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl` provides
+`_check_bound_size`. `src/solvers/image_models.jl` provides `_bound_constants`,
+`_image_error_bound` and `_bound_certified!`.
+
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks the range boundary,
+the dimensional error terms and the cached and fresh decisions against
+a BigFloat calculation of the full least-squares majorization inequality.
+It covers ordinary, mixed-magnitude, near-roundoff and subnormal inputs,
+including a one-column comparison with the vector certificate.
+
+**Sources.** [Issue #469](https://github.com/mlakolar/ProximalSolvers.jl/issues/469)
+and the one-response proof in [APG-06](@ref).
+
+#### Dimensional error bounds
+
+Write `η = nextfloat(zero(T))`. Under the dot-product model in [APG-06](@ref),
+for each output entry the relative product error is bounded by the corresponding
+entry of `γ_p |X||B|` and the absolute underflow term is `2pη`.
+For each column `k`, Cauchy–Schwarz gives
+`‖|X||B[:,k]|‖₂ ≤ ‖X‖_F ‖B[:,k]‖₂`. Squaring and summing over columns gives
+`‖|X||B|‖_F ≤ ‖X‖_F ‖B‖_F`. Thus the product relative error retains
+`γ_p ‖X‖_F` per unit of coefficient Frobenius norm. The uniform absolute
+error across `q` entries contributes `2p √q η`.
+
+The same column inequality applies to the image of the coefficient
+extrapolation error. Apply the three-rounding combination bound in
+[APG-06](@ref) entrywise to the two images and to the two coefficient
+matrices. The two fresh-image errors and the image extrapolation roundings
+contribute the absolute allowance `8p√q η`. The coefficient combination
+has absolute error at most `2η` per entry, and applying `X` to it
+contributes at most `2√r ‖X‖_F η`. The relative bound remains
+`(2γ_p + 16u) ‖X‖_F (‖B_a‖_F + ‖B_b‖_F)`.
+Image norm reductions use `γ_{q+4}`, and the displacement and coefficient
+norm reductions use `γ_{r+4}`. These substitutions in the existing
+lower and upper bounds cover the matrix dimensions while leaving the
+comparison slack and exponent arithmetic of [APG-06](@ref) in use.
+Consequently the cached difference and fresh product certify the same
+full majorization condition, since the exact quadratic remainder is
+`s ‖X(B − B_y)‖_F²/2`. The rounding constants and size limits describe the
+implementation and its proof.
 
 ## Known limits
 

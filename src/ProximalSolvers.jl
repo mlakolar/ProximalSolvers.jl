@@ -16,9 +16,14 @@ groups are the rows of the coefficients, it accepts a `Matrix` coefficient (or a
 over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradientDescent`](@ref) and
 [`AccProxGradDescent`](@ref) accept a dense `Vector` for these least-squares problems, all through [`solve!`](@ref);
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the group lasso with a `GroupNormL2` penalty on it.
+For a dense matrix response, both accept a same-type dense matrix of coefficients
+and an unweighted entrywise `NormL1` penalty under
+[IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
 [`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
 [`ProximalGradientDescent`](@ref) also fits sparse logistic regression with a raw `LogisticLoss` (binary
 response, no observation weights or offset), dense `Float64` data and `NormL1`.
+[`ProxNewton`](@ref) fits the same problem by proximal Newton steps, each solved by cyclic coordinate descent on a
+weighted least-squares model ([PN-01](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/logistic-proxnewton/#PN-01)).
 [`ADMMSolver`](@ref) solves centered `SqrNormL2` with unweighted `NormL1` on dense vectors.
 [`ADMMSolver`](@ref) also solves the lasso with a raw `LeastSquaresLoss` and unweighted `NormL1` for `Float64` data with a tall or square design, specified in [ADM-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-05).
 [`ADMMSolver`](@ref) also supports the graphical-lasso combination of `LogDetLoss` and matrix-weighted `NormL1` on a dense `Matrix` specified in [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
@@ -37,8 +42,8 @@ include("blocks.jl")
 using .Blocks
 include("line_searches.jl")
 using .LineSearches
-export CDSolver, ProximalGradientDescent, AccProxGradDescent, solve!, ProximalSolver, ProximalOptions,
-       ADMMSolver, ADMMResults, CDResults, OptimizationState, OptimizationTrace
+export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, solve!, ProximalSolver, ProximalOptions,
+       ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, OptimizationState, OptimizationTrace
 @static if VERSION >= v"1.11.0-DEV.469"
   eval(Expr(:public, :OptimizationResults, :LineSearches))
 end
@@ -54,6 +59,7 @@ include("cd/solver.jl")
 include("cd/multiresponse.jl")
 include("cd/leastsquares.jl")
 include("cd/sqrtlasso.jl")
+include("solvers/logistic_proxnewton.jl")
 include("utils.jl")
 include("precompile.jl")
 end

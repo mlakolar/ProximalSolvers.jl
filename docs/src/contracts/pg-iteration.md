@@ -2,7 +2,7 @@
 
 ## Scope
 
-`ProximalGradientDescent` uses dense `Vector{Float32}` or `Vector{Float64}` coefficients for the supported least-squares problems and penalties in the [support matrix](../support.md). Vector PGD and APG share `_solve_gradient!`, stopping and results. Graphical-lasso PGD also uses `_solve_gradient!`, with the step and stopping rules in [PGD-07](@ref) and [PGD-08](@ref).
+`ProximalGradientDescent` uses dense Float32 or Float64 vectors for the vector-response problems in the [support matrix](../support.md). PGD and APG share `_solve_gradient!`, stopping and results, including for the matrix lasso in [IN-10](@ref). Graphical-lasso PGD also uses `_solve_gradient!`, with the step and stopping rules in [PGD-07](@ref) and [PGD-08](@ref).
 
 ## Problem
 
@@ -49,13 +49,20 @@ For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`.
 
 For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref).
 
+For matrix-response entrywise lasso, the same sequence carries coefficient,
+gradient and displacement buffers of size `p × K` and predictor and residual
+buffers of size `n × K`. The predictor is `XB`, and ProximalBase uses it to form
+`sXᵀ(XB − Y)`. The scalar proximal step applies the working level to every
+entry. The image, step and stopping norms use the corresponding entrywise
+array reductions.
+
 For a raw `LogisticLoss` with `NormL1`, the same sequence forms the logistic image and value; [IN-09](@ref) specifies the inputs and the oracles.
 
-**Applies to.** ProximalGradientDescent; dense Vector{T}; T = Float32 or Float64.
+**Applies to.** ProximalGradientDescent; dense vectors and the matrices in [IN-10](@ref).
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/solve.jl: _solve_gradient!`.
 
-**Tests.** test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix buffer shapes, values, gradients and traces. test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L286`, `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/proximal_gradient_descent.jl:L18`, `docs/src/numerics.md:L928`. The later nonnegative-lasso addition is documented in [upstream `fd45a427`, PGD docstring](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/solvers/proximal_gradient_descent.jl#L5-L18).
 
@@ -63,15 +70,20 @@ For a raw `LogisticLoss` with `NormL1`, the same sequence forms the logistic ima
 
 **Statement.** Before the first iteration, the inverse step is the `T`-rounded `min(1, s ‖X‖_F²)`, using an upper bound for `‖X‖_F`. A positive result that rounds below `floatmin(T)` is raised to that value. If the product is at least one, or `X = 0`, the start is `1`.
 
+For `B ↦ XB` in the Frobenius norm, each response column has the same
+operator. Summing their squared norms gives the operator bound `‖X‖₂`,
+attained by taking one column to be a right singular vector. The initial
+curvature uses the same design Frobenius norm for any number of responses.
+
 When the positive Frobenius bound is below one, it exceeds the spectral curvature `s ‖X‖₂²` by the factor `‖X‖_F² / ‖X‖₂²`, at most the rank of `X`, up to rounding and the floor. A positive bound far below one therefore starts below one; a bound at least one starts at one. For example, `X = I(256)/16` with `s = 1` has curvature `1/256` and starts at `1`. The line search multiplies this estimate by its decrease factor (default `0.9`) before each iteration and raises it on rejected trials. Historical extreme-scale measurements are retained in [ORACLE-01](@ref).
 
 PGD obtains the same initialization through a column-wise scan, with the Frobenius-bound calculation when required; APG uses the shared bound machinery directly. For a raw `LogisticLoss`, PGD uses the factor `¼` in place of `s` ([IN-09](@ref)). This is an initial estimate, not a change to the subsequent acceptance tests. A finite starting loss is required; penalty overflow at a finite starting point follows [RES-01](@ref).
 
-**Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
+**Applies to.** PGD and APG; dense vectors and the matrices in [IN-10](@ref).
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: _scanned_initial_curvature; src/solvers/image_models.jl: _initial_curvature, _frobenius_upper`.
 
-**Tests.** test/initial_curvature.jl: initial scale, floor, wide-scale and zero-design testsets; test/logistic_pgd.jl: the start `min(1, ¼‖X‖_F²)` for a logistic loss.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks the matrix and vector initial curvature for the same design. test/initial_curvature.jl: initial scale, floor, wide-scale and zero-design testsets; test/logistic_pgd.jl: the start `min(1, ¼‖X‖_F²)` for a logistic loss.
 
 **Sources.** `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docs/src/numerics.md:L168`, `docs/src/numerics.md:L833`.
 

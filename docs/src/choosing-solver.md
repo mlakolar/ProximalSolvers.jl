@@ -21,6 +21,11 @@ reasonable first choice, especially when you want active-coordinate storage.
 PGD offers full-vector gradient iterations and detailed traces. APG accelerates
 those updates while sharing PGD's options and results.
 
+With several responses on a shared design, use PGD or APG and unweighted
+`NormL1(lambda)` for [entrywise sparsity](examples/problems/multiresponse_lasso.md).
+For shared predictor selection across tasks, use the
+[row-group penalty with CD](examples/problems/multitask_group_lasso.md).
+
 ## Coordinate descent
 
 ~~~@example choosing_cd
@@ -276,6 +281,11 @@ with a raw `LogisticLoss(y, X)` without observation weights or offset, a dense
 weight leaves an intercept column unpenalized. APG and CD refuse this loss. The
 [logistic regression example](examples/problems/logistic_regression.md) explains
 the summed loss and the scaling of the level. See [IN-09](@ref) for input rules.
+`ProxNewton` solves the same problem with proximal Newton steps whose inner problems are solved by
+cyclic coordinate descent; it follows the curvature of the loss row by row and reports the KKT score of
+the returned point, the accepted iterations, the coordinate passes and a stop reason. Its
+tolerance is a bound on that score. See [Sparse logistic regression with proximal Newton](@ref) and
+[PN-01](@ref).
 
 CD solves group lasso on a `BlockIterate` with `GroupNormL2`, as in the
 [group example above](#Group-lasso-with-block-coordinate-descent).
