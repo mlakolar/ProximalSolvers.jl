@@ -379,25 +379,32 @@ end
 # A LogisticLoss, unwrapped or in one Scaled wrapper (which _check_logistic_problem refuses).
 _is_logistic_loss(f) = f isa LogisticLoss || (f isa Scaled && f.f isa LogisticLoss)
 
-@noinline _logistic_method_error(kind::Symbol) =
-  throw(ArgumentError("LogisticLoss is supported only by ProximalGradientDescent, ProxNewton and LogisticADMM, on a dense " *
-                      "Vector{Float64} with a NormL1 penalty; $(kind === :gradient ? "AccProxGradDescent" : "CDSolver") does not support it"))
+# The refusal of a logistic loss by CDSolver, reached from the dense gate (_check_logistic_problem, for a `kind` that is
+# none of :pgd, :gradient, :newton and :admm), from the CD owner gate (_check_data, with `kind` :cd) and from the block
+# gate (:block). The gate of PGD, APG, ProxNewton and LogisticADMM does not call it. An owner call that
+# _check_owner_problem refuses earlier (IndNonnegative or NormL1Nonneg on a SparseIterate) does not reach it.
+@noinline _logistic_method_error(::Symbol) =
+  throw(ArgumentError("LogisticLoss is supported only by ProximalGradientDescent, AccProxGradDescent, ProxNewton and " *
+                      "LogisticADMM, on a dense Vector{Float64} with a NormL1 penalty; CDSolver does not support it"))
 
-# The solver named in the refusal of a nonbinary response: the gate runs for PGD (`kind` :pgd), ProxNewton (:newton)
-# and LogisticADMM (:admm).
+# The solver named in the refusal of a nonbinary response: the gate runs for PGD (`kind` :pgd), APG (:gradient),
+# ProxNewton (:newton) and LogisticADMM (:admm).
 _logistic_solver_name(kind::Symbol) =
-  kind === :newton ? "ProxNewton" : kind === :admm ? "LogisticADMM" : "ProximalGradientDescent"
+  kind === :newton ? "ProxNewton" : kind === :gradient ? "AccProxGradDescent" :
+  kind === :admm ? "LogisticADMM" : "ProximalGradientDescent"
 
-# The gate of a logistic loss (IN-09, PN-01, LA-01), in place of the checks below, on every solve and before any write to
-# x. Each refusal is an ArgumentError (a DimensionMismatch for the shapes), in this order: a solver other than PGD,
-# ProxNewton and LogisticADMM (`kind` is not :pgd, :newton or :admm); a Scaled wrapper; a loss, X, y or x that is not LogisticLoss{Float64},
-# Matrix{Float64}, Vector{Float64} and Vector{Float64}; observation weights or an offset; X without rows or columns, y
-# without one entry per row of X, x without one entry per column; a penalty that is not a NormL1, then the NormL1 rules of
-# _check_penalty (with weights, _check_l1_weights, which also refuses an x that may alias the weights); an x that may
-# alias X, y or the scratch f.tmp of the loss; a nonfinite entry of x or X; an entry of y other than 0 and 1 (a NaN
-# included), read at this call, so a change of y after the construction of the loss is checked.
+# The gate of a logistic loss (IN-09, PN-01, APG-08, LA-01), in place of the checks below, at each call of PGD, APG,
+# ProxNewton and LogisticADMM that reaches it (after the keyword check of solve!) and before any write to x; the dense CD
+# route calls it only for the refusal of its own kind. Each refusal is an ArgumentError (a DimensionMismatch for the
+# shapes), in this order: a solver other than PGD, APG, ProxNewton and LogisticADMM (`kind` is none of :pgd, :gradient,
+# :newton and :admm); a Scaled wrapper; a loss, X, y or x that is not LogisticLoss{Float64}, Matrix{Float64},
+# Vector{Float64} and Vector{Float64}; observation weights or an offset; X without rows or columns, y without one entry
+# per row of X, x without one entry per column; a penalty that is not a NormL1, then the NormL1 rules of _check_penalty
+# (with weights, _check_l1_weights, which also refuses an x that may alias the weights); an x that may alias X, y or the
+# scratch f.tmp of the loss; a nonfinite entry of x or X; an entry of y other than 0 and 1 (a NaN included), read at
+# this call, so a change of y after the construction of the loss is checked.
 function _check_logistic_problem(x, f, g, kind::Symbol)
-  kind === :pgd || kind === :newton || kind === :admm || _logistic_method_error(kind)
+  kind === :pgd || kind === :gradient || kind === :newton || kind === :admm || _logistic_method_error(kind)
   f isa Scaled &&
     throw(ArgumentError("Scaled(LogisticLoss) is not supported (ProximalBase provides no predictor oracles for it); " *
                         "for a positive finite scale a, use the raw LogisticLoss(y, X) with the penalty level lambda/a, " *

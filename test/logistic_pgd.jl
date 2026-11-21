@@ -539,8 +539,7 @@ end
   # a NormL1 whose second weight is changed after construction
   reweighted(v) = (wm = copy(w); gm = NormL1(1.0, wm); wm[2] = v; gm)
   cases = [
-    # solvers other than PGD, for each coefficient storage
-    (copy(start), f, g, AccProxGradDescent(), ArgumentError, "LogisticLoss is supported only by ProximalGradientDescent"),
+    # CDSolver, for each coefficient storage; APG accepts the loss (test/logistic_apg.jl)
     (copy(start), f, g, CDSolver(), ArgumentError, "CDSolver does not support it"),
     (SparseIterate(copy(start)), f, g, CDSolver(), ArgumentError, "CDSolver does not support it"),
     (BlockIterate(copy(start), groups), f, GroupNormL2(1.0, groups), CDSolver(momentum = false), ArgumentError,
@@ -549,7 +548,7 @@ end
      "CDSolver does not support it"),
     (copy(start), f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMMSolver does not support LogisticLoss; use LogisticADMM"),
     (copy(start), (1 / n) * f, NormL1(1.0), ADMMSolver(), ArgumentError, "ADMMSolver does not support LogisticLoss; use LogisticADMM"),
-    (copy(start), (1 / n) * f, g, AccProxGradDescent(), ArgumentError, "supported only by ProximalGradientDescent"),
+    (copy(start), (1 / n) * f, g, AccProxGradDescent(), ArgumentError, "Scaled(LogisticLoss) is not supported"),
     (copy(start), (1 / n) * f, g, CDSolver(), ArgumentError, "CDSolver does not support it"),
     # matrix coefficients: PGD's matrix method takes only a LogDetLoss, so the logistic gate refuses them
     ([1.0 0.1; 0.1 1.0], f, NormL1(1.0), pgd, ArgumentError, "x to be a dense Vector{Float64}"),

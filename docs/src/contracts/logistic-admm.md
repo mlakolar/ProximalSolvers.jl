@@ -69,8 +69,8 @@ refusals precede any write to `b`, `t` and `u`.
 
 `ADMMSolver` refuses a `LogisticLoss` or a `Scaled` one, for every `z`, with an `ArgumentError` that names
 `LogisticADMM`. The refusal follows its keyword and option checks and precedes the check of `z` and any write to `z`
-or to a supplied `u`. `AccProxGradDescent` and `CDSolver` refuse the loss with an `ArgumentError` that names
-`ProximalGradientDescent`, `ProxNewton` and `LogisticADMM`.
+or to a supplied `u`. `CDSolver` refuses the loss with an `ArgumentError` that names `ProximalGradientDescent`,
+`AccProxGradDescent`, `ProxNewton` and `LogisticADMM`; `AccProxGradDescent` accepts it ([APG-08](@ref)).
 
 *State.* The start is `t⁰ = t` when `t` is given and `X * b` otherwise, and `u⁰ = u` when `u` is given and
 `(σ(t⁰) - y)/ρ` otherwise, with `σ(t) - y` formed as in [LA-03](@ref). The solve holds the dual as `w = ρ u`. It
@@ -130,8 +130,8 @@ with a positive score, one with a subnormal supplied `u`; the refusals with `b`,
 including the text that names `LogisticADMM`, coefficients wrapped at an offset in the storage of `X`, `y`, `f.tmp`
 and the weights, the overlap of `t` and `u` with each other and with the other arrays, a supplied `t - u` that
 overflows only when formed directly, and the refusals of `ADMMSolver` on a `Vector` and a `Matrix` with the raw and
-the scaled loss and a supplied `u` that is left unchanged. `test/logistic_pgd.jl` and
-`test/logistic_proxnewton.jl` match the refusal texts of `ADMMSolver`, `AccProxGradDescent` and `CDSolver`.
+the scaled loss and a supplied `u` that is left unchanged. `test/logistic_pgd.jl`, `test/logistic_proxnewton.jl` and
+`test/logistic_apg.jl` match the refusal texts of `ADMMSolver` and `CDSolver`.
 
 **Sources.** [Issue #448](https://github.com/mlakolar/ProximalSolvers.jl/issues/448) (formulation, scope and
 acceptance) and [pull request #507](https://github.com/mlakolar/ProximalSolvers.jl/pull/507) (plan and implementation).

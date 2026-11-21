@@ -956,17 +956,16 @@ end
   @test r.minimizer === b && r.t === t0 && r.u === u0
 end
 
-@testset "the other solvers refuse the logistic loss and name LogisticADMM" begin
+@testset "CDSolver and ADMMSolver refuse the logistic loss and name LogisticADMM" begin
   X, y = logistic_data(40, 3; seed = 12)
   n, k = size(X)
   f, g = LogisticLoss(y, X), NormL1(1.0, [0.0, 1.0, 1.0, 1.0])
   start = [0.1, -0.2, 0.3, 0.0]
-  for (method, message) in ((AccProxGradDescent(), "LogisticLoss is supported only by ProximalGradientDescent, ProxNewton and LogisticADMM"),
-                            (CDSolver(), "LogisticLoss is supported only by ProximalGradientDescent, ProxNewton and LogisticADMM"))
-    for loss in (f, (1 / n) * f)
-      err, unchanged = refusal(copy(start), loss, g, method)
-      @test err isa ArgumentError && occursin(message, sprint(showerror, err)) && unchanged
-    end
+  # CDSolver, with the raw and the scaled loss (AccProxGradDescent accepts the raw loss, test/logistic_apg.jl)
+  message = "LogisticLoss is supported only by ProximalGradientDescent, AccProxGradDescent, ProxNewton and LogisticADMM"
+  for loss in (f, (1 / n) * f)
+    err, unchanged = refusal(copy(start), loss, g, CDSolver())
+    @test err isa ArgumentError && occursin(message, sprint(showerror, err)) && unchanged
   end
   # ADMMSolver on a Vector or a Matrix z, with the raw and the scaled loss and a supplied u that is left unchanged
   Λ = [0.0 1.0; 1.0 0.0]

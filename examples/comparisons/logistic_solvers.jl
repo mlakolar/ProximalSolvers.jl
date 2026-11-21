@@ -1,6 +1,7 @@
-# Three solvers in this package fit sparse logistic regression: proximal gradient descent
-# (`ProximalGradientDescent`), proximal Newton (`ProxNewton`) and the alternating direction method of
-# multipliers on a split of the predictor (`LogisticADMM`). This page runs the three on one seeded
+# Four solvers in this package fit sparse logistic regression: proximal gradient descent
+# (`ProximalGradientDescent`), its accelerated variant (`AccProxGradDescent`), proximal Newton
+# (`ProxNewton`) and the alternating direction method of multipliers on a split of the predictor
+# (`LogisticADMM`). This page runs three of them, PGD, ProxNewton and LogisticADMM, on one seeded
 # problem, checks each returned point with an objective and a KKT score computed from the data, and
 # reports the work each one needed. A second experiment shows how the iteration count of ADMM depends on
 # its penalty `ρ`. The page counts iterations and inner work; it does not time the solvers.

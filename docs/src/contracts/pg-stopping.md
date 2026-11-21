@@ -68,7 +68,7 @@ with `∇f(B) = s Xᵀ(XB − Y)`. Take the largest score over all entries, with
 use the working arithmetic of the vector test. This is the entrywise maximum
 over the full matrix.
 
-For a raw `LogisticLoss`, `∇f` is the logistic gradient and `λmax = ‖Xᵀ(½ - y)‖∞`, the norm of its value at zero ([IN-09](@ref)).
+For a raw `LogisticLoss` with PGD or APG, `∇f` is the logistic gradient and `λmax = ‖Xᵀ(½ - y)‖∞`, the norm of its value at zero ([IN-09](@ref)).
 
 **Entry thresholds with weights.** With `NormL1(λ0, w)` a proposed stop must also hold entry by entry. Let `sᵢ` be ProximalBase's signed entry score `kkt_violation(NormL1(T(λ0), w), ∇f(x), x, i)`: `|∇fᵢ| - cᵢ` at `xᵢ = 0`, which can be negative, and `|∇fᵢ + cᵢ sign(xᵢ)|` elsewhere. The maximum of these scores and zero is the full-point residual above. Each `sᵢ` must be strictly below `τ max(cᵢ, λmax)`, computed in `T`, and that threshold must be at least `floatmin(T)`. A negative score passes any threshold that passes the guard, so clipping at zero does not change the decision.
 

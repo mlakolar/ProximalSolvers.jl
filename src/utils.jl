@@ -135,7 +135,7 @@ end
 # An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
-# For a logistic loss with NormL1 (PGD only, IN-09) the check is the same with the logistic gradient ∇f and
+# For a logistic loss with NormL1 (PGD and APG, IN-09, APG-08) the check is the same with the logistic gradient ∇f and
 # λmax = ‖Xᵀ(½ - y)‖∞ = ‖∇f(0)‖∞ (see _zero_gradient!).
 #
 # GroupNormL2(λ0, groups, w) (ProximalGradientDescent and AccProxGradDescent; solve! requires a GroupNormL2{T} whose groups partition 1:p
@@ -248,11 +248,13 @@ function _zero_gradient!(G, state, m::_LSImage)
   G .*= m.α
 end
 
-# Logistic loss without observation weights or offset (the only logistic loss that solve! accepts, with PGD):
+# Logistic loss without observation weights or offset (the logistic loss of the image model that PGD and APG share, IN-09):
 # ∇f(0) = Xᵀ(σ(0) - y) = Xᵀ(½ - y), with ½ - yᵢ = ±½ exact for a binary yᵢ. The difference is written
-# to state.dz, PGD's image-length buffer. On the PGD path that buffer is written before it is read at its
+# to state.dz, the image-length buffer of both solvers. On the PGD path that buffer is written before it is read at its
 # other uses (by ProximalBase as the derivative d in _value_and_gradient!, and by the product X d̂ in
-# check_rejection!), so its content is not needed when this runs between iterations.
+# check_rejection!), so its content is not needed when this runs between iterations. APG writes it before each of its
+# uses as well: ProximalBase's derivative d in the value and gradient at y (_prox_grad_step!), the fresh product X d̂ of
+# _bound_certified!, and the gradient at the accepted x (_gradient_at_x!).
 function _zero_gradient!(G, state, m::_LogisticImage)
   state.dz .= 0.5 .- m.Y
   mul!(G, transpose(m.X), state.dz)
@@ -270,7 +272,10 @@ _gradient_at_x!(state::ProximalGradientDescentState, f) = state.grad_f_x
 # APG holds ∇f(y), not ∇f(x). It forms ∇f(x) from the cached image A x with the gradient oracle,
 # in state.xhat (the length-p buffer above) with state.dz, the image-length buffer that APG writes
 # before it reads it at each use (the value and gradient at y, the fresh product of the bound
-# test), and counts the evaluation in grad_calls.
+# test), and counts the evaluation in grad_calls. For a logistic loss, _value_and_gradient! returns Inf without writing
+# its gradient buffer when the image has a nonfinite entry. Here the cached image z_x is finite: it is the image of the
+# accepted x, and each trial that the line search accepts, the zero step included, lies in the isfinite(state.f_x) branch
+# of _prox_grad_step!, where a logistic value is finite only for a finite image.
 function _gradient_at_x!(state::AccProxGradDescentState, f)
   _value_and_gradient!(state.xhat, state.x, f, state.z_x, state.dz)
   state.grad_calls += 1

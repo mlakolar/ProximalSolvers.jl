@@ -14,18 +14,24 @@ function _image_model(f)
 end
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
-# The image model of PGD for a raw LogisticLoss, which the gate of solve! accepts without observation weights or
+# The image model of PGD and APG for a raw LogisticLoss, which the gate of solve! accepts without observation weights or
 # offset (IN-09): Y = f.y, X = f.X and the image z = X x. ProxNewton, the other solver that the gate admits for this
 # loss, forms its own images (src/solvers/logistic_proxnewton.jl) and does not use this model. α is not a
 # loss scale but the factor 1/4 of the Hessian bound ∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX (a formula
-# in exact arithmetic), read where least squares reads its scale: the initial curvature min(1, α B²), with B the
-# upper estimate of ‖X‖_F from _frobenius_upper (PGD-02, with its floor and its fallback for X = 0), and the
-# recheck c = m α ‖fl(X d̂)‖²/‖d̂‖² of an eligible rejected trial (LS-03, _step_curvature). In exact arithmetic the bound gives, for a trial x and
+# in exact arithmetic), read where least squares reads its scale. Both solvers read it in the initial curvature
+# min(1, α B²), with B the upper estimate of ‖X‖_F from _frobenius_upper (PGD-02, with its floor and its fallback for
+# X = 0). PGD also reads it in the recheck c = m α ‖fl(X d̂)‖²/‖d̂‖² of an eligible rejected trial (LS-03,
+# _step_curvature). In exact arithmetic the bound gives, for a trial x and
 # the step d = x - u from the last accepted point u, f(x) ≤ f(u) + ⟨∇f(u), d⟩ + ⅛‖X d‖² and
 # ⟨∇f(x) - ∇f(u), d⟩ ≤ ¼‖X d‖²; so c ≤ L (m = 1 in function-value mode, m = 2 in gradient mode) implies
 # the acceptance test of that mode, and after a rejection c ≥ L̂, TFOCS's estimate, so c in place of L̂ gives a
 # retry L at least TFOCS's (IN-09 has the argument in full). In the code, a finite computed c replaces L̂ only
 # when the recheck ran and rejected the trial again; the computed c carries no such guarantee.
+# APG reads α, as √α = ½ (_root_scale), in the certified test of _bound_certified!. That test certifies
+# ½‖X d‖ ≤ (1 + 4eps)√L‖d‖ for the step d = x - y from the extrapolated point y; by the first inequality above this
+# implies f(x) ≤ f(y) + ⟨∇f(y), d⟩ + (L/2)(1 + 4eps)²‖d‖² in exact arithmetic. For least squares the remainder
+# f(x) - f(y) - ⟨∇f(y), d⟩ is (s/2)‖X d‖², so the test without its slack is equivalent to the descent inequality; here
+# the remainder is at most ⅛‖X d‖², so the test is a sufficient condition for it (APG-08).
 struct _LogisticImage{TY<:AbstractVector, TX<:AbstractMatrix}
   Y::TY
   X::TX
@@ -248,11 +254,13 @@ function _bound_constants(::Type{T}, X, normX, K::Int = 1) where {T}
     _se_add(_se_mul(_SE{T}(T(8p)), rn, η), _se_mul(_SE{T}(T(2)), rp, normX, η)))
 end
 
-# Whether the least-squares bound
-#     f(x) ≤ f(y) + ⟨∇f(y), d⟩ + L‖d‖²/2,  d = x - y ≠ 0,   ⟺   √α ‖X d‖ ≤ √L ‖d‖,
-# relaxed to √α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖ (legacy's slack 8eps on L), is certified for the
+# Whether the image inequality √α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖, d = x - y ≠ 0, is certified for the
 # stored x and y, D being the computed ‖d̂‖ and normx the computed ‖x‖ as _SE. Returns
-# (accepted, used the fresh product).
+# (accepted, used the fresh product). Of the model only the design X is read; √α enters as rootα. In exact arithmetic,
+# for least squares with α the loss scale, the image inequality is equivalent to the descent inequality
+#     f(x) ≤ f(y) + ⟨∇f(y), d⟩ + (1 + 4eps)² L‖d‖²/2.
+# For the logistic image (α = ¼, rootα = ½) the image inequality implies that descent inequality and is not equivalent to
+# it (APG-08). The decision certifies the image inequality under the assumptions below and rejects an inconclusive trial.
 #
 # The bounds assume IEEE arithmetic with gradual underflow and a matrix-vector product that
 # evaluates each entry as a dot product in some order of p multiplications and additions
@@ -270,7 +278,7 @@ end
 # and products are carried as _SE, so their range does not limit the decision; the native
 # product, the extrapolation and the one-pass sums are outside _SE and enter through the
 # bounds above (a one-pass sum is used only when it is finite and at least 4n floatmin(T)).
-function _bound_certified!(buf, model::_LSImage, zu, zw, d, D::_SE{T}, L, Ey::_SE{T},
+function _bound_certified!(buf, model, zu, zw, d, D::_SE{T}, L, Ey::_SE{T},
                            normx::_SE{T}, rootα::_SE{T}, c::_BoundConstants{T},
                            fresh_only::Bool) where {T}
   !iszero(D.s) && L > 0 || return false, false

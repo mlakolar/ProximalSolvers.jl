@@ -279,9 +279,10 @@ PGD's constrained KKT check; `CDSolver` reports convergence on the change test o
 score, as the example does.
 
 For sparse logistic regression with a binary response, use `ProximalGradientDescent`
-with a raw `LogisticLoss(y, X)` without observation weights or offset, a dense
+or `AccProxGradDescent` with a raw `LogisticLoss(y, X)` without observation weights or offset, a dense
 `Matrix{Float64}` design, `Vector{Float64}` coefficients and `NormL1`; a zero penalty
-weight leaves an intercept column unpenalized. APG and CD refuse this loss. The
+weight leaves an intercept column unpenalized. CD refuses this loss; APG's step test can be
+conservative for saturated logits ([APG-08](@ref)). The
 [logistic regression example](examples/problems/logistic_regression.md) explains
 the summed loss and the scaling of the level. See [IN-09](@ref) for input rules.
 `ProxNewton` solves the same problem with proximal Newton steps whose inner problems are solved by
