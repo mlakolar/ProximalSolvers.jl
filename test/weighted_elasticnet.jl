@@ -4,9 +4,10 @@ using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 const PG_METHODS = (ProximalGradientDescent(), AccProxGradDescent())
 
-methods() = ((CDSolver(order = :cyclic, tol = 1e-10), false),
-             (CDSolver(order = :cyclic, tol = 1e-10), true),
-             (PG_METHODS[1], false), (PG_METHODS[2], false))
+function methods(T)
+  cd = CDSolver(order = :cyclic, tol = T === Float32 ? 1e-6 : 1e-10)
+  ((cd, false), (cd, true), (PG_METHODS[1], false), (PG_METHODS[2], false))
+end
 
 options(T) = ProximalOptions(maxiter = 5_000, ftol = 1e-14, xtol = 1e-12,
   gradtol = T === Float32 ? 2e-5 : 1e-10, allow_f_increases = true)
@@ -71,7 +72,7 @@ end
   X = Matrix(Diagonal(T[1, 2, 0, 1]))
   y, w = T[2, -1, 0.4, 0.5], T[0, 2, 0, 1]
   s, b = T(0.75), T(0.5)
-  for (method, sparse) in methods()
+  for (method, sparse) in methods(T)
     x0 = T[0, 1, 0.5, -1]
     for a in T[0.125, 0.75]
       corr = s .* (X' * y)
@@ -89,7 +90,7 @@ end
   y = X * expected - T[-1, 1.5, 0]
   a = T(0.5)
   @test iszero(reference_at(X, y, one(T), exact_coefficients(a, w), b, expected).kkt)
-  for (method, sparse) in methods()
+  for (method, sparse) in methods(T)
     fit_and_check(X, y, one(T), a, b, w, zeros(T, 5), expected, method, sparse)
   end
 end
@@ -104,7 +105,7 @@ end
   @test PS._converted_penalty(mixed, T).w === w
   @test PS._converted_penalty(native, T) === native
 
-  for (method, sparse) in methods()
+  for (method, sparse) in methods(T)
     for (g, control) in ((ElasticNet(a, zero(T), w), NormL1(a, w)),
                          (ElasticNet(a, b, ones(T, 3)), ElasticNet(a, b)),
                          (ElasticNet(a, b, zeros(T, 3)), ElasticNet(zero(T), b)),
@@ -225,7 +226,7 @@ end
   mutable_w[1] = zero(T)
   g_updated = ElasticNet(a, b, copy(mutable_w))
   g_original = ElasticNet(a, b, T[1, 2])
-  for (method, sparse) in methods()
+  for (method, sparse) in methods(T)
     x, z, old = (start(x0, sparse) for _ in 1:3)
     r = run!(x, f, mutable_g, method, opts)
     q = run!(z, f, g_updated, method, opts)

@@ -125,7 +125,7 @@ for beta in (beta_w_apg, beta_w_pgd, beta_w_cd)
   @assert weighted_elasticnet_residual(beta) <= 1e-6
 end
 @assert maximum(abs, beta_w_pgd - beta_w_apg) <= 1e-5 && maximum(abs, beta_w_cd - beta_w_apg) <= 1e-5
-@assert !iszero(beta_w_apg[1])      # the unweighted coordinate is not shrunk to zero by the ℓ₁ term
+@assert !iszero(beta_w_apg[1])      # the first coefficient remains nonzero in this fit
 
 # ## Reading the shrinkage paths
 #
