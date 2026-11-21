@@ -18,7 +18,8 @@ The following remain deferred:
   entrywise lasso with PGD or APG ([IN-10](@ref)); matrix-response regression
   penalties and storage outside those solver contracts, including weighted
   matrix `NormL1`;
-- weighted `ElasticNet`, `Scaled` penalties, and CD group penalties other than
+- `Scaled` penalties (including `Scaled` of a weighted `ElasticNet`, whose weighted
+  form is specified in [IN-03](@ref)), and CD group penalties other than
   `GroupNormL2`;
 - `SqrNormL2` as a CD penalty with a declared center type other than `Nothing`,
   including a zero-valued center or a union-typed center holding `nothing`.

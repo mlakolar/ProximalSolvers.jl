@@ -819,7 +819,7 @@ end
 end
 
 @testset "APG refuses the penalties it does not support, with the ElasticNet message (#324)" begin
-  msg = "only NormL1, unweighted ElasticNet, NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"   # the gradient gate's message (#338, #395)
+  msg = "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"   # the gradient gate's message (#338, #395)
   vector_msg = "x must be a dense Vector{Float32} or Vector{Float64}"
   method = AccProxGradDescent()
   refused_with(x, f, g, m, msg) = begin
@@ -831,7 +831,8 @@ end
     X, y, x = T[1 0; 0 2], T[1, -1], T[.3, -.2]
     f = LeastSquaresLoss(y, X)
     en = ElasticNet(T(.1), T(.2))
-    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
+    # a weighted ElasticNet is accepted (IN-03; test/weighted_elasticnet.jl); its Scaled wrapper is refused
+    for g in (Scaled(ElasticNet(T(.1), T(.2), ones(T, 2)), 2), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
       refused_with(x, f, g, method, msg)
     end
     refused_with(x, f, ElasticNet(T(Inf), zero(T)), method, "penalty lambda1 must be finite and nonnegative")

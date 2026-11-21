@@ -20,11 +20,11 @@ the design requirement.
 
 | Solver / problem | Coefficient storage | Penalty |
 | --- | --- | --- |
-| `CDSolver`, least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | `NormL1`, with or without weights, unweighted `ElasticNet`, or uncentered `SqrNormL2` |
+| `CDSolver`, least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | `NormL1` or `ElasticNet`, each with or without weights ([IN-03](@ref)), or uncentered `SqrNormL2` |
 | `CDSolver`, group least squares | `BlockIterate{T}` | matching `GroupNormL2`; see [CDG-01](@ref) |
 | `CDSolver`, matrix-response least squares | dense `Matrix{T}` or matching row-group `BlockIterate{T}` | native row-group `GroupNormL2`; see [CDM-01](@ref) |
 | `CDSolver`, square-root least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | unweighted `NormL1` with positive level; see [CDQ-01](@ref) |
-| `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1`, unweighted `ElasticNet`, `NormLinf`, `NormL2` under [IN-11](@ref), or `GroupNormL2` under [IN-04](@ref) |
+| `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1` or `ElasticNet`, each with or without weights ([IN-03](@ref)), `NormLinf`, `NormL2` under [IN-11](@ref), or `GroupNormL2` under [IN-04](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, matrix-response least squares | dense `Matrix{T}` | unweighted `NormL1` under [IN-10](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
 | `ProximalGradientDescent` or `CDSolver`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` (not a `SparseIterate`) | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
@@ -62,7 +62,8 @@ Raw `LeastSquaresLoss(y, X)` means `sum(abs2, y-X*x)/2`. A single supported posi
 scalar wrapper scales that loss; use `(one(T)/T(n))*LeastSquaresLoss(y, X)` when that
 native normalization is intended. This fixed scaling is distinct from the scaled lasso,
 which estimates a noise level. The unweighted elastic-net penalty is
-`lambda1 * norm(x, 1) + (lambda2/2) * sum(abs2, x)`. Full objectives and algorithms are
+`lambda1 * norm(x, 1) + (lambda2/2) * sum(abs2, x)`; with weights it is the penalty of
+[IN-03](@ref). Full objectives and algorithms are
 specified by their solver contracts. For complete runnable calls, see
 [Getting started](../getting-started.md) and the [sparsity tutorial](../sparsity-and-kkt.md).
 
@@ -83,8 +84,9 @@ overflow or rounding a nonzero value to zero. A different scalar type is allowed
 including a representable `Float64` literal in a `Float32` solve. A subnormal converted
 level is accepted for an unweighted `NormL1`, the supported unweighted
 `NormL1Nonneg` in [IN-07](@ref), `NormL2` in [IN-11](@ref), or the uncentered `SqrNormL2` ridge penalty
-in [IN-01](@ref); weighted `NormL1` has the stricter [IN-03](@ref) rule.
-For ridge, zero is also accepted. Negative, NaN or infinite levels are refused,
+in [IN-01](@ref); weighted `NormL1` and the L1 level of a weighted `ElasticNet`
+have the stricter [IN-03](@ref) rule, which the ridge level of a weighted
+`ElasticNet` does not share. For ridge, zero is also accepted. Negative, NaN or infinite levels are refused,
 as are finite levels whose conversion overflows or turns a nonzero value into
 zero.
 
@@ -93,8 +95,9 @@ For unweighted `NormL1` with PGD or APG, `NormL2` with PGD or APG, and unweighte
 method's input checks before forming a working penalty with level `T(lambda)`. The
 solver reuses a penalty already parameterized by `T`. The working penalty supplies the initial objective, every
 fused value and proximal evaluation, and the stationarity residual and scale.
-The caller's penalty is unchanged. Other regression penalties and CD retain their
-own arithmetic rules. ADMM has its own scalar-parameter rules in [ADM-01](@ref).
+The caller's penalty is unchanged. [IN-03](@ref) defines the working penalty for
+weighted `ElasticNet` in CD, PGD and APG. ADMM has its own scalar-parameter rules
+in [ADM-01](@ref).
 
 For `Scaled(LeastSquaresLoss(...), s)`, the supported loss scale is either:
 
@@ -153,7 +156,7 @@ g = NormL1(lambda)
 
 **Sources.** `docs/src/numerics.md:L743`, `docs/src/numerics.md:L783`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L327`, `docs/src/support.md:L330`, `docs/src/support.md:L334`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/getting-started.md:L119`. The unweighted nonnegative-lasso level gate is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). Ridge reuses [`_scalar_parameter` at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L11-L21), called by [its new penalty branch](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L75-L79).
 
-## [IN-03 Weighted lasso inputs and rounded coefficients](@id IN-03)
+## [IN-03 Weighted lasso and weighted elastic-net inputs, and rounded coefficients](@id IN-03)
 
 **Statement.**
 
@@ -186,16 +189,40 @@ CD's `prox_block` branch. Those thresholds can differ from ones formed from `c_j
 rounding and, when `lambda` is not `T`, by its conversion error. [CD-04](@ref) specifies
 the branch selection and the bound on that error. CD retains its change test.
 
-`Scaled(NormL1(lambda, w), a)` and weighted `ElasticNet` are refused. The
+`Scaled(NormL1(lambda, w), a)` is refused. The
 [weighted-lasso tutorial](../examples/problems/weighted_lasso.md) demonstrates an
 adaptive lasso with a zero weight using all three solvers; its source script is
 `examples/problems/weighted_lasso.jl`.
 
-**Applies to.** Weighted `NormL1` with scalar least-squares CD, PGD or APG; group input checks reuse the rounded-coefficient rule in [IN-04](@ref).
+**Weighted elastic net.** `ElasticNet(lambda1, lambda2, w)` means
+`lambda1 * sum(w[j] * abs(x[j])) + (lambda2/2) * sum(abs2, x)`.
+A zero weight removes the L1 term for its coordinate. The ridge term applies to
+each coordinate. The `ElasticNet` rows of [IN-01](@ref) list the supported methods
+and storage for raw least squares and a single admitted loss scale.
+`Scaled(ElasticNet(lambda1, lambda2, w), a)` is refused.
 
-**Code.** `src/solve.jl`: `_check_l1_weights`, `_weighted_level`, `_check_coefficients`; `src/cd/leastsquares.jl`: exceptional threshold branch.
+Validate the stored `lambda1` under the weighted-level rule above. Then validate
+`lambda2` under [IN-02](@ref), which accepts zero and representable positive
+subnormals for this ridge level. For `w` and the rounded coefficients
+`c_j = T(lambda1) * w_j`, apply the weight, alias and coefficient rules above.
+Each solve reads the current weights and completes these checks before copying
+or writing `x` and before using the CD random number generator. During the solve
+the borrowed weights are read-only under [IN-05](@ref).
 
-**Tests.** `test/weighted_lasso.jl` (accepted weights, conversion/range/alias refusals and stopping), `test/cd_numerics.jl`.
+After validation the solver uses `ElasticNet(T(lambda1), T(lambda2), w)` for
+its objective evaluations, proximal steps and PGD/APG stationarity checks.
+It converts the levels separately and borrows the supplied weight vector.
+A penalty with native levels is reused. ProximalBase's ordinary proximal
+kernels use the working level and the weight as separate factors, which can
+round differently from forming a threshold from the checked coefficient.
+[STOP-06](@ref) specifies the PGD/APG stopping check and [CD-04](@ref)
+specifies the exceptional CD step.
+
+**Applies to.** Weighted `NormL1` and weighted `ElasticNet` with scalar least-squares CD, PGD or APG; group input checks reuse the rounded-coefficient rule in [IN-04](@ref).
+
+**Code.** `src/solve.jl`: `_check_l1_weights`, `_check_elasticnet_weights`, `_check_weights`, `_weighted_level`, `_check_coefficients`; `src/utils.jl`: `_working_gradient_penalty`, `_working_cd_penalty`, `_converted_penalty`, `_l1_level`; `src/cd/solver.jl`: the working penalty of the dense and owner routes; `src/cd/leastsquares.jl`: exceptional threshold branch and its shared weighted-lasso primitive.
+
+**Tests.** `test/weighted_lasso.jl` (accepted weights, conversion/range/alias refusals and stopping), `test/cd_numerics.jl`; `test/weighted_elasticnet.jl` for the weighted elastic net: independent objective, gradient and KKT residual from the raw data, analytic and signed-support references, both precisions and every method and owner, the range rule at its boundaries, the exceptional CD band, mixed levels against rounded controls, refusals without mutation, and separate scale and residual probes of the stop rule.
 
 **Sources.** `docs/src/support.md:L134`, `docs/src/support.md:L137`, `docs/src/support.md:L138`, `docs/src/support.md:L145`, `docs/src/support.md:L147`, `docs/src/support.md:L151`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `README.md:L65`, `docs/src/support.md:L130`, `docs/src/glossary.md:L9`.
 
@@ -244,8 +271,10 @@ subnormal square.
 
 `X` and the response are borrowed read-only during a solve: do not mutate them while
 the solver is running. The mutable coefficient storage must not alias either input.
-Weighted `NormL1` and dense-group PGD/APG also prohibit aliasing the penalty weights;
-matrix-response CD and PGD/APG have additional alias rules in [CDM-01](@ref) and [IN-10](@ref).
+Weighted `NormL1`, weighted `ElasticNet` and dense-group PGD/APG also prohibit
+aliasing the penalty weights. Treat borrowed weights as read-only during the
+solve, including in callbacks. Matrix-response CD and PGD/APG have additional
+alias rules in [CDM-01](@ref) and [IN-10](@ref).
 For `SparseIterate`, alias checks cover the owner's whole
 backing storage, even when it has no active entries; passing
 `parent(activevalues(x))` or a reshape of it as `y` or `X` is refused.

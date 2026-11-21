@@ -438,8 +438,8 @@ end
   @test isequal(Vector(xs), before)
   for method in METHODS
     allowed = method isa PGD ?
-      "only NormL1, unweighted ElasticNet, NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported" :
-      "only NormL1, unweighted ElasticNet, NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"
+      "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported" :
+      "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"
     # NormL2 is now supported (test/norml2_pgd.jl); an uncentered ridge penalty is still refused by both methods
     refused(ArgumentError, allowed, start(), f, ProximalBase.SqrNormL2(λ), method)
   end

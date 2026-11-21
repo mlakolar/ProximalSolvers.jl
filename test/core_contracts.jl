@@ -99,12 +99,11 @@ end
   end
 end
 
-# ElasticNet (#324): ProximalGradientDescent, AccProxGradDescent and CDSolver accept an unweighted one
-# and refuse the other penalties with the messages below: the first for CDSolver, the second for the
-# gradient methods, which also accept NormLinf and GroupNormL2. PGD additionally accepts unweighted NormL1Nonneg
-# and IndNonnegative, and CDSolver does on a dense Vector. The refusals tested here leave x unchanged. The APG counterpart is in test/accelerated_pgd.jl; the CD solves are in test/cd_elasticnet.jl.
-const EN_PENALTY_REFUSAL = "CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2, and on a dense Vector also unweighted NormL1Nonneg and IndNonnegative"
-const EN_PGD_REFUSAL = "only NormL1, unweighted ElasticNet, NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"
+# The scalar least-squares routes accept weighted and unweighted ElasticNet.
+# These fixtures check unsupported wrappers, levels and storage before changing x.
+# See test/accelerated_pgd.jl and test/cd_elasticnet.jl for the other solver-specific checks.
+const EN_PENALTY_REFUSAL = "CDSolver supports NormL1, ElasticNet (with optional weights), and uncentered SqrNormL2, and on a dense Vector also unweighted NormL1Nonneg and IndNonnegative"
+const EN_PGD_REFUSAL = "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"
 
 function refused_with(x, f, g, method, msg)
   original = copy(x)
@@ -118,7 +117,8 @@ end
     f = LeastSquaresLoss(y, X)
     method = ProximalGradientDescent()
     en = ElasticNet(T(.1), T(.2))
-    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
+    # a weighted ElasticNet is accepted (IN-03; its solves are in test/weighted_elasticnet.jl), its Scaled wrapper is not
+    for g in (Scaled(ElasticNet(T(.1), T(.2), ones(T, 2)), 2), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2), SqrNormL2(T(.1)))
       refused_with(x, f, g, method, EN_PGD_REFUSAL)
     end
     # a NormL1 with weights is accepted (#331); its solves are in test/weighted_lasso.jl. The options allow an increase
@@ -154,7 +154,8 @@ end
       @test r.converged && r.minimizer === start && all(isfinite, Vector(start))
       @test Vector(start) != x
     end
-    for g in (ElasticNet(T(.1), T(.2), ones(T, 2)), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2))
+    # a weighted ElasticNet is accepted (IN-03; its solves are in test/weighted_elasticnet.jl), its Scaled wrapper is not
+    for g in (Scaled(ElasticNet(T(.1), T(.2), ones(T, 2)), 2), Scaled(en, 2), Scaled(NormL1(T(.1), ones(T, 2)), 2))
       for start in (copy(x), SparseIterate(copy(x)))
         rng = Xoshiro(1)
         before = copy(rng)
