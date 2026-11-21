@@ -1,0 +1,11 @@
+julia 1.13.4  cpu_name znver2  model AMD EPYC 7542 32-Core Processor  host_cpus 64
+threads 1  blas_threads 1  LBTConfig([ILP64] libopenblas64_.so)
+PS path <cluster-run>/repo  version 0.3.2
+PS git HEAD 49d0242e5cbe93e779bab5ac1e7674d6daf03aaf
+PS src fingerprint sha1 627d855f45d20dc798c0e2bc78ee565ff575d560
+PB path <cluster-run>/shared-depot/packages/ProximalBase/nf2Wd  version 0.6.0-DEV
+PB manifest Manifest.toml  repo-rev bc9e888d09e5fc3c3feb35905dd7a14e70657fa5  git-tree-sha1 e3aa6977485dbe9b40b7fd6bec8ae4742cc3a8f3
+harness problems.jl sha1 94661af6c7bf48f9ad3bbf6c33fcb8554a0b1cd9
+harness certificates.jl sha1 78d12af7069e7cb99410213f8227c48068e94834
+harness cases.jl sha1 f785de69cb2f0f0b37e0023631694393dcfe12a3
+gapeval.jl sha1 2e89c8089334b39f03621ae805458931d3078359

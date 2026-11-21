@@ -1,0 +1,320 @@
+# 0. Data hashes against Phase 0
+same 709, different 11, not in Phase 0 0
+
+# 1. Accuracy of the evaluator against BigFloat(256)
+1.10.13 Float32 APG: iterates 3376 (band 2321)
+   w1_rel      max 3.16e-09  p99 8.15e-10 | band max 1.59e-09  band p99 6.93e-10
+   w1_rel_pd   max 2.39e-08  p99 1.97e-09 | band max 1.53e-09  band p99 7.12e-10
+   w2_rel      max 4.15e-09  p99 9.80e-10 | band max 1.48e-09  band p99 6.60e-10
+   cert64_rel  max 5.50e-09  p99 1.01e-09 | band max 1.39e-09  band p99 7.28e-10
+   r32_rel     max 1.63e+00  p99 5.25e-01 | band max 6.66e-01  band p99 5.07e-01
+   r32 underestimates big by >2x on 25 of 2321 band iterates
+1.10.13 Float32 PGD: iterates 3263 (band 1858)
+   w1_rel      max 2.69e-09  p99 1.26e-09 | band max 2.30e-09  band p99 7.91e-10
+   w1_rel_pd   max 3.61e-08  p99 2.21e-09 | band max 2.25e-09  band p99 7.57e-10
+   w2_rel      max 8.03e-09  p99 1.23e-09 | band max 1.53e-09  band p99 7.99e-10
+   cert64_rel  max 9.80e-09  p99 1.09e-09 | band max 1.35e-09  band p99 7.02e-10
+   r32_rel     max 1.40e+00  p99 6.58e-01 | band max 7.88e-01  band p99 6.09e-01
+   r32 underestimates big by >2x on 67 of 1858 band iterates
+1.10.13 Float64 PGD: iterates 2816 (band 1362)
+   w1_rel      max 1.14e-03  p99 7.79e-06 | band max 8.65e-07  band p99 2.82e-07
+   w1_rel_pd   max 2.73e-03  p99 3.74e-05 | band max 8.70e-07  band p99 3.79e-07
+   w2_rel      max 1.08e-03  p99 7.64e-06 | band max 7.55e-07  band p99 3.42e-07
+   cert64_rel  max 2.36e-03  p99 1.62e-05 | band max 6.49e-07  band p99 3.23e-07
+   r32_rel     max 1.81e-03  p99 8.28e-06 | band max 6.70e-07  band p99 3.24e-07
+   r32 underestimates big by >2x on 0 of 1362 band iterates
+1.13.4 Float32 APG: iterates 3252 (band 2267)
+   w1_rel      max 4.60e-09  p99 9.27e-10 | band max 1.23e-09  band p99 5.91e-10
+   w1_rel_pd   max 1.61e-08  p99 1.91e-09 | band max 1.22e-09  band p99 6.45e-10
+   w2_rel      max 3.48e-09  p99 8.94e-10 | band max 1.19e-09  band p99 5.21e-10
+   cert64_rel  max 3.29e-09  p99 9.47e-10 | band max 1.60e-09  band p99 5.54e-10
+   r32_rel     max 1.32e+00  p99 4.18e-01 | band max 6.25e-01  band p99 2.59e-01
+   r32 underestimates big by >2x on 5 of 2267 band iterates
+1.13.4 Float32 PGD: iterates 3209 (band 1943)
+   w1_rel      max 3.36e-09  p99 9.36e-10 | band max 1.65e-09  band p99 5.79e-10
+   w1_rel_pd   max 2.77e-08  p99 1.56e-09 | band max 1.62e-09  band p99 5.90e-10
+   w2_rel      max 3.15e-09  p99 8.57e-10 | band max 1.75e-09  band p99 5.54e-10
+   cert64_rel  max 4.19e-09  p99 1.17e-09 | band max 1.96e-09  band p99 6.03e-10
+   r32_rel     max 1.01e+00  p99 5.20e-01 | band max 7.65e-01  band p99 4.68e-01
+   r32 underestimates big by >2x on 16 of 1943 band iterates
+1.13.4 Float64 PGD: iterates 3012 (band 1571)
+   w1_rel      max 8.80e-05  p99 5.82e-06 | band max 9.66e-07  band p99 3.16e-07
+   w1_rel_pd   max 3.76e-03  p99 2.77e-05 | band max 9.27e-07  band p99 3.99e-07
+   w2_rel      max 8.80e-05  p99 6.75e-06 | band max 1.38e-06  band p99 3.39e-07
+   cert64_rel  max 2.67e-04  p99 7.91e-06 | band max 1.35e-06  band p99 3.83e-07
+   r32_rel     max 3.44e-04  p99 5.68e-06 | band max 1.30e-06  band p99 3.43e-07
+   r32 underestimates big by >2x on 0 of 1571 band iterates
+
+# 2. Degenerate cases
+1.10.13 PASS y=0, x=0 (P = 0)                               status zero_objective w1 0 big 0 r32 0
+1.10.13 PASS x=0, lambda >= lambdamax (x = 0 optimal)       status ok             w1 0 big 0 r32 0
+1.10.13 PASS exact fit r = 0, x != 0                        status ok             w1 1 big 1 r32 1
+1.10.13 PASS near-zero objective: s = 1e-30                 status ok             w1 0.81 big 0.81 r32 0.81
+1.10.13 PASS near-zero objective: data scaled 1e-18         status ok             w1 0.81 big 0.81 r32 0.81
+1.10.13 PASS large scale: y ~ 1e18                          status ok             w1 0.81 big 0.81 r32 0.81
+1.10.13 PASS zero column                                    status ok             w1 0.999097 big 0.999097 r32 0.999097
+1.10.13 PASS tiny lambda 1e-30 lambdamax                    status ok             w1 1 big 1 r32 1
+1.10.13 PASS nonfinite coefficient                          status nonfinite      w1 nan big nan r32 nan
+1.10.13 PASS near-interpolating, rounded Float64 solution   status ok             w1 0.490907 big 0.490907 r32 0.484202
+1.10.13 PASS random point                                   status ok             w1 0.998907 big 0.998907 r32 0.998907
+1.10.13 FAIL near-optimal Float32 point                     status ok             w1 6.36604e-08 big 6.36604e-08 r32 7.53292e-08
+1.10.13 PASS near-optimal point, s and lambda times 1e-30   status ok             w1 6.36605e-08 big 6.36605e-08 r32 7.53293e-08
+1.13.4 PASS y=0, x=0 (P = 0)                               status zero_objective w1 0 big 0 r32 0
+1.13.4 PASS x=0, lambda >= lambdamax (x = 0 optimal)       status ok             w1 0 big 0 r32 0
+1.13.4 PASS exact fit r = 0, x != 0                        status ok             w1 1 big 1 r32 1
+1.13.4 PASS near-zero objective: s = 1e-30                 status ok             w1 0.81 big 0.81 r32 0.81
+1.13.4 PASS near-zero objective: data scaled 1e-18         status ok             w1 0.81 big 0.81 r32 0.81
+1.13.4 PASS large scale: y ~ 1e18                          status ok             w1 0.81 big 0.81 r32 0.81
+1.13.4 PASS zero column                                    status ok             w1 0.999698 big 0.999698 r32 0.999698
+1.13.4 PASS tiny lambda 1e-30 lambdamax                    status ok             w1 1 big 1 r32 1
+1.13.4 PASS nonfinite coefficient                          status nonfinite      w1 nan big nan r32 nan
+1.13.4 PASS near-interpolating, rounded Float64 solution   status ok             w1 0.467275 big 0.467275 r32 0.466407
+1.13.4 PASS random point                                   status ok             w1 0.999414 big 0.999414 r32 0.999414
+1.13.4 PASS near-optimal Float32 point                     status ok             w1 7.79687e-08 big 7.79687e-08 r32 1.22301e-07
+1.13.4 PASS near-optimal point, s and lambda times 1e-30   status ok             w1 7.79688e-08 big 7.79688e-08 r32 1.22301e-07
+
+# 3. Hypothetical stopping
+H (current library, harness options): converged / false success (big > tol) / truthful miss / ok, per 50 harness or 70 adverse solves
+  1.10.13 Float32 APG   adverse  n 70: converged 19, false success 19, truthful miss 51, ok 0; classes {'f_increased': 51, 'converged': 19}
+  1.10.13 Float32 APG   harness  n 50: converged 35, false success 26, truthful miss 14, ok 10; classes {'converged': 35, 'f_increased': 15}
+  1.10.13 Float32 PGD   adverse  n 70: converged 6, false success 5, truthful miss 64, ok 1; classes {'f_increased': 62, 'converged': 6, 'maxiter': 2}
+  1.10.13 Float32 PGD   harness  n 50: converged 36, false success 25, truthful miss 14, ok 11; classes {'converged': 36, 'f_increased': 14}
+  1.10.13 Float64 PGD   adverse  n 70: converged 2, false success 0, truthful miss 57, ok 13; classes {'f_increased': 52, 'converged': 2, 'maxiter': 16}
+  1.10.13 Float64 PGD   harness  n 50: converged 14, false success 0, truthful miss 4, ok 46; classes {'f_increased': 36, 'converged': 14}
+  1.13.4 Float32 APG   adverse  n 70: converged 19, false success 19, truthful miss 50, ok 1; classes {'f_increased': 51, 'converged': 19}
+  1.13.4 Float32 APG   harness  n 50: converged 33, false success 27, truthful miss 13, ok 10; classes {'converged': 33, 'f_increased': 17}
+  1.13.4 Float32 PGD   adverse  n 70: converged 9, false success 8, truthful miss 61, ok 1; classes {'f_increased': 57, 'converged': 9, 'maxiter': 4}
+  1.13.4 Float32 PGD   harness  n 50: converged 25, false success 15, truthful miss 24, ok 11; classes {'converged': 25, 'f_increased': 25}
+  1.13.4 Float64 PGD   adverse  n 70: converged 0, false success 0, truthful miss 61, ok 9; classes {'f_increased': 58, 'maxiter': 12}
+  1.13.4 Float64 PGD   harness  n 50: converged 15, false success 0, truthful miss 5, ok 45; classes {'f_increased': 35, 'converged': 15}
+rules: success / false success / nonconverged (reasons) / median(stop - k*) over successes / median gap evals
+  1.10.13 Float32 APG   adverse  R1     gaptol   1.0e-5: success 65/70, false 0, other {'maxiter': 5}, stop-k* median 0, [0,0], evals median 88.0
+  1.10.13 Float32 APG   adverse  R10    gaptol   1.0e-5: success 65/70, false 0, other {'maxiter': 5}, stop-k* median 5, [0,67], evals median 9.0
+  1.10.13 Float32 APG   adverse  R1d10  gaptol 1.0000000000000002e-6: success 62/70, false 0, other {'maxiter': 8}, stop-k* median 25.0, [3,3278], evals median 121.0
+  1.10.13 Float32 APG   adverse  R1i    gaptol   1.0e-5: success 4/70, false 0, other {'f_increased': 66}, stop-k* median 0.0, [0,0], evals median 52.5
+  1.10.13 Float32 APG   adverse  R1x10  gaptol   0.0001: success 67/70, false 0, other {'maxiter': 3}, stop-k* median -14, [-3647,-1], evals median 63.0
+  1.10.13 Float32 APG   adverse  RK     gaptol   1.0e-5: success 65/70, false 0, other {'maxiter': 5}, stop-k* median 0, [0,24], evals median 18.0
+  1.10.13 Float32 APG   adverse  RKd10  gaptol 1.0000000000000002e-6: success 62/70, false 0, other {'maxiter': 8}, stop-k* median 25.0, [3,3278], evals median 48.0
+  1.10.13 Float32 APG   adverse  RKi    gaptol   1.0e-5: success 4/70, false 0, other {'f_increased': 66}, stop-k* median 0.0, [0,0], evals median 0.0
+  1.10.13 Float32 APG   adverse  RKx10  gaptol   0.0001: success 67/70, false 0, other {'maxiter': 3}, stop-k* median -11, [-3647,24], evals median 4.5
+  1.10.13 Float32 APG   harness  R1     gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 0.0, [0,0], evals median 16.0
+  1.10.13 Float32 APG   harness  R10    gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 6.0, [0,12], evals median 2.0
+  1.10.13 Float32 APG   harness  R1d10  gaptol 1.0000000000000002e-6: success 50/50, false 0, other {}, stop-k* median 2.0, [0,21], evals median 18.5
+  1.10.13 Float32 APG   harness  R1i    gaptol   1.0e-5: success 28/50, false 0, other {'f_increased': 22}, stop-k* median 0.0, [0,0], evals median 15.0
+  1.10.13 Float32 APG   harness  R1x10  gaptol   0.0001: success 50/50, false 0, other {}, stop-k* median -2.0, [-24,0], evals median 13.0
+  1.10.13 Float32 APG   harness  RK     gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 0.0, [0,0], evals median 2.0
+  1.10.13 Float32 APG   harness  RKd10  gaptol 1.0000000000000002e-6: success 50/50, false 0, other {}, stop-k* median 2.0, [0,21], evals median 4.0
+  1.10.13 Float32 APG   harness  RKi    gaptol   1.0e-5: success 28/50, false 0, other {'f_increased': 22}, stop-k* median 0.0, [0,0], evals median 1.0
+  1.10.13 Float32 APG   harness  RKx10  gaptol   0.0001: success 50/50, false 0, other {}, stop-k* median -1.0, [-11,0], evals median 1.0
+  1.10.13 Float32 PGD   adverse  R1     gaptol   1.0e-5: success 56/70, false 0, other {'maxiter': 14}, stop-k* median 0.0, [0,0], evals median 214.0
+  1.10.13 Float32 PGD   adverse  R10    gaptol   1.0e-5: success 56/70, false 0, other {'maxiter': 14}, stop-k* median 5.0, [0,13], evals median 22.0
+  1.10.13 Float32 PGD   adverse  R1d10  gaptol 1.0000000000000002e-6: success 52/70, false 0, other {'maxiter': 18}, stop-k* median 24.5, [1,4429], evals median 252.5
+  1.10.13 Float32 PGD   adverse  R1i    gaptol   1.0e-5: success 1/70, false 0, other {'f_increased': 67, 'maxiter': 2}, stop-k* median 0, [0,0], evals median 135.0
+  1.10.13 Float32 PGD   adverse  R1x10  gaptol   0.0001: success 60/70, false 0, other {'maxiter': 10}, stop-k* median -17.0, [-2687,-3], evals median 175.0
+  1.10.13 Float32 PGD   adverse  RK     gaptol   1.0e-5: success 56/70, false 0, other {'maxiter': 14}, stop-k* median 0.0, [0,23], evals median 15.0
+  1.10.13 Float32 PGD   adverse  RKd10  gaptol 1.0000000000000002e-6: success 52/70, false 0, other {'maxiter': 18}, stop-k* median 24.5, [1,4429], evals median 43.0
+  1.10.13 Float32 PGD   adverse  RKi    gaptol   1.0e-5: success 1/70, false 0, other {'f_increased': 67, 'maxiter': 2}, stop-k* median 1, [1,1], evals median 0.0
+  1.10.13 Float32 PGD   adverse  RKx10  gaptol   0.0001: success 60/70, false 0, other {'maxiter': 10}, stop-k* median -12.5, [-2687,23], evals median 3.0
+  1.10.13 Float32 PGD   harness  R1     gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 0.0, [0,0], evals median 15.5
+  1.10.13 Float32 PGD   harness  R10    gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 6.0, [0,17], evals median 2.0
+  1.10.13 Float32 PGD   harness  R1d10  gaptol 1.0000000000000002e-6: success 50/50, false 0, other {}, stop-k* median 1.0, [0,24], evals median 17.0
+  1.10.13 Float32 PGD   harness  R1i    gaptol   1.0e-5: success 29/50, false 0, other {'f_increased': 21}, stop-k* median 0, [0,0], evals median 15.0
+  1.10.13 Float32 PGD   harness  R1x10  gaptol   0.0001: success 50/50, false 0, other {}, stop-k* median -2.0, [-20,0], evals median 14.0
+  1.10.13 Float32 PGD   harness  RK     gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 0.0, [0,10], evals median 2.0
+  1.10.13 Float32 PGD   harness  RKd10  gaptol 1.0000000000000002e-6: success 50/50, false 0, other {}, stop-k* median 1.0, [0,24], evals median 3.0
+  1.10.13 Float32 PGD   harness  RKi    gaptol   1.0e-5: success 29/50, false 0, other {'f_increased': 21}, stop-k* median 0, [0,0], evals median 1.0
+  1.10.13 Float32 PGD   harness  RKx10  gaptol   0.0001: success 50/50, false 0, other {}, stop-k* median -1.0, [-7,5], evals median 1.0
+  1.10.13 Float64 PGD   adverse  R1     gaptol   1.0e-8: success 54/70, false 0, other {'maxiter': 16}, stop-k* median 0.0, [0,0], evals median 244.0
+  1.10.13 Float64 PGD   adverse  R10    gaptol   1.0e-8: success 54/70, false 0, other {'maxiter': 16}, stop-k* median 4.0, [0,15], evals median 25.0
+  1.10.13 Float64 PGD   adverse  R1d10  gaptol   1.0e-9: success 54/70, false 0, other {'maxiter': 16}, stop-k* median 15.5, [4,945], evals median 261.0
+  1.10.13 Float64 PGD   adverse  R1i    gaptol   1.0e-8: success 13/70, false 0, other {'f_increased': 41, 'maxiter': 16}, stop-k* median 0, [0,0], evals median 237.5
+  1.10.13 Float64 PGD   adverse  R1x10  gaptol   1.0e-7: success 54/70, false 0, other {'maxiter': 16}, stop-k* median -17.0, [-893,-2], evals median 231.5
+  1.10.13 Float64 PGD   adverse  RK     gaptol   1.0e-8: success 54/70, false 0, other {'maxiter': 16}, stop-k* median 22.5, [7,1733], evals median 1.0
+  1.10.13 Float64 PGD   adverse  RKd10  gaptol   1.0e-9: success 54/70, false 0, other {'maxiter': 16}, stop-k* median 22.5, [7,1733], evals median 1.0
+  1.10.13 Float64 PGD   adverse  RKi    gaptol   1.0e-8: success 2/70, false 0, other {'f_increased': 52, 'maxiter': 16}, stop-k* median 9.5, [7,12], evals median 0.0
+  1.10.13 Float64 PGD   adverse  RKx10  gaptol   1.0e-7: success 54/70, false 0, other {'maxiter': 16}, stop-k* median 22.5, [7,1733], evals median 1.0
+  1.10.13 Float64 PGD   harness  R1     gaptol   1.0e-8: success 50/50, false 0, other {}, stop-k* median 0.0, [0,0], evals median 19.0
+  1.10.13 Float64 PGD   harness  R10    gaptol   1.0e-8: success 50/50, false 0, other {}, stop-k* median 4.0, [0,31], evals median 2.0
+  1.10.13 Float64 PGD   harness  R1d10  gaptol   1.0e-9: success 50/50, false 0, other {}, stop-k* median 1.5, [0,34], evals median 20.0
+  1.10.13 Float64 PGD   harness  R1i    gaptol   1.0e-8: success 48/50, false 0, other {'f_increased': 2}, stop-k* median 0.0, [0,0], evals median 19.0
+  1.10.13 Float64 PGD   harness  R1x10  gaptol   1.0e-7: success 50/50, false 0, other {}, stop-k* median -2.0, [-28,0], evals median 18.0
+  1.10.13 Float64 PGD   harness  RK     gaptol   1.0e-8: success 50/50, false 0, other {}, stop-k* median 4.0, [1,70], evals median 1.0
+  1.10.13 Float64 PGD   harness  RKd10  gaptol   1.0e-9: success 50/50, false 0, other {}, stop-k* median 4.0, [1,70], evals median 1.0
+  1.10.13 Float64 PGD   harness  RKi    gaptol   1.0e-8: success 14/50, false 0, other {'f_increased': 36}, stop-k* median 2.0, [1,3], evals median 0.0
+  1.10.13 Float64 PGD   harness  RKx10  gaptol   1.0e-7: success 50/50, false 0, other {}, stop-k* median 4.0, [1,70], evals median 1.0
+  1.13.4 Float32 APG   adverse  R1     gaptol   1.0e-5: success 67/70, false 0, other {'maxiter': 3}, stop-k* median 0, [0,0], evals median 77.5
+  1.13.4 Float32 APG   adverse  R10    gaptol   1.0e-5: success 67/70, false 0, other {'maxiter': 3}, stop-k* median 5, [0,54], evals median 8.0
+  1.13.4 Float32 APG   adverse  R1d10  gaptol 1.0000000000000002e-6: success 62/70, false 0, other {'maxiter': 8}, stop-k* median 24.5, [3,2828], evals median 101.0
+  1.13.4 Float32 APG   adverse  R1i    gaptol   1.0e-5: success 6/70, false 0, other {'f_increased': 64}, stop-k* median 0.0, [0,0], evals median 51.5
+  1.13.4 Float32 APG   adverse  R1x10  gaptol   0.0001: success 70/70, false 0, other {}, stop-k* median -15, [-6100,0], evals median 64.5
+  1.13.4 Float32 APG   adverse  RK     gaptol   1.0e-5: success 67/70, false 0, other {'maxiter': 3}, stop-k* median 0, [0,12], evals median 20.5
+  1.13.4 Float32 APG   adverse  RKd10  gaptol 1.0000000000000002e-6: success 62/70, false 0, other {'maxiter': 8}, stop-k* median 24.5, [4,2828], evals median 51.0
+  1.13.4 Float32 APG   adverse  RKi    gaptol   1.0e-5: success 5/70, false 0, other {'f_increased': 65}, stop-k* median 0, [0,0], evals median 0.0
+  1.13.4 Float32 APG   adverse  RKx10  gaptol   0.0001: success 70/70, false 0, other {}, stop-k* median -13, [-6100,12], evals median 5.0
+  1.13.4 Float32 APG   harness  R1     gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 0.0, [0,0], evals median 16.5
+  1.13.4 Float32 APG   harness  R10    gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 6.0, [0,12], evals median 2.0
+  1.13.4 Float32 APG   harness  R1d10  gaptol 1.0000000000000002e-6: success 50/50, false 0, other {}, stop-k* median 2.5, [1,15], evals median 18.0
+  1.13.4 Float32 APG   harness  R1i    gaptol   1.0e-5: success 28/50, false 0, other {'f_increased': 22}, stop-k* median 0.0, [0,0], evals median 15.0
+  1.13.4 Float32 APG   harness  R1x10  gaptol   0.0001: success 50/50, false 0, other {}, stop-k* median -2.0, [-12,0], evals median 13.0
+  1.13.4 Float32 APG   harness  RK     gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 0.0, [0,8], evals median 2.0
+  1.13.4 Float32 APG   harness  RKd10  gaptol 1.0000000000000002e-6: success 50/50, false 0, other {}, stop-k* median 2.5, [1,15], evals median 5.0
+  1.13.4 Float32 APG   harness  RKi    gaptol   1.0e-5: success 27/50, false 0, other {'f_increased': 23}, stop-k* median 0, [0,0], evals median 1.0
+  1.13.4 Float32 APG   harness  RKx10  gaptol   0.0001: success 50/50, false 0, other {}, stop-k* median -1.0, [-8,8], evals median 1.0
+  1.13.4 Float32 PGD   adverse  R1     gaptol   1.0e-5: success 59/70, false 0, other {'maxiter': 11}, stop-k* median 0, [0,0], evals median 166.0
+  1.13.4 Float32 PGD   adverse  R10    gaptol   1.0e-5: success 59/70, false 0, other {'maxiter': 11}, stop-k* median 4, [0,17], evals median 17.0
+  1.13.4 Float32 PGD   adverse  R1d10  gaptol 1.0000000000000002e-6: success 57/70, false 0, other {'maxiter': 13}, stop-k* median 28, [0,1712], evals median 193.0
+  1.13.4 Float32 PGD   adverse  R1i    gaptol   1.0e-5: success 1/70, false 0, other {'f_increased': 65, 'maxiter': 4}, stop-k* median 0, [0,0], evals median 116.5
+  1.13.4 Float32 PGD   adverse  R1x10  gaptol   0.0001: success 60/70, false 0, other {'maxiter': 10}, stop-k* median -18, [-2710,-2], evals median 148.5
+  1.13.4 Float32 PGD   adverse  RK     gaptol   1.0e-5: success 59/70, false 0, other {'maxiter': 11}, stop-k* median 0, [0,12], evals median 16.0
+  1.13.4 Float32 PGD   adverse  RKd10  gaptol 1.0000000000000002e-6: success 57/70, false 0, other {'maxiter': 13}, stop-k* median 28, [0,1712], evals median 42.5
+  1.13.4 Float32 PGD   adverse  RKi    gaptol   1.0e-5: success 1/70, false 0, other {'f_increased': 65, 'maxiter': 4}, stop-k* median 0, [0,0], evals median 0.0
+  1.13.4 Float32 PGD   adverse  RKx10  gaptol   0.0001: success 60/70, false 0, other {'maxiter': 10}, stop-k* median -15, [-2710,12], evals median 3.0
+  1.13.4 Float32 PGD   harness  R1     gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 0.0, [0,0], evals median 16.0
+  1.13.4 Float32 PGD   harness  R10    gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 6.0, [0,13], evals median 2.0
+  1.13.4 Float32 PGD   harness  R1d10  gaptol 1.0000000000000002e-6: success 50/50, false 0, other {}, stop-k* median 2.0, [0,21], evals median 17.5
+  1.13.4 Float32 PGD   harness  R1i    gaptol   1.0e-5: success 18/50, false 0, other {'f_increased': 32}, stop-k* median 0.0, [0,0], evals median 14.5
+  1.13.4 Float32 PGD   harness  R1x10  gaptol   0.0001: success 50/50, false 0, other {}, stop-k* median -2.0, [-16,0], evals median 14.5
+  1.13.4 Float32 PGD   harness  RK     gaptol   1.0e-5: success 50/50, false 0, other {}, stop-k* median 0.0, [0,6], evals median 2.0
+  1.13.4 Float32 PGD   harness  RKd10  gaptol 1.0000000000000002e-6: success 50/50, false 0, other {}, stop-k* median 2.0, [0,21], evals median 4.0
+  1.13.4 Float32 PGD   harness  RKi    gaptol   1.0e-5: success 18/50, false 0, other {'f_increased': 32}, stop-k* median 0.0, [0,0], evals median 1.0
+  1.13.4 Float32 PGD   harness  RKx10  gaptol   0.0001: success 50/50, false 0, other {}, stop-k* median -1.0, [-7,1], evals median 1.0
+  1.13.4 Float64 PGD   adverse  R1     gaptol   1.0e-8: success 58/70, false 0, other {'maxiter': 12}, stop-k* median 0.0, [0,0], evals median 203.0
+  1.13.4 Float64 PGD   adverse  R10    gaptol   1.0e-8: success 58/70, false 0, other {'maxiter': 12}, stop-k* median 5.0, [0,18], evals median 21.0
+  1.13.4 Float64 PGD   adverse  R1d10  gaptol   1.0e-9: success 58/70, false 0, other {'maxiter': 12}, stop-k* median 17.0, [3,794], evals median 228.0
+  1.13.4 Float64 PGD   adverse  R1i    gaptol   1.0e-8: success 11/70, false 0, other {'f_increased': 47, 'maxiter': 12}, stop-k* median 0, [0,0], evals median 199.5
+  1.13.4 Float64 PGD   adverse  R1x10  gaptol   1.0e-7: success 58/70, false 0, other {'maxiter': 12}, stop-k* median -17.5, [-778,-2], evals median 191.0
+  1.13.4 Float64 PGD   adverse  RK     gaptol   1.0e-8: success 58/70, false 0, other {'maxiter': 12}, stop-k* median 23.5, [6,1644], evals median 1.0
+  1.13.4 Float64 PGD   adverse  RKd10  gaptol   1.0e-9: success 58/70, false 0, other {'maxiter': 12}, stop-k* median 23.5, [6,1644], evals median 1.0
+  1.13.4 Float64 PGD   adverse  RKi    gaptol   1.0e-8: success 0/70, false 0, other {'f_increased': 58, 'maxiter': 12}, stop-k* median nan, [,], evals median 0.0
+  1.13.4 Float64 PGD   adverse  RKx10  gaptol   1.0e-7: success 58/70, false 0, other {'maxiter': 12}, stop-k* median 23.5, [6,1644], evals median 1.0
+  1.13.4 Float64 PGD   harness  R1     gaptol   1.0e-8: success 50/50, false 0, other {}, stop-k* median 0.0, [0,0], evals median 20.0
+  1.13.4 Float64 PGD   harness  R10    gaptol   1.0e-8: success 50/50, false 0, other {}, stop-k* median 4.0, [0,11], evals median 2.0
+  1.13.4 Float64 PGD   harness  R1d10  gaptol   1.0e-9: success 50/50, false 0, other {}, stop-k* median 1.5, [0,17], evals median 21.0
+  1.13.4 Float64 PGD   harness  R1i    gaptol   1.0e-8: success 47/50, false 0, other {'f_increased': 3}, stop-k* median 0, [0,0], evals median 20.0
+  1.13.4 Float64 PGD   harness  R1x10  gaptol   1.0e-7: success 50/50, false 0, other {}, stop-k* median -1.5, [-18,-1], evals median 19.0
+  1.13.4 Float64 PGD   harness  RK     gaptol   1.0e-8: success 50/50, false 0, other {}, stop-k* median 4.5, [1,43], evals median 1.0
+  1.13.4 Float64 PGD   harness  RKd10  gaptol   1.0e-9: success 50/50, false 0, other {}, stop-k* median 4.5, [1,43], evals median 1.0
+  1.13.4 Float64 PGD   harness  RKi    gaptol   1.0e-8: success 15/50, false 0, other {'f_increased': 35}, stop-k* median 2, [1,5], evals median 0.0
+  1.13.4 Float64 PGD   harness  RKx10  gaptol   1.0e-7: success 50/50, false 0, other {}, stop-k* median 4.5, [1,43], evals median 1.0
+
+# 4. Cost (Float32 PGD; minimum over rounds)
+1.10.13: problems 35, cpu Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+   Haa/H: 1.000 [0.996, 1.002]
+   W1aa/W1: 1.000 [0.995, 1.004]
+   W1/G32: 1.024 [0.990, 1.415]
+   W2/G32: 2.063 [1.953, 2.337]
+   R32/G32: 1.321 [0.931, 2.209]
+   W1/H: 0.028 [0.000, 0.048]
+   W2/H: 0.051 [0.000, 0.102]
+   W2setup/H: 0.099 [0.000, 0.286]
+   alloc bytes per call: W1 ['16'], W2 ['16'], R32 ['10768', '14832', '2432', '6320'], W2setup ['25664', '307264', '768064', '864064'], H ['14880', '2400', '6304', '9824']
+   W1 microseconds by design: adv-ill-low-cold 12.7, adv-wide-low-cold 33.1, lasso 1.3, lasso-B 9.9, lasso-B-warm 9.9, lasso-C 22.3, lasso-D 31.5
+   projected gap-evaluation cost of R1 / H solve time: 0.529 [0.360, 1.891]
+   projected gap-evaluation cost of R10 / H solve time: 0.069 [0.040, 0.190]
+   projected gap-evaluation cost of RK / H solve time: 0.058 [0.000, 0.567]
+   projected gap-evaluation cost of R1i / H solve time: 0.520 [0.360, 0.730]
+   projected gap-evaluation cost of RKi / H solve time: 0.033 [0.000, 0.105]
+1.13.4: problems 35, cpu Intel(R) Xeon(R) Silver 4116 CPU @ 2.10GHz
+   Haa/H: 0.997 [0.971, 1.047]
+   W1aa/W1: 1.005 [0.908, 1.106]
+   W1/G32: 1.545 [1.079, 2.028]
+   W2/G32: 3.394 [2.149, 4.341]
+   R32/G32: 1.421 [1.206, 2.106]
+   W1/H: 0.027 [0.000, 0.089]
+   W2/H: 0.059 [0.000, 0.193]
+   W2setup/H: 0.154 [0.000, 0.490]
+   alloc bytes per call: W1 ['0'], W2 ['0'], R32 ['10592', '14632', '2400', '6240'], W2setup ['25688', '25720', '307288', '768088', '864088'], H ['14616', '14648', '2320', '6000', '9824']
+   W1 microseconds by design: adv-ill-low-cold 9.4, adv-wide-low-cold 27.5, lasso 1.1, lasso-B 8.0, lasso-B-warm 8.2, lasso-C 18.2, lasso-D 26.4
+   projected gap-evaluation cost of R1 / H solve time: 0.766 [0.442, 2.136]
+   projected gap-evaluation cost of R10 / H solve time: 0.096 [0.044, 0.214]
+   projected gap-evaluation cost of RK / H solve time: 0.095 [0.000, 0.591]
+   projected gap-evaluation cost of R1i / H solve time: 0.681 [0.428, 0.989]
+   projected gap-evaluation cost of RKi / H solve time: 0.000 [0.000, 0.177]
+
+# 5. Solve length and evaluation overhead relative to the run's own iterations (Float32 PGD, timed problems)
+  1.10.13 R1   harness  n 25: stop_k / H_iterations median 1.07 [1.00, 1.21]; evaluation time / own iteration time median 0.489 [0.360, 0.567]
+  1.10.13 R1   adverse  n 10: stop_k / H_iterations median 1.18 [1.00, 2.96]; evaluation time / own iteration time median 0.616 [0.584, 0.730]
+  1.10.13 R10  harness  n 25: stop_k / H_iterations median 1.43 [1.05, 2.11]; evaluation time / own iteration time median 0.049 [0.036, 0.057]
+  1.10.13 R10  adverse  n 10: stop_k / H_iterations median 1.21 [1.00, 2.97]; evaluation time / own iteration time median 0.062 [0.058, 0.073]
+  1.10.13 RK   harness  n 25: stop_k / H_iterations median 1.07 [1.00, 1.21]; evaluation time / own iteration time median 0.043 [0.024, 0.090]
+  1.10.13 RK   adverse  n 10: stop_k / H_iterations median 1.18 [1.00, 2.96]; evaluation time / own iteration time median 0.094 [0.000, 0.191]
+  1.10.13 R1 harness successes 50: stop_k / H_iterations median 1.08 [0.90, 1.7]
+  1.10.13 R1 adverse successes 56: stop_k / H_iterations median 1.38 [0.92, 4.2]
+  1.10.13 RK harness successes 50: stop_k / H_iterations median 1.08 [0.90, 1.8]
+  1.10.13 RK adverse successes 56: stop_k / H_iterations median 1.38 [1.00, 4.2]
+  1.13.4 R1   harness  n 25: stop_k / H_iterations median 1.08 [0.91, 2.00]; evaluation time / own iteration time median 0.636 [0.428, 0.737]
+  1.13.4 R1   adverse  n 10: stop_k / H_iterations median 1.20 [1.00, 2.74]; evaluation time / own iteration time median 0.778 [0.717, 0.989]
+  1.13.4 R10  harness  n 25: stop_k / H_iterations median 1.54 [0.91, 2.31]; evaluation time / own iteration time median 0.064 [0.043, 0.074]
+  1.13.4 R10  adverse  n 10: stop_k / H_iterations median 1.23 [1.00, 2.74]; evaluation time / own iteration time median 0.078 [0.072, 0.099]
+  1.13.4 RK   harness  n 25: stop_k / H_iterations median 1.08 [0.91, 2.00]; evaluation time / own iteration time median 0.051 [0.026, 0.152]
+  1.13.4 RK   adverse  n 10: stop_k / H_iterations median 1.20 [1.00, 2.74]; evaluation time / own iteration time median 0.122 [0.000, 0.221]
+  1.13.4 R1 harness successes 50: stop_k / H_iterations median 1.10 [0.91, 2.0]
+  1.13.4 R1 adverse successes 59: stop_k / H_iterations median 1.45 [1.00, 4.9]
+  1.13.4 RK harness successes 50: stop_k / H_iterations median 1.10 [0.91, 2.0]
+  1.13.4 RK adverse successes 59: stop_k / H_iterations median 1.47 [1.00, 4.9]
+
+# 6. Degenerate relative errors
+  1.10.13 y=0, x=0 (P = 0)                               relerr 0.0  |gap_w1-gap_big| 0.0  P 0.0
+  1.10.13 x=0, lambda >= lambdamax (x = 0 optimal)       relerr 0.0  |gap_w1-gap_big| 0.0  P 0.4846016462314998
+  1.10.13 exact fit r = 0, x != 0                        relerr 0.0  |gap_w1-gap_big| 0.0  P 3.0
+  1.10.13 near-zero objective: s = 1e-30                 relerr 1.3706456963221011e-16  |gap_w1-gap_big| 5.605193857299268e-45  P 2.4230082929995e-29
+  1.10.13 near-zero objective: data scaled 1e-18         relerr 1.370645681656062e-16  |gap_w1-gap_big| 0.0  P 4.846016957668315e-37
+  1.10.13 large scale: y ~ 1e18                          relerr 1.3706457117588868e-16  |gap_w1-gap_big| 7.378697629483821e+19  P 4.846016178946948e35
+  1.10.13 zero column                                    relerr 1.1112265224047372e-16  |gap_w1-gap_big| 3.552713678800501e-15  P 19.434043865819234
+  1.10.13 tiny lambda 1e-30 lambdamax                    relerr 0.0  |gap_w1-gap_big| 8.881784197001252e-16  P 7.388984884805026
+  1.10.13 nonfinite coefficient                          relerr NaN  |gap_w1-gap_big| nan  P NaN
+  1.10.13 near-interpolating, rounded Float64 solution   relerr 5.581773026806111e-11  |gap_w1-gap_big| 5.071133315652293e-17  P 1.850687948909216e-6
+  1.10.13 random point                                   relerr 1.1114381396974617e-16  |gap_w1-gap_big| 1.7763568394002505e-15  P 8.705282130290298
+  1.10.13 near-optimal Float32 point                     relerr 1.5383410902574715e-10  |gap_w1-gap_big| 3.1110031227547856e-18  P 0.3176718365270759
+  1.10.13 near-optimal point, s and lambda times 1e-30   relerr 8.476443040957772e-11  |gap_w1-gap_big| 1.7142027039867868e-48  P 3.176718436076872e-31
+  1.13.4 y=0, x=0 (P = 0)                               relerr 0.0  |gap_w1-gap_big| 0.0  P 0.0
+  1.13.4 x=0, lambda >= lambdamax (x = 0 optimal)       relerr 0.0  |gap_w1-gap_big| 0.0  P 0.3419330706423748
+  1.13.4 exact fit r = 0, x != 0                        relerr 0.0  |gap_w1-gap_big| 0.0  P 3.0
+  1.13.4 near-zero objective: s = 1e-30                 relerr 1.3706457277533538e-16  |gap_w1-gap_big| 0.0  P 1.709665396847354e-29
+  1.13.4 near-zero objective: data scaled 1e-18         relerr 0.0  |gap_w1-gap_big| 4.176194859519056e-53  P 3.419331059751857e-37
+  1.13.4 large scale: y ~ 1e18                          relerr 1.3706457282352324e-16  |gap_w1-gap_big| 7.378697629483821e+19  P 3.4193306149953515e35
+  1.13.4 zero column                                    relerr 0.0  |gap_w1-gap_big| 0.0  P 6.734478797417704
+  1.13.4 tiny lambda 1e-30 lambdamax                    relerr 0.0  |gap_w1-gap_big| 8.881784197001252e-16  P 7.647171887946461
+  1.13.4 nonfinite coefficient                          relerr NaN  |gap_w1-gap_big| nan  P NaN
+  1.13.4 near-interpolating, rounded Float64 solution   relerr 1.9786920118642724e-12  |gap_w1-gap_big| 2.0017506125987253e-18  P 2.1649971202401374e-6
+  1.13.4 random point                                   relerr 1.1108741007023009e-16  |gap_w1-gap_big| 3.552713678800501e-15  P 8.966616788654356
+  1.13.4 near-optimal Float32 point                     relerr 6.950935981728479e-11  |gap_w1-gap_big| 1.5310484481091002e-18  P 0.2825041905295886
+  1.13.4 near-optimal point, s and lambda times 1e-30   relerr 2.8791805534527617e-11  |gap_w1-gap_big| 6.341839007576278e-49  P 2.8250420194456482e-31
+
+# 7. Review checks
+successes without a finite BigFloat reference: 0; total successes 4983
+  1.10.13 Float32 APG   adverse  R1i: success 4, of which same-iteration increase 0; increase-priority success 4
+  1.10.13 Float32 APG   adverse  RKi: success 4, of which same-iteration increase 0; increase-priority success 4
+  1.10.13 Float32 APG   harness  R1i: success 28, of which same-iteration increase 5; increase-priority success 23
+  1.10.13 Float32 APG   harness  RKi: success 28, of which same-iteration increase 5; increase-priority success 23
+  1.10.13 Float32 PGD   adverse  R1i: success 1, of which same-iteration increase 0; increase-priority success 1
+  1.10.13 Float32 PGD   adverse  RKi: success 1, of which same-iteration increase 0; increase-priority success 1
+  1.10.13 Float32 PGD   harness  R1i: success 29, of which same-iteration increase 5; increase-priority success 24
+  1.10.13 Float32 PGD   harness  RKi: success 29, of which same-iteration increase 5; increase-priority success 24
+  1.10.13 Float64 PGD   adverse  R1i: success 13, of which same-iteration increase 3; increase-priority success 10
+  1.10.13 Float64 PGD   adverse  RKi: success 2, of which same-iteration increase 0; increase-priority success 2
+  1.10.13 Float64 PGD   harness  R1i: success 48, of which same-iteration increase 5; increase-priority success 43
+  1.10.13 Float64 PGD   harness  RKi: success 14, of which same-iteration increase 4; increase-priority success 10
+  1.13.4 Float32 APG   adverse  R1i: success 6, of which same-iteration increase 0; increase-priority success 6
+  1.13.4 Float32 APG   adverse  RKi: success 5, of which same-iteration increase 0; increase-priority success 5
+  1.13.4 Float32 APG   harness  R1i: success 28, of which same-iteration increase 6; increase-priority success 22
+  1.13.4 Float32 APG   harness  RKi: success 27, of which same-iteration increase 5; increase-priority success 22
+  1.13.4 Float32 PGD   adverse  R1i: success 1, of which same-iteration increase 1; increase-priority success 0
+  1.13.4 Float32 PGD   adverse  RKi: success 1, of which same-iteration increase 1; increase-priority success 0
+  1.13.4 Float32 PGD   harness  R1i: success 18, of which same-iteration increase 6; increase-priority success 12
+  1.13.4 Float32 PGD   harness  RKi: success 18, of which same-iteration increase 6; increase-priority success 12
+  1.13.4 Float64 PGD   adverse  R1i: success 11, of which same-iteration increase 2; increase-priority success 9
+  1.13.4 Float64 PGD   adverse  RKi: success 0, of which same-iteration increase 0; increase-priority success 0
+  1.13.4 Float64 PGD   harness  R1i: success 47, of which same-iteration increase 2; increase-priority success 45
+  1.13.4 Float64 PGD   harness  RKi: success 15, of which same-iteration increase 4; increase-priority success 11
+trajectory ends (one per trajectory): {'rules_done': 645, 'kmax': 75}
+  1.10.13 R10 harness stop/H max 2.22
+  1.10.13 R10 adverse stop/H max 4.44
+  1.10.13 APG harness: R1 and RK stop at different iterations in 0 of 50
+  1.10.13 APG adverse: R1 and RK stop at different iterations in 7 of 70
+  1.13.4 R10 harness stop/H max 2.31
+  1.13.4 R10 adverse stop/H max 5.71
+  1.13.4 APG harness: R1 and RK stop at different iterations in 1 of 50
+  1.13.4 APG adverse: R1 and RK stop at different iterations in 2 of 70
+  1.10.13: timing joins 35, cross-CPU 25, H-iteration mismatch 1; R10 evals x W1 / H time median 0.069
+  1.13.4: timing joins 35, cross-CPU 20, H-iteration mismatch 1; R10 evals x W1 / H time median 0.096

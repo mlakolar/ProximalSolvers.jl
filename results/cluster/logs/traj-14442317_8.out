@@ -1,0 +1,3 @@
+node=<node>.hpc.usc.edu job=14442328 task=8 restart=0 ver=1.10.13 start=2026-11-21T07:46:54-08:00
+design=adv-ill-mid-cold
+exit=0 end=2026-11-21T07:48:19-08:00

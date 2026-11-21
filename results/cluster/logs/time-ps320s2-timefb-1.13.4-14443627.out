@@ -1,0 +1,4 @@
+node=<node>.hpc.usc.edu job=14443627 task= restart=0 ver=1.13.4 start=2026-11-21T09:19:37-08:00
+cotenants: 
+exit=0 end=2026-11-21T09:21:36-08:00
+cotenants: 

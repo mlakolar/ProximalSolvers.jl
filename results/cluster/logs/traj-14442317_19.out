@@ -1,0 +1,3 @@
+node=<node>.hpc.usc.edu job=14442339 task=19 restart=0 ver=1.13.4 start=2026-11-21T07:46:54-08:00
+design=adv-equi-low-cold
+exit=0 end=2026-11-21T07:47:18-08:00
