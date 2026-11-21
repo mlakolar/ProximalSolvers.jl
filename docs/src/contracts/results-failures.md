@@ -134,7 +134,8 @@ scope are specified in [STOP-11](@ref). Its `x_residual` is zero; it does not ce
 convergence or an accuracy target. Flags report independent conditions, so
 `stagnated` can coincide with `call_limit_reached`, `iteration_converged`, or an
 iteration whose callback returned true. [STOP-09](@ref) specifies simultaneous
-flag combinations.
+flag combinations. [STOP-18](@ref) classifies a return by these flags, and
+notes that the result has no dedicated field for a callback or time-limit stop.
 
 **Applies to.** `OptimizationResults` from PGD or APG, including nonconverged finite returns.
 
