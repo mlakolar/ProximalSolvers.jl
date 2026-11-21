@@ -28,8 +28,11 @@ computation uses it. PGD/APG use `value_from_predictor` and
 `value_and_gradient_from_predictor!`; CD uses `value_from_residual`, which returns
 only a value. ProximalSolvers does not repeat those oracle computations. It owns the
 image `X*x` and CD residual/curvature caches, CD coordinate correlations and updates,
-the stationarity check's `lambda_max` product, steps and line searches, APG's
-certified bound, stopping rules and rollback. Exact oracle accuracy and range
+the `lambda_max` product of the `λmax`-based stationarity checks, the column norms of the
+coordinatewise check ([STOP-21](@ref)), steps and line searches, APG's
+certified bound, stopping rules and rollback. The coordinatewise check reads
+ProximalBase's least-squares value at the accepted point for its scale and does not
+recompute `‖Xx - y‖`. Exact oracle accuracy and range
 statements belong to the section “Least squares at a predictor or residual that the
 caller holds” in the pinned
 [ProximalBase smooth-function guide](https://github.com/mlakolar/ProximalBase.jl/blob/7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e/docs/src/smooth.md).
@@ -119,8 +122,10 @@ cancels before scaling, the solvers do not recover it, even if the exact scaled
 gradient would lie in range.
 
 A stopping test that reads the same rounded product can be met at a nonminimizer.
-The PGD/APG stationarity check can read a computed zero gradient and a computed zero
-`lambda_max` even where the exact products are nonzero. In CD, a zero computed
+The `λmax`-based PGD/APG stationarity checks can read a computed zero gradient and a computed zero
+`lambda_max` even where the exact products are nonzero. The coordinatewise check of
+[STOP-21](@ref) can read a computed zero gradient entry, a score of at most `0`, where the
+exact product is not zero; a computed zero loss value refuses there unless `x = 0` and `y = 0`. In CD, a zero computed
 correlation can make a full pass change nothing and satisfy the change test.
 [ORACLE-03](@ref) preserves executable underflow and cancellation examples, their
 high-precision residuals and their objective errors. Keep data and scales in a range
@@ -134,9 +139,9 @@ products, not a general promise of convergence at small scales.
 
 **Applies to.** CD coordinate correlations and PGD/APG gradients and stationarity products.
 
-**Code.** `src/cd/leastsquares.jl`: column correlations; `src/solvers/image_models.jl`: gradient model; `src/utils.jl`: `_lambda_max!`; `src/line_searches.jl`: displacement products.
+**Code.** `src/cd/leastsquares.jl`: column correlations; `src/solvers/image_models.jl`: gradient model; `src/utils.jl`: `_lambda_max!`, `_filled_scales!`; `src/line_searches.jl`: displacement products.
 
-**Tests.** `test/cd_numerics.jl`, `test/stopping_scale.jl`, `test/core_regressions.jl`; executable historical examples are retained in [ORACLE-03](@ref).
+**Tests.** `test/cd_numerics.jl`, `test/stopping_scale.jl`, `test/stopping_coordinatewise.jl`, `test/core_regressions.jl`; executable historical examples are retained in [ORACLE-03](@ref).
 
 **Sources.** `docs/src/numerics.md:L865`, `docs/src/numerics.md:L897`, `docs/src/stopping-limits.md:L99`, `docs/src/stopping-limits.md:L101`, `docs/src/stopping-limits.md:L164`, `docs/src/stopping-limits.md:L167`.
 

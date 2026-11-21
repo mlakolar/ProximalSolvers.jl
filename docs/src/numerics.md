@@ -15,7 +15,10 @@ including ridge with uncentered `SqrNormL2`, are in [CD-01](@ref) and [CD-04](@r
 
 ### The stationarity check of a stop
 
-See the [current section](@ref STOP-01).
+See the [current section](@ref STOP-01). For least squares with `NormL1` or
+`ElasticNet` on a dense vector the check holds each coordinate to its own scale,
+and an exact fit can return `converged = false` at an accurate point; see
+[STOP-21](@ref).
 
 ### The generic stationarity check
 

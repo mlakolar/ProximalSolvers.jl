@@ -6,7 +6,10 @@ See the [current section](@ref evidence-stopping-352).
 
 ## The criterion and a certificate
 
-See the [current section](@ref RES-01). For square-root lasso, a bounded
+See the [current section](@ref RES-01). For PGD and APG on least squares with
+`NormL1` or `ElasticNet`, a kept stop bounds the decrease available from each
+coordinate, not the error of the objective or the coefficients, and exact fits are
+generally not certified; see [STOP-21](@ref). For square-root lasso, a bounded
 fallback can certify an uncertified stopped point or return a point with a
 proved lower objective; recovery at exact fits is not guaranteed. See the
 [bounded recovery rule](@ref CDQ-05).

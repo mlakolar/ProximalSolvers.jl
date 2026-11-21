@@ -129,7 +129,8 @@ boundaries. An integer or `Bool` scale is used there as `T(s)`. The objective in
 comes from the original loss through ProximalBase, which converts integer and `Bool`
 scales to `Float64`, forms its scale product in the promoted type of that scale and `T`,
 then rounds to `T`. For accepted integer scales, `T(s)` and `Float64(s)` both equal
-the real scalar `s`; the conversions in `_lambda_max!` and `_step_curvature` do too.
+the real scalar `s`; the conversions in `_lambda_max!` and `_step_curvature`, and the
+`Float64(s)` of the coordinatewise stationarity check ([STOP-21](@ref)), do too.
 Arithmetic precision can still differ: with `Float32` data and scale `3`, CD's step
 and stopping arithmetic is `Float32`, while the objective product is `Float64`; with
 `Float64` data both are `Float64`. The [CD scale branches](@ref CD-08) and
@@ -181,8 +182,10 @@ column to zero, including with a zero weight.
 
 These checks finish before `x` is copied or written and before the RNG is used.
 The validation, the PGD/APG stationarity check, and CD's exceptional threshold branch
-use the checked `c_j`. PGD/APG score entry `j` with its own `c_j` and use the largest
-`c_j` for the penalty part of their stop scale; see [STOP-03](@ref).
+use the checked `c_j`. PGD/APG score entry `j` with its own `c_j`. For least squares each
+entry is held to its coordinatewise threshold, which contains no penalty coefficient
+([STOP-21](@ref)); for the logistic loss the largest `c_j` enters the penalty part of the
+stop scale ([STOP-03](@ref)).
 ProximalBase's ordinary proximal steps instead form thresholds from the supplied
 `lambda` and `w_j` in their working type. This includes the PGD/APG proximal step and
 CD's `prox_block` branch. Those thresholds can differ from ones formed from `c_j` by
@@ -254,8 +257,10 @@ The level and weights pass [IN-03](@ref), with one rounded
 `x`. ProximalBase supplies the block soft-threshold step. A proposed stop must pass
 the [group stationarity check](@ref STOP-05); APG forms one gradient at the accepted
 `x` for each such check and includes it in `grad_calls`. Singleton groups with unit
-weights have the `NormL1(lambda)` stop scale when no entry of `gradient(f, 0)` has a
-subnormal square.
+weights have the scale `S = max(λ, λmax)` of the `λmax`-based `NormL1` check
+([STOP-03](@ref)) when no entry of `gradient(f, 0)` has a subnormal square; least squares
+with `NormL1(lambda)` uses the coordinatewise check of [STOP-21](@ref) instead, so the
+two penalties' stopping decisions can differ.
 
 **Applies to.** Dense-vector group least squares with PGD or APG. Scalar CD refuses this penalty; group CD uses its own `BlockIterate` contract.
 
@@ -559,7 +564,8 @@ the local curvature allows. With the line search's `α < 1`, the factor `α` app
 decrease between iterations.
 
 **Stopping.** A proposed stop passes the check of [STOP-03](@ref) with the logistic
-gradient and the guards of [STOP-04](@ref). The scale is `S = max(λ, λmax)`, with
+gradient and the guards of [STOP-04](@ref); the coordinatewise check of least squares
+([STOP-21](@ref)) does not apply to this loss. The scale is `S = max(λ, λmax)`, with
 `λ = T(lambda) * maximum(w)` (`T(lambda)` without weights) and
 `λmax = ‖Xᵀ(½ - y)‖∞ = ‖∇f(0)‖∞`, since `σ(0) = ½`; each `½ - yᵢ` is `±½`, exact for a
 binary response. `λmax` is formed at the first stationarity check of a solve, with the
@@ -636,6 +642,9 @@ of any shape, nonfinite data or coefficients, or a reported
 `tmp` throws `ArgumentError`. APG applies [APG-07](@ref) before state
 creation. Borrowed inputs follow [IN-05](@ref). On return the result's
 `minimizer` is the supplied `B`, with the failure boundary in [RES-03](@ref).
+A proposed stop is checked over all entries with the `λmax`-based scale of
+[STOP-03](@ref); the coordinatewise check of [STOP-21](@ref) is for a vector
+response only.
 
 **Applies to.** Matrix-response least squares with PGD or APG and unweighted
 `NormL1`.

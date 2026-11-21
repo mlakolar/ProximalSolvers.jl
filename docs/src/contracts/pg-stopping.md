@@ -10,7 +10,7 @@ The shared engine minimizes `F(x) = f(x) + g(x)`, with `f(x) = s‖Xx - y‖²/2
 
 ## Notation
 
-`T` is the coefficient type, `s` is the loss scale, `x` is the accepted iterate, `x_previous` is the preceding accepted iterate, and `L` is the accepted inverse step. In the retained proof of [STOP-13](@ref), `s` has this same meaning. APG uses `y` for its extrapolated point in algorithm formulas; the response is identified explicitly where needed. `τ` and `S` are defined in [STOP-04](@ref).
+`T` is the coefficient type, `s` is the loss scale, `x` is the accepted iterate, `x_previous` is the preceding accepted iterate, and `L` is the accepted inverse step. In the retained proof of [STOP-13](@ref), `s` has this same meaning. APG uses `y` for its extrapolated point in algorithm formulas; the response is identified explicitly where needed. `τ` and `S` are defined in [STOP-04](@ref); the coordinatewise thresholds of least squares with `NormL1` or `ElasticNet` are defined in [STOP-21](@ref).
 
 ## Preconditions and refusals
 
@@ -28,7 +28,7 @@ Input acceptance is specified by [IN-01](@ref). Option validation and reporting 
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
+**Tests.** test/stopping_scale.jl; test/stopping_coordinatewise.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
 
 **Sources.** `docs/src/numerics.md:L56`, `docs/src/numerics.md:L62`, `docs/src/numerics.md:L67`, `docs/src/numerics.md:L80`, `docs/src/numerics.md:L86`, `docs/src/numerics.md:L109`, `docs/src/numerics.md:L123`, `docstring:src/types.jl:L16`, `docs/src/choosing-solver.md:L167`, `docs/src/concepts.md:L64`, `docs/src/getting-started.md:L92`, `docs/src/working-with-results.md:L29`, `docs/src/working-with-results.md:L46`, `README.md:L52`.
 
@@ -56,11 +56,46 @@ The comparisons use the floating-point products `gradtol * m` and `gradtol * N`;
 
 **Sources.** `docs/src/numerics.md:L201`, `docs/src/numerics.md:L207`, `docs/src/numerics.md:L211`, `docs/src/numerics.md:L260`, `docs/src/numerics.md:L261`, `docs/src/numerics.md:L262`, `docs/src/numerics.md:L263`, `docs/src/numerics.md:L264`, `docs/src/numerics.md:L265`, `docs/src/numerics.md:L266`, `docs/src/numerics.md:L267`, `docs/src/numerics.md:L268`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L85`, `docstring:src/types.jl:L94`, `docstring:src/types.jl:L109`, `docstring:src/types.jl:L123`.
 
+### [STOP-21 Coordinatewise stationarity for least squares with `NormL1` or `ElasticNet`](@id STOP-21)
+
+**Statement.** **What a kept stop establishes.** For least squares with `NormL1` or `ElasticNet` on a dense vector, a kept stop says that every coordinate's computed KKT score is below its computed threshold. In exact arithmetic, for the exact scores and thresholds, that is approximate coordinatewise KKT stationarity relative to the smooth part `Φ` of the objective: no single coordinate can lower `F` by more than `τ²Φ(x)`. It is not a bound on the error of the objective or of the coefficients. An ill-conditioned or rank-deficient problem can pass with a meaningful error; with `H = sXᵀX + λ2 I` positive definite, the relative objective error is below `τ² tr(H)/λ_min(H)` in exact arithmetic, a bound that is large when `H` is ill-conditioned. An exact or near-exact fit can return `converged = false` at an accurate point, and in `Float32` the rounding of the gradient can prevent the check from passing at an accurate point.
+
+**Problem and scores.** The objective is `F(x) = (s/2)‖Xx - y‖² + Σᵢ cᵢ|xᵢ| + (λ2/2)‖x‖²`, with the loss scale `s` (`s = 1` for a raw loss) and the working penalty `gT` of [IN-02](@ref) and [IN-03](@ref): `cᵢ = T(λ)` for `NormL1(λ)` and `T(λ) wᵢ` rounded in `T` for `NormL1(λ, w)`, `cᵢ = T(λ1)` or `T(λ1) wᵢ` for `ElasticNet`, `λ2 = T(λ2)` for `ElasticNet` and `0` for `NormL1`. The score of coordinate `i` is ProximalBase's signed `Gᵢ = kkt_violation(gT, ∇f(x), x, i)`: `|∇fᵢ| - cᵢ` at `xᵢ = 0`, negative when `|∇fᵢ| < cᵢ`, and `|∇fᵢ + λ2 xᵢ + cᵢ sign(xᵢ)|` otherwise. A zero weight gives `cᵢ = 0`, so a zero-weight coordinate is scored by its full `|∇fᵢ|` at zero and `|∇fᵢ + λ2 xᵢ|` elsewhere. `∇f(x)` is the gradient that PGD holds and that APG forms at the accepted point ([STOP-08](@ref)).
+
+**Thresholds.** With `τ = T(max(gradtol, 64 eps(T)))`, `a = Float64(s)`, `nᵢ = ‖Xᵢ‖` (the column norm) and `Φ = f(x) + (λ2/2)‖x‖²`, where `f(x)` is the loss value that ProximalBase computed at the accepted point ([FP-01](@ref)), the threshold of coordinate `i` is `tᵢ = T(τ hᵢ ρ)`, with `hᵢ = √(a nᵢ² + λ2)` and `ρ = √(2Φ)`. In exact arithmetic `τ hᵢ ρ = τ √(2μᵢΦ)` with `μᵢ = s nᵢ² + λ2`.
+
+**Rule.** A proposed stop is kept when every coordinate passes, in one pass that ends at the first failure:
+
+1. **Exact zero scales.** (A) When `λ2 = 0` and column `i` is identically zero, coordinate `i` passes when `Gᵢ` is finite and at most `0`. A zero column gives a computed `∇fᵢ = ±0` for a finite residual, so `Gᵢ = -cᵢ` at `xᵢ = 0` and `cᵢ` elsewhere: it passes when `xᵢ = 0` or `cᵢ = 0`. (B) When `x = 0` and `y = 0` elementwise, every coordinate passes when its score is finite and at most `0`; there `F(0) = 0` is the minimum and the computed gradient is `0`. Case A is decided by the class of the column, stored by the column pass, and case B by testing `x` and `y` for zeros when the computed `ρ` is `0`; neither is inferred from a computed threshold of `0`.
+2. **Every other coordinate** passes when `Gᵢ` is finite, `tᵢ` is finite and at least `floatmin(T)`, and `Gᵢ < tᵢ`.
+
+The other zero, underflowed and nonfinite thresholds refuse the stop. (C) A computed `Φ = 0` at a point other than `x = 0, y = 0` gives `tᵢ = 0` for each coordinate outside case A: a computed residual can round to `0` at a point that does not fit the stored data exactly. (D) A nonzero column whose `Float64` sum of squares is below `floatmin(Float64)` (only `Float64` data, with entries below about `1.5e-154` in magnitude) refuses, with or without a ridge term; so does a threshold whose `Float64` product rounds to `0` or below `floatmin(T)` in `T`, or to `Inf`, and a nonfinite `nᵢ`, `Φ` or `τ`. In particular a `gradtol` whose conversion `T(gradtol)` is `Inf` (`Float32` and `gradtol > floatmax(Float32)`), or whose product with `hᵢ ρ` overflows, refuses at every coordinate outside cases A and B; the acceptance of an infinite threshold in [STOP-04](@ref) does not apply. No absolute floor or replacement scale is used.
+
+**Arithmetic.** At the first check of a solve one pass over the columns forms `Float64` sums of squares, which are exact for `Float32` entries, classifies each column as zero, underflowed (case D) or ordinary, and forms `hᵢ = hypot(√a nᵢ, √λ2)`; a column whose sum overflows (for example with an entry above about `1.3e154`) has its norm recomputed in the scaled form `m √Σ(Xⱼᵢ/m)²`, `m = maxⱼ |Xⱼᵢ|`. The same pass scans `y` for zeros. At each check `ρ = √2 √f(x)`, combined for `λ2 > 0` with `√λ2 ‖x‖` by `hypot`, where `‖x‖` is a `Float64` sum of squares, recomputed in scaled form when it overflows. Neither `μᵢΦ`, `2Φ` nor `λ2‖x‖²` is formed: `hᵢ` is finite when `√a nᵢ` is, and `ρ` when `f(x)` and `√λ2 ‖x‖` are. The product `(τ hᵢ) ρ` can still overflow where the threshold would be representable, when `τ > 1` or a factor is near `floatmax(Float64)`; that refuses (D). The product is formed in `Float64` and rounded once to `T`: a score up to half a unit in the last place of `T` above the `Float64` product can pass, unlike the threshold of [STOP-04](@ref), which is a product rounded in `T`.
+
+**Meaning.** In exact arithmetic `t ↦ F(x + t eᵢ)` is `μᵢ`-strongly convex, and `max(Gᵢ, 0)` is its least-norm subgradient at `t = 0`, so the decrease of `F` available from coordinate `i` alone is at most `max(Gᵢ, 0)²/(2μᵢ)`, below `τ²Φ` when `Gᵢ < τ√(2μᵢΦ)`. For `λ2 = 0` and `cᵢ = 0` the test is `|Xᵢᵀr| < τ ‖Xᵢ‖ ‖r‖`, `r = Xx - y`: the cosine of column `i` and the residual. `ElasticNet` is the lasso with the same coefficients on `[√s X; √λ2 I]` and `[√s y; 0]`, and `hᵢ ρ` is the same product for the augmented column and residual. When `λ_min(H) > 0`, `‖G‖₂² < 2τ²Φ tr(H)` and, since `Φ ≤ F`, `(F(x) - F*)/F(x) < τ² tr(H)/λ_min(H)`. These bounds do not change when a free intercept absorbs an offset of `y`, or under a common positive scaling of `(y, c)` or of `(s, c, λ2)`, and for `λ2 = 0` the test of a coordinate does not change when its column and its coefficient are rescaled together. Without strong convexity (`p > n`, or nearly collinear columns) a small score does not bound the objective error.
+
+**Exact fits.** When `F* = 0` (a consistent system with `λ2 = 0` and no penalty at the minimizer, for example `NormL1(0)` on data with `y` in the range of `X`), `hᵢ ρ` tends to `0` at the minimizer. Near it the computed residual is rounding error, which is not orthogonal to the columns, so the check generally does not pass, and a computed residual of `0` refuses (C). The solve then ends by another exit, `maxiter` or an objective increase, and its point is assessed independently. For example `X = ones(5, 1)`, `y = fill(1e160, 5)`, `NormL1(0)`: the residual is parallel to the column and every proposal is refused. An exact fit with `x = 0` and `y = 0` is case B and passes.
+
+**`gradtol`.** `gradtol` scales every threshold outside cases A and B in proportion, and a value below `64 eps(T)` (including `0`) uses that floor, `1.42e-14` in `Float64` and `7.63e-6` in `Float32`. In `Float32` the default `gradtol = 1e-5` is 1.3 times the floor, and near a good fit `τ hᵢ ρ` can be close to the rounding error of the computed gradient, so an accurate `Float32` solve can end by the objective-increase exit or `maxiter` without passing.
+
+**Work.** The column data occupy one `Float64` per column in the state, allocated when the state is created; the column pass (`O(np)`) and the scan of `y` (`O(n)`) run once per solve, at the first check. The check computes no `λmax` (the state's `λmax` stays `-1`) and no `Xᵀy`. Each check is `O(p)` beyond the gradient: the pass over the coordinates, `‖x‖` when `λ2 > 0`, the zero test of `x` when `ρ` is `0` and `y = 0` and, for `NormL1(λ, w)`, the scan of the weights by the constructor of the converted penalty. It forms no product with `X` other than APG's gradient at `x` ([STOP-08](@ref)) and changes no counter other than that gradient's `grad_calls`; after the first check of a solve it allocates nothing.
+
+**Applies to.** PGD and APG; least squares, raw or with one positive scale ([IN-02](@ref)), with `NormL1(λ)`, `NormL1(λ, w)`, `ElasticNet(λ1, λ2)` or `ElasticNet(λ1, λ2, w)`, including all-zero weights and zero levels; dense `Vector{T}`; `T = Float32` or `Float64`. The logistic loss and the matrix response use [STOP-03](@ref), `GroupNormL2` [STOP-05](@ref), `NormL2` [STOP-17](@ref), `NormL1Nonneg` and `IndNonnegative()` [STOP-16](@ref), and the other penalties [STOP-07](@ref).
+
+**Code.** `src/utils.jl`: the coordinatewise `_stationary!`, `_coordinates_pass`, `_coordinate_threshold`, `_ridge_level`, `_root_twice_smooth`, `_norm2_64`, `_CoordinateScales`, `_coordinate_scales`, `_filled_scales!`, `_scaled_column_norm`; `src/solvers/proximal_gradient_descent.jl` and `src/solvers/accelerated_proximal_gradient_descent.jl`: the state field `scales`.
+
+**Tests.** `test/stopping_coordinatewise.jl`: cases A and B at the check and through `solve!` (zero response, a zero column with `xᵢ = 0` and with `cᵢ = 0`, `X = 0`), the refusals C and D (an exact fit, a near-exact consistent fit, a column of entries `1e-170`, a tiny loss scale, an infinite `τ`, nonfinite gradient entries), a large range (residual `1e159`, a column of `1e160`), the #400 offset fixture against a BigFloat active-set reference, a centered control, a tiny intercept weight and a rescaled column, the ridge term of a zero-weight `ElasticNet` coordinate, the counters, allocations, the threshold against a BigFloat recomputation, the strict comparison, the loss value after a rejected trial, and the problems that keep the `λmax`-based checks. `test/stopping_scale.jl`, `test/entry_thresholds.jl`, `test/weighted_lasso.jl`, `test/elasticnet.jl` and `test/weighted_elasticnet.jl` check converged solves against this rule on independent BigFloat scores; `test/initial_curvature.jl`, `test/core_regressions.jl` and `test/accelerated_pgd.jl` check exact fits for accurate returns without convergence.
+
+**Sources.** [Issue #487](https://github.com/mlakolar/ProximalSolvers.jl/issues/487), rule B of the [round-2 report](https://github.com/mlakolar/ProximalSolvers.jl/issues/487#issuecomment-7060542089), and the approved plan of [pull request #521](https://github.com/mlakolar/ProximalSolvers.jl/pull/521#issuecomment-7067050786). Measurements: [coordinatewise-scale evidence](@ref evidence-coordinatewise-scale-487).
+
 ### [STOP-03 Scalar and weighted lasso residuals](@id STOP-03)
 
 **Statement.** For `NormL1(λ0)`, the residual is the least-infinity-norm element of `∇f(x) + λ ∂‖x‖₁`, with the working level `λ` from [IN-02](@ref). The entry score is `max(|∇fᵢ| - λ, 0)` at `xᵢ = 0` and `|∇fᵢ + λ sign(xᵢ)|` elsewhere. The full-point call is ProximalBase's `kkt_violation` with the working penalty used for the objective. With `NormL1(λ0, w)`, the call is `kkt_violation(NormL1(T(λ0), w), ∇f(x), x)`. Entry `i` uses `cᵢ = T(λ0) wᵢ`, multiplied and rounded in `T`. Its score is `max(|∇fᵢ| - cᵢ, 0)` at zero and `|∇fᵢ + cᵢ sign(xᵢ)|` elsewhere. The `Vector{T}` weights are used as supplied.
 
-The scale is `S = max(λ, λmax)`, where `λ = T(λ0)` without weights and `λ = maxᵢ cᵢ` with weights, and `λmax` is the computed `s‖Xᵀy‖∞`. The equality `maxᵢ cᵢ = T(λ0) * maximum(w)` uses monotonicity of rounding. Unit weights reproduce the unweighted coefficients and scale. All-zero weights remove the penalty and give the least-squares scale `S = λmax`; with zero response as well, the zero-scale rule in [STOP-04](@ref) applies.
+For least squares on a dense vector these signed entry scores are judged by the coordinatewise thresholds of [STOP-21](@ref), which hold the rule for that case; the scale and the entry thresholds below apply to the matrix response of [IN-10](@ref) and to the logistic loss of [IN-09](@ref).
+
+The scale is `S = max(λ, λmax)`, where `λ = T(λ0)` without weights and `λ = maxᵢ cᵢ` with weights, and `λmax` is the computed `s‖Xᵀy‖∞`. The equality `maxᵢ cᵢ = T(λ0) * maximum(w)` uses monotonicity of rounding. Unit weights reproduce the unweighted coefficients and scale. All-zero weights remove the penalty and give the scale `S = λmax`; a computed `λmax = 0` then falls under the zero-scale rule in [STOP-04](@ref).
 
 For [IN-10](@ref), use the unweighted scores above at every entry of `B`
 with `∇f(B) = s Xᵀ(XB − Y)`. Take the largest score over all entries, with
@@ -74,7 +109,7 @@ For a raw `LogisticLoss` with PGD or APG, `∇f` is the logistic gradient and `�
 
 Each entry threshold is at most `τ S`, so the full-point comparison of [STOP-04](@ref) is necessary, and it is made first. The entries are then compared one by one, stopping at the first failure, only when the full-point comparison passes and the largest coefficient `λ = T(λ0) * maximum(w)` exceeds the computed `λmax`. Otherwise every entry threshold equals `τ S` and the full-point comparison decides alone. A weight vector of ones with `T(λ0) > λmax` takes the entry pass when the full-point comparison passes, but its thresholds all equal `τ S` and its decision is that of `NormL1(λ0)`.
 
-Without the entry pass, one coefficient far above `λmax` (a large weight, or one that excludes a column) would set `S` for every entry, and a free or lightly penalized entry could pass with a derivative of order `τ maxᵢ cᵢ` ([#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464)). The entry scale `max(cᵢ, λmax)` contains `cᵢ` because near a stationary point a nonzero entry has `|∇fᵢ|` close to `cᵢ`, so its score combines two terms of size about `cᵢ`. It contains `λmax` as the gradient scale of the unweighted rule. In exact arithmetic, a common positive factor on loss and penalty scales every entry threshold and every score alike. In working precision, rounding and the normal-threshold guard can change the outcome, as in [STOP-04](@ref).
+Without the entry pass, one coefficient far above `λmax` (a large weight, or one that excludes a column) would set `S` for every entry, and a free or lightly penalized entry could pass with a derivative of order `τ maxᵢ cᵢ` ([#464](https://github.com/mlakolar/ProximalSolvers.jl/issues/464)). The entry thresholds still contain `λmax`, which a free intercept can inflate ([STOP-12](@ref)). The entry scale `max(cᵢ, λmax)` contains `cᵢ` because near a stationary point a nonzero entry has `|∇fᵢ|` close to `cᵢ`, so its score combines two terms of size about `cᵢ`. It contains `λmax` as the gradient scale of the unweighted rule. In exact arithmetic, a common positive factor on loss and penalty scales every entry threshold and every score alike. In working precision, rounding and the normal-threshold guard can change the outcome, as in [STOP-04](@ref).
 
 A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its full `|∇fᵢ|`, even with a large `λ0`. It is held to `τ λmax`, the threshold of the unpenalized problem. When the computed `λmax` is zero, its threshold is zero (`NaN` if `τ` is infinite), which fails the guard. No stop then passes, as with all-zero weights ([STOP-04](@ref)), although `x = 0` may be the minimizer. Each coefficient must already satisfy [IN-01](@ref): it is finite and normal when both factors are positive; a zero level or weight gives zero. An infinite coefficient iterate gives a nonfinite residual (`Inf`, or `NaN` if a `NaN` is read), which cannot pass.
 
@@ -82,7 +117,7 @@ A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its ful
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks full-matrix scores, the zero-solution threshold and independent accepted-point residuals. `test/core_regressions.jl`, “Working ℓ₁ levels”, checks stopping flags and residuals against explicit working-level controls. See also `test/stopping_scale.jl`, `test/weighted_lasso.jl` and `test/logistic_pgd.jl` (the logistic scale `‖Xᵀ(½ - y)‖∞` and independent KKT scores). `test/entry_thresholds.jl` checks the entry thresholds. Its fixtures are the #464 least-squares and logistic cases against analytic minimizers; zero columns, excluded columns, free and tiny weights; an active entry with a coefficient far above `λmax`; ill-conditioned designs; zero weights with `∇f(0)` approximately zero in the free entry or `y = 0`; and ordinary-weight controls on which the single threshold decides. Converged trajectory solves are checked entry by entry against a BigFloat residual; the zero-response solve with positive weights is checked against its exact minimizer `x = 0` instead. The rule is checked at fixed points against its definition, including points where the single threshold accepts and the entry thresholds reject.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks full-matrix scores, the zero-solution threshold and independent accepted-point residuals. `test/logistic_pgd.jl` checks the logistic scale `‖Xᵀ(½ - y)‖∞` and independent KKT scores, and `test/entry_thresholds.jl` the logistic entry thresholds on the #464 fixture against its analytic minimizer and on a free intercept with an excluded or all-zero column. `test/stopping_coordinatewise.jl` checks that the logistic and matrix-response checks still compute `λmax`. The least-squares fixtures of `test/entry_thresholds.jl`, `test/weighted_lasso.jl`, `test/stopping_scale.jl` and `test/core_regressions.jl` (“Working ℓ₁ levels”) check the entry scores under [STOP-21](@ref).
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L145`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`.
 
@@ -123,19 +158,21 @@ The check uses the gradient already held (PGD) or the one APG forms at `x`, and 
 
 ### [STOP-04 Threshold arithmetic and scale guards](@id STOP-04)
 
-**Statement.** For a dedicated KKT check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The full-point check requires finite `S`, `threshold ≥ floatmin(T)`, and a finite computed residual **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref), [STOP-17](@ref)).
+**Statement.** This clause is the threshold rule of the `λmax`-based checks ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref), [STOP-17](@ref)). Least squares with `NormL1` or `ElasticNet` on a dense vector uses the coordinatewise thresholds of [STOP-21](@ref) instead: they share `τ` but are formed in `Float64` with one rounding to `T`, and an infinite threshold refuses there.
+
+For a `λmax`-based check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The full-point check requires finite `S`, `threshold ≥ floatmin(T)`, and a finite computed residual **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref), [STOP-17](@ref)).
 
 A large `gradtol` can make conversion or multiplication produce an infinite threshold, which passes the full-point check when `S` and the residual are finite. Dividing the residual by `S` and comparing with the unrounded tolerance is the exact-arithmetic interpretation, not an additional floating-point guarantee. A `gradtol` below `64 eps(T)`, including `gradtol = 0`, uses that floor.
 
-Common positive rescaling of loss and penalty preserves the normalized inequality in exact arithmetic. In working precision the rounded quantities and the normal-threshold guard can change the outcome even when the scales remain representable. For Float32 `X = [1]`, response `y = [1]`, `x = 0` and default `gradtol`, `s = λ = 1` passes while `s = λ = 1f-35` does not: the latter threshold is below `floatmin(Float32)`.
+Common positive rescaling of loss and penalty preserves the normalized inequality in exact arithmetic. In working precision the rounded quantities and the normal-threshold guard can change the outcome even when the scales remain representable. For Float32 `X = [1]`, response `y = [1]`, `x = 0` and default `gradtol`, `s = λ = 1` passes while `s = λ = 1f-35` does not: the latter threshold is below `floatmin(Float32)`. (For this least-squares example the coordinatewise threshold of [STOP-21](@ref), `τ s`, gives the same two outcomes.)
 
-With weights, the entry or group thresholds of [STOP-03](@ref), [STOP-05](@ref) and [STOP-06](@ref) must also hold, under the same strict comparison and normal-threshold guard. If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives `G = 0` and stops at the first proposal when `S > 0` and the normal-threshold guard holds. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
+With weights, the entry or group thresholds of [STOP-03](@ref), [STOP-05](@ref) and [STOP-06](@ref) must also hold, under the same strict comparison and normal-threshold guard. If both `λ` and `λmax` are zero, or the threshold is below `floatmin(T)`, no stop passes; the solve reaches `maxiter` unless another exit intervenes. For the unweighted lasso, starting at `x = 0` with `λ ≥ λmax` gives `G = 0` and stops at the first proposal when `S > 0` and the normal-threshold guard holds; for least squares the same start passes [STOP-21](@ref) when its thresholds are normal or `y = 0`. Under `ftol = 0`, the unchanged iterate makes no proposal and can instead run to `maxiter` with `converged=false`.
 
 **Applies to.** PGD and APG; dense vectors and the matrices in [IN-10](@ref).
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks accepted stops and the zero-scale guard. test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks accepted stops and the zero-scale guard. `test/stopping_coordinatewise.jl` checks the infinite-threshold refusal of [STOP-21](@ref) against this clause's acceptance. test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L105`, `docs/src/numerics.md:L109`, `docs/src/numerics.md:L123`, `docs/src/numerics.md:L127`, `docs/src/numerics.md:L135`, `docs/src/numerics.md:L137`, `docs/src/numerics.md:L142`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`, `docs/src/choosing-solver.md:L167`. The later NormL1Nonneg dispatch uses the same guards in [upstream `fd45a427`, `_stationary!`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156).
 
@@ -159,30 +196,27 @@ Each group norm is LinearAlgebra's `norm`: it scales a block before squaring whe
 
 **Statement.** For `ElasticNet(λ1, λ2)`, use the least-infinity-norm element of `∇f(x) + T(λ2)x + T(λ1)∂‖x‖₁`: `max(|∇fᵢ| - T(λ1), 0)` at zero and `|∇fᵢ + T(λ2)xᵢ + T(λ1)sign(xᵢ)|` elsewhere. ProximalBase's `kkt_violation(ElasticNet(T(λ1), T(λ2)), ∇f(x), x)` receives both levels converted once to `T`.
 
-The scale is `S = max(T(λ1), λmax)` and contains neither `λ2` nor `λ2‖x‖∞`. In exact arithmetic the problem is the lasso at level `λ1` on `X̃ = [√s X; √λ2 I]`, `ỹ = [√s y; 0]`: its squared-error loss is `s‖Xx-y‖²/2 + λ2‖x‖²/2`, its gradient adds `λ2 x`, and its `λ̃max = s‖Xᵀy‖∞`. This explains the same scale covariance under a common positive factor on `s`, `λ1` and `λ2`.
-
 With `ElasticNet(λ1, λ2, w)`, pass the working penalty from [IN-03](@ref) to
 ProximalBase's `kkt_violation` at the accepted point. For each entry, with
 `cᵢ = T(λ1) * wᵢ` rounded in `T`, the mathematical score is `|∇fᵢ| - cᵢ`
-at zero and `|∇fᵢ + T(λ2)xᵢ + cᵢ sign(xᵢ)|` elsewhere. The full-point
-residual is the maximum of zero and the entry scores. The scale is
-`S = max(maxᵢ cᵢ, λmax)`, with
-`maxᵢ cᵢ = T(λ1) * maximum(w)` by monotone rounding. All-zero weights give
-`S = λmax`.
+at zero and `|∇fᵢ + T(λ2)xᵢ + cᵢ sign(xᵢ)|` elsewhere. A zero-weight entry
+still includes the ridge derivative in its score.
 
-After the full-point comparison of [STOP-04](@ref) passes, if `maxᵢ cᵢ > λmax`,
-form `tᵢ = τ * max(cᵢ, λmax)` in `T` for each entry. Require
-`tᵢ ≥ floatmin(T)` and the computed per-entry score
-`kkt_violation(g, ∇f(x), x, i)` strictly below `tᵢ`, using the same working
-penalty `g`. End the scan at the first failure. If `maxᵢ cᵢ ≤ λmax`,
-all entry thresholds equal the full-point threshold and that comparison
-decides alone. Unweighted elastic net uses only its full-point comparison.
-A zero-weight entry still includes the ridge derivative in its score and
-uses the threshold `τ * λmax`. The normal-threshold guard can veto the stop
-there even when the full-point threshold is normal, including when the
-computed `λmax` is zero. The scale still has the limitation in [STOP-12](@ref).
+PGD and APG accept `ElasticNet` only for least squares on a dense vector, and
+there a proposed stop is decided by the coordinatewise check of [STOP-21](@ref)
+with these signed entry scores. Each entry is held to its own threshold
+`T(τ √(s‖Xᵢ‖² + λ2) √(2Φ))`, `Φ = f(x) + (λ2/2)‖x‖²`. In exact arithmetic the
+problem is the lasso at level `λ1` on `X̃ = [√s X; √λ2 I]`, `ỹ = [√s y; 0]`, whose
+squared-error loss is `s‖Xx-y‖²/2 + λ2‖x‖²/2` and whose gradient adds `λ2 x`; the
+threshold is the same product for the augmented column and residual. With
+`ElasticNet(0, λ2)` and zero response the check keeps the stop at `x = 0` (case B
+of [STOP-21](@ref)).
 
-With `ElasticNet(0, λ2)` and zero response, computed `S = 0` refuses all stops even though zero is the ridge solution; the solve can run to `maxiter` with `converged=false`, as `NormL1(0)` does at zero response unless another exit applies. The relevant zero is the *computed* scale. For `X = reshape(Float32[2^24, 1, -2^24, -1], 4, 1)` and `y = ones(Float32, 4)`, the exact `Xᵀy = 0` need not give a computed `λmax = 0`: summation in that order can produce `λmax = 1`, because `2^24 + 1` rounds to `2^24`. The resulting check can pass at a point whose exact-data residual is not small relative to computed `S`.
+The `λmax`-based scale `S = max(maxᵢ cᵢ, λmax)` (`S = max(T(λ1), λmax)` without
+weights), which contains neither `λ2` nor `λ2‖x‖∞`, with the entry thresholds
+`τ * max(cᵢ, λmax)` when `maxᵢ cᵢ > λmax` and the guards of [STOP-04](@ref), is the
+check of a state built without the column data of [STOP-21](@ref); `solve!` does
+not build such a state for `ElasticNet`.
 
 Initialization can accept finite `f(x0)` with `g(x0)` overflowing in `T` (for example the ridge term `(λ2/2)‖x0‖²` above `floatmax(T)`); the common start and rollback policy is [RES-01](@ref). This KKT check is not the change test used by `CDSolver` on a dense vector or a one-dimensional `SparseIterate`.
 
@@ -190,7 +224,7 @@ Initialization can accept finite `f(x0)` with `g(x0)` overflowing in `T` (for ex
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!, _entry_thresholds_hold`.
 
-**Tests.** `test/elasticnet.jl` checks residual conversion, stopping honesty, ridge zero scale and overflowing starts. `test/weighted_elasticnet.jl` checks prescribed-point and public PGD/APG results in Float32 and Float64 with independent BigFloat residuals, including proposals rejected at a zero or small weight when a large coefficient dominates the full-point scale, and acceptance at an entry whose large coefficient sets its own threshold. It also checks equality and the zero and subnormal threshold guards.
+**Tests.** `test/elasticnet.jl` checks residual conversion, stopping honesty, the ridge solutions at zero response and overflowing starts; converged solves are checked against the rule of [STOP-21](@ref) on independent scores. `test/weighted_elasticnet.jl` checks prescribed-point and public PGD/APG results in Float32 and Float64 with independent BigFloat residuals, the coordinatewise decisions at fixed points (two of which differ from the earlier entry thresholds), zero response, and the entry-threshold helper of the `λmax`-based check. `test/stopping_coordinatewise.jl` checks the ridge term in the score of a zero-weight coordinate.
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L168`, `docstring:src/types.jl:L23`, `docs/src/developer/implementation-notes.md:L286`, `README.md:L79`.
 
@@ -220,9 +254,9 @@ A small accepted `L` makes `t` large and this mapping a weaker stationarity meas
 
 **Statement.** Checks run only when a proposal survives the exact-stall rule. PGD already holds `∇f(x)`. APG holds the gradient at its extrapolated point and computes `∇f(x)` from cached `A x`, using the same gradient oracle and preallocated `xhat` and `dz` buffers. Those buffers are overwritten before their next iteration use. This adds one transposed product per APG check that reaches this evaluation, counted in `grad_calls` and not in `f_calls`. A generic check with invalid `t` returns before computing `λmax`, this gradient or the prox.
 
-`λmax` is computed once per solve at the first check that reaches that stage, by one product of `Xᵀ` with the loss's zero-point vector (`Xᵀy` for least squares, `Xᵀ(½ - y)` for the logistic loss of [IN-09](@ref)), and stored in state field `λmax`; that product is not counted. Weighted lasso adds two scans of `w` to the KKT pass: one maximum scan and one scan in construction of the penalty with converted level. When the largest coefficient exceeds `λmax` (`Λ` for groups), a check that passes the full-point comparison adds one more traversal of the entries (of the groups for `GroupNormL2`) with ProximalBase's per-entry score, ending at the first failed comparison ([STOP-03](@ref), [STOP-05](@ref)). It creates no coefficient array. With groups given as vectors of `Int` indices or as ranges it allocates nothing. Other accepted group layouts (abstractly typed containers, or non-`Int` index types) can allocate in ProximalBase's group scorer during this pass, including some for which the full-point group residual allocates nothing.
+For the `λmax`-based checks, `λmax` is computed once per solve at the first check that reaches that stage, by one product of `Xᵀ` with the loss's zero-point vector (`Xᵀy` for least squares, `Xᵀ(½ - y)` for the logistic loss of [IN-09](@ref)), and stored in state field `λmax`; that product is not counted. The coordinatewise check of least squares with `NormL1` or `ElasticNet` ([STOP-21](@ref)) computes no `λmax` and no `Xᵀy`: at its first check it makes one uncounted pass over the columns of `X` (a `Float64` sum of squares per column, into a state buffer of `p` `Float64` values allocated with the state) and one scan of `y`, and each check is then `O(p)` beyond the gradient. Weighted lasso adds two scans of `w` to the KKT pass: one maximum scan and one scan in construction of the penalty with converted level. When the largest coefficient exceeds `λmax` (`Λ` for groups), a check that passes the full-point comparison adds one more traversal of the entries (of the groups for `GroupNormL2`) with ProximalBase's per-entry score, ending at the first failed comparison ([STOP-03](@ref), [STOP-05](@ref)). It creates no coefficient array. With groups given as vectors of `Int` indices or as ranges it allocates nothing. Other accepted group layouts (abstractly typed containers, or non-`Int` index types) can allocate in ProximalBase's group scorer during this pass, including some for which the full-point group residual allocates nothing.
 
-Weighted elastic net reuses its native working penalty and scans the weights to find the maximum. Its entry check uses the same conditional traversal and creates no coefficient array ([STOP-06](@ref)).
+The coordinatewise check scores each coordinate with ProximalBase's per-entry score in one traversal that ends at the first failure; weighted elastic net reuses its native working penalty, and weighted lasso adds the weight scan of the constructor of its converted penalty. It creates no coefficient array ([STOP-21](@ref)).
 
 Each generic check with finite positive `t` adds one proximal evaluation, counted in `prox_calls`; APG additionally counts its gradient at `x`. These costs accrue before call limits are tested. The generic check restores its scratch `delta_x` to `x - x_previous` before the remaining diagnostics read it.
 
@@ -230,9 +264,9 @@ The dedicated nonnegative-penalty check [STOP-16](@ref) and the Euclidean-norm c
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
-**Code.** `src/utils.jl: _lambda_max!, _gradient_at_x!, _stationary!`.
+**Code.** `src/utils.jl: _lambda_max!, _gradient_at_x!, _stationary!, _filled_scales!`.
 
-**Tests.** test/stopping_scale.jl; test/weighted_lasso.jl; test/weighted_elasticnet.jl; test/linf.jl; test/accelerated_pgd.jl; test/norml2_pgd.jl: no added proximal call and the cached scale.
+**Tests.** test/stopping_scale.jl; test/stopping_coordinatewise.jl (the counters of a coordinatewise check, no `λmax`, no allocation after the first check); test/weighted_lasso.jl; test/weighted_elasticnet.jl; test/linf.jl; test/accelerated_pgd.jl; test/norml2_pgd.jl: no added proximal call and the cached scale.
 
 **Sources.** `docs/src/numerics.md:L145`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`, `docstring:src/types.jl:L75`. The later NormL1Nonneg check follows [upstream `fd45a427`, `_stationary!`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156).
 
@@ -326,7 +360,7 @@ still move at a later iteration if the solve continued. For `Float64` data, for
 
 | Class | Result fields | Evidence about the returned point |
 | --- | --- | --- |
-| Computed stationarity convergence | `converged = true` | A proposal passed the computed stationarity check of [STOP-01](@ref) to [STOP-07](@ref). The comparison uses the computed residual and threshold, so it establishes no exact residual bound ([STOP-12](@ref)) and no accuracy target. For the lasso, [STOP-19](@ref) states the gap ceiling that holds when the exact residual also meets the threshold. |
+| Computed stationarity convergence | `converged = true` | A proposal passed the computed stationarity check of [STOP-01](@ref) to [STOP-07](@ref) or [STOP-21](@ref). The comparison uses the computed residual and threshold, so it establishes no exact residual bound ([STOP-12](@ref)) and no accuracy target. For least squares with `NormL1` or `ElasticNet`, [STOP-21](@ref) states what the coordinatewise check means in exact arithmetic. |
 | Float32 PGD stagnation | `stagnated = true` | An unchanged accepted iterate after the qualifying rejection of [STOP-11](@ref), under `ftol = 0`. The point is not checked. |
 | Objective increase | `f_increased = true` with `allow_f_increases = false` | A computed objective rise ended the solve ([STOP-09](@ref)). The flag records only the sign of the comparison; the result has no count of units in the last place. The relative size of the last change is `f_residual` ([RES-02](@ref)), and a stored trace holds both objective values once at least two iterations have completed. With `allow_f_increases = true`, `f_increased` describes only the last comparison; read the remaining rows. |
 | Iteration limit | `iteration_converged = true` | The budget `maxiter` was used. |
@@ -365,7 +399,7 @@ At tolerances near or beyond working precision, success versus an objective-incr
 
 ### [STOP-12 Accuracy interpretation and strict-option examples](@id STOP-12)
 
-**Statement.** Defaults `maxiter=200`, `ftol=1e-6`, `xtol=1e-8` and `gradtol=1e-5` are exploratory settings. Tightening them does not establish a specified error, and reducing `gradtol` below the floor in [STOP-04](@ref) does not tighten that computed check. The residual uses rounded gradient products: underflow or cancellation can make a nonstationary point pass. A coordinate on a much smaller gradient scale than `λmax` can remain inaccurate even when the global relative residual is small. In particular `λmax = ‖∇f(0)‖∞` is measured at zero. When a free coordinate is far from zero at the solution, as an intercept is with an uncentered (offset) response, its entry of `∇f(0)` can make `λmax`, and so every threshold, much larger than the gradients near the solution. `converged = true` can then be reported with a materially wrong objective. The entry thresholds of [STOP-03](@ref) do not change this; measured cases are in the [entry-threshold evidence](@ref evidence-entry-thresholds-464). Centering the response can help when the inflated entry belongs to an intercept. A smaller `gradtol` can help while it stays above the floor `64 eps(T)`. Neither is a general remedy. The defect is tracked in [#487](https://github.com/mlakolar/ProximalSolvers.jl/issues/487). See [working precision](working-precision.md) and [stopping evidence](evidence/stopping-audit-352.md).
+**Statement.** Defaults `maxiter=200`, `ftol=1e-6`, `xtol=1e-8` and `gradtol=1e-5` are exploratory settings. Tightening them does not establish a specified error, and reducing `gradtol` below the floor in [STOP-04](@ref) does not tighten that computed check. The residual uses rounded gradient products: underflow or cancellation can make a nonstationary point pass. The checks that use the reference scale `λmax = ‖∇f(0)‖∞` (the logistic loss and the matrix response with `NormL1`, [STOP-03](@ref); `GroupNormL2`, [STOP-05](@ref); `NormL1Nonneg` and `IndNonnegative()`, [STOP-16](@ref); `NormL2`, [STOP-17](@ref)) have this limit: a coordinate on a much smaller gradient scale than `λmax` can remain inaccurate even when the global relative residual is small. `λmax` is measured at zero. When a free coordinate is far from zero at the solution, as an intercept is with an uncentered (offset) response, its entry of `∇f(0)` can make `λmax`, and so every threshold, much larger than the gradients near the solution. `converged = true` can then be reported with a materially wrong objective. The entry thresholds of [STOP-03](@ref) do not change this; measured cases are in the [entry-threshold evidence](@ref evidence-entry-thresholds-464). Centering the response can help when the inflated entry belongs to an intercept. A smaller `gradtol` can help while it stays above the floor `64 eps(T)`. Neither is a general remedy. For least squares with `NormL1` or `ElasticNet` on a dense vector, the coordinatewise check of [STOP-21](@ref) replaces that scale ([#487](https://github.com/mlakolar/ProximalSolvers.jl/issues/487)); its own limits (ill-conditioning, exact fits, `Float32`) are stated there. See [working precision](working-precision.md) and [stopping evidence](evidence/stopping-audit-352.md).
 
 For PGD, `xtol` bounds a step scaled by `1/L`; the implied proximal-gradient residual is roughly `L * xtol * max(norm(x), 1)`, depending on curvature, coefficient scale and penalty level. Even `xtol = 1e-300` can accept a nonzero step, such as from `[0.0]` to `[1e-310]`. It is not an accuracy target.
 
@@ -382,7 +416,7 @@ With the objective test disabled, the default objective-increase exit still appl
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** Existing stopping and numerical-regression tests; historical measurements are evidence, not a new test requirement.
+**Tests.** Existing stopping and numerical-regression tests; `test/stopping_coordinatewise.jl` checks the offset fixture of #400 and #487 under [STOP-21](@ref). Historical measurements are evidence, not a new test requirement.
 
 **Sources.** `docs/src/numerics.md:L67`, `docs/src/numerics.md:L80`, `docs/src/numerics.md:L186`, `docs/src/numerics.md:L329`, `docs/src/numerics.md:L331`, `docs/src/numerics.md:L336`, `docs/src/numerics.md:L356`, `docs/src/numerics.md:L363`, `docs/src/choosing-solver.md:L120`, `docs/src/choosing-solver.md:L167`, `docstring:src/solvers/proximal_gradient_descent.jl:L30`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/working-with-results.md:L29`, `docs/src/working-with-results.md:L46`, `README.md:L52`.
 
@@ -428,6 +462,8 @@ rounding errors of that evaluation are not bounded here.
 
 ### [STOP-19 The gap ceiling for a lasso check when the exact residual meets the threshold](@id STOP-19)
 
+**Retired by [#487](https://github.com/mlakolar/ProximalSolvers.jl/issues/487).** Least squares with unweighted `NormL1` on a dense vector is now checked by the coordinatewise rule of [STOP-21](@ref), whose thresholds are not `τ max(λ, λmax)`, so the hypothesis below is not the check of any vector route. What a kept least-squares stop means is stated in [STOP-21](@ref); [STOP-13](@ref) remains the independent gap check. The text below is preserved as historical provenance.
+
 **Statement.** Take the problem of [STOP-13](@ref): unweighted `NormL1(λ)`, `s > 0`, `λ > 0` and `F(x) > 0`. Let `τ` and the scale `S = max(λ, λmax)` be those of [STOP-03](@ref) and [STOP-04](@ref), with `λmax` the computed value. A passed check compares only the computed residual with the rounded threshold, and [STOP-12](@ref) allows a pass at a nonstationary point. The ceiling below needs the separate hypothesis that the exact residual satisfies `‖G‖∞ ≤ τ S`. Under that hypothesis, put
 
 ```
@@ -452,7 +488,7 @@ Then `k = ‖G‖∞ / λ ≤ a` in [STOP-13](@ref), and in exact arithmetic the
 
 **Statement.** The benchmark harness's accuracy targets and options are measurement settings specified in `benchmark/HARNESS.md`. For the current-core lasso cases, the target is an independent relative duality gap of `1e-5` for Float32 or `1e-8` for Float64, evaluated in Float64 on the rounded inputs. The ordinary PGD and APG cases, and the #320 harness profile, use `benchmark_options(residual = true)`: `maxiter = 10_000`, `ftol = 1e-15`, `xtol = 1e-14`, `gradtol = 1e-11` and `allow_f_increases = false`. The Float64 `acc-` cases use `accuracy_options()` instead: `ftol = 0`, `gradtol = 1e-10` and `allow_f_increases = true`. None of these settings are the library defaults of [STOP-12](@ref), and the solvers promise none of the targets.
 
-A `target_missed` record says only that a valid independent gap exceeded the finite target. It does not name the exit, and it can carry `converged = true` ([STOP-19](@ref)). Float32 stops depend on objective rounding ([STOP-14](@ref)), so a change that alters rounding without changing any stopping rule can move individual Float32 records between `ok` and `target_missed`. Evidence for or against such a change compares counts over draws and records each return's class from [STOP-18](@ref). A future solver claim of target accuracy needs its own clause and certificate.
+A `target_missed` record says only that a valid independent gap exceeded the finite target. It does not name the exit, and it can carry `converged = true`, which bounds no gap ([STOP-21](@ref)). Float32 stops depend on objective rounding ([STOP-14](@ref)), so a change that alters rounding without changing any stopping rule can move individual Float32 records between `ok` and `target_missed`. Evidence for or against such a change compares counts over draws and records each return's class from [STOP-18](@ref). A future solver claim of target accuracy needs its own clause and certificate.
 
 **Applies to.** Benchmark records of the current-core PGD and APG lasso cases and the #320 harness profile; T = Float32 or Float64. Historical records such as `gradient/lasso/pg/R/call`, which use `ProximalOptions()` and no target, are outside it.
 
@@ -464,7 +500,7 @@ A `target_missed` record says only that a valid independent gap exceeded the fin
 
 ## Tests
 
-The clause-level references identify existing tests; this relocation adds no solver behavior or test obligation. Important suites are `test/stopping_scale.jl`, `test/weighted_lasso.jl`, `test/nonnegative_lasso.jl`, `test/elasticnet.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/norml2_pgd.jl`, `test/core_regressions.jl` and `test/accelerated_pgd.jl`.
+The clause-level references identify existing tests; this relocation adds no solver behavior or test obligation. Important suites are `test/stopping_scale.jl`, `test/stopping_coordinatewise.jl`, `test/weighted_lasso.jl`, `test/nonnegative_lasso.jl`, `test/elasticnet.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/norml2_pgd.jl`, `test/core_regressions.jl` and `test/accelerated_pgd.jl`.
 
 ## Retired historical wording
 
@@ -514,6 +550,8 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 **Sources.** `README.md:L52`, `docs/src/working-with-results.md:L29`, `docstring:src/types.jl:L23`, `docstring:src/solvers/proximal_gradient_descent.jl:L30`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/numerics.md:L86`.
 
 ## Change log
+
+[#487](https://github.com/mlakolar/ProximalSolvers.jl/issues/487): least squares with `NormL1` or `ElasticNet` (with or without weights) on a dense vector is checked by the coordinatewise rule of [STOP-21](@ref), which replaces the scale `max(maxᵢ cᵢ, λmax)` and the #464 entry thresholds for these problems and computes no `λmax`. Exact zero scales (a zero column with `λ2 = 0`, and `x = 0` with `y = 0`) pass when the score is at most `0`, so zero-response solves that refused every stop before now stop at `x = 0`; other zero, underflowed and nonfinite thresholds refuse, including an infinite threshold that [STOP-04](@ref) accepts, and exact and near-exact fits generally return `converged = false`. [STOP-03](@ref), [STOP-04](@ref), [STOP-06](@ref) and [STOP-08](@ref) are scoped to the `λmax`-based checks, the [STOP-12](@ref) offset limitation is retired for these problems and kept for the others, and [STOP-19](@ref) is retired. The [STOP-06](@ref) example of a computed `λmax` that cancellation leaves at `1` described the `λmax`-based elastic-net check, which `solve!` no longer reaches. Measurements: [coordinatewise-scale evidence](evidence/coordinatewise-scale-487.md).
 
 [#320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320), Stage 1: [STOP-18](@ref) classifies returns by their flags, [STOP-19](@ref) states the lasso gap ceiling that holds when the exact residual meets the check's threshold, and [STOP-20](@ref) separates benchmark settings from library contracts. No solver behavior changes. Measurements: [Float32 stopping evidence](evidence/float32-stopping-320.md).
 
