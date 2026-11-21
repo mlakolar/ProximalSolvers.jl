@@ -27,8 +27,8 @@ full-matrix scores and scale in [STOP-03](@ref).
 In the regression PGD/APG rows, the `λmax`-based stationarity checks form their thresholds
 in `T`. [STOP-04](@ref) specifies the finite-scale and finite-residual guards,
 the lower bound on the threshold and the strict comparison for those
-checks; the coordinatewise check of [STOP-21](@ref) carries its thresholds as a `Float64`
-significand and an integer exponent and converts each to `T` once, under its own guards. [STOP-07](@ref) adds guards for the generic mapping check. A computed
+checks; the coordinatewise check of [STOP-21](@ref) forms its thresholds from factors carried as a
+`Float64` significand times a power of two and converts each to `T` once, under its own guards. [STOP-07](@ref) adds guards for the generic mapping check. A computed
 threshold can overflow to `Inf`. Interpret a kept stop as the result of the
 computed comparison. Graphical-lasso PGD uses the comparison in [PGD-08](@ref).
 

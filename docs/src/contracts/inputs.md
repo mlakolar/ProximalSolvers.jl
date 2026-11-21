@@ -183,9 +183,9 @@ column to zero, including with a zero weight.
 
 These checks finish before `x` is copied or written and before the RNG is used.
 The validation, the PGD/APG stationarity check, and CD's exceptional threshold branch
-use the checked `c_j`. PGD/APG score entry `j` with its own `c_j`. For least squares each
-entry is held to its coordinatewise threshold, which contains no penalty coefficient
-([STOP-21](@ref)); for the logistic loss the largest `c_j` enters the penalty part of the
+use the checked `c_j`. PGD/APG score entry `j` with its own `c_j`. For least squares the
+coordinatewise check of [STOP-21](@ref) decides, and its thresholds contain no penalty
+coefficient; for the logistic loss the largest `c_j` enters the penalty part of the
 stop scale ([STOP-03](@ref)).
 ProximalBase's ordinary proximal steps instead form thresholds from the supplied
 `lambda` and `w_j` in their working type. This includes the PGD/APG proximal step and

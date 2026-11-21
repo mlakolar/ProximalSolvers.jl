@@ -32,8 +32,9 @@ The validation of the implementation ran production code at the base `a9fb96c8` 
 - **Validation.** The round-2 fixtures and the zero-scale, exact-fit and parity fixtures of the plan, Float32 and Float64,
   PGD and APG, with the default options and with `gradtol = 1e-8`, on Julia 1.10.13 and 1.13.4 as separate draws (each
   version on one node), with 256-bit BigFloat references on the stored inputs: 1640 in-scope rows per side and 96 rows of
-  the problems that keep the `λmax`-based checks. A row is accurate when its relative objective excess is at most `1e-6`
-  (also reported at `1e-4` for Float32). Measured outcomes:
+  the problems that keep the `λmax`-based checks. A row is accurate when its objective excess is at most `1e-6` (also
+  reported at `1e-4` for Float32) relative to `|F*|`; for the consistent fixtures, relative to the progress `F0 - F*`
+  from the start when that is positive, and otherwise the excess must be exactly zero. Measured outcomes:
   - converged and inaccurate: at the base 108 Float64 rows (PGD 48, APG 60) and 87 Float32 rows (37, 50; 55 at `1e-4`);
     at the head 2 Float64 rows, APG on the nearly collinear free columns of RD1 with the default options in both draws
     (relative excess `6.3e-2`; also converged and inaccurate at the base), and 0 Float32 rows (0 at `1e-4`). No row is
@@ -72,9 +73,9 @@ with the same values):
   excess is not. In the #464 row the coordinatewise threshold of `x₂`, about `τ ‖X₂‖ ‖r‖ ≈ 1e7`, is far looser than
   the #464 threshold `τ c₂ ≈ 10`, because the residual is about `1e6`.
 - Exact fits, each with `NormL1(0)` from `x = 0` and the default options unless stated. At the head each proposal is
-  refused, by the ordinary comparison where the computed residual is nonzero (it is parallel to the column, so the
-  score is far above its threshold) and by case C where it is zero, and the solve ends at `maxiter` with
-  `converged = false`. The one-column fixtures returned the minimizer for the stored data (relative error 0); the
+  refused, by the ordinary comparison where the computed smooth scale is positive (for the one-column fixtures the
+  computed residual is parallel to the column) and by case C where the stored loss, and so the smooth scale, is zero,
+  and the solve ends at `maxiter` with `converged = false`. The one-column fixtures returned the minimizer for the stored data (relative error 0); the
   diagonal fixture ended at a point fitted to working precision (relative residual about `5.0e-17` in BigFloat). PGD
   and APG:
   - `X = ones(5, 1)`, `y = fill(1e160, 5)`, loss scale `1e-100` (Float64);
