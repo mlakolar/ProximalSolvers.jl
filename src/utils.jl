@@ -248,7 +248,7 @@ function _zero_gradient!(G, state, m::_LSImage)
   G .*= m.α
 end
 
-# Logistic loss without observation weights or offset (the only logistic loss that solve! accepts, with PGD and APG):
+# Logistic loss without observation weights or offset (the logistic loss of the image model that PGD and APG share, IN-09):
 # ∇f(0) = Xᵀ(σ(0) - y) = Xᵀ(½ - y), with ½ - yᵢ = ±½ exact for a binary yᵢ. The difference is written
 # to state.dz, the image-length buffer of both solvers. On the PGD path that buffer is written before it is read at its
 # other uses (by ProximalBase as the derivative d in _value_and_gradient!, and by the product X d̂ in
@@ -274,8 +274,8 @@ _gradient_at_x!(state::ProximalGradientDescentState, f) = state.grad_f_x
 # before it reads it at each use (the value and gradient at y, the fresh product of the bound
 # test), and counts the evaluation in grad_calls. For a logistic loss, _value_and_gradient! returns Inf without writing
 # its gradient buffer when the image has a nonfinite entry. Here the cached image z_x is finite: it is the image of the
-# accepted x, and every accepted trial, the zero step included, lies in the isfinite(state.f_x) branch of
-# _prox_grad_step!, where a logistic value is finite only for a finite image.
+# accepted x, and each trial that the line search accepts, the zero step included, lies in the isfinite(state.f_x) branch
+# of _prox_grad_step!, where a logistic value is finite only for a finite image.
 function _gradient_at_x!(state::AccProxGradDescentState, f)
   _value_and_gradient!(state.xhat, state.x, f, state.z_x, state.dz)
   state.grad_calls += 1

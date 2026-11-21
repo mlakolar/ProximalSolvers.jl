@@ -119,34 +119,39 @@ const REF = ProximalOptions(maxiter = 200_000, ftol = 1e-15, xtol = 1e-14, gradt
 rounding_bound(X, b) =
   (n = size(X, 1); M = maximum(abs.(X) * abs.(b)); n * eps() / 2 * maximum(abs, X) * (n + size(X, 2) * M / 4 + 2))
 
-# The largest score of b in BigFloat, as the independent residual of b for NormL1(λ, w). For a point at which the solver
-# reported a stop it is checked against the solver's threshold τ S, τ = max(gradtol, 64eps) (STOP-03, STOP-04). The
-# solver forms its residual from a Float64 gradient, so the independent residual may exceed τ S by the rounding of that
-# gradient, estimated by rounding_bound; the check also requires that estimate to be at most 1% of τ S, so that the
-# allowance stays small next to the threshold.
-function kkt_residual(X, y, b, λ, w)
-  Float64(maximum(scores(oracle(X, y, b).gradient, b, λ, w)))
-end
-function check_stop(X, y, b, λ, w, options)
+# The largest score of b in BigFloat: the independent residual of b for NormL1(λ, w)
+kkt_residual(X, y, b, λ, w) = maximum(scores(oracle(X, y, b).gradient, b, λ, w))
+
+# The independent residual of a point at which a solver reported a stop, compared with the solver's threshold τ S,
+# τ = max(gradtol, 64eps) (STOP-03, STOP-04), plus an allowance for rounding. The solver's own test is on a residual
+# formed from a Float64 gradient, so the BigFloat residual of a point that passes it can exceed τ S by the rounding of
+# that gradient, which rounding_bound estimates; the allowance is a platform margin for that. By default the check also
+# requires the allowance to be at most 1% of τ S, so that the margin stays small next to the threshold. In the recorded
+# runs, the fits whose ratio KKT / (τ S) is printed below were under τ S without the allowance. `margin = false` drops the
+# 1% requirement, for a reference solved at a tighter gradtol, where the estimate can exceed 1% of the threshold. Returns
+# the BigFloat residual.
+function check_stop(X, y, b, λ, w, options; margin = true)
   τ = max(options.gradtol, 64eps())
   S = stop_scale(X, y, λ, w)
   slack = rounding_bound(X, b)
   residual = kkt_residual(X, y, b, λ, w)
-  @test slack <= 0.01 * τ * S
-  @test residual < τ * S + slack
+  margin && @test slack <= 0.01 * τ * S
+  @test residual < big(τ * S + slack)
   residual
 end
 
-# The objectives of two points compared through convexity. For the element G of least norm of the subdifferential of F at
-# a point, the score vector of the point, F(other) ≥ F(point) + ⟨G, other - point⟩, so F(point) - F(other) ≤ ‖G‖∞
-# ‖point - other‖₁; with the roles exchanged, |F(a) - F(b)| ≤ max(KKT∞(a), KKT∞(b)) ‖a - b‖₁. Everything is evaluated in
-# BigFloat from the stored points. The rounding term covers the rounding of that evaluation: BigFloat has 256 bits (relative
-# error about 1e-77 per operation), the sums have at most a few hundred terms, and 1e-60 relative to the size of the
-# objectives is far above their rounding and far below any Float64 quantity compared.
+# The objectives of two points compared through convexity. At a point b, the element G of the subdifferential of F with
+# the smallest entries has |Gⱼ| equal to the score of coordinate j: ∇fⱼ plus a value of the penalty's subdifferential
+# in [-cⱼ, cⱼ] at bⱼ = 0 and ∇fⱼ + cⱼ sign(bⱼ) elsewhere. By convexity F(other) ≥ F(b) + ⟨G, other - b⟩, so
+# F(b) - F(other) ≤ Σⱼ |Gⱼ| |otherⱼ - bⱼ| ≤ KKT∞(b) ‖b - other‖₁; with the roles exchanged,
+# |F(a) - F(b)| ≤ max(KKT∞(a), KKT∞(b)) ‖a - b‖₁. The scores, the objectives and the bound are all BigFloat from the stored
+# points. The rounding term covers the rounding of that evaluation: BigFloat has 256 bits (relative error about 1e-77 per
+# operation), the sums have at most a few hundred terms, and 1e-60 relative to the size of the objectives is far above
+# their rounding and far below any Float64 quantity compared.
 function objective_gap(X, y, λ, w, a, b)
   ka, kb = kkt_residual(X, y, a, λ, w), kkt_residual(X, y, b, λ, w)
   Fa, Fb = objective(X, y, a, λ, w), objective(X, y, b, λ, w)
-  bound = max(big(ka), big(kb)) * sum(abs, big.(a) - big.(b))
+  bound = max(ka, kb) * sum(abs, big.(a) - big.(b))
   rounding = big(10)^-60 * (1 + abs(Fa) + abs(Fb))
   (gap = abs(Fa - Fb), bound = bound, rounding = rounding)
 end
@@ -218,7 +223,8 @@ end
     x = xa .+ 0.3 .* randn(rng, k)
     d = big.(x) .- big.(y0)
     iszero(sum(abs2, d)) && continue
-    # the exact ¼‖X d‖²/‖d‖², in BigFloat: the smallest L at which the image inequality holds
+    # the directional curvature ¼‖X d‖²/‖d‖², formed in BigFloat and rounded to Float64; the factors below put L below, at
+    # and above it. The relaxed image inequality of the certified test holds from L = curvature / (1 + 4eps)².
     curvature = Float64(sum(abs2, big.(X) * d) / 4 / sum(abs2, d))
     for factor in (1 / 4, 1 / 2, 1, 2, 4), use_fresh in (false, true)
       a = decision(logistic, X, x, xa, xb, ω, curvature * factor; fresh_only = use_fresh)
@@ -241,14 +247,17 @@ end
 # ---- accepted trials of real solves ---------------------------------------------------------------------------------
 
 # The iterations of APG on the problem, one `update_state!` at a time. After a call, state.y, state.x and state.L belong to
-# the accepted trial: y is the extrapolated point (the previous accepted point after a restart), x the accepted trial and
-# L its curvature. Each accepted trial with x ≠ y is checked in BigFloat from the stored data, for ε = eps:
+# the trial that the line search of the update accepted last: y is the extrapolated point (the previous accepted point
+# after a restart), x that trial and L its curvature. A provisional trial that the restart of the update discards is
+# outside the check. For each update whose final trial has x ≠ y, in BigFloat from the stored data and for ε = eps:
 #   - the image inequality that _bound_certified! certifies, ¼‖X d‖² ≤ (1 + 4ε)² L ‖d‖² for d = x - y (a falsifiable
 #     statement about the stored points);
 #   - the descent inequality f(x) ≤ f(y) + ⟨∇f(y), d⟩ + (L/2)(1 + 4ε)²‖d‖², which follows from it in exact arithmetic
 #     because ∇²f ⪯ ¼XᵀX (APG-08). The evaluation rounds in BigFloat at about 1e-77 relative; `slack` is 1e-60 of the
 #     size of the terms.
-# It returns the counts of iterations with a nonzero step, with more than one trial, with momentum and with a restart.
+# It returns the counts of updates with a nonzero final step, whose completed L exceeds the decreased initial L of the
+# update (α times the previous L, so a rejected trial and a retry happened), with momentum and without a restart, and
+# with a restart.
 function accepted_trials(X, y, λ, w; iterations)
   f, g = LogisticLoss(y, X), penalty(λ, w)
   x0 = zeros(size(X, 2))
@@ -258,15 +267,15 @@ function accepted_trials(X, y, λ, w; iterations)
   state = PS.initial_state(method, OPTS, f, g_work, x0)
   A = big.(X)
   ε = big(eps())
-  nonzero = backtracked = momentum = restarted = 0
+  nonzero = raised = momentum = restarted = 0
   for _ in 1:iterations
-    trials, k, restarts = state.backtrack_steps, state.k, state.restarts
+    initial, k, restarts = state.L * method.α, state.k, state.restarts
     PS.update_state!(f, g_work, state, method)
     d = big.(state.x) .- big.(state.y)
     q = sum(abs2, d)
     iszero(q) && continue
     nonzero += 1
-    backtracked += state.backtrack_steps - trials > 1
+    raised += state.L > initial
     momentum += k > 0 && state.restarts == restarts
     restarted += state.restarts > restarts
     L = big(state.L)
@@ -276,15 +285,15 @@ function accepted_trials(X, y, λ, w; iterations)
     slack = big(10)^-60 * (1 + abs(f0.value) + abs(f1.value) + L * q)
     @test f1.value <= bound + slack
   end
-  (; nonzero, backtracked, momentum, restarted)
+  (; nonzero, raised, momentum, restarted)
 end
 
 @testset "accepted trials of APG satisfy the certified image inequality and the descent inequality" begin
   for (label, X, y, λ, w) in fixtures()[1:2]
     counts = accepted_trials(X, y, λ, w; iterations = 100)
     println("logistic APG accepted trials, $label: ", counts)
-    # the check ran on steps that backtracked and on steps with momentum, and on the steps after a restart
-    @test counts.nonzero > 0 && counts.backtracked > 0 && counts.momentum > 0 && counts.restarted > 0
+    # the check ran on updates in which L was raised, on updates with momentum and on updates that restarted
+    @test counts.nonzero > 0 && counts.raised > 0 && counts.momentum > 0 && counts.restarted > 0
   end
 end
 
@@ -305,6 +314,13 @@ end
   @test Float64(sum(abs2, big.(X)) / 4) > 1
   @test PS.initial_state(AccProxGradDescent(), OPTS, LogisticLoss(y, X), NormL1(0.1), zeros(k)).L == 1.0
   @test PS.initial_state(ProximalGradientDescent(), OPTS, LogisticLoss(y, X), NormL1(0.1), zeros(k)).L == 1.0
+  # a zero design starts at 1, and a positive estimate that is below floatmin(Float64) at floatmin(Float64) (PGD-02), in both
+  for (scale, expected) in ((0.0, 1.0), (1e-170, floatmin()))
+    Xz = fill(scale, 3, 2)
+    for method in (AccProxGradDescent(), ProximalGradientDescent())
+      @test PS.initial_state(method, OPTS, LogisticLoss([1.0, 0.0, 1.0], Xz), NormL1(1.0), zeros(2)).L == expected
+    end
+  end
 end
 
 # ---- accuracy of the solutions ----------------------------------------------------------------------------------------
@@ -322,24 +338,30 @@ end
     s = scores(oracle(X, y, b).gradient, b, λ, w)
     slack = rounding_bound(X, b)
     @test slack <= 0.01 * τ * S
-    # every coordinate, the intercept (or, unweighted, the first slope) included, is below the threshold of the stop
-    @test all(<(τ * S + slack), Float64.(s))
+    # every coordinate is below the threshold of the stop (plus the rounding allowance of check_stop), the intercept
+    # column's coordinate included: it is unpenalized where w[1] = 0 and penalized in the unweighted fixture
+    @test all(<(big(τ * S + slack)), s)
     # the first two fixtures have sparse minimizers with active and inactive coefficients
     index <= 2 && @test 0 < count(!iszero, b) < k
-    w === nothing || @test w[1] == 0 && s[1] < τ * S + slack      # the unpenalized intercept: |∂f/∂b₁|
+    w === nothing || @test w[1] == 0 && s[1] < big(τ * S + slack)      # the unpenalized intercept: |∂f/∂b₁|
     # the reported objective sums n Float64 terms; a relative 1e-12 covers their rounding
     @test r.minimum ≈ Float64(objective(X, y, b, λ, w)) rtol = 1e-12
     # the objective against PGD's at the same options and against a tight reference, through the convexity bound of
-    # objective_gap; the reference is PGD with a tighter gradient test
+    # objective_gap; the reference is PGD with a tighter gradient test. The bound grows with the residual of each point,
+    # so each control converges and has its own independent residual checked: PGD's like APG's, and the reference's
+    # at least 100 times below the threshold of the stop of APG and PGD
     bp, bref = zeros(k), zeros(k)
-    solve!(bp, LogisticLoss(y, X), penalty(λ, w), ProximalGradientDescent(), OPTS)
-    solve!(bref, LogisticLoss(y, X), penalty(λ, w), ProximalGradientDescent(), REF)
+    rp = solve!(bp, LogisticLoss(y, X), penalty(λ, w), ProximalGradientDescent(), OPTS)
+    rref = solve!(bref, LogisticLoss(y, X), penalty(λ, w), ProximalGradientDescent(), REF)
+    @test rp.converged && rref.converged
+    check_stop(X, y, bp, λ, w, OPTS)
+    @test check_stop(X, y, bref, λ, w, REF; margin = false) < 0.01 * τ * S
     for other in (bp, bref)
       gap = objective_gap(X, y, λ, w, b, other)
       @test gap.gap <= gap.bound + gap.rounding
     end
     println("logistic APG, $label: iterations = $(r.iterations), trials = $(r.backtrack_steps), ",
-            "KKT / (τ S) = $(kkt_residual(X, y, b, λ, w) / (τ * S))")
+            "KKT / (τ S) = $(Float64(kkt_residual(X, y, b, λ, w) / (τ * S)))")
   end
 end
 
@@ -407,7 +429,7 @@ function check_hard_case(label, X, y, level, w, start)
   @test r.converged
   residual = check_stop(X, y, b, level, w, OPTS)
   println("logistic APG, $label: iterations = $(r.iterations), trials = $(r.backtrack_steps), restarts = $(state.restarts), ",
-          "KKT / S = $(residual / stop_scale(X, y, level, w)), max |X b| = $(maximum(abs, X * b))")
+          "KKT / S = $(Float64(residual / stop_scale(X, y, level, w))), max |X b| = $(maximum(abs, X * b))")
   @test !isnan(r.g_residual) && !isnan(r.f_residual) && !isnan(r.x_residual)
   @test r.minimum ≈ Float64(objective(X, y, b, level, w)) rtol = 1e-10
   b
@@ -451,10 +473,12 @@ end
     b, r, state = apg_run(X, y, λ, w, OPTS)
     @test r.converged
     check_stop(X, y, b, λ, w, OPTS)
-    # the objective test of the restart ran: restarts happened and the iterations after them used momentum again
+    # some iterations restarted and not all did; the updates with momentum and with a restart are counted in
+    # accepted_trials
     @test state.restarts > 0 && state.restarts < r.iterations
   end
-  # a converged = true under the default options, which stop much earlier (gradtol = 1e-5), is also checked
+  # a converged = true under the default options (gradtol = 1e-5) is also checked; those runs are not required to stop
+  # earlier than the tight ones, and their iteration counts are printed
   defaults = ProximalOptions()
   for (label, X, y, λ, w) in fixtures()
     b, r, state = apg_run(X, y, λ, w, defaults)
@@ -470,8 +494,8 @@ end
   λ = 0.1 * norm(X' * (0.5 .- y), Inf)
   b, r, state = apg_run(X, y, λ, nothing, OPTS)
   @test r.converged
-  # more trials than iterations: some trials were rejected (the start L = 1 is far below ¼‖X‖₂² here)
-  @test r.backtrack_steps > r.iterations
+  # L starts at 1, is multiplied by α < 1 at the start of each iteration, and grows only through a rejected trial; it
+  # ends above 1 because the start is far below ¼‖X‖₂² here
   @test PS.initial_state(AccProxGradDescent(), OPTS, LogisticLoss(y, X), NormL1(λ), zeros(k)).L == 1.0
   @test state.L > 1
   check_stop(X, y, b, λ, nothing, OPTS)
@@ -540,10 +564,11 @@ end
     @test err isa ArgumentError && occursin("start from a point where f is finite", sprint(showerror, err))
     @test b == [floatmax(Float64) / 2]
   end
-  # In a trial: from zero with X = 2e154 in the single row, the first trial x = ±1e154/0.9 has an overflowing image, so its
-  # value is Inf and L is raised (APG-03). The certified test (APG-08) needs L ≥ ¼ X² / (1 + 4eps)², about 1e308, which
-  # is below floatmax(Float64); L starts at 0.9 and doubles per rejected trial, so it takes at least 1023 doublings, and
-  # the accepted L is finite. PGD's value-based search accepts the same fixture at L = 1.8 (test/logistic_pgd.jl).
+  # In a trial: from zero with X = 2e154 in the single row, NormL1(0.0) and the default factors, the first trial
+  # x = ±1e154/0.9 has an overflowing image, so its value is Inf and L is raised (APG-03). The certified test (APG-08)
+  # needs L ≥ ¼ X² / (1 + 4eps)² for a nonzero displacement, about 1e308, which is below floatmax(Float64); L starts at 0.9
+  # and doubles per rejected trial, so the first update takes at least 1024 trials, and the accepted L is finite. PGD's
+  # value-based search with Lexact = 0.9 accepts the same fixture at L = 1.8 (test/logistic_pgd.jl).
   X1 = fill(2e154, 1, 1)
   for (y1, sign) in (([1.0], 1), ([0.0], -1))
     f, g = LogisticLoss(y1, X1), NormL1(0.0)
@@ -556,12 +581,20 @@ end
     @test all(isfinite, X1 * state.x) && isfinite(state.f_x)
     @test state.x ≈ [sign * 1e154 / state.L] rtol = 1e-14
   end
-  # With three rows ¼‖X‖_F² = 3e308 is above floatmax, so no finite L is certified: the search raises and solve!
-  # restores the start.
+  # With the three rows of response [1, 1, 0], ¼‖X‖_F² is about 3e308, above floatmax, so no finite L is certified for the
+  # nonzero first displacement from zero: the search raises and solve! restores the start.
   x3 = [0.0]
   @test_throws r"curvature estimate cannot increase finitely" solve!(x3, LogisticLoss([1.0, 1.0, 0.0], fill(2e154, 3, 1)),
                                                                      NormL1(0.0), method)
   @test x3 == [0.0]
+  # The lower bound applies to a nonzero displacement: from [1e-150] with every response entry 1, the Float64 gradient at the
+  # start is zero, the first trial equals y, and it is accepted at L = 0.9 (the start 1 decreased by α), for one row and three.
+  for n in (1, 3)
+    f, g = LogisticLoss(ones(n), fill(2e154, n, 1)), NormL1(0.0)
+    state = PS.initial_state(method, ProximalOptions(), f, g, [1e-150])
+    PS.update_state!(f, g, state, method)
+    @test state.L == 0.9 && state.backtrack_steps == 1 && state.x == state.y == [1e-150]
+  end
   # The extrapolated point: X = I, y = [1, 0], x = [1e308, 0] and x_previous = [-1e308, 0] have finite images and values
   # (log 2 and 1e308), but x - x_previous overflows, so the extrapolated point and its image are not finite. The step
   # restarts once from the last accepted point.
@@ -582,10 +615,33 @@ end
   calls = state.grad_calls
   PS.update_state!(f, g, state, method)
   @test state.restarts == 1 && state.k == 1
-  @test state.grad_calls - calls == 2             # one gradient at the overflowing y, one at the restart point
+  # one gradient request at the overflowing y (the logistic oracle is skipped for its nonfinite image, and the request is
+  # counted), one at the restart point
+  @test state.grad_calls - calls == 2
   @test state.y == state.x_previous == [1e308, 0.0] && state.z_y == state.z_previous
   # the restarted step may round to x == y, so the objective does not increase but need not decrease
   @test isfinite(state.f_x) && state.f_x <= state.f_x_previous
+end
+
+@testset "one class with an unpenalized intercept: no finite minimizer" begin
+  # y = ones(8) with an intercept column of ones and weight zero: F(b₁) = 8 log(1 + e^{-b₁}) decreases toward 0 as b₁ → +∞,
+  # its derivative -8σ(-b₁) is negative at every finite b₁, and no minimizer exists (IN-09). The computed residual can still
+  # fall below the threshold, so neither outcome of `converged` is required. The results must be finite, and when
+  # convergence is reported the independent BigFloat residual is checked against the threshold of the stop.
+  X1, y1 = ones(8, 1), ones(8)
+  λ, w = 0.1, [0.0]
+  options = ProximalOptions(maxiter = 1000, gradtol = 1e-10)
+  # from zero, and from a start where σ(-b₁) underflows in Float64
+  for start in ([0.0], [1000.0])
+    b = copy(start)
+    r = solve!(b, LogisticLoss(y1, X1), NormL1(λ, w), AccProxGradDescent(), options)
+    @test r.minimizer === b
+    @test all(isfinite, b) && isfinite(r.minimum)
+    @test isfinite(r.x_residual) && isfinite(r.f_residual) && isfinite(r.g_residual)
+    @test oracle(X1, y1, b).gradient[1] < 0     # in BigFloat, nonzero where the Float64 derivative underflows
+    println("logistic APG, one class from $start: converged = $(r.converged), iterations = $(r.iterations), b₁ = $(b[1])")
+    r.converged && check_stop(X1, y1, b, λ, w, options)
+  end
 end
 
 @testset "iteration and call limits report nonconvergence" begin
@@ -622,8 +678,9 @@ end
   @test state.grad_calls == 40 + state.restarts
   @test state.backtrack_steps == state.prox_calls
   @test state.f_calls == 1 + state.grad_calls + state.prox_calls
-  # a solve: C, the number of stationarity checks, is determined by each identity, and the two must agree. A converged
-  # solve passed one check; a dedicated KKT check adds no proximal call.
+  # a solve: C, the number of stationarity checks, is determined by each identity, and the two must agree. A check is made
+  # at each proposed stop, so a converged solve has made at least one (the one that passed) and at most one per iteration;
+  # a dedicated KKT check adds no proximal call.
   for options in (OPTS, ProximalOptions())
     b = zeros(k)
     r = solve!(b, f, g, method, options)
@@ -709,7 +766,8 @@ end
   # a NormL1 whose second weight is changed after construction
   reweighted(v) = (wm = copy(w); gm = NormL1(1.0, wm); wm[2] = v; gm)
   cases = [
-    # CDSolver is the one solver that refuses the loss before the checks of the gate, and it names PGD, APG and ProxNewton
+    # CDSolver on a dense Vector: the solver-kind check, the first check of the gate (`kind` :cd), refuses the loss and
+    # names PGD, APG and ProxNewton
     (copy(start), f, g, CDSolver(), ArgumentError,
      "supported only by ProximalGradientDescent, AccProxGradDescent and ProxNewton, on a dense Vector{Float64} " *
      "with a NormL1 penalty; CDSolver does not support it"),

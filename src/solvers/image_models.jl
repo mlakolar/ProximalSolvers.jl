@@ -256,12 +256,11 @@ end
 
 # Whether the image inequality √α ‖X d‖ ≤ (1 + 4eps) √L ‖d‖, d = x - y ≠ 0, is certified for the
 # stored x and y, D being the computed ‖d̂‖ and normx the computed ‖x‖ as _SE. Returns
-# (accepted, used the fresh product). Of the model only the design X is read; √α enters as rootα. For least squares, with α
-# the loss scale, √α ‖X d‖ ≤ √L ‖d‖ is equivalent to the bound
-#     f(x) ≤ f(y) + ⟨∇f(y), d⟩ + L‖d‖²/2,
-# and the inequality above is its relaxation by legacy's slack 8eps on L. For the logistic image (α = ¼, rootα = ½) the
-# same test implies f(x) ≤ f(y) + ⟨∇f(y), d⟩ + (1 + 4eps)² L‖d‖²/2 in exact arithmetic and is not equivalent to it
-# (APG-08).
+# (accepted, used the fresh product). Of the model only the design X is read; √α enters as rootα. In exact arithmetic,
+# for least squares with α the loss scale, the image inequality is equivalent to the descent inequality
+#     f(x) ≤ f(y) + ⟨∇f(y), d⟩ + (1 + 4eps)² L‖d‖²/2.
+# For the logistic image (α = ¼, rootα = ½) the image inequality implies that descent inequality and is not equivalent to
+# it (APG-08). The decision certifies the image inequality under the assumptions below and rejects an inconclusive trial.
 #
 # The bounds assume IEEE arithmetic with gradual underflow and a matrix-vector product that
 # evaluates each entry as a dot product in some order of p multiplications and additions

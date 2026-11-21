@@ -130,7 +130,7 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
 - **(n)** Sparse logistic regression needs `X::Matrix{Float64}`, a response `y::Vector{Float64}`
   whose entries are 0 or 1, a `Vector{Float64}` coefficient and a raw `LogisticLoss(y, X)`
   without observation weights or offset ([IN-09](@ref); see also [Sparse logistic regression with proximal gradient descent](@ref)).
-  `AccProxGradDescent` accepts the same inputs; its line search is [APG-08](@ref).
+  `AccProxGradDescent` passes the same gate, then checks the dimension limits of note (b); its line search is [APG-08](@ref).
   The tests check the returned point against an objective, gradient and KKT residual computed
   from the data in `BigFloat`.
 - **(p)** `ProxNewton` takes the inputs of (n) and the same `NormL1` rules, with a `CDSolver` in cyclic order as
@@ -466,7 +466,7 @@ it the penalty weight zero.
 `CDSolver`, a `Scaled` logistic loss, observation weights or an
 offset, `Float32` data, sparse designs and other penalties are refused before any write. The exact
 input rules, the curvature factor of the line search and the stopping scale are in
-[the logistic input contract](@ref IN-09). `AccProxGradDescent` accepts a nonzero step only when a bound with the curvature
+[the logistic input contract](@ref IN-09). `AccProxGradDescent` accepts a nonzero step from the extrapolated point only when a bound with the curvature
 factor `1/4` of the logistic loss is certified; the bound does not use the local curvature, so on data with saturated
 logits its steps can be shorter than a test on the loss value would allow ([APG-08](@ref)). The [tutorial](examples/problems/logistic_regression.md)
 fits seeded data and checks its objective and KKT residual from the data.

@@ -379,8 +379,10 @@ end
 # A LogisticLoss, unwrapped or in one Scaled wrapper (which _check_logistic_problem refuses).
 _is_logistic_loss(f) = f isa LogisticLoss || (f isa Scaled && f.f isa LogisticLoss)
 
-# The refusal of a logistic loss by CDSolver, which reaches it through the CD owner gate (`kind` :cd) and the block gate
-# (:block). The gate of _check_logistic_problem does not call it for PGD, APG or ProxNewton.
+# The refusal of a logistic loss by CDSolver, reached from the dense gate (_check_logistic_problem, for a `kind` that is
+# none of :pgd, :gradient and :newton), from the CD owner gate (_check_data, with `kind` :cd) and from the block gate
+# (:block). The gate of PGD, APG and ProxNewton does not call it. An owner call that _check_owner_problem refuses
+# earlier (IndNonnegative or NormL1Nonneg on a SparseIterate) does not reach it.
 @noinline _logistic_method_error(::Symbol) =
   throw(ArgumentError("LogisticLoss is supported only by ProximalGradientDescent, AccProxGradDescent and ProxNewton, " *
                       "on a dense Vector{Float64} with a NormL1 penalty; CDSolver does not support it"))
@@ -390,8 +392,8 @@ _is_logistic_loss(f) = f isa LogisticLoss || (f isa Scaled && f.f isa LogisticLo
 _logistic_solver_name(kind::Symbol) =
   kind === :newton ? "ProxNewton" : kind === :gradient ? "AccProxGradDescent" : "ProximalGradientDescent"
 
-# The gate of a logistic loss (IN-09, PN-01, APG-08), in place of the checks below, on every solve and before any write to
-# x. Each refusal is an ArgumentError (a DimensionMismatch for the shapes), in this order: a solver other than PGD, APG
+# The gate of a logistic loss (IN-09, PN-01, APG-08), in place of the checks below, at each call of PGD, APG and ProxNewton
+# and before any write to x; the dense CD route calls it only for the refusal of its own kind. Each refusal is an ArgumentError (a DimensionMismatch for the shapes), in this order: a solver other than PGD, APG
 # and ProxNewton (`kind` is none of :pgd, :gradient and :newton); a Scaled wrapper; a loss, X, y or x that is not
 # LogisticLoss{Float64}, Matrix{Float64}, Vector{Float64} and Vector{Float64}; observation weights or an offset; X
 # without rows or columns, y without one entry per row of X, x without one entry per column; a penalty that is not a

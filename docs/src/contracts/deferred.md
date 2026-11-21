@@ -67,6 +67,6 @@ workspace API; see [ARCH-03](@ref).
 
 **Code.** `src/types.jl`: constructor validation; `src/solve.jl`: supported dispatch and input gates; `src/cd/models.jl`: private seams.
 
-**Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl`, `test/logistic_pgd.jl` (the logistic refusals), `test/logistic_apg.jl` and `test/logistic_proxnewton.jl` (the same refusals for `AccProxGradDescent` and `ProxNewton`) and solver-specific unsupported-input tests.
+**Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl`, `test/logistic_pgd.jl` (the logistic refusals), `test/logistic_apg.jl` and `test/logistic_proxnewton.jl` (the refusals of invalid inputs that each of `AccProxGradDescent` and `ProxNewton` shares with PGD) and solver-specific unsupported-input tests.
 
 **Sources.** `docs/src/support.md:L385`, `docs/src/developer/implementation-notes.md:L238`, `docs/src/developer/implementation-notes.md:L240`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/index.md:L9`, `README.md:L96`; the later nonnegative-lasso refusals are specified by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The narrow ridge extension and remaining refusals are [upstream #420 at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/commit/217cde72cad2b324e174012accc949da59c1bba5).
