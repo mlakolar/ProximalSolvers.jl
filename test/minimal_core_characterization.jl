@@ -216,9 +216,9 @@ end
             solve!(x, f, NormL1(λ), method, strict_options(T))
         @test r.minimizer === x
         @test eltype(x) === T && typeof(r.minimum) === T
-        # A stopping test now holds only at a point that passes the coordinatewise check of STOP-21 (#296), whose
-        # thresholds are formed for each coordinate, and a rounding-size objective increase can
-        # end a strict PGD solve before that bound is met. warm_pgd_accepted accepts either
+        # An iteration test proposes a stop, and the stationarity check keeps it only at a point that passes the
+        # coordinatewise check of STOP-21 (#296), whose thresholds are formed for each coordinate; a rounding-size
+        # objective increase can end a strict PGD solve before that check passes. warm_pgd_accepted accepts either
         # exit for PGD (a small objective increase alone does not show a residual below the
         # bound); the accuracy of the point is checked independently below
         first_ok = method isa CDSolver ? r.converged : warm_pgd_accepted(r, first_options(method, T), T)
@@ -247,9 +247,9 @@ end
         r = method isa CDSolver ? solve!(x, f, NormL1(λ), method) :
             solve!(x, f, NormL1(λ), method, strict_options(T))
         push!(solutions, copy(x))
-        # A stopping test now holds only at a point that passes the coordinatewise check of STOP-21 (#296), whose
-        # thresholds are formed for each coordinate, and a rounding-size objective increase can
-        # end a strict PGD solve before that bound is met. warm_pgd_accepted accepts either
+        # An iteration test proposes a stop, and the stationarity check keeps it only at a point that passes the
+        # coordinatewise check of STOP-21 (#296), whose thresholds are formed for each coordinate; a rounding-size
+        # objective increase can end a strict PGD solve before that check passes. warm_pgd_accepted accepts either
         # exit for PGD (a small objective increase alone does not show a residual below the
         # bound); the accuracy of the point is checked independently below
         first_ok = method isa CDSolver ? r.converged : warm_pgd_accepted(r, first_options(method, T), T)

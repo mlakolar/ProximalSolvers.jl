@@ -3,9 +3,10 @@ module EntryThresholds
 # stop with GroupNormL2, and with a logistic loss and NormL1(λ0, w), is kept only if every group (entry) score is below
 # τ max(cₖ, Λ) (τ max(cᵢ, λmax), cᵢ = T(λ0) wᵢ); before #464 every entry was compared with the single
 # threshold τ max(maxᵢ cᵢ, λmax), so one large coefficient raised the threshold of entry i, in exact arithmetic, by
-# the factor maxⱼ cⱼ / max(cᵢ, λmax) where that scale is positive. For least squares with NormL1(λ0, w) the
-# coordinatewise check of STOP-21 replaced these entry thresholds (#487): entry i is held to τ √α‖Xᵢ‖ √(2f(x)), with
-# exact zero scales decided by the sign of the score. The least-squares fixtures below are checked against that rule.
+# the factor max(maxⱼ cⱼ, λmax) / max(cᵢ, λmax) where that scale is positive. For least squares with NormL1(λ0, w) the
+# coordinatewise check of STOP-21 replaced these entry thresholds (#487): entry i is held to τ √α‖Xᵢ‖ √(2f(x)), and at
+# its exact zero scales (a column of stored ±0 entries, or x = y = 0) to a score of at most 0. The least-squares
+# fixtures below are checked against that rule.
 #
 # Independent references, computed here in 256-bit BigFloat from the stored data and the returned coefficients,
 # without ProximalBase's kkt_violation or the solvers' helpers: the gradient, the per-entry (per-group) minimal-norm
@@ -51,8 +52,9 @@ function allowance(loss, α, X, y, x, ::Type{T}) where T
   abs(big(α)) * γ * (A' * r)
 end
 
-# Every entry (group) of a converged solve satisfies its own bound, recomputed in BigFloat. Returns the largest ratio
-# of a score to its bound. Least squares with ℓ1 coefficients: the coordinatewise bound of STOP-21,
+# The check of a converged solve of the fixtures below: each entry (group) score against its own bound, recomputed in
+# BigFloat with the first-order rounding allowances listed here (estimates under that error model, not bounds for the
+# BLAS kernel in use). Returns the largest ratio of a score to its bound. Least squares with ℓ1 coefficients: the coordinatewise bound of STOP-21,
 # τ √α‖Xⱼ‖ ρ (1 + 4 eps) + allowance + eps(|gⱼ| + cⱼ), with ρ = √α (‖Xx - y‖ + ‖e_r‖)(1 + (n + p + 4) eps) for the
 # rounding e_r of the computed residual, e_r,i = (p+1) eps (Σₖ |Xᵢₖ||xₖ| + |yᵢ|); a zero column has the bound
 # allowance + eps cⱼ, against its score 0. Otherwise (logistic, groups) the bound τ max(cⱼ, λmax)(1 + 4 eps) +
@@ -99,9 +101,10 @@ end
 # The rule formed here from ProximalBase's per-entry scores at a fixed point, and the solver's verdict there. For
 # GroupNormL2 it is the group rule of #464 (STOP-05). For least squares with NormL1 it is the coordinatewise rule of
 # STOP-21: entry i passes when its score is finite and below T((τ (√α ‖Xᵢ‖)) ρ), ρ = √2 √f(x) from the stored loss
-# value, a threshold that is finite and at least floatmin(T); a zero column, and every entry at x = 0 with y = 0,
-# passes when its score is finite and at most 0. `single` is the single threshold τ max(maxᵢ cᵢ, λmax) of the scale
-# before #464, and λmax is computed here for it.
+# value, a threshold that is finite and at least floatmin(T); a column of stored ±0 entries, and every entry when the
+# stored entries of x and y are ±0, passes when its score is finite and at most 0. The threshold is evaluated here in
+# BigFloat and rounded once to T (the solver forms it with Float64 significands, which can differ in the last bit).
+# `single` is the single threshold τ max(maxᵢ cᵢ, λmax) of the scale before #464, and λmax is computed here for it.
 function verdicts(method, f, g, x, ::Type{T}, o = ProximalOptions()) where T
   state = PS.initial_state(method, o, f, g, copy(x))
   λmax = PS._lambda_max!(state, PS._scale_norm(g))
@@ -116,15 +119,14 @@ function verdicts(method, f, g, x, ::Type{T}, o = ProximalOptions()) where T
     c = g.w === nothing ? fill(T(g.λ0), length(x)) : T(g.λ0) .* g.w
     gT = g.w === nothing ? NormL1(T(g.λ0)) : NormL1(T(g.λ0), g.w)
     s = [kkt_violation(gT, grad, state.x, i) for i in eachindex(x)]
-    X, ra = state.model.X, sqrt(Float64(state.model.α))
-    ρ = sqrt(2.0) * sqrt(Float64(state.f_x))
-    trivial = iszero(ρ) && all(iszero, state.model.Y) && all(iszero, state.x)
+    X, α = state.model.X, Float64(state.model.α)
+    stored_zero(v) = (reinterpret(Unsigned, v) << 1) == 0
+    trivial = all(stored_zero, state.model.Y) && all(stored_zero, state.x)
     rule = all(eachindex(x)) do i
-      nrm = sqrt(sum(v -> abs2(Float64(v)), X[:, i]))
-      if trivial || iszero(nrm)
+      if trivial || all(stored_zero, X[:, i])
         isfinite(s[i]) && s[i] <= 0
       else
-        t = T((Float64(τ) * (ra * nrm)) * ρ)
+        t = big256(() -> T(big(τ) * sqrt(big(α) * sum(abs2, big.(X[:, i]))) * sqrt(2 * big(state.f_x))))
         isfinite(t) && t >= floatmin(T) && isfinite(s[i]) && s[i] < t
       end
     end
@@ -257,9 +259,10 @@ end
     x = copy(x0)
     r = solve!(x, f, g, method, ProximalOptions(maxiter = 2000))
     @test !r.converged || check_entries(:ls, 1, X, y, λ0, w, x, Float64) <= 1
-    # near the minimizer the solves stop at a near-optimal point. The coordinatewise check bounds the decrease that one
-    # coordinate can give by τ² Φ = 1e-10 Φ, with Φ = ½‖Xx - y‖² ≈ 5e11 close to F; the ill-conditioning of XᵀX makes
-    # that no bound on the excess, which was measured at 1.3e-13 on Julia 1.13.4
+    # near the minimizer the solves stop at a near-optimal point. In exact arithmetic a pass of the coordinatewise check
+    # bounds the decrease that one coordinate can give by τ² Φ = 1e-10 Φ, with Φ = ½‖Xx - y‖² ≈ 5e11 close to F; the
+    # ill-conditioning of XᵀX makes that no bound on the excess. The tolerance below is that factor τ² for this fixture;
+    # the largest excess measured was 1.3e-13 (Julia 1.13.4)
     if !iszero(x0)
       @test r.converged
       @test objective_excess(:ls, 1, X, y, c, x, xstar) <= 1e-10

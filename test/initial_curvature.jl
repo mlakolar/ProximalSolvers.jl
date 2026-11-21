@@ -3,10 +3,11 @@ module InitialCurvatureTests
 # for the loss f(x) = (α/2)‖y - X x‖² (α = 1 for a raw LeastSquaresLoss): min(1, α‖X‖_F²), with ‖X‖_F the
 # solvers' upper bound, which is 1 when that product is at least 1 or X = 0 (#321). The start is read
 # through `ProximalSolvers.initial_state`. Each testset that runs a solve states what it checks. In the R5-type
-# cases and the Float32 R5-like cases the first steps of PGD have a squared norm that overflows (#364). Where the
-# response is not in the range of X, both solvers must report `converged`; where it is (an exact fit, F* = 0), the
-# coordinatewise check (STOP-21) does not keep a stop, and the solve must return accurate coefficients with
-# `converged = false` at a normal exit. The
+# cases and the Float32 R5-like cases the first steps of PGD have a squared norm that overflows (#364). In the R5 case
+# with λ = 0.1 λmax both solvers must report `converged`. The R5 case with λ = 0, the #327 case and the Float32 R5-like
+# cases are exact fits (y = X c, F* = 0) whose computed residual is parallel to the column or zero at each iterate, so
+# the coordinatewise check (STOP-21) refuses each proposal with the default options; those solves must return accurate
+# coefficients with converged = false at maxiter or an objective increase. The
 # R5-type cases, the moderate-scale case and the ElasticNet case compare, for each solver that reports
 # `converged = true`, the exact coordinatewise ratio of the returned point (kkt_ratio below), computed here in
 # 256-bit BigFloat from the raw data, with the solver's bound max(gradtol, 64 eps(T)) plus the allowance of `bound`
@@ -89,7 +90,8 @@ end
 
 @testset "R5 and the #327 case: the start is the curvature, and APG and PGD converge where the fit is not exact" begin
   R5 = (ones(5, 1), fill(1e160, 5), 1e-100)
-  # R5 with λ = 0 and #327 are exact fits (y = X 1e160): the coordinatewise check keeps no stop there (STOP-21)
+  # R5 with λ = 0 and #327 are exact fits (y = X 1e160): with the default options the coordinatewise check refuses
+  # each proposal of their solves (STOP-21)
   cases = (("R5, λ = 0", R5..., 0.0),
            ("R5, λ = 0.1 λmax", R5..., 0.1),
            ("#327", [1.0;;], [1e160], 5e-100, 0.0))
@@ -325,8 +327,9 @@ alloc_solve(f, g, x0, method) = (x = copy(x0); @allocated solve!(x, f, g, method
 end
 
 @testset "Float32 R5-like data: PGD and APG reach the exact fit from the scale-aware start (T = Float32, Float64 scale α)" begin
-  # y = X 1f20 is an exact fit, which the coordinatewise check does not certify (STOP-21): the solves return
-  # accurate coefficients with converged = false at a normal exit
+  # y = X 1f20 is an exact fit: with the default options the computed residual is parallel to the column or zero at
+  # each iterate, the coordinatewise check (STOP-21) refuses each proposal, and the solves return accurate
+  # coefficients with converged = false at maxiter or an objective increase
   X, y = ones(Float32, 5, 1), fill(1f20, 5)
   for α in (1e-10, 1e-30)
     @test PS._check_loss_scale(α, Float32) === nothing
@@ -344,7 +347,8 @@ end
 end
 
 @testset "Float32 R5-like data with a squared step norm beyond floatmax(Float32): PGD and APG reach the exact fit (#364)" begin
-  # exact fits, as above: accurate coefficients with converged = false at a normal exit
+  # exact fits of the same form, as above: accurate coefficients with converged = false at maxiter or an objective
+  # increase
   for (Y, α) in ((1f25, 1f-20), (1f30, 1f-30))
     X, y = ones(Float32, 5, 1), fill(Y, 5)
     f, g = lossof(α, y, X), NormL1(0f0)

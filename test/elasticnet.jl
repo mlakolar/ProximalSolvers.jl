@@ -397,9 +397,9 @@ end
   # trial is accepted), the soft-threshold part of the step leaves
   # the warm start unchanged up to rounding, and the ridge weight 1/(1 + λ2/L) scales it, so the iterate
   # moves by a relative 1e-4, below xtol, and a test proposes a stop. At that iterate the residual of
-  # NormL1(λ1) is of the order of 1e-6, below the coordinatewise threshold of x2 (STOP-21),
-  # τ √(a² + λ2) √(‖Xx - y‖² + λ2‖x‖²) ≈ 1e-3 × 0.0141 × 0.825 ≈ 1.2e-5 at the warm start, while the elastic-net
-  # residual is of the order of λ2 x2 = 8e-3, so the stop is refused when the residual includes λ2 x.
+  # NormL1(λ1) is of the order of 1e-6, below the elastic-net coordinatewise threshold of x2 (STOP-21),
+  # τ √(a² + λ2) √(‖Xx - y‖² + λ2‖x‖²) ≈ 1e-3 × 0.0141 × 0.825 ≈ 1.2e-5 at the warm start (a = 0.01, λ2 = 1e-4), while
+  # the elastic-net residual is of the order of λ2 x2 = 8e-3, so the stop is refused when the residual includes λ2 x.
   for T in (Float32, Float64), method in METHODS
     X, y = T[1 0; 0 0.01], T[0, 1]
     α = one(T)

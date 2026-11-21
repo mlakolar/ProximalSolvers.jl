@@ -538,11 +538,11 @@ end
   # xtol is compared with max(‖x‖, 1) and ftol is added to |F| in the objective test, so
   # solutions of size 1e-160 and objectives of size 1e-30 need both far below that
   long = ProximalOptions(maxiter = 500, ftol = 1e-300, xtol = 1e-300, gradtol = 0)
-  # weighted curvature 1e-8 with a loss scale of 1e38: no uphill step, solution y/X = 1e13. The data fit exactly
-  # (F* = 0), which the coordinatewise check does not certify (STOP-21), so the solve does not stop at a proposal.
-  # It continues until L, multiplied by α = 1f-30 at the start of each iteration, underflows to zero; the line search
-  # then raises its error, and the engine restores the last accepted point (seen on Julia 1.13.4 at iteration 12).
-  # Either that error or a return without convergence is accepted, at an accurate point.
+  # weighted curvature 1e-8 with a loss scale of 1e38: no uphill step, solution y/X = 1e13. These data fit exactly
+  # (F* = 0), and on Julia 1.13.4 the coordinatewise check (STOP-21) refused each proposal of this solve (default
+  # options, AccProxGradDescent(α = 1f-30)). It continued until L, multiplied by α = 1f-30 at the start of each
+  # iteration, underflowed to zero at iteration 12; the line search then raised its error, and the engine restored the
+  # last accepted point. Either that error or a return without convergence is accepted, at an accurate point.
   X, y = reshape(Float32[1f-23], 1, 1), Float32[1f-10]
   x = zeros(Float32, 1)
   outcome = try

@@ -267,8 +267,9 @@ end
 
 # One check of a stop: (kept, state) for the point x of the problem with λ and the solver method.
 # For PGD the gradient at x is set to -λ sign(x) + G (G the residual of the entry), the response y = λmax / α
-# with the design [1]. For APG the response is chosen so that the gradient that the kernel forms at x is
-# x - y = -λ sign(x) + G. The design has one row, so the coordinatewise threshold is τ α |x - y| (STOP-21).
+# with the design [1]. For APG the response is y = x + λ sign(x) - G at x ≠ 0 (and λmax at x = 0), so that with α = 1
+# and x ≠ 0 the gradient that the kernel forms at x is x - y = -λ sign(x) + G. The design has one row, so the
+# coordinatewise threshold is τ α |x - y| (STOP-21).
 function check(method, T, x, λ, G, options; λmax = 1, α = one(T))
   g = NormL1(T(λ))
   if method isa ProximalGradientDescent
@@ -479,9 +480,9 @@ end
   @test r.converged
   invariant("strict 1e-200", r, X, y, α, λ, STRICT, Float64)
   # The reference is the least-squares solution x* of the rounded data, in 256-bit BigFloat. With
-  # λ = 0, G = α XᵀX (x - x*), so ‖x - x*‖₂ ≤ ‖G‖₂ / (α σmin²) ≤ √p ‖G‖∞ / (α σmin²). The invariant above
-  # bounds ‖G‖∞ by U = maxᵢ (eGᵢ + τ (1 + 4u)(sᵢ + esᵢ)) (the stopping thresholds τ sᵢ plus the rounding
-  # estimates of kkt_excess). σlo is a candidate lower bound on σmin: the computed least singular
+  # λ = 0, G = α XᵀX (x - x*), so ‖x - x*‖₂ ≤ ‖G‖₂ / (α σmin²) ≤ √p ‖G‖∞ / (α σmin²). Where the invariant above holds
+  # on this fixture, ‖G‖∞ is at most U = maxᵢ (eGᵢ + τ (1 + 4u)(sᵢ + esᵢ)) (the stopping thresholds τ sᵢ plus the
+  # first-order rounding estimates of kkt_excess, which are estimates, not bounds for every kernel). σlo is a candidate lower bound on σmin: the computed least singular
   # value of X less p eps σmax. It is not claimed from the backward stability of the SVD; it is
   # certified below by a Cholesky factorization of XᵀX - σlo² I in 256-bit BigFloat (for this fixture's values, XᵀX is exact at 256 bits). Success certifies λmin(XᵀX) > σlo², up to
   # the 256-bit rounding of the factorization, which for this fixture is far below the margin.

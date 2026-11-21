@@ -1174,8 +1174,8 @@ end
 # that the assessment reads are set. F = f_x + g_x with g_x = 0; xtol = 1e-8, gradtol = 1e-11.
 # A proposed stop is kept only if x is stationary (#296): `stationary = true` moves both gradients
 # by the same amount, so that the gradient at x is -λ sign(x) (the residual of the gradient test
-# does not change; the scores at x are then 0, below the coordinatewise thresholds that the check forms from the
-# design and the f_x set here, STOP-21),
+# does not change; the scores at x are then 0 at a nonzero coefficient and -λ at a zero one, below the coordinatewise
+# thresholds that the check forms from the design and the f_x set here, STOP-21),
 # `stationary = false` leaves the gradient at x one away from it, and `stationary = nothing` sets
 # the given gradients as they are.
 function pgd_assessment(T, ftol; x, previous, F, F_previous, delta = x .- previous,
@@ -1548,8 +1548,9 @@ end
   x = [0.0, 0.0]
   solve!(x, f, g, ProximalGradientDescent())
   @test all(isfinite, x)
-  # a longer run. The data fit exactly (F* = 0), which the coordinatewise check of STOP-21 does not certify, so the
-  # run returns with converged = false; it is checked against the accuracy below. With τ = max(gradtol, 64 eps) and
+  # a longer run. These data fit exactly (F* = 0); with these options the coordinatewise check of STOP-21 refuses each
+  # proposal (the run returned the exact minimizer at maxiter on Julia 1.13.4), so the run returns with converged =
+  # false at maxiter or an objective increase; it is checked against the accuracy below. With τ = max(gradtol, 64 eps) and
   # S = |X₂₂ y₂|: in exact arithmetic G₂ = X₂₂² (x₂ - x₂*), so |G₂| ≤ τ S gives |x₂ - x₂*| ≤ τ S / X₂₂², a relative
   # error of τ. The bound below is (τ S / X₂₂² + u |x₂|)(1 + 4u), u = eps(Float64), with slack for the rounding of x₂,
   # and x₁ (whose minimizer is 0) is held to (τ S + u |x₁|)(1 + 4u).

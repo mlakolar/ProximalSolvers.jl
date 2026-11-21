@@ -110,9 +110,11 @@ function coordparts(X, y, α, λ0, w, x, ::Type{T}) where T
   end
 end
 
-# The bound of a kept PGD or APG stop (STOP-21): Gᵢ - eGᵢ <= tᵢ = τ (1 + 4 eps) (sᵢ + esᵢ) for every coordinate, with
-# τ = max(gradtol, 64 eps(T)) (a zero column has sᵢ = 0 and so needs Gᵢ <= eGᵢ). Returns that verdict, maxᵢ (tᵢ + eGᵢ),
-# a bound on the exact ‖G‖∞ where the verdict holds, and the largest ratio of Gᵢ - eGᵢ to tᵢ.
+# The check of a kept PGD or APG stop on the fixtures of this file (STOP-21): Gᵢ - eGᵢ <= tᵢ = τ (1 + 4 eps) (sᵢ + esᵢ)
+# for every coordinate, with τ = max(gradtol, 64 eps(T)) and the first-order rounding allowances of coordparts (a zero
+# column has sᵢ = 0 and so needs Gᵢ <= eGᵢ); an estimate under that error model, not a bound that every kept computed
+# stop satisfies. Returns that verdict, maxᵢ (tᵢ + eGᵢ), a bound on the exact ‖G‖∞ where the verdict holds, and the
+# largest ratio of Gᵢ - eGᵢ to tᵢ.
 function coordinate_bound(X, y, α, λ0, w, x, gradtol, ::Type{T}) where T
   G, eG, sc, es = coordparts(X, y, α, λ0, w, x, T)
   big256() do

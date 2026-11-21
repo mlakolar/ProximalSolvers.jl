@@ -45,8 +45,9 @@ function exact_coefficients(a, w)
   end
 end
 
-# `exact_fit`: the minimizer fits y exactly (F* = 0), where the coordinatewise check of PGD and APG keeps no stop
-# (STOP-21); their solves are then checked for accuracy with converged = false.
+# `exact_fit`: the minimizer fits y exactly (F* = 0). For the fixture that passes it (X = I, ElasticNet(0, 0, w), from the
+# endpoint testset, options(T)) the coordinatewise check of PGD and APG refuses every proposal (STOP-21), and their
+# solves are checked for accuracy with converged = false.
 function fit_and_check(X::Matrix{T}, y, s, a, b, w, x0, expected, method, sparse; exact_fit = false) where T
   opts = options(T)
   x = start(x0, sparse)
@@ -140,10 +141,10 @@ end
 @testset "The PG stop uses the coordinatewise ElasticNet rule ($T)" for
     T in (Float32, Float64), method in PG_METHODS
   # X = I₂: coordinate i passes when its score (|∇fᵢ| - cᵢ at xᵢ = 0, |∇fᵢ + λ2 xᵢ + cᵢ sign xᵢ| elsewhere, with
-  # ∇f = x - y) is below gradtol √(1 + λ2) √(‖x - y‖² + λ2‖x‖²) (STOP-21). Against the #464 entry thresholds
-  # gradtol max(cᵢ, λmax), the second case refuses (score 900.3 against 105.9; the #464 threshold of x₂ was
-  # 0.95 max(1000, 100)) and the third passes (score 0.5 against 0.559; the #464 threshold of the zero-weight x₁ was
-  # 0.5 λmax = 0.5).
+  # ∇f = x - y) is below gradtol √(1 + λ2) √(‖x - y‖² + λ2‖x‖²) (STOP-21). Two cases decide differently from the
+  # #464 entry thresholds gradtol max(cᵢ, λmax): the second point passes the #464 threshold of x₂, 0.95 max(1000, 100)
+  # = 950, and fails the coordinatewise one (score 900.3 against 105.9); the third point fails the #464 threshold of
+  # the zero-weight x₁, 0.5 λmax = 0.5, and passes the coordinatewise one (score 0.5 against 0.559).
   X = Matrix{T}(I, 2, 2)
   for (y, x, a, b, w, gradtol, expected) in (
       (T[0.9, 0], T[0.5, 0], one(T), T(0.25), T[1, 1000], 0.01, false),
