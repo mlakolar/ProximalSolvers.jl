@@ -3,7 +3,7 @@
                              debias=0, preconditioner=:none)
 
 Proximal gradient descent for least squares with `NormL1` (optionally weighted),
-unweighted `ElasticNet`, `NormLinf`, `GroupNormL2`, unweighted `NormL1Nonneg` or
+unweighted `ElasticNet`, `NormLinf`, `NormL2`, `GroupNormL2`, unweighted `NormL1Nonneg` or
 `IndNonnegative()`.
 Vector regression uses dense Float32 or Float64 coefficients and same-type data.
 For a matrix response, use dense same-type `X`, `Y` and `B` with unweighted
@@ -40,6 +40,11 @@ Weighted matrix regression penalties are deferred. PGD requires dense
 coefficients and refuses `SparseIterate`, `BlockIterate` and square-root loss. A group penalty must have the same
 parameter type as the data and groups partitioning the coefficients.
 
+`NormL2(lambda)` penalizes the Euclidean norm of the whole coefficient vector. Use
+it on a dense vector with raw or positively scaled least squares. See
+[the Euclidean-norm input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-11)
+and [its stopping check](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-17).
+
 PGD also fits sparse logistic regression with a raw `LogisticLoss(y, X)` (dense
 `Matrix{Float64}` design, binary `Vector{Float64}` response, no observation
 weights or offset) and `NormL1`, with or without penalty weights, on a
@@ -56,7 +61,7 @@ unsupported, including an all-ones weight vector. PGD and `CDSolver` (least squa
 a feasible dense `Vector`) accept the unweighted form. See [the input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-07).
 
 A stopping proposal from the iterate, objective or gradient test must pass the
-applicable stationarity check. `NormL1`, `ElasticNet`, `GroupNormL2`,
+applicable stationarity check. `NormL1`, `ElasticNet`, `NormL2`, `GroupNormL2`,
 `NormL1Nonneg`, and `IndNonnegative()` have KKT checks; the nonnegative case uses the constrained
 scores at positive and zero coefficients specified by
 [STOP-16](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16).
@@ -370,7 +375,8 @@ this penalty with PGD, APG, block/matrix coefficients or square-root loss are re
 See [supported inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01).
 
 Group CD requires a `BlockIterate` with the penalty's ordered groups; group
-PGD/APG require a same-type `GroupNormL2{T}` and dense coefficients.
+PGD/APG require a same-type `GroupNormL2{T}` and dense coefficients. `NormL2(lambda)`
+is accepted by PGD and APG on dense coefficients, as in [`ProximalGradientDescent`](@ref).
 Square-root lasso is available only with CD, an unscaled loss and an unweighted
 positive L1 level; its successful stopping flag requires a certificate.
 

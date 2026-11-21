@@ -142,6 +142,36 @@ res_apg = solve!(beta_apg, f, g, AccProxGradDescent(),
 println("APG: iterations = ", res_apg.iterations, "; largest violation ",
         maximum(k -> violation(beta_apg, k), eachindex(groups)))
 
+# ## One group is the Euclidean norm
+#
+# With a single group that holds every coefficient and weight one, the group penalty is
+# `λ ‖β‖₂`. ProximalBase's `NormL2(λ)` is that penalty, accepted by `ProximalGradientDescent`
+# and `AccProxGradDescent` on a dense vector. The two penalties define the same
+# objective, and the proximal operations can round differently. In exact arithmetic
+# the zero vector minimizes the objective when `λ ≥ s ‖Xᵀy‖₂`. We use one quarter
+# of this threshold to obtain a nonzero fit.
+lambda_one = 0.25 * s * norm(X' * y)
+
+# Near the solution, rounding can make the computed objective increase.
+# Allowing increases lets the solver continue in that case. We check both fits
+# against the stationarity condition below.
+options_one = ProximalOptions(maxiter = 20_000, gradtol = 1e-10, allow_f_increases = true)
+beta_l2 = zeros(p)
+solve!(beta_l2, f, NormL2(lambda_one), ProximalGradientDescent(), options_one)
+beta_one = zeros(p)
+solve!(beta_one, f, GroupNormL2(lambda_one, [collect(1:p)], [1.0]),
+       ProximalGradientDescent(), options_one)
+@assert !iszero(beta_l2) && !iszero(beta_one)
+@assert maximum(abs, beta_l2 - beta_one) <= 1e-6
+
+# The Euclidean-norm optimality condition is checked from the data: at a nonzero point,
+# `s Xᵀ(Xβ − y) + λ β / ‖β‖₂ = 0`.
+one_group_violation(b) = norm(s * (X' * (X * b - y)) + lambda_one * b / norm(b))
+violation_one = max(one_group_violation(beta_l2), one_group_violation(beta_one))
+@assert violation_one <= 1e-7
+println("one group: largest difference between NormL2 and GroupNormL2 ", maximum(abs, beta_l2 - beta_one),
+        "; largest violation ", violation_one)
+
 # ## Limitations
 #
 # Group selection depends on the chosen grouping, predictor scaling, and penalty

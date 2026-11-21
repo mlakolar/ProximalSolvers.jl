@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` (optional weights), `ElasticNet`, `NormLinf` or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref). The penalty prox is described in [PGD-01](@ref).
+Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` (optional weights), `ElasticNet`, `NormLinf`, `NormL2` ([IN-11](@ref)) or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref). The penalty prox is described in [PGD-01](@ref).
 
 ## Notation
 
@@ -70,7 +70,7 @@ A nonfinite value or gradient at the extrapolated point is treated the same way:
 
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: g_residual, gradient_converged!; src/utils.jl: _gradient_at_x!`.
 
-**Tests.** test/accelerated_pgd.jl: proposed stop clearing and gradient counts.
+**Tests.** test/accelerated_pgd.jl: proposed stop clearing and gradient counts. test/norml2_pgd.jl checks that the `NormL2` stationarity test forms the gradient at the accepted point.
 
 **Sources.** `docs/src/numerics.md:L62`, `docs/src/developer/implementation-notes.md:L320`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/choosing-solver.md:L224`.
 
@@ -86,13 +86,13 @@ prox_calls = backtrack_steps + C_prox
 f_calls = 1 + grad_calls + backtrack_steps - C
 ```
 
-For a dedicated KKT check `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). These counters describe the existing implementation; errors do not transactionally restore them.
+For a dedicated KKT check, including the `NormL2` check of [STOP-17](@ref), `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). These counters describe the existing implementation; errors do not transactionally restore them.
 
 **Applies to.** Completed AccProxGradDescent solves.
 
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!; src/utils.jl: _gradient_at_x!, _stationary!`.
 
-**Tests.** test/accelerated_pgd.jl: image-cache counters and trace/limits; test/linf.jl: one extra prox for a proposed stop.
+**Tests.** test/accelerated_pgd.jl: image-cache counters and trace/limits; test/linf.jl: one extra prox for a proposed stop; test/norml2_pgd.jl: `backtrack_steps == prox_calls` with a dedicated `NormL2` check.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L320`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docstring:src/types.jl:L75`.
 
@@ -110,7 +110,7 @@ The baseline proof below uses one response. [APG-07](@ref) gives the matrix-resp
 
 **Code.** `src/solvers/image_models.jl: _bound_certified!, _frobenius_upper, _root_scale; src/solvers/accelerated_proximal_gradient_descent.jl: _check_bound_size`.
 
-**Tests.** The matrix validation is in [APG-07](@ref). test/accelerated_pgd.jl: certified backtracking against BigFloat, subnormal norms, wide scales, nonfinite inputs and fresh-product reference.
+**Tests.** The matrix validation is in [APG-07](@ref). test/accelerated_pgd.jl: certified backtracking against BigFloat, subnormal norms, wide scales, nonfinite inputs and fresh-product reference. test/norml2_pgd.jl checks the bound in BigFloat for an accepted nonzero trial after backtracking with `NormL2`.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L344`, `docs/src/developer/implementation-notes.md:L346`, `docs/src/developer/implementation-notes.md:L352`, `docs/src/developer/implementation-notes.md:L361`, `docs/src/developer/implementation-notes.md:L375`, `docs/src/developer/implementation-notes.md:L394`, `docs/src/developer/implementation-notes.md:L401`, `docs/src/developer/implementation-notes.md:L406`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docs/src/numerics.md:L1045`.
 
