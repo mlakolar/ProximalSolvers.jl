@@ -161,8 +161,8 @@ end
     for method in METHODS
       refused(copy(x), f, NormLinf(T(Inf)), method, "penalty lambda must be finite and nonnegative")
       generic = method isa ProximalGradientDescent ?
-        "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported" :
-        "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, IndBox or IndBallL2 is supported"
+        "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported" :
+        "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"
       refused(copy(x), f, Scaled(NormLinf(T(.1)), 2), method, generic)
       T === Float32 && refused(copy(x), f, NormLinf(1e300), method,
                                "penalty lambda is not representable without overflow or underflow in Float32")

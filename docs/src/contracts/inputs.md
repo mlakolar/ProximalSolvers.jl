@@ -20,25 +20,26 @@ the design requirement.
 
 | Solver / problem | Coefficient storage | Penalty |
 | --- | --- | --- |
-| `CDSolver`, least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | `NormL1`, with or without weights, unweighted `ElasticNet`, or uncentered `SqrNormL2` |
+| `CDSolver`, least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | `NormL1` or `ElasticNet`, each with or without weights ([IN-03](@ref)), or uncentered `SqrNormL2` |
 | `CDSolver`, group least squares | `BlockIterate{T}` | matching `GroupNormL2`; see [CDG-01](@ref) |
 | `CDSolver`, matrix-response least squares | dense `Matrix{T}` or matching row-group `BlockIterate{T}` | native row-group `GroupNormL2`; see [CDM-01](@ref) |
 | `CDSolver`, square-root least squares | dense `Vector{T}` or one-dimensional `SparseIterate{T}` | unweighted `NormL1` with positive level; see [CDQ-01](@ref) |
-| `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1`, unweighted `ElasticNet`, `NormLinf`, or `GroupNormL2` under [IN-04](@ref) |
+| `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1` or `ElasticNet`, each with or without weights ([IN-03](@ref)), `NormLinf`, `NormL2` under [IN-11](@ref), or `GroupNormL2` under [IN-04](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, matrix-response least squares | dense `Matrix{T}` | unweighted `NormL1` under [IN-10](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
-| `ProximalGradientDescent`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
+| `ProximalGradientDescent` or `CDSolver`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` (not a `SparseIterate`) | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
 | `ProximalGradientDescent`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) |
 | `ProxNewton`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) and [PN-01](@ref) |
 | `ADMMSolver`, centered `SqrNormL2` | dense `Vector{T}` | unweighted `NormL1` under [ADM-01](@ref) |
 | `ADMMSolver`, raw least squares | dense `Vector{Float64}` with a `Matrix{Float64}` design, `Vector{Float64}` response and `n ≥ p` | unweighted `NormL1`, level `nλ` for the normalized lasso, under [ADM-05](@ref) |
 | `ADMMSolver`, graphical lasso with `LogDetLoss` | dense, exactly symmetric `Matrix{T}` with a successful Cholesky factorization in `T` | `NormL1` with finite, nonnegative, exactly symmetric `Matrix{T}` weights, including the diagonal, under [ADM-04](@ref) |
-| `ProximalGradientDescent`, graphical lasso with `LogDetLoss` | dense SPD `Matrix{T}` | same-type symmetric zero-diagonal matrix weights in `NormL1` under [PGD-06](@ref) |
+| `ProximalGradientDescent`, graphical lasso with `LogDetLoss` | dense SPD `Matrix{T}` | `NormL1` with finite, nonnegative, exactly symmetric `Matrix{T}` weights, including the diagonal, under [PGD-06](@ref) |
 
 The gradient methods refuse `SparseIterate` and `BlockIterate`; scalar CD refuses
 `GroupNormL2`, and all CD storage forms refuse `NormLinf` before any coefficient write
 or RNG draw. The latter requires a nonseparable proximal operator; CD's coordinate oracle
-requires a separable penalty. Unsupported inputs and options are refused before mutation.
+requires a separable penalty. The `NormL2` combinations are listed in [IN-11](@ref).
+Unsupported inputs and options are refused before mutation.
 Shape errors use `DimensionMismatch`; unsupported combinations and options use informative
 `ArgumentError`s. Finite inputs alone do not promise finite intermediate arithmetic; see
 [FP-01](@ref).
@@ -61,7 +62,8 @@ Raw `LeastSquaresLoss(y, X)` means `sum(abs2, y-X*x)/2`. A single supported posi
 scalar wrapper scales that loss; use `(one(T)/T(n))*LeastSquaresLoss(y, X)` when that
 native normalization is intended. This fixed scaling is distinct from the scaled lasso,
 which estimates a noise level. The unweighted elastic-net penalty is
-`lambda1 * norm(x, 1) + (lambda2/2) * sum(abs2, x)`. Full objectives and algorithms are
+`lambda1 * norm(x, 1) + (lambda2/2) * sum(abs2, x)`; with weights it is the penalty of
+[IN-03](@ref). Full objectives and algorithms are
 specified by their solver contracts. For complete runnable calls, see
 [Getting started](../getting-started.md) and the [sparsity tutorial](../sparsity-and-kkt.md).
 
@@ -69,7 +71,7 @@ specified by their solver contracts. For complete runnable calls, see
 
 **Code.** `src/solve.jl`: `_check_data`, `_check_penalty` and the solver-specific owner gates; public `solve!` dispatch.
 
-**Tests.** `test/core_contracts.jl`, `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/linf.jl`, `test/nonnegative_lasso.jl`, `test/logistic_pgd.jl`; `test/cd_elasticnet.jl` checks supported ridge solves plus centered and union-center refusals, while `test/sqrt_lasso.jl` explicitly refuses `SqrNormL2` with square-root loss. Existing generic gates refuse it for PGD/APG and unsupported storage. `test/admm_graphical_lasso.jl` checks acceptance of finite nonnegative diagonal weights and refusal of invalid weights.
+**Tests.** `test/core_contracts.jl`, `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/linf.jl`, `test/norml2_pgd.jl`, `test/nonnegative_lasso.jl`, `test/logistic_pgd.jl`; `test/cd_elasticnet.jl` checks supported ridge solves plus centered and union-center refusals, while `test/sqrt_lasso.jl` explicitly refuses `SqrNormL2` with square-root loss. Existing generic gates refuse it for PGD/APG and unsupported storage. `test/admm_graphical_lasso.jl` checks acceptance of finite nonnegative diagonal weights and refusal of invalid weights; `test/pgd_graphical_lasso.jl` does so for matrix PGD.
 
 **Sources.** `docs/src/numerics.md:L732`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L356`, `docs/src/developer/implementation-notes.md:L7`, `docs/src/developer/implementation-notes.md:L192`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/index.md:L9`, `README.md:L79`, `README.md:L96`, `docs/src/support.md:L130`, `docstring:src/ProximalSolvers.jl:L4`; the later nonnegative-lasso addition is [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The ridge extension is [upstream #420 at 217cde72, exact penalty gate](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L59-L100) and [support note (j)](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/docs/src/support.md#L75-L80).
 
@@ -81,19 +83,21 @@ For regression solvers, penalty levels must be finite nonnegative real scalars t
 overflow or rounding a nonzero value to zero. A different scalar type is allowed,
 including a representable `Float64` literal in a `Float32` solve. A subnormal converted
 level is accepted for an unweighted `NormL1`, the supported unweighted
-`NormL1Nonneg` in [IN-07](@ref), or the uncentered `SqrNormL2` ridge penalty
-in [IN-01](@ref); weighted `NormL1` has the stricter [IN-03](@ref) rule.
-For ridge, zero is also accepted. Negative, NaN or infinite levels are refused,
+`NormL1Nonneg` in [IN-07](@ref), `NormL2` in [IN-11](@ref), or the uncentered `SqrNormL2` ridge penalty
+in [IN-01](@ref); weighted `NormL1` and the L1 level of a weighted `ElasticNet`
+have the stricter [IN-03](@ref) rule, which the ridge level of a weighted
+`ElasticNet` does not share. For ridge, zero is also accepted. Negative, NaN or infinite levels are refused,
 as are finite levels whose conversion overflows or turns a nonzero value into
 zero.
 
-For unweighted `NormL1` with PGD or APG and unweighted `NormL1Nonneg` with
-PGD, public `solve!` validates the supplied penalty and completes the method's
-input checks before forming a working penalty with level `T(lambda)`. It reuses
-an already native penalty. That penalty supplies the initial objective, every
+For unweighted `NormL1` with PGD or APG, `NormL2` with PGD or APG, and unweighted
+`NormL1Nonneg` with PGD, public `solve!` validates the supplied penalty and completes the
+method's input checks before forming a working penalty with level `T(lambda)`. The
+solver reuses a penalty already parameterized by `T`. The working penalty supplies the initial objective, every
 fused value and proximal evaluation, and the stationarity residual and scale.
-The caller's penalty is unchanged. Other regression penalties and CD retain their
-own arithmetic rules. ADMM has its own scalar-parameter rules in [ADM-01](@ref).
+The caller's penalty is unchanged. [IN-03](@ref) defines the working penalty for
+weighted `ElasticNet` in CD, PGD and APG. ADMM has its own scalar-parameter rules
+in [ADM-01](@ref).
 
 For `Scaled(LeastSquaresLoss(...), s)`, the supported loss scale is either:
 
@@ -148,11 +152,11 @@ g = NormL1(lambda)
 
 **Code.** `src/solve.jl`: `_scalar_parameter`, `_check_loss_scale`, `_loss_scale_error`; `src/utils.jl`: `_working_gradient_penalty`, `_converted_penalty`, called by the public PGD and APG entry points; `src/cd/leastsquares.jl`: `LSModel`; `src/solvers/image_models.jl`: scale consumers.
 
-**Tests.** `test/core_regressions.jl`, “Working ℓ₁ levels”, compares mixed and explicitly converted PGD/APG solves, checks independent objectives and covers pre-write refusals. `test/core_contracts.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/stopping_scale.jl`; ridge construction/validation in `test/cd_elasticnet.jl`, including negative/NaN constructors, an infinite level and Float32 conversions of `1e-60` and `1e40`, plus supported zero and mixed-scalar levels.
+**Tests.** `test/core_regressions.jl`, “Working ℓ₁ levels”, compares mixed and explicitly converted PGD/APG solves, checks independent objectives and covers pre-write refusals. `test/norml2_pgd.jl` checks that PGD and APG produce identical coefficients and reported objectives on the tested `Float32` problem with a `Float64` level and with that level explicitly converted to `Float32`. `test/core_contracts.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/stopping_scale.jl`; ridge construction/validation in `test/cd_elasticnet.jl`, including negative/NaN constructors, an infinite level and Float32 conversions of `1e-60` and `1e40`, plus supported zero and mixed-scalar levels.
 
 **Sources.** `docs/src/numerics.md:L743`, `docs/src/numerics.md:L783`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L327`, `docs/src/support.md:L330`, `docs/src/support.md:L334`, `docs/src/developer/implementation-notes.md:L7`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/getting-started.md:L119`. The unweighted nonnegative-lasso level gate is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). Ridge reuses [`_scalar_parameter` at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L11-L21), called by [its new penalty branch](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L75-L79).
 
-## [IN-03 Weighted lasso inputs and rounded coefficients](@id IN-03)
+## [IN-03 Weighted lasso and weighted elastic-net inputs, and rounded coefficients](@id IN-03)
 
 **Statement.**
 
@@ -185,16 +189,40 @@ CD's `prox_block` branch. Those thresholds can differ from ones formed from `c_j
 rounding and, when `lambda` is not `T`, by its conversion error. [CD-04](@ref) specifies
 the branch selection and the bound on that error. CD retains its change test.
 
-`Scaled(NormL1(lambda, w), a)` and weighted `ElasticNet` are refused. The
+`Scaled(NormL1(lambda, w), a)` is refused. The
 [weighted-lasso tutorial](../examples/problems/weighted_lasso.md) demonstrates an
 adaptive lasso with a zero weight using all three solvers; its source script is
 `examples/problems/weighted_lasso.jl`.
 
-**Applies to.** Weighted `NormL1` with scalar least-squares CD, PGD or APG; group input checks reuse the rounded-coefficient rule in [IN-04](@ref).
+**Weighted elastic net.** `ElasticNet(lambda1, lambda2, w)` means
+`lambda1 * sum(w[j] * abs(x[j])) + (lambda2/2) * sum(abs2, x)`.
+A zero weight removes the L1 term for its coordinate. The ridge term applies to
+each coordinate. The `ElasticNet` rows of [IN-01](@ref) list the supported methods
+and storage for raw least squares and a single admitted loss scale.
+`Scaled(ElasticNet(lambda1, lambda2, w), a)` is refused.
 
-**Code.** `src/solve.jl`: `_check_l1_weights`, `_weighted_level`, `_check_coefficients`; `src/cd/leastsquares.jl`: exceptional threshold branch.
+Validate the stored `lambda1` under the weighted-level rule above. Then validate
+`lambda2` under [IN-02](@ref), which accepts zero and representable positive
+subnormals for this ridge level. For `w` and the rounded coefficients
+`c_j = T(lambda1) * w_j`, apply the weight, alias and coefficient rules above.
+Each solve reads the current weights and completes these checks before copying
+or writing `x` and before using the CD random number generator. During the solve
+the borrowed weights are read-only under [IN-05](@ref).
 
-**Tests.** `test/weighted_lasso.jl` (accepted weights, conversion/range/alias refusals and stopping), `test/cd_numerics.jl`.
+After validation the solver uses `ElasticNet(T(lambda1), T(lambda2), w)` for
+its objective evaluations, proximal steps and PGD/APG stationarity checks.
+It converts the levels separately and borrows the supplied weight vector.
+A penalty with native levels is reused. ProximalBase's ordinary proximal
+kernels use the working level and the weight as separate factors, which can
+round differently from forming a threshold from the checked coefficient.
+[STOP-06](@ref) specifies the PGD/APG stopping check and [CD-04](@ref)
+specifies the exceptional CD step.
+
+**Applies to.** Weighted `NormL1` and weighted `ElasticNet` with scalar least-squares CD, PGD or APG; group input checks reuse the rounded-coefficient rule in [IN-04](@ref).
+
+**Code.** `src/solve.jl`: `_check_l1_weights`, `_check_elasticnet_weights`, `_check_weights`, `_weighted_level`, `_check_coefficients`; `src/utils.jl`: `_working_gradient_penalty`, `_working_cd_penalty`, `_converted_penalty`, `_l1_level`; `src/cd/solver.jl`: the working penalty of the dense and owner routes; `src/cd/leastsquares.jl`: exceptional threshold branch and its shared weighted-lasso primitive.
+
+**Tests.** `test/weighted_lasso.jl` (accepted weights, conversion/range/alias refusals and stopping), `test/cd_numerics.jl`; `test/weighted_elasticnet.jl` for the weighted elastic net: independent objective, gradient and KKT residual from the raw data, analytic and signed-support references, both precisions and every method and owner, the range rule at its boundaries, the exceptional CD band, mixed levels against rounded controls, refusals without mutation, and separate scale and residual probes of the stop rule.
 
 **Sources.** `docs/src/support.md:L134`, `docs/src/support.md:L137`, `docs/src/support.md:L138`, `docs/src/support.md:L145`, `docs/src/support.md:L147`, `docs/src/support.md:L151`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `README.md:L65`, `docs/src/support.md:L130`, `docs/src/glossary.md:L9`.
 
@@ -243,8 +271,10 @@ subnormal square.
 
 `X` and the response are borrowed read-only during a solve: do not mutate them while
 the solver is running. The mutable coefficient storage must not alias either input.
-Weighted `NormL1` and dense-group PGD/APG also prohibit aliasing the penalty weights;
-matrix-response CD and PGD/APG have additional alias rules in [CDM-01](@ref) and [IN-10](@ref).
+Weighted `NormL1`, weighted `ElasticNet` and dense-group PGD/APG also prohibit
+aliasing the penalty weights. Treat borrowed weights as read-only during the
+solve, including in callbacks. Matrix-response CD and PGD/APG have additional
+alias rules in [CDM-01](@ref) and [IN-10](@ref).
 For `SparseIterate`, alias checks cover the owner's whole
 backing storage, even when it has no active entries; passing
 `parent(activevalues(x))` or a reshape of it as `y` or `X` is refused.
@@ -297,40 +327,47 @@ mutation or RNG use, as specified in [IN-01](@ref). See the
 
 **Statement.**
 
-`ProximalGradientDescent` accepts `IndNonnegative()` and the unweighted penalty
-`NormL1Nonneg(lambda)` with a dense least-squares loss. It minimizes
+`ProximalGradientDescent`, and `CDSolver` on a dense `Vector{T}`, accept `IndNonnegative()` and the
+unweighted penalty `NormL1Nonneg(lambda)` with a dense least-squares loss. They target
 `(s/2) * sum(abs2, y-X*x) + lambda * sum(x)` over `x >= 0`, where `s` is the
 accepted loss scale and `lambda = 0` for `IndNonnegative()`. The zero-level form
 `NormL1Nonneg(0)` gives the same nonnegative least-squares problem. The data
 and coefficients use the same `Float32` or `Float64` type and the shapes,
 finite-data, scale and alias rules of [IN-01](@ref), [IN-02](@ref) and [IN-05](@ref).
 
-The coefficient start must be a finite dense `Vector{T}` whose every entry is
-nonnegative. A negative starting entry raises `ArgumentError` before any write;
-the solver does not project an infeasible start as an initialization step.
+The coefficient start must be a finite dense `Vector{T}` whose entries are all
+nonnegative (`-0.0` is nonnegative). A negative starting entry raises `ArgumentError` before any write
+or RNG draw; the solver does not project an infeasible start as an initialization step.
 The level of `NormL1Nonneg` must be finite, nonnegative and representable in `T` without overflow
 or rounding a nonzero value to zero. A representable level of another scalar type
 is allowed, as is a subnormal converted level under [IN-02](@ref).
 
 For `NormL1Nonneg`, `g.w` must be `nothing`. An explicit weight vector is refused
-even when all its entries are one. APG, coordinate descent, sparse, block or matrix
-coefficient owners, matrix responses, square-root loss, `Scaled` penalties and
-general penalty compositions are unsupported for these problems. These refusals
-precede writes. No intercept is fitted.
+even when all its entries are one. APG, a `SparseIterate`, `BlockIterate` or `Matrix`
+coefficient, matrix responses, square-root loss, `Scaled` penalties and
+general penalty compositions are unsupported for these problems. `CDSolver` on a
+`SparseIterate` is deferred: its gate refuses these penalties before any copy of the
+coefficients or RNG draw. These refusals precede writes. No intercept is fitted.
 
-The proximal operator enforces feasibility during iterations; its update is
+For PGD the proximal operator enforces feasibility during iterations; its update is
 specified in [PGD-01](@ref). A proposed stop uses the constrained stationarity
 check in [STOP-16](@ref), with the working-precision guards in [STOP-04](@ref).
 The result and failure rules are those of PGD in [RES-01](@ref) and [RES-03](@ref).
+For `CDSolver` the coordinate step is the least-squares step of [CD-01](@ref), with the
+penalty's proximal operator and the exceptional step of [CD-04](@ref); `converged` is
+CD's change test and not a certificate of the constrained KKT conditions
+([RES-01](@ref), [CD-03](@ref)): assess the returned point with an independent constrained KKT
+score. The cached residual and the reported minimum are those of [CD-05](@ref) and [CD-09](@ref).
+A returned point is nonnegative and finite after a completed run.
 The [NNLS tutorial](../examples/problems/nonnegative_least_squares.md) compares
 the constraint alone with a positive penalty. The [nonnegative sparse-regression tutorial](../examples/problems/nonnegative_lasso.md)
 checks feasibility, the objective and a separately computed constrained KKT residual.
 
-**Applies to.** Dense-vector PGD with least squares and `IndNonnegative()` or unweighted `NormL1Nonneg`.
+**Applies to.** Dense-vector PGD and CD with least squares and `IndNonnegative()` or unweighted `NormL1Nonneg`.
 
-**Code.** `src/solve.jl`: `_check_penalty` with `kind = :pgd`, `_check_problem`; `src/solvers/proximal_gradient_descent.jl`: the PGD `solve!` gate; `src/utils.jl`: `_converted_penalty` and the dedicated stationarity dispatch.
+**Code.** `src/solve.jl`: `_check_penalty` with `kind = :pgd` or `:cd`, `_check_problem`, `_check_owner_problem` (the `SparseIterate` refusal); `src/solvers/proximal_gradient_descent.jl`: the PGD `solve!` gate; `src/utils.jl`: `_converted_penalty` and the dedicated stationarity dispatch; `src/cd/models.jl`: `_coordinate_minimizer`; `src/cd/leastsquares.jl`: `_exceptional_step`.
 
-**Tests.** `test/nonnegative_lasso.jl` covers Float32 and Float64 identity-design references, zero and positive feasible starts, native/Float64/zero levels, objective and minimizer identity, a correlated design, and unchanged inputs after invalid levels, negative starts, weighted penalties and unsupported methods/storage/losses. `examples/problems/nonnegative_lasso.jl` independently checks its fitted example and both-precision exact controls. `test/nonnegative_least_squares.jl` checks direct indicator support with both precisions, scaled and unscaled loss, zero and positive starts, and refusals before writes for invalid data, aliasing, unsupported owners, losses and solvers.
+**Tests.** `test/cd_nonnegative.jl` covers CD in both precisions: the testsets "closed forms", "single coordinates", "correlated and p > n designs against a BigFloat reference and PGD" (an independent BigFloat constrained KKT score and objective), "the default tolerance reaches the external score bound", "NormL1Nonneg(0) is IndNonnegative()", "starts", "flat columns", "orders", "refusals before any write or RNG draw" (negative and negative subnormal starts, weighted penalties, invalid levels, `SparseIterate`, `BlockIterate`, `Matrix`, square-root loss, `Scaled` penalties, mixed types and aliasing), "X and y are not modified", "rollback" and the allocation comparison with `NormL1`. `test/nonnegative_lasso.jl` covers Float32 and Float64 identity-design references, zero and positive feasible starts, native/Float64/zero levels, objective and minimizer identity, a correlated design, and unchanged inputs after invalid levels, negative starts, weighted penalties and unsupported methods/storage/losses. `examples/problems/nonnegative_lasso.jl` independently checks its fitted example and both-precision exact controls. `test/nonnegative_least_squares.jl` checks direct indicator support with both precisions, scaled and unscaled loss, zero and positive starts, and refusals before writes for invalid data, aliasing, unsupported owners, losses and solvers.
 
 **Sources.** Added after the frozen documentation inventory by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8): [input and refusal gates](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/solve.jl), [the support statement](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/docs/src/support.md#nonnegative-lasso-with-proximal-gradient-descent), and [regression coverage](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/test/nonnegative_lasso.jl).
 
@@ -593,3 +630,40 @@ objective and per-entry KKT, dimensions, levels, pre-write refusals and
 coefficient storage identity.
 
 **Sources.** [Issue #469](https://github.com/mlakolar/ProximalSolvers.jl/issues/469).
+
+## [IN-11 Euclidean-norm penalty with PGD and APG](@id IN-11)
+
+**Statement.**
+
+For ProximalBase's `NormL2(lambda)`, `ProximalGradientDescent` and `AccProxGradDescent`
+minimize `(s/2) * sum(abs2, y - X*x) + lambda * norm(x, 2)`, with `s = 1` for a raw
+loss and `lambda` is the working level. The penalty is the norm of the whole coefficient
+vector. The objective is equivalent to using `GroupNormL2(T(lambda), [1:p], [one(T)])`
+with one group and an explicit unit weight. The two proximal operators can differ in
+their floating-point rounding. The `GroupNormL2` input rule in [IN-04](@ref)
+also imposes a separate range check on the group level.
+
+The coefficients are a dense `Vector{T}`, `T` being `Float32` or `Float64`. The data,
+the loss (raw, or one positive `Scaled` under [IN-02](@ref)), shapes, finiteness and
+aliasing follow [IN-01](@ref) and [IN-05](@ref). The level must be a finite nonnegative real
+scalar that passes the representability guard of [IN-02](@ref); that clause also gives the
+working-level conversion and the subnormal and zero cases. The level need not have type `T`,
+which differs from the same-type requirement of [IN-04](@ref) for `GroupNormL2`.
+
+For otherwise valid inputs, PGD and APG refuse a wrapped `NormL2`, matrix or iterate-owner
+coefficients, and logistic or square-root least-squares loss with `ArgumentError` before
+mutating the coefficients. CD refuses the penalty at its corresponding input gate.
+A proposed stop uses the dedicated check of [STOP-17](@ref); the proximal step is in [PGD-01](@ref).
+
+**Applies to.** `ProximalGradientDescent` and `AccProxGradDescent` with dense `Vector{Float32}` or `Vector{Float64}` coefficients, least-squares loss and `NormL2`.
+
+**Code.** `src/solve.jl`: `_check_penalty` (`NormL2` under the two gradient kinds); `src/utils.jl`: `_converted_penalty`, `_working_gradient_penalty`.
+
+**Tests.** `test/norml2_pgd.jl` covers both methods and element types, with independent
+references for orthogonal and correlated designs, raw and scaled losses, zero and
+nonzero solutions, and a unit-weight single group. Its refusal cases cover the level
+guard, wrapped penalties, matrix-response PGD and APG, logistic and square-root
+losses, and dense-vector CD, with unchanged coefficients. It also checks rollback
+in both gradient methods.
+
+**Sources.** [Issue #457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457) and [pull request #494](https://github.com/mlakolar/ProximalSolvers.jl/pull/494).

@@ -13,8 +13,8 @@ function _logdet_pgd_preflight(Θ::Matrix{T}, f, g, ls, options) where T
     throw(ArgumentError("Θ, S and the NormL1 weights must be finite"))
   _admm_issymmetric(Θ) && _admm_issymmetric(S) && _admm_issymmetric(Λ) ||
     throw(ArgumentError("Θ, S and the NormL1 weights must be exactly symmetric"))
-  all(>=(zero(T)), Λ) && all(i -> iszero(Λ[i, i]), axes(Λ, 1)) ||
-    throw(ArgumentError("the NormL1 weights must be nonnegative with zero diagonal"))
+  all(>=(zero(T)), Λ) ||
+    throw(ArgumentError("the NormL1 weights must be nonnegative"))
   (_admm_mightalias(Θ, S) || _admm_mightalias(Θ, Λ) || _admm_mightalias(S, Λ)) &&
     throw(ArgumentError("Θ, S and the NormL1 weights must be independent buffers"))
   (options.allow_f_increases || options.store_trace || options.show_trace ||
@@ -29,8 +29,14 @@ function _logdet_pgd_preflight(Θ::Matrix{T}, f, g, ls, options) where T
   scratch = similar(Θ)
   _admm_passes_cholesky!(scratch, Θ) ||
     throw(ArgumentError("Θ must have a successful Cholesky factorization in $T"))
-  # The diagonal weights are zero here, so Sᵢᵢ + Cᵢᵢ = Sᵢᵢ is finite.
-  scales = T[sqrt(abs(S[i, i] + C[i, i])) for i in axes(S, 1)]
+  # Finite Sᵢᵢ and Cᵢᵢ can have a sum that overflows in T. An infinite aᵢ would make every scale
+  # dᵢⱼ of its row infinite and its violations score 0.
+  scales = Vector{T}(undef, size(S, 1))
+  for i in axes(S, 1)
+    a = S[i, i] + C[i, i]
+    isfinite(a) || throw(ArgumentError("matrix PGD requires finite sums Sᵢᵢ + Cᵢᵢ of the diagonal data and effective weights in $T"))
+    scales[i] = sqrt(abs(a))
+  end
   C, scales, _logdet_pgd_cancellation(S, scales), α, β, scratch
 end
 

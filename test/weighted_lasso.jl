@@ -1040,7 +1040,7 @@ function refusals(::Type{T}) where T
    (ArgumentError, "is subnormal in", NormL1(prevfloat(floatmin(T)), T[1, 1])),
    (ArgumentError, "penalty lambda must be finite and nonnegative", NormL1(T(Inf), T[1, 1])),
    (ArgumentError, "penalty lambda is not representable", NormL1(level, T[1, 1])),
-   (ArgumentError, "", ElasticNet(λ, λ, T[1, 1])),
+   (ArgumentError, "", Scaled(ElasticNet(λ, λ, T[1, 1]), 2)),
    (ArgumentError, "", Scaled(NormL1(λ, T[1, 1]), 2))]
 end
 
@@ -1065,12 +1065,13 @@ end
     @test (label, err isa E) == (label, true)
     err isa E || continue
     text = err.msg
-    # A weighted ElasticNet and a scaled penalty get each solver's supported-penalty list.
-    generic = s.kind === :cd ? "CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2" :
+    # A scaled penalty, a scaled weighted ElasticNet included, gets each solver's supported-penalty list. A weighted
+    # ElasticNet itself is supported (IN-03, test/weighted_elasticnet.jl).
+    generic = s.kind === :cd ? "CDSolver supports NormL1, ElasticNet (with optional weights), and uncentered SqrNormL2, and on a dense Vector also unweighted NormL1Nonneg and IndNonnegative" :
               method isa ProximalGradientDescent ?
-                "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported" :
-                "only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, IndBox or IndBallL2 is supported"
-    expected = g isa Union{ElasticNet, Scaled} ? generic : msg
+                "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported" :
+                "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"
+    expected = g isa Scaled ? generic : msg
     @test (label, occursin(expected, text)) == (label, true)
     @test isequal(snapshot(), before) && rng == rng_before
     @test X == X0 && y == y0

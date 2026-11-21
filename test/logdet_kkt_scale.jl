@@ -285,9 +285,8 @@ end
   # equivalent pair. Cholesky and the inverse commute with a power-of-two scaling unless something under-
   # or overflows, so the gradient becomes DGD and a violation rᵢⱼ becomes DᵢDⱼrᵢⱼ. The scale max(1, sᵢsⱼ)
   # becomes DᵢDⱼ sᵢsⱼ when every Sᵢᵢ ≥ 1 (then sᵢsⱼ ≥ 1 and DᵢDⱼsᵢsⱼ ≥ 1), and R is unchanged. The unit
-  # floor is absolute, so R is not invariant where it applies. The shift S → S + Diagonal(C) with a diagonal
-  # weight belongs to the integration of PR #483, which lifts the zero-diagonal requirement of PGD-06;
-  # here the diagonal weights are zero.
+  # floor is absolute, so R is not invariant where it applies. The weights here have a zero diagonal; the
+  # shift S → S + Diagonal(C) of positive diagonal weights is tested in its own testset below.
   for T in (Float64, Float32)
     for p in (4, 7), seed in 1:3
       X = randn(Xoshiro(seed + 10p), 3p, p)
@@ -315,8 +314,9 @@ end
 # ---------------------------------------------------------------------------------------------------------
 @testset "the 2^51 numerator: S - W rounds a decisive residual to zero" begin
   # Sᵢᵢ = -B, Cᵢᵢ = B + 1, Θᵢᵢ = 1.25 with B = 2^51 (Float64) or 2^22 (Float32): (S - W) + C is 0 for the
-  # computed W = inv(Θ), while (S + C) - W = 1 - W is about 0.2. PGD-06 requires zero diagonal weights, so the
-  # solver does not reach this input on this revision; the helper is called directly with the flag set.
+  # computed W = inv(Θ), while (S + C) - W = 1 - W is about 0.2. The solver reaches this input through a
+  # positive diagonal weight (the next testset runs it through solve!); here the helper is called directly
+  # with the flag set, which also exercises the evaluation from the factor in the scratch matrix.
   for (T, B) in ((Float64, 2.0^51), (Float32, 2f0^22))
     S, C, Θ = fill(-B, 1, 1), fill(B + 1, 1, 1), fill(T(1.25), 1, 1)
     W = inv(Θ)
@@ -388,6 +388,96 @@ end
     o = options(T; maxiter = 200)
     r, Θ1 = solve_from(Θ, S, λ0, Λ, o)
     check_result(r, Θ1, S, λ0, Λ, T, o; inputs = true)
+  end
+end
+
+# ---------------------------------------------------------------------------------------------------------
+# Positive diagonal weights (PGD-06 permits them): the cases of #492 that the diagonal weight makes reachable
+# ---------------------------------------------------------------------------------------------------------
+@testset "a positive diagonal weight that cancels a negative Sᵢᵢ: the table of #492" begin
+  # 1 × 1 with S = -(C - 1) and C = λ0 · 1, so S + C = 1, the scale is max(1, sqrt(1)²) = 1 and the optimum is
+  # θ = 1. At θ = 1.5 the violation is |S + C - 1/θ| = 1/3, so R = 1/3; before #492 the scale max(1, |S|, C) was
+  # about C and the same point scored (1/3)/C. |S| exceeds 2 max(1, 1), so the input form is used. From θ = 2
+  # (maxiter 100, ftol = 0) the old rule converged at θ = 1.5, 1 + 3.1e-7, 1.5 and 1.024 in these four cases. On
+  # Julia 1.13.4 the solves now converge in 4 to 6 iterations, at θ within 1.2e-13 of 1.
+  for (T, s, c) in ((Float64, -2.0^32, 2.0^32 + 1), (Float64, -1000.0, 1001.0),
+                    (Float32, -2f0^16, 2f0^16 + 1), (Float32, -4096f0, 4097f0))
+    S, Λ, λ0 = fill(T(s), 1, 1), ones(T, 1, 1), Float64(c)
+    @test T(λ0) == c && S[1] + T(λ0) == 1
+    @test PS._logdet_pgd_cancellation(S, T[1])
+    Θ = fill(T(1.5), 1, 1)
+    r, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
+    b = check_result(r, Θ, S, λ0, Λ, T, options(T); inputs = true)
+    @test abs(b.R - 1 / 3) <= 1e-15 && abs(r.g_residual - 1 / 3) <= b.e
+    o = ProximalOptions(maxiter = 100, gradtol = gradtol(T), ftol = 0)
+    r, Θ = solve_from(fill(T(2), 1, 1), S, λ0, Λ, o)
+    check_result(r, Θ, S, λ0, Λ, T, o; inputs = true)
+    # a = 1, so R is the distance of 1/θ from 1: a converged solve is within the stop tolerance of θ = 1
+    @test !r.converged || abs(Θ[1] - 1) <= 4 * τof(T, o)
+  end
+end
+
+@testset "the 2^51 diagonal numerator through solve!" begin
+  # S = -B, C = B + 1 (B = 2^51 in Float64, 2^22 in Float32), Θ = 1.25: the gradient S - 1/Θ rounds so that
+  # G + C = 0, while the stored data give R = |(S + C) - 1/Θ| = 0.2.
+  for (T, B) in ((Float64, 2.0^51), (Float32, 2f0^22))
+    S, Λ, λ0 = fill(-B, 1, 1), ones(T, 1, 1), Float64(B + 1)
+    Θ = fill(T(1.25), 1, 1)
+    @test (S .- inv(Θ))[1] + T(λ0) == 0
+    r, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
+    b = check_result(r, Θ, S, λ0, Λ, T, options(T); inputs = true)
+    @test abs(b.R - 0.2) <= 1e-12 && abs(r.g_residual - 0.2) <= b.e && r.g_residual > 0.19
+    # a solve from this point does not stop where the gradient form scores 0
+    o = options(T; maxiter = 100)
+    r, Θ1 = solve_from(Θ, S, λ0, Λ, o)
+    check_result(r, Θ1, S, λ0, Λ, T, o; inputs = true)
+    @test !r.converged || abs(Θ1[1] - 1) <= 4 * τof(T, o)
+  end
+end
+
+@testset "covariance shift: the direct and the shifted formulation agree" begin
+  # The direct problem (S, λ0 Λ) with a positive diagonal weight and the shifted problem (S + Diagonal(C), zero
+  # diagonal weight) have the same objective in exact arithmetic, and the same entry scales aᵢ = Sᵢᵢ + Cᵢᵢ. The
+  # stored problems are equal up to the rounding of Sᵢᵢ + Cᵢᵢ in T, which is exact for the 1 × 1 cases (S + C = 1)
+  # and which the 3 × 3 case rounds. At one point the two start scores agree within 8eps(T); each solve is judged
+  # against the stored problem it solved, and converged solves end within target(T) of each other.
+  problems = Any[]
+  for (T, s, c) in ((Float64, -2.0^32, 2.0^32 + 1), (Float64, -1000.0, 1001.0),
+                    (Float32, -2f0^16, 2f0^16 + 1), (Float32, -4096f0, 4097f0))
+    push!(problems, (T = T, S = fill(T(s), 1, 1), λ0 = Float64(c), Λ = ones(T, 1, 1), Θ = fill(T(1.5), 1, 1)))
+  end
+  for T in (Float64, Float32)
+    p = 3
+    X = randn(Xoshiro(11), 12, p)
+    S = Matrix{T}(Symmetric(X' * X / 12 + I / 2))
+    dw = T[1 / 16, 1 / 8, 3 / 16]
+    Λ = T[i == j ? dw[i] : 1 / 10 for i in 1:p, j in 1:p]
+    Θ = Matrix{T}(Symmetric(inv(Symmetric(S + Diagonal(dw))) .* T.(1 .+ 0.02 .* sin.((1:p) .+ (1:p)'))))
+    push!(problems, (T = T, S = S, λ0 = 1.0, Λ = Λ, Θ = Θ))
+  end
+  for q in problems
+    T, S, λ0, Λ, Θ = q.T, q.S, q.λ0, q.Λ, q.Θ
+    p = size(S, 1)
+    Sshift, Λshift = copy(S), copy(Λ)
+    for i in 1:p
+      Sshift[i, i] += T(λ0) * Λ[i, i]
+      Λshift[i, i] = 0
+    end
+    direct_flag = PS._logdet_pgd_cancellation(S, T[sqrt(abs(S[i, i] + T(λ0) * Λ[i, i])) for i in 1:p])
+    r1, _ = solve_from(Θ, S, λ0, Λ, ProximalOptions(time_limit = 0))
+    r2, _ = solve_from(Θ, Sshift, λ0, Λshift, ProximalOptions(time_limit = 0))
+    @test abs(r1.g_residual - r2.g_residual) <= 8 * Float64(eps(T))
+    check_result(r1, Θ, S, λ0, Λ, T, options(T); inputs = direct_flag)
+    check_result(r2, Θ, Sshift, λ0, Λshift, T, options(T))
+    o = p == 1 ? ProximalOptions(maxiter = 100, gradtol = gradtol(T), ftol = 0) : options(T)
+    start = p == 1 ? fill(T(2), 1, 1) : Matrix{T}(I, p, p)
+    q1, Θ1 = solve_from(start, S, λ0, Λ, o)
+    q2, Θ2 = solve_from(start, Sshift, λ0, Λshift, o)
+    check_result(q1, Θ1, S, λ0, Λ, T, o; inputs = direct_flag)
+    check_result(q2, Θ2, Sshift, λ0, Λshift, T, o)
+    q1.converged && q2.converged && @test maximum(abs, Θ1 - Θ2) <= target(T)
+    # the 3 × 3 problems are well conditioned and converge
+    p > 1 && @test q1.converged && q2.converged
   end
 end
 

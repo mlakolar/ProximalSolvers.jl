@@ -17,26 +17,29 @@ as supported in the table is not verified; the sections below give the exact inp
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Lasso: `LeastSquaresLoss`, `NormL1` | Float32, Float64 | Float32, Float64 | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | Float64 (l) | — | [Lasso](examples/problems/lasso.md) |
 | Weighted lasso: `LeastSquaresLoss`, `NormL1(lambda, w)` | Float32, Float64 (f) | Float32, Float64 (f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | — | — | [Weighted lasso](examples/problems/weighted_lasso.md), [solver comparison](examples/comparisons/weighted_lasso_solvers.md) |
-| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
-| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | — | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
+| Nonnegative least squares: `LeastSquaresLoss`, `IndNonnegative()` | Float32, Float64 (i) | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | — | — | [Nonnegative least squares](examples/problems/nonnegative_least_squares.md) |
+| Nonnegative lasso: `LeastSquaresLoss`, unweighted `NormL1Nonneg` | Float32, Float64 (i) | — | — | — | Float32 (a, i), Float64 (i) | — | — | — | — | — | — | [Nonnegative sparse regression](examples/problems/nonnegative_lasso.md) |
 | Elastic net: `ElasticNet` | Float32, Float64 (c) | Float32, Float64 (c) | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | — | [Elastic net](examples/problems/elastic_net.md) |
+| Weighted elastic net: `LeastSquaresLoss`, `ElasticNet(lambda1, lambda2, w)` | Float32, Float64 (c, f) | Float32, Float64 (c, f) | — | — | Float32 (a, f), Float64 (f) | — | Float32 (a, b, f), Float64 (b, f) | — | — | — | — | [Elastic net](examples/problems/elastic_net.md) |
 | Ridge: `LeastSquaresLoss`, uncentered `SqrNormL2` | Float32, Float64 (j) | Float32, Float64 (j) | — | — | — | — | — | — | — | — | — | [Ridge with coordinate descent](examples/problems/elastic_net.md#Ridge-with-coordinate-descent) |
 | Group lasso: `GroupNormL2` | — | — | Float32, Float64 (d) | — | Float32 (a, h), Float64 (h) | — | Float32 (a, b, h), Float64 (b, h) | — | — | — | — | [Group lasso](examples/problems/group_lasso.md) |
+| Euclidean-norm penalty: `LeastSquaresLoss`, `NormL2` ([IN-11](@ref)) | — | — | — | — | Float32 (a, q), Float64 (q) | — | Float32 (a, b, q), Float64 (b, q) | — | — | — | — | [One group is the Euclidean norm](examples/problems/group_lasso.md#One-group-is-the-Euclidean-norm) |
 | Multi-response group lasso: `LeastSquaresLoss` with a matrix response, `GroupNormL2` on the rows of the coefficients | — | — | Float32, Float64 (g) | Float32, Float64 (g) | — | — | — | — | — | — | — | [Multi-task group lasso](examples/problems/multitask_group_lasso.md) |
 | Multi-response entrywise lasso: `LeastSquaresLoss` with a matrix response, unweighted `NormL1` | — | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, o), Float64 (o) | — | — | — | [Multi-response lasso: entrywise sparsity](examples/problems/multiresponse_lasso.md) |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | — | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
 | Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | — | Float32, Float64 | — | — | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 | Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
-| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric `Matrix` weights | — | — | — | — | — | Float32, Float64, zero diagonal (m) | — | — | — | — | Float32, Float64, full weights (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
+| Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric `Matrix` weights | — | — | — | — | — | Float32, Float64, full weights (m) | — | — | — | — | Float32, Float64, full weights (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
 | Sparse logistic regression: raw `LogisticLoss` with a binary response, `NormL1` or `NormL1(lambda, w)` | — | — | — | — | Float64 (n) | — | — | — | Float64 (n, p) | — | — | [Sparse logistic regression](examples/problems/logistic_regression.md) |
 
-`ElasticNet` is unweighted where it appears in the table. `NormL1` is unweighted except in three rows: in the
+`ElasticNet` is unweighted except in the weighted elastic-net row, where `ElasticNet(lambda1, lambda2, w)` has one
+weight per coefficient on its L1 term only. `NormL1` is unweighted except in three rows: in the
 weighted-lasso and sparse logistic regression rows, `NormL1(lambda, w)` has one weight per coefficient, and in the graphical-lasso row,
-`NormL1(λ₀, Λ)` has a symmetric weight matrix. ADMM permits nonnegative diagonal
-weights ([ADM-04](@ref)). PGD requires a zero diagonal ([PGD-06](@ref)). `GroupNormL2` takes its group
+`NormL1(λ₀, Λ)` has a symmetric weight matrix. ADMM and PGD permit nonnegative diagonal
+weights ([ADM-04](@ref), [PGD-06](@ref)). `GroupNormL2` takes its group
 weights, the default `sqrt(|G_k|)` or explicit finite nonnegative weights (see
-[Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net and group lasso rows use
+[Group lasso with coordinate descent](@ref)). The lasso, weighted lasso, elastic net, weighted elastic net and group lasso rows use
 `LeastSquaresLoss` or one positive finite scalar multiple of it, and the square-root lasso
 row uses the unscaled `SqrtLeastSquaresLoss`. Both multi-response rows use
 `LeastSquaresLoss` with a dense matrix response `Y`, raw or with one supported scale.
@@ -47,23 +50,26 @@ lasso (note e).
 
 Ridge uses the same least-squares loss and supported positive scaling; its
 CD-only input rules are specified in [IN-01](@ref). Nonnegative least squares and nonnegative lasso also use
-that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref).
+that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `Vector`, are specified in [IN-07](@ref).
 
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
-  `Float32`-sized tolerances. Except for the weighted lasso (see (f)), selected
-  nonnegative-lasso checks (see (i)), and the ℓ∞ reference fixtures in `test/linf.jl`,
-  the tests do not require `converged = true`, because a `Float32` solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
-  numerical stagnation with `stagnated = true` and `converged = false`, and with the default
-  options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
-  returned point with an independent residual; see [Numerical behavior](numerics.md).
+  `Float32`-sized tolerances. The weighted-lasso and weighted elastic-net
+  reference fixtures in (f), selected nonnegative-lasso checks in (i), and
+  the ℓ∞ reference fixtures in `test/linf.jl` require convergence with their
+  selected data and options. With `ftol = 0`, `ProximalGradientDescent` can
+  report `stagnated = true` and `converged = false`. With default options, a
+  `Float32` solve can exit on an objective increase with `converged = false`.
+  Assess the returned point with an independent residual. See [Numerical behavior](numerics.md).
 - **(b)** `AccProxGradDescent` also needs `max(n, p) + 4 < 1/(4 eps(T))` and
   `n p + 3 < 1/(4 eps(Float64))` (see "What works today?" below).
-- **(c)** The elastic net is accepted for the least-squares loss with an unweighted
-  `ElasticNet(lambda1, lambda2)`. For `CDSolver`, at a visit to a column with a finite
+- **(c)** The elastic net is accepted for the least-squares loss with
+  `ElasticNet(lambda1, lambda2)` or, with weights on its L1 term,
+  `ElasticNet(lambda1, lambda2, w)` ([IN-03](@ref)). For `CDSolver`, at a visit to a column with a finite
   positive squared norm `a`, where the loss scale times `a`, or its reciprocal, is below
   `floatmin` of the type that combines the scale with the working type, a visit with
-  `lambda2 = 0` takes the lasso's range-safe step and a visit with `lambda2 > 0` is refused
+  `lambda2 = 0` takes the lasso's range-safe step (the weighted lasso's, at the coefficient
+  `T(lambda1) * w[j]`, with weights) and a visit with `lambda2 > 0` is refused
   with an `ArgumentError`. A flat column (all entries 0) sets its coordinate to 0. See
   [Numerical behavior](numerics.md).
 - **(d)** `CDSolver` on a `BlockIterate` refuses `momentum = true`, and accepts a `Float64`
@@ -73,13 +79,11 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   `converged = true` means that a duality certificate proved a relative gap of at most
   `1e-4`; a run without a certificate reports `converged = false`, and `Float32` runs can end
   uncertified.
-- **(f)** The weighted lasso needs `w` to be a `Vector{T}` of finite nonnegative entries, with the
-  level and the products `T(lambda) * w[j]` in the range that
-  [Weighted lasso](@ref weighted-lasso-support) states; `solve!` refuses other input with an
-  `ArgumentError`. A zero weight leaves its coordinate unpenalized. The tests check every cell
-  against `BigFloat` references computed from the data. For `ProximalGradientDescent` and
-  `AccProxGradDescent` they pass `allow_f_increases = true` and require `converged = true`; with
-  the default options a `Float32` solve can end on the objective-increase exit, as in (a).
+- **(f)** The weighted lasso and weighted elastic net take a `Vector{T}` of
+  finite nonnegative weights. A zero weight removes that coordinate's L1 term.
+  The elastic-net ridge term applies to each coordinate. See [IN-03](@ref) for
+  the level, shape, alias and coefficient-range rules. Selected weighted
+  reference tests for PGD and APG use `allow_f_increases = true`.
 - **(g)** The multi-response group lasso needs `X` and `Y` to be `Matrix{T}`, the coefficients to be a `Matrix{T}` or
   a `BlockIterate{T}` over `vec(B)` with the row groups of `B`, and `momentum` other than `true`
   ([the rules](@ref "Multi-response group lasso with coordinate descent")). The tests check the `Matrix` and the
@@ -110,11 +114,19 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
   type, a scaled loss, a weighted penalty and a wide design (`n < p`) are refused with an
   `ArgumentError`. The tests and the lasso tutorials check the returned point against an
   independent objective and KKT violation. See [Lasso with consensus ADMM](@ref) and [ADM-05](@ref).
-- **(m)** Matrix PGD requires zero-diagonal weights and starts from a dense
+- **(m)** Matrix PGD takes finite, nonnegative, exactly symmetric full `Matrix{T}` weights,
+  with diagonal weights permitted, and starts from a dense
   symmetric positive-definite matrix. It uses bounded
   backtracking and a normalized KKT check. The [matrix PGD contract](@ref PGD-06) gives
-  the input and option rules. The [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
-  fits the same estimator with ADMM and PGD.
+  the input and option rules. The tests check each element type with an independent
+  BigFloat objective, KKT score and numerical estimate of a dual lower bound. Analytic
+  fixtures compare direct PGD with closed-form optima, except one heterogeneous
+  full-weight case. The seeded fixtures with positive diagonal weights at
+  `(p, n) = (10, 150)` and `(30, 20)` compare direct PGD with PGD on the shifted
+  covariance, and direct ADMM is compared at `(10, 150)` only. The
+  [solver comparison](examples/comparisons/graphical_lasso_solvers.md)
+  fits the same estimator with ADMM and PGD. It reaches a positive diagonal penalty on the PGD side
+  through the covariance shift `S + λdiag*I` with zero-diagonal weights.
 - **(n)** Sparse logistic regression needs `X::Matrix{Float64}`, a response `y::Vector{Float64}`
   whose entries are 0 or 1, a `Vector{Float64}` coefficient and a raw `LogisticLoss(y, X)`
   without observation weights or offset ([IN-09](@ref); see also [Sparse logistic regression with proximal gradient descent](@ref)).
@@ -128,6 +140,14 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 
 - **(o)** APG's certified backtracking limits use the sizes of the image and
   coefficient matrices. See [APG-07](@ref).
+
+- **(q)** `NormL2(lambda)` is the Euclidean norm of the whole coefficient vector. PGD and APG accept
+  it for a dense `Vector{T}`, raw or one positive `Scaled` least squares, and a level that is
+  finite, nonnegative and representable in `T`. The solver uses the working level
+  `T(lambda)` described in [IN-02](@ref). The tests check both methods against `BigFloat` objectives and
+  stationarity residuals; a `Float32` solve may end without `converged = true`, as in (a). A wrapped
+  `NormL2`, matrix or block coefficients, logistic or square-root loss and `CDSolver` are refused
+  with an `ArgumentError`. The rules are [IN-11](@ref) and [STOP-17](@ref).
 
 ### Statistical applications
 
@@ -155,17 +175,19 @@ square-root lasso, and PGD and APG a group lasso on a dense vector, below):
 where `s=1` for raw `LeastSquaresLoss` or `s=1/n` for the
 usual normalized convention; all three solvers also accept per-coordinate weights
 (`NormL1(lambda, w)`, see [Weighted lasso](@ref weighted-lasso-support)). `CDSolver`, `ProximalGradientDescent` and `AccProxGradDescent` also solve the
-elastic net
+unweighted elastic net
 
 ~~~math
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda_1\|\beta\|_1+\frac{\lambda_2}{2}\|\beta\|_2^2,
 ~~~
 
-with `ElasticNet(lambda1, lambda2)`. `CDSolver` also accepts uncentered
+with `ElasticNet(lambda1, lambda2)`. The weighted form
+`ElasticNet(lambda1, lambda2, w)` applies one weight per coefficient to
+the L1 term as specified in [IN-03](@ref). `CDSolver` also accepts uncentered
 `SqrNormL2(lambda)` for ridge, the elastic-net objective with the L1 level set to
 zero. Its supported storage and center type are specified in [IN-01](@ref).
 `ProximalGradientDescent` and `AccProxGradDescent` also solve the
-ℓ∞-penalized problem (below). PGD additionally supports nonnegative coefficients
+ℓ∞-penalized problem (below). PGD, and CD on a dense `Vector`, additionally support nonnegative coefficients
 with `IndNonnegative()` or unweighted `NormL1Nonneg`. See [the nonnegative input rules](@ref IN-07).
 CD's numerical step restrictions and its change-test
 meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
@@ -176,11 +198,11 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Response `y` | Finite vector with the same element type and `length(y) == size(X,1)`; for `LogisticLoss`, a `Vector{Float64}` whose entries are 0 or 1 |
 | Coefficients `beta` | Same-type dense vector for CD, PGD or APG; alternatively, one-dimensional ProximalBase `SparseIterate` for CD only |
 | Loss | `LeastSquaresLoss` or one finite positive scalar multiple of it; for `CDSolver` on a dense vector or a `SparseIterate`, also ProximalBase's `SqrtLeastSquaresLoss` (unscaled; see below); for `ProximalGradientDescent` on a `Vector{Float64}`, also the raw `LogisticLoss` with `NormL1` (see below) |
-| Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; unweighted `ElasticNet(lambda1, lambda2)` with nonnegative finite levels (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`); with `LogisticLoss`, `NormL1(lambda)` or `NormL1(lambda, w)` for `ProximalGradientDescent` on a `Vector{Float64}` ([IN-09](@ref)) |
+| Penalty | With the least-squares loss, `NormL1(lambda)` or `NormL1(lambda, w)` with nonnegative finite `lambda` and, for `w`, a `Vector{T}` of finite nonnegative weights (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`); an unweighted `NormL1(lambda)` with positive `lambda` with `SqrtLeastSquaresLoss`; `ElasticNet(lambda1, lambda2)` with nonnegative finite levels, or `ElasticNet(lambda1, lambda2, w)` with the weights and the range rule of [IN-03](@ref) (CD, PGD and APG on a dense vector, and CD on a `SparseIterate`, with the least-squares loss; with CD and `lambda2 > 0`, a coordinate step outside the normal range is refused, see [the numerical guide](numerics.md)); `NormLinf(lambda)` with a nonnegative finite `lambda` representable in `T` (PGD and APG on a dense vector, least-squares loss only; refused by `CDSolver`); with `LogisticLoss`, `NormL1(lambda)` or `NormL1(lambda, w)` for `ProximalGradientDescent` on a `Vector{Float64}` ([IN-09](@ref)) |
 | Ridge penalty | Uncentered `SqrNormL2(lambda)` with the least-squares loss and `CDSolver` on a dense vector or a one-dimensional `SparseIterate` (note j above) |
 | Solvers | `CDSolver`, `ProximalGradientDescent`, `AccProxGradDescent` (APG also needs `max(n, p) + 4 < 1/(4 eps(T))` and `n p + 3 < 1/(4 eps(Float64))`) |
 | Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
-| Nonnegative least squares and lasso | `ProximalGradientDescent` only, with `IndNonnegative()` or unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
+| Nonnegative least squares and lasso | `ProximalGradientDescent`, and `CDSolver` on a dense `Vector{T}` (not a `SparseIterate`), with `IndNonnegative()` or unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
 | Multi-response entrywise lasso | PGD or APG with unweighted `NormL1` and same-type dense matrix data and coefficients under [IN-10](@ref). See [APG-07](@ref) for the APG dimension limits. |
 
@@ -242,10 +264,19 @@ an exact box check and a Cholesky test, reports a numerical estimate of the dual
 
 ### Graphical lasso with proximal gradient
 
-Use the same `LogDetLoss` and zero-diagonal `NormL1` weights with
-`ProximalGradientDescent()`. Each committed iterate passes Cholesky in its
-element type, and the convergence flag requires a normalized KKT check. See
-[PGD-06](@ref) and the [solver comparison](examples/comparisons/graphical_lasso_solvers.md).
+Use the same `LogDetLoss` and `NormL1(λ₀, Λ)` weights, with diagonal weights permitted,
+with `ProximalGradientDescent()`. Each committed iterate passes Cholesky in its
+element type, and the convergence flag requires a normalized KKT check. Alternatively, for a
+positive diagonal penalty, pass zero-diagonal weights and `LogDetLoss(S + T(λdiag)*I)`. Here `λdiag`
+denotes the effective diagonal penalty, which in the `NormL1(λ₀, Λ)` notation is `λ₀ Λᵢᵢ`
+and must be the same for every `i`. For every symmetric positive-definite `Θ`, this
+objective equals the one with that diagonal penalty, up to the rounding of the stored shifted
+covariance. Form the shifted covariance in the element type `T` of the start and the weights,
+and check that it is finite and exactly symmetric. The unconverted expression `S + λdiag*I`
+with a `Float32` `S` and a `Float64` `λdiag` is promoted to `Float64`, which [PGD-06](@ref)
+rejects when the start and weights stay `Float32`. See [PGD-06](@ref) and the
+[solver comparison](examples/comparisons/graphical_lasso_solvers.md), which judges each
+estimate from the original `S`.
 
 ### [Weighted lasso](@id weighted-lasso-support)
 
@@ -259,7 +290,9 @@ coefficient unpenalized. The accepted levels, rounded products, alias checks and
 preflight behavior are specified in [the weighted-input contract](@ref IN-03).
 
 CD, PGD and APG accept this penalty for least squares; weighted square-root
-lasso, weighted elastic net and wrapped penalties remain unsupported.
+lasso and wrapped penalties remain unsupported. The same weights on the L1
+term of an `ElasticNet(lambda1, lambda2, w)` are accepted under the same rules,
+with `lambda2` checked as for an unweighted elastic net (see [IN-03](@ref)).
 [The weighted-lasso example](examples/problems/weighted_lasso.md) demonstrates
 an adaptive fit with a zero weight, and [the solver comparison](examples/comparisons/weighted_lasso_solvers.md)
 checks four solver configurations against one common accuracy target. The relationship between checked weights
@@ -308,6 +341,17 @@ construct a new penalty rather than modifying that layout in place. A zero
 weight leaves its group unpenalized. Weight ranges and alias restrictions are
 specified in [the group input contract](@ref IN-04), and proposed stops must
 pass [the group stationarity check](@ref STOP-01).
+
+### Euclidean-norm penalty with PGD and APG
+
+~~~math
+\min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda\|\beta\|_2,
+~~~
+
+Use `NormL2(lambda)` with PGD or APG and a dense coefficient vector. The proximal
+operator shrinks the whole vector by a common factor. See [IN-11](@ref) for inputs,
+[STOP-17](@ref) for the stopping check, and the [group lasso tutorial](examples/problems/group_lasso.md)
+for the one-group comparison.
 
 ### Multi-response entrywise lasso with gradient methods
 
@@ -447,14 +491,17 @@ result.converged, result.kkt, result.iterations, result.passes, result.stop_reas
 last accepted point with `converged = false` (the [results contract](@ref RES-01) gives the meaning of the flag). The weighted design costs
 one `n × p` array. The rules are in [PN-01](@ref) to [PN-05](@ref).
 
-### Nonnegative lasso with proximal gradient descent
+### [Nonnegative least squares and lasso](@id Nonnegative-lasso-with-proximal-gradient-descent)
 
 **(i)** With dense least-squares data and a feasible nonnegative starting vector,
 use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares.
 Use unweighted `NormL1Nonneg(lambda)` with a positive level for nonnegative
-lasso. These combinations are available with PGD. See [the input contract](@ref IN-07)
+lasso. These combinations are available with PGD and with CD on a dense `Vector`; a
+`SparseIterate` is refused for them with CD. See [the input contract](@ref IN-07)
 for refusals and [the constrained stationarity check](@ref STOP-16) for how PGD
-checks a stopping proposal at positive and zero coefficients.
+checks a stopping proposal at positive and zero coefficients. For CD, `converged` is the
+change test of [RES-01](@ref), not a check of the constrained KKT conditions; assess the
+returned point with an independently computed constrained KKT residual, as the walkthroughs do.
 
 The [NNLS walkthrough](examples/problems/nonnegative_least_squares.md) compares
 the two objectives on a common mixture. The [nonnegative sparse-regression
@@ -470,7 +517,7 @@ The current development core intentionally excludes the following:
 | Sparse design matrices; sparse or view-based dense coefficients | Deferred |
 | Generalized losses other than the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent` in [IN-09](@ref) or `ProxNewton` in [PN-01](@ref); automatic intercept handling and offsets (a column of ones can be supplied as an unpenalized coordinate, with penalty weight zero, under the input rules of a weighted `NormL1`); matrix-response problems outside the two matrix-response rows above | Deferred |
 | `LogisticLoss` with `AccProxGradDescent`, `CDSolver` or `ADMMSolver`, with observation weights or an offset, `Scaled(LogisticLoss)`, `Float32` data, a sparse design or a penalty other than `NormL1`; `ProxNewton` with any other loss | Refused with an `ArgumentError` (deferred) |
-| Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, weighted `ElasticNet`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
+| Group penalties other than `GroupNormL2` with `CDSolver` on a `BlockIterate`, `Scaled` penalties (including `Scaled(NormL1)` and `Scaled(ElasticNet)`), generalized penalty combinations | Deferred |
 | Weighted `NormL1(lambda, w)` in matrix-response regression | Deferred |
 | Observation weights; infinite penalty weights; penalty weight storage or types outside the solver's contract, including graphical-lasso weights outside [ADM-04](@ref) or [PGD-06](@ref) | Deferred; each solver's contract lists the weights it accepts |
 | Penalty paths and screening; dual-gap certificates other than the one of the square-root lasso with `CDSolver` | Deferred |
@@ -482,6 +529,7 @@ The current development core intentionally excludes the following:
 | PGD or APG with `SparseIterate` coefficients | Deferred |
 | PGD or APG with `BlockIterate` coefficients or matrix coefficients outside [IN-10](@ref) and the graphical-lasso PGD contract [PGD-06](@ref) | Deferred; refused with an `ArgumentError` |
 | `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
+| `CDSolver` with `NormL2`; `Scaled(NormL2)`; `NormL2` with a matrix or block coefficient, `LogisticLoss` or `SqrtLeastSquaresLoss` | Refused with an `ArgumentError`; PGD and APG on a dense `Vector` are the supported route ([IN-11](@ref)) |
 | `NormL0` with `solve!` | The [ℓ₀ sparse-regression tutorial](examples/problems/l0_sparse_regression.md) runs its own IHT routine with the ProximalBase prox. |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
 | Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |

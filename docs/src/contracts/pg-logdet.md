@@ -8,8 +8,11 @@ and `g = NormL1(λ₀, Λ)`. The start is a nonempty square `Matrix{T}` for
 `T ∈ {Float32, Float64}`. The stored `S` and `Λ` are `Matrix{T}` of that same
 size. The three matrices have finite entries and exact symmetry by entrywise
 equality. `Θ` must pass Cholesky in `T`. The loss weight must be one, `Λ` must be
-nonnegative with zero diagonal, and `λ₀` must be finite, nonnegative and exactly
-representable in `T`. Each effective weight `Cᵢⱼ = T(λ₀) Λᵢⱼ` must be finite.
+nonnegative, and `λ₀` must be finite, nonnegative and exactly representable in `T`.
+Diagonal weights are permitted. On a positive-definite `Θ`, each `Θᵢᵢ` is positive,
+so the penalty `λ₀Λᵢᵢ|Θᵢᵢ|` is linear in the diagonal. Each effective weight
+`Cᵢⱼ = T(λ₀) Λᵢⱼ`, diagonal included, must be finite, and so must each sum
+`Sᵢᵢ + Cᵢᵢ` evaluated in `T`.
 Pairwise alias checks include separately wrapped arrays whose memory overlaps.
 The solver borrows the inputs for reads and assumes the caller leaves them
 unchanged while the solve runs.
@@ -30,6 +33,9 @@ validation primitives in `src/solvers/admm.jl`.
 
 **Tests.** `test/pgd_graphical_lasso.jl` exercises both precisions, invalid
 methods, options, dimensions, weights, storage, borrowed buffers and starts.
+It accepts positive diagonal weights. It refuses negative and nonfinite diagonal
+weights, a diagonal effective weight that overflows in `T` and a diagonal sum
+`Sᵢᵢ + Cᵢᵢ` that overflows in `T`.
 
 **Sources.** [Approved graphical-lasso PGD scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
 
@@ -82,25 +88,28 @@ step within `_solve_gradient!` in `src/solve.jl`.
 
 **Tests.** `test/pgd_graphical_lasso.jl` verifies an indefinite first
 trial, a nonfinite objective, finite backtracking and bounded failure,
-invalid reciprocal and rollback after a completed step.
+invalid reciprocal and rollback after a completed step. It also tests a diagonal
+threshold that zeroes a proposal's diagonal, which the Cholesky check rejects
+before the search backtracks to a positive-definite step.
 
 **Sources.** [Approved graphical-lasso PGD iteration](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
 
 ## [PGD-08 KKT stopping, limits and results](@id PGD-08)
 
 **Statement.** Let `C = T(λ₀)Λ`, `aᵢ = Sᵢᵢ + Cᵢᵢ` and `sᵢ = sqrt(|aᵢ|)`, with each
-root taken in `T` before any product. Under [PGD-06](@ref) `Cᵢᵢ = 0`, so `aᵢ = Sᵢᵢ`.
-Entry `(i, j)` has the scale `dᵢⱼ = max(1, sᵢ sⱼ)`. A tiny or subnormal `aᵢ`
-gives `dᵢⱼ = 1`. Each root is at most about `sqrt(floatmax(T))`, so `sᵢ sⱼ` overflows only
-if both `aᵢ` and `aⱼ` are within a few `eps(T)` of `floatmax(T)`. At a committed point, with `G = S - inv(Θ)` as in
-[PGD-07](@ref), the violation `rᵢⱼ` of entry `(i, j)` is
-`abs(Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ))` where `Θᵢⱼ ≠ 0`, the diagonal included, and
-`max(abs(Gᵢⱼ) - Cᵢⱼ, 0)` at exact zeros. The KKT score is
-`R = maxᵢⱼ rᵢⱼ / dᵢⱼ`. Each violation, scale and quotient is evaluated in `T`, over the
-upper triangle, which repeats the lower because `Θ`, `S`, `Λ` and the symmetrized `G` are
-exactly symmetric. `g_residual` is `R` as a `Float64`. It is a violation relative
-to the entry's own scale, not a maximum absolute violation: the two agree where
-every `dᵢⱼ` is one. The scale of entry `(i, j)` depends only on `aᵢ` and `aⱼ`, so a weight or an
+root taken in `T` before any product. Entry `(i, j)` has the scale
+`dᵢⱼ = max(1, sᵢ sⱼ)`. A tiny or subnormal `aᵢ` gives `dᵢⱼ = 1`. Each root is at most
+about `sqrt(floatmax(T))`, so `sᵢ sⱼ` overflows only if both `aᵢ` and `aⱼ` are within a few
+`eps(T)` of `floatmax(T)`. At a committed point, with `G` the symmetrized gradient
+`S - inv(Θ)` of [PGD-07](@ref), the violation `rᵢⱼ` of entry `(i, j)` is
+`abs(Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ))` where `Θᵢⱼ ≠ 0`, and `max(abs(Gᵢⱼ) - Cᵢⱼ, 0)` at exact
+zeros. The start and each committed point have passed Cholesky in `T`, so their diagonal
+entries are positive and the diagonal violation is `abs(Gᵢᵢ + Cᵢᵢ)`; with `Cᵢᵢ = 0` it is
+`abs(Gᵢᵢ)`. The KKT score is `R = maxᵢⱼ rᵢⱼ / dᵢⱼ`. Each violation, scale and quotient is
+evaluated in `T`, over the upper triangle, which repeats the lower because `Θ`, `S`, `Λ` and
+the symmetrized `G` are exactly symmetric. `g_residual` is `R` as a `Float64`. It is a violation
+relative to the entry's own scale, not a maximum absolute violation: the two agree where every
+`dᵢⱼ` is one. The scale of entry `(i, j)` depends only on `aᵢ` and `aⱼ`, so a weight or an
 off-diagonal entry of `S` elsewhere, or a large `aₖ` with `k ∉ {i, j}`, does not enter it.
 Nonfinite violations raise an error. After a completed step, convergence requires
 `g_residual ≤ g_tol`, where `g_tol = max(gradtol, 64eps(T))`. The check is
@@ -110,9 +119,10 @@ elementwise unchanged point outside the KKT threshold sets
 
 **Cancellation path.** Preflight sets a flag if some stored `abs(Sᵢⱼ)` exceeds
 `2 max(1, sᵢ sⱼ)`, the diagonal included. A positive semidefinite `S` has
-`abs(Sᵢⱼ) ≤ sqrt(Sᵢᵢ Sⱼⱼ) = sᵢ sⱼ` under [PGD-06](@ref), so it does not set the
-flag unless the rounding of its stored entries exceeds the factor two. An indefinite
-`S` can set it. With the flag set, the start and each committed point first rebuild
+`abs(Sᵢⱼ) ≤ sqrt(Sᵢᵢ Sⱼⱼ) ≤ sᵢ sⱼ`, because `aᵢ = Sᵢᵢ + Cᵢᵢ ≥ Sᵢᵢ ≥ 0` under the nonnegative
+weights of [PGD-06](@ref). It does not set the flag unless the rounding of its stored entries
+exceeds the factor two. An indefinite `S` can set it, and so can a diagonal weight that cancels a
+negative `Sᵢᵢ`. With the flag set, the start and each committed point first rebuild
 `W = inv(Θ)` in place from the upper Cholesky factor that the SPD check of that point
 left in the solver's scratch matrix ([PGD-07](@ref)), and `rᵢⱼ` is formed from the inputs and `W`:
 `abs((Sᵢⱼ + Cᵢⱼ sign(Θᵢⱼ)) - Wᵢⱼ)` where `Θᵢⱼ ≠ 0`, and
@@ -128,8 +138,8 @@ factor to each evaluation; with the flag clear, the evaluation is the single pas
   `converged=false`.
 - `Wᵢⱼ` carries the rounding of the Cholesky inverse, which grows with the condition number of `Θ`.
   The score has that absolute error.
-- Where a diagonal weight would cancel a negative `Sᵢᵢ`, state the problem as `S + Diagonal(C)` with
-  zero diagonal weight.
+- Where a diagonal weight cancels a negative `Sᵢᵢ`, state the problem as `S + Diagonal(C)` with
+  zero diagonal weight, so that the sum is formed once in `T`.
 
 The matrix rule does not copy the per-entry scale `max(cᵢ, λmax)` of [STOP-03](@ref). A
 penalty term in the scale lets a cancelled diagonal pass: with `Sᵢᵢ = -2³²` and `Cᵢᵢ = 2³² + 1`, at `Θᵢᵢ = 3/2`
@@ -169,18 +179,24 @@ the cancellation flag, the KKT score and the rounding-stall checks.
 `_solve_gradient!` in `src/solve.jl` handles limit exits and constructs
 `OptimizationResults`.
 
-**Tests.** `test/pgd_graphical_lasso.jl` independently checks SPD, primal
-objective, the entrywise KKT score and a feasible dual lower bound for analytic
-and seeded problems. It also tests reported counters, a verified fixed point, a
-rounded Float32 stall outside the threshold and limit precedence. A call
-limit during a rejected trial checks that the shared driver keeps the last
-accepted point and its diagnostics. `test/logdet_kkt_scale.jl` checks the
+**Tests.** `test/pgd_graphical_lasso.jl` checks, in Float32 and Float64, the
+returned points of analytic and seeded problems with zero and positive diagonal
+weights. It recomputes positive definiteness, the primal objective and the entrywise
+KKT score of the original problem in BigFloat, together with a numerical estimate of
+a dual lower bound; `test/TESTING.md` lists the fixtures. It also compares the
+reported KKT score with the recomputed one, for direct PGD and for PGD on the
+covariance-shifted problem. The tests also check reported counters, the diagonal KKT
+score at a start with a positive diagonal weight, the convergence flags at a known
+fixed point, a rounded Float32 stall outside the threshold and limit precedence. A
+call limit during a rejected trial checks the retained iterate, the reported
+objective and the `x` and `f` residuals. `test/logdet_kkt_scale.jl` checks the
 scales, the flag and both evaluation paths against 256-bit BigFloat references
 computed from the stored data: the reported `g_residual` at fixed points, each
-converged solve of its problems against the stop rule, the analytic optima of the 2 × 2
-fixtures, seeded heterogeneous and ordinary problems, a power-of-two rescaling
-and the `2^51` numerator in both precisions. It also checks that the evaluation
-allocates nothing that grows with the dimension.
+converged solve of its problems against the stop rule, the analytic optima of the
+2 × 2 fixtures, the diagonal-weight cancellation cases and the `2^51` numerator
+through `solve!`, the direct and covariance-shifted formulations, seeded
+heterogeneous and ordinary problems and a power-of-two rescaling. It also checks that
+the evaluation allocates nothing that grows with the dimension.
 
 **Sources.** [Approved graphical-lasso PGD stopping rule](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
 [Entrywise KKT normalization](https://github.com/mlakolar/ProximalSolvers.jl/issues/492).

@@ -64,8 +64,10 @@ the applicable computed KKT residual; `NormLinf` uses a proximal-gradient
 mapping check. Neither certifies coefficient error. Check optimality independently
 when the accuracy matters. These options do not configure coordinate descent:
 `CDSolver` accepts unweighted `NormL1(lambda)`, weighted `NormL1(lambda, w)`,
-`ElasticNet(lambda1, lambda2)` and uncentered `SqrNormL2(lambda)` for dense or
+`ElasticNet(lambda1, lambda2)` with or without weights `w`, and uncentered `SqrNormL2(lambda)` for dense or
 one-dimensional `SparseIterate` least-squares problems and stops by its change test.
+On a dense vector, `CDSolver` also accepts unweighted `NormL1Nonneg` and `IndNonnegative()`,
+with the same change test for `converged`.
 
 For dense PGD with unweighted `NormL1Nonneg(lambda)` or `IndNonnegative()`
 (with `lambda = 0`), the KKT score is
