@@ -5,8 +5,9 @@ module StoppingCoordinatewiseTests
 # finite and at least floatmin(T), with τ = T(max(gradtol, 64 eps(T))), a = Float64(α), nᵢ = ‖Xᵢ‖ and
 # Φ = f(x) + (λ2/2)‖x‖² from the stored loss value. Two exact zero scales pass when the score is finite and at most 0:
 # (A) a column of stored ±0 entries when λ2 is a stored ±0, (B) x and y with stored ±0 entries. Every other zero or
-# nonfinite threshold refuses. The tests below check the zero-scale policy (also on a thread that flushes subnormals
-# to zero), the range of the threshold arithmetic against a BigFloat recomputation, the decisions of the rule on
+# nonfinite threshold refuses. The tests below check the zero-scale policy (signed zeros and subnormals under gradual
+# underflow; with subnormals flushed, where the decisions are unspecified, only that the setting is restored), the
+# range of the threshold arithmetic against a BigFloat recomputation, the decisions of the rule on
 # fixtures where the λmax-based rule stopped with a large objective excess, the work of a check, and that the other
 # problems keep the λmax-based check. Accuracy is measured from the raw data in 256-bit BigFloat; the active-set
 # reference below takes its starting support from a CD solve and is accepted only after its BigFloat checks.
@@ -543,7 +544,9 @@ end
       same_as_fresh(method, f, big_g, state, X)
     end
     # an APG restart: X = I, y = 0, from x = [1, 0] with x_previous = [-1, 0] and k = 1000, the extrapolated point is
-    # near [3, 0], and with L = 100 the step from it raises the objective, so the step is repeated from x_previous
+    # near [3, 0], and with L = 100 the step from it raises the objective, so the step is repeated without momentum
+    # from the accepted point [1, 0], which the update copied to x_previous (the initial [-1, 0] entered only the
+    # extrapolation)
     Xi, z = Matrix{T}(I, 2, 2), zeros(T, 2)
     fi = LeastSquaresLoss(z, Xi)
     m = AccProxGradDescent()
@@ -562,7 +565,7 @@ end
 # ---------------------------------------------------------------------------------------------------------------
 # Stored zeros, subnormals and flushing
 
-@testset "exact zero scales read stored bits: signed zeros, subnormals and a thread that flushes them" begin
+@testset "exact zero scales read stored bits: signed zeros and subnormals under gradual underflow" begin
   for T in (Float64, Float32)
     d = nextfloat(zero(T))
     # case B with signed zeros
@@ -576,26 +579,29 @@ end
         @test check_at(method, f, NormL1(zero(T)), x)[1] == reference_decision(method, f, NormL1(zero(T)), x)
       end
     end
-    # on a thread that flushes subnormals to zero (where iszero(d) is true): the stored subnormal response (first
-    # fixture), column (second) and iterate (third) are not cases B, A and B, so the check refuses at the prescribed
-    # point; the solves of the first two keep x = -0.0 (the flushed gradient is 0) and refuse every proposal
+    # on a thread that flushes subnormals to zero the decisions are unspecified (STOP-21); the run below only checks that
+    # the checks return without an error and that the previous setting is restored
     previous = get_zero_subnormals()
-    outcome = flushing() do
-      checks, solves = Bool[], Bool[]
-      for (k, (X, y, x)) in enumerate(((T[1;;], T[d], T[-0.0]), (T[-d;;], T[1], T[-0.0]), (T[1;;], T[0], T[d])))
+    flushing() do
+      for (X, y, x) in ((T[1;;], T[d], T[-0.0]), (T[-d;;], T[1], T[-0.0]), (T[1;;], T[0], T[d]))
         f = LeastSquaresLoss(y, X)
         for method in METHODS
-          push!(checks, check_at(method, f, NormL1(zero(T)), x)[1])
-          k <= 2 && push!(solves, solve!(copy(x), f, NormL1(zero(T)), method, ProximalOptions(maxiter = 20)).converged)
+          check_at(method, f, NormL1(zero(T)), x)
         end
       end
-      checks, solves
     end
     @test get_zero_subnormals() == previous
-    if outcome !== nothing
-      @test !any(outcome[1])
-      @test !any(outcome[2])
-    end
+  end
+end
+
+@testset "the exact zero scales are not offset invariant, and case A needs a score at most 0" begin
+  for T in (Float64, Float32), method in METHODS
+    # X = [1] with NormL1(0): x = y = 0 is case B and passes; x = y = 1 has the same zero residual and gradient, and
+    # refuses (a computed ρ = 0 outside case B)
+    @test check_at(method, LeastSquaresLoss(T[0], T[1;;]), NormL1(zero(T)), T[0])[1]
+    @test !check_at(method, LeastSquaresLoss(T[1], T[1;;]), NormL1(zero(T)), T[1])[1]
+    # X = [0], y = 0, x = 1 with NormL1(1): a zero residual and a case-A column, whose score |0 + 1| = 1 is positive
+    @test !check_at(method, LeastSquaresLoss(T[0], T[0;;]), NormL1(one(T)), T[1])[1]
   end
 end
 

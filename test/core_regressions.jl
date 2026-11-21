@@ -1549,8 +1549,9 @@ end
   solve!(x, f, g, ProximalGradientDescent())
   @test all(isfinite, x)
   # a longer run. These data fit exactly (F* = 0); with these options the coordinatewise check of STOP-21 refuses each
-  # proposal (the run returned the exact minimizer at maxiter on Julia 1.13.4), so the run returns with converged =
-  # false at maxiter or an objective increase; it is checked against the accuracy below. With τ = max(gradtol, 64 eps) and
+  # proposal (on Julia 1.13.4 the run returned the minimizer to working precision at maxiter, with a relative residual
+  # of about 5e-17), so the run returns with converged = false at maxiter or an objective increase; it is checked
+  # against the accuracy below. With τ = max(gradtol, 64 eps) and
   # S = |X₂₂ y₂|: in exact arithmetic G₂ = X₂₂² (x₂ - x₂*), so |G₂| ≤ τ S gives |x₂ - x₂*| ≤ τ S / X₂₂², a relative
   # error of τ. The bound below is (τ S / X₂₂² + u |x₂|)(1 + 4u), u = eps(Float64), with slack for the rounding of x₂,
   # and x₁ (whose minimizer is 0) is held to (τ S + u |x₁|)(1 + 4u).

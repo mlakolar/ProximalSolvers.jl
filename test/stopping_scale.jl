@@ -268,7 +268,8 @@ end
 # One check of a stop: (kept, state) for the point x of the problem with λ and the solver method.
 # For PGD the gradient at x is set to -λ sign(x) + G (G the residual of the entry), the response y = λmax / α
 # with the design [1]. For APG the response is y = x + λ sign(x) - G at x ≠ 0 (and λmax at x = 0), so that with α = 1
-# and x ≠ 0 the gradient that the kernel forms at x is x - y = -λ sign(x) + G. The design has one row, so the
+# and x ≠ 0 the gradient that the kernel forms at x is x - y = -λ sign(x) + G up to the rounding of y and of x - y. The
+# design has one row, so the
 # coordinatewise threshold is τ α |x - y| (STOP-21).
 function check(method, T, x, λ, G, options; λmax = 1, α = one(T))
   g = NormL1(T(λ))

@@ -129,8 +129,9 @@ const _CoordinatewiseState{T<:Union{Float32, Float64}} = Union{
   ProximalGradientDescentState{T, Vector{T}, Vector{T}, <:_LSImage, <:Any, _CoordinateScales},
   AccProxGradDescentState{T, Vector{T}, <:_LSImage, <:Any, _CoordinateScales}}
 
-# Whether the stored value is +0.0 or -0.0, from its bits: a subnormal is not zero here, also on a thread that flushes
-# subnormals to zero (where iszero and == treat it as 0)
+# Whether the stored value is +0.0 or -0.0, from its bits: under gradual underflow a subnormal is not zero here. With
+# subnormals flushed to zero on the solving thread the stopping decisions are unspecified (STOP-21): the compiled
+# comparisons and the arithmetic can treat a stored subnormal as zero.
 _stored_zero(v::Base.IEEEFloat) = (reinterpret(Unsigned, v) << 1) == 0
 
 # √a and 2a for an _SE a = s·2^e: for √a an odd e is lowered by one with s doubled (s in [2, 4)), so that √a = √s·2^(e/2)
@@ -161,14 +162,17 @@ _se_twice(a::_SE{T}) where {T} = iszero(a.s) ? a : _SE{T}(a.s, a.e + 1)
 # - when λ2 is a stored ±0, a coordinate whose column has only stored ±0 entries (μᵢ = 0; the computed ∇fᵢ is ±0 for
 #   a finite residual) passes when its computed score is finite and at most 0 (case A);
 # - when every stored entry of x and of y is ±0 (F(0) = 0 is the minimum), every coordinate passes when its computed
-#   score is finite and at most 0 (case B); x is scanned only when y is zero;
-# - every other coordinate passes when its score is finite and below the threshold tᵢ = T(τ hᵢ ρ), which must be
-#   finite and at least floatmin(T). Here τ = T(max(gradtol, 64 eps(T))), hᵢ = √(a nᵢ² + λ2) from the column data,
-#   a = Float64(α), nᵢ = ‖Xᵢ‖, and ρ = √(2Φ). The factors are carried as _SE{Float64} values, whose exponents do not
-#   overflow or underflow, and the product is rounded once to T. A threshold refuses the stop when it is NaN (the
-#   _REFUSED marker), infinite or below floatmin(T) (which includes a computed ρ = 0 outside case B), and when τ, the
-#   loss value or ‖x‖ is not finite.
-# The case predicates read stored bits, not computed values; the column class is stored by the column pass.
+#   score is finite and at most 0 (case B, which also covers a _REFUSED column); x is scanned only when y is zero;
+# - every other coordinate passes when its score is finite and below the threshold tᵢ, which must be finite and at
+#   least floatmin(T). Here τ = T(max(gradtol, 64 eps(T))), hᵢ = √(a nᵢ² + λ2) from the column data, a = Float64(α),
+#   nᵢ = ‖Xᵢ‖, ρ = √(2Φ), and tᵢ is the product τ ρ hᵢ formed from _SE{Float64} factors (a Float64 significand and an
+#   Int exponent): for finite nonnegative factors their products and square roots neither overflow nor underflow, a
+#   sum keeps the larger addend's exponent (an addend far below it can be lost), and the product is materialized as a
+#   Float64 by ldexp (rounded at the ends of the Float64 range) and converted to T once. Such a coordinate refuses when
+#   its threshold is NaN (the _REFUSED marker), infinite or below floatmin(T) (which includes a computed ρ = 0), and
+#   when τ or the loss value is not finite or, with a ridge term, ‖x‖ is not finite.
+# The case predicates read stored bits, not computed values, and the column class is stored by the column pass; with
+# subnormals flushed on the solving thread the decisions are unspecified (see _stored_zero).
 # Φ is formed from state.f_x, the loss value that ProximalBase computed at the accepted x, and (λ2/2)‖x‖²; the scale
 # does not form Xx - y (APG's gradient at x, see _gradient_at_x!, forms the residual from the cached image). After the
 # column pass of the first check, a check adds O(p) work to that gradient: the pass over the coordinates, ‖x‖ when
@@ -206,18 +210,20 @@ function _coordinates_pass(gT, grad::Vector{T}, x::Vector{T}, h::Vector{_SE{Floa
   true
 end
 
-# The threshold of coordinate i from c = τ ρ and hᵢ, both _SE{Float64}: the significands' product (in [1, 4), one Float64
-# rounding) scaled by 2^(exponents' sum), which is exact in the normal range of Float64, then rounded once to T. A zero c
-# gives 0 and a NaN hᵢ gives NaN.
+# The threshold of coordinate i from c = τ ρ and hᵢ, both _SE{Float64}: the significands' product (in [1, 4) for positive
+# factors, one Float64 rounding; 0 for a zero c, NaN for a NaN hᵢ) scaled by 2^(exponents' sum) with ldexp, which is
+# exact in the normal range of Float64 and rounds to a subnormal, zero or Inf at its ends, then converted to T.
 _coordinate_threshold(::Type{T}, c::_SE{Float64}, hᵢ::_SE{Float64}) where T = T(ldexp(c.s * hᵢ.s, c.e + hᵢ.e))
 
 # λ2 of the working penalty, of type T; nothing for NormL1
 _ridge_level(g::NormL1) = nothing
 _ridge_level(g::ElasticNet) = g.λ2
 
-# c = τ ρ as an _SE{Float64}, ρ = √(2 f_x + λ2 ‖x‖²): 2 f_x and λ2 ‖x‖² are formed and added as _SE values, with ‖x‖ from
-# a Float64 sum of squares or, when that sum is not finite or below 4 p floatmin(Float64), the scaled form of _se_norm.
-# nothing when τ, f_x or ‖x‖ is not finite. f_x is the stored least-squares value, which is not negative.
+# c = τ ρ as an _SE{Float64}, ρ = √(2 f_x + λ2 ‖x‖²): 2 f_x and, when λ2 is not a stored ±0, λ2 ‖x‖² are formed and added as
+# _SE values, with ‖x‖ from a Float64 sum of squares or, when that sum is not finite or below 4 p floatmin(Float64), the
+# scaled form of _se_norm (a norm beyond floatmax(Float64) stays finite as an _SE). nothing when τ or f_x is not finite,
+# or when an entry of x is not finite in the ridge branch; a nothing refuses before any threshold is formed. f_x is the
+# stored least-squares value, which is not negative.
 function _threshold_factor(τ, f_x, λ2, x)
   isfinite(τ) && isfinite(f_x) || return nothing
   ρ2 = _se_twice(_SE{Float64}(Float64(f_x)))
@@ -230,9 +236,10 @@ function _threshold_factor(τ, f_x, λ2, x)
 end
 
 # One pass over the columns of X, at the first check of a solve. sⱼ = Σᵢ Float64(Xᵢⱼ)² (exact squares for Float32
-# entries, rounded sum). nⱼ = √sⱼ when sⱼ is finite and at least floatmin(Float64); otherwise a column whose stored
-# entries are all ±0 is a zero column, and any other column has nⱼ from _se_norm of the column (scaled by its largest
-# magnitude). hⱼ = √a nⱼ, or √(a nⱼ² + λ2) when λ2 is not a stored ±0, formed with _SE values; a zero column has _CASE_A
+# entries under gradual underflow, rounded sum). nⱼ = √sⱼ when sⱼ is finite and at least floatmin(Float64); otherwise
+# the column is read again: a column whose stored entries are all ±0 is a zero column, and any other column has nⱼ
+# from _se_norm of the column (one read for its largest magnitude and one for the scaled squares), so a column whose
+# squares underflow is rescaled rather than refused. hⱼ = √a nⱼ, or √(a nⱼ² + λ2) when λ2 is not a stored ±0, formed with _SE values; a zero column has _CASE_A
 # when λ2 is a stored ±0 and √λ2 otherwise; a nonzero column whose nⱼ is 0 or not finite has _REFUSED. The stored
 # entries of y are tested for ±0 once.
 function _filled_scales!(c::_CoordinateScales, m::_LSImage, λ2)

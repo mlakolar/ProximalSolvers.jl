@@ -103,7 +103,8 @@ end
 # STOP-21: entry i passes when its score is finite and below T((τ (√α ‖Xᵢ‖)) ρ), ρ = √2 √f(x) from the stored loss
 # value, a threshold that is finite and at least floatmin(T); a column of stored ±0 entries, and every entry when the
 # stored entries of x and y are ±0, passes when its score is finite and at most 0. The threshold is evaluated here in
-# BigFloat and rounded once to T (the solver forms it with Float64 significands, which can differ in the last bit).
+# BigFloat and rounded once to T; the solver forms it with Float64 significands, which can differ from that by more
+# than one unit in the last place, so this oracle is checked only on the fixed points of this file.
 # `single` is the single threshold τ max(maxᵢ cᵢ, λmax) of the scale before #464, and λmax is computed here for it.
 function verdicts(method, f, g, x, ::Type{T}, o = ProximalOptions()) where T
   state = PS.initial_state(method, o, f, g, copy(x))
@@ -261,7 +262,8 @@ end
     @test !r.converged || check_entries(:ls, 1, X, y, λ0, w, x, Float64) <= 1
     # near the minimizer the solves stop at a near-optimal point. In exact arithmetic a pass of the coordinatewise check
     # bounds the decrease that one coordinate can give by τ² Φ = 1e-10 Φ, with Φ = ½‖Xx - y‖² ≈ 5e11 close to F; the
-    # ill-conditioning of XᵀX makes that no bound on the excess. The tolerance below is that factor τ² for this fixture;
+    # ill-conditioning of XᵀX can make the conditional global bound of STOP-21 vacuous. The tolerance below is that
+    # factor τ² for this fixture;
     # the largest excess measured was 1.3e-13 (Julia 1.13.4)
     if !iszero(x0)
       @test r.converged
