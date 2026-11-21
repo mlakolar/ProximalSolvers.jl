@@ -1,0 +1,441 @@
+{
+  "by_arm": [
+    {
+      "acceptable_stops": 34,
+      "accepted_exterior": 12,
+      "arm": "A",
+      "ball": "l1",
+      "cells": 128,
+      "exact_exterior_stops": 2,
+      "exact_label": 46,
+      "false": 12,
+      "feasibility_rejects": 0,
+      "mapping_parity": 78,
+      "profile": "mixed",
+      "statuses": {
+        "converged": 46,
+        "nonfinite_composite": 82
+      },
+      "stop_refines": 0,
+      "success": 46,
+      "trial_parity": 562,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 128,
+      "accepted_exterior": 148,
+      "arm": "B",
+      "ball": "l1",
+      "cells": 128,
+      "exact_exterior_stops": 67,
+      "exact_label": 33,
+      "false": 0,
+      "feasibility_rejects": 6,
+      "mapping_parity": 272,
+      "profile": "mixed",
+      "statuses": {
+        "approximate_solution": 95,
+        "converged": 33
+      },
+      "stop_refines": 0,
+      "success": 128,
+      "trial_parity": 724,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 128,
+      "accepted_exterior": 148,
+      "arm": "C",
+      "ball": "l1",
+      "cells": 128,
+      "exact_exterior_stops": 67,
+      "exact_label": 61,
+      "false": 0,
+      "feasibility_rejects": 6,
+      "mapping_parity": 272,
+      "profile": "mixed",
+      "statuses": {
+        "approximate_solution": 67,
+        "converged": 61
+      },
+      "stop_refines": 150,
+      "success": 128,
+      "trial_parity": 724,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 138,
+      "accepted_exterior": 188,
+      "arm": "A",
+      "ball": "l1",
+      "cells": 384,
+      "exact_exterior_stops": 22,
+      "exact_label": 222,
+      "false": 84,
+      "feasibility_rejects": 0,
+      "mapping_parity": 522,
+      "profile": "ordinary",
+      "statuses": {
+        "converged": 222,
+        "nonfinite_composite": 114,
+        "start_refused": 48
+      },
+      "stop_refines": 0,
+      "success": 222,
+      "trial_parity": 2878,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 352,
+      "accepted_exterior": 467,
+      "arm": "B",
+      "ball": "l1",
+      "cells": 384,
+      "exact_exterior_stops": 98,
+      "exact_label": 119,
+      "false": 0,
+      "feasibility_rejects": 8,
+      "mapping_parity": 1350,
+      "profile": "ordinary",
+      "statuses": {
+        "approximate_solution": 233,
+        "converged": 119,
+        "start_refused": 32
+      },
+      "stop_refines": 0,
+      "success": 352,
+      "trial_parity": 3666,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 352,
+      "accepted_exterior": 467,
+      "arm": "C",
+      "ball": "l1",
+      "cells": 384,
+      "exact_exterior_stops": 98,
+      "exact_label": 254,
+      "false": 0,
+      "feasibility_rejects": 8,
+      "mapping_parity": 1350,
+      "profile": "ordinary",
+      "statuses": {
+        "approximate_solution": 98,
+        "converged": 254,
+        "start_refused": 32
+      },
+      "stop_refines": 797,
+      "success": 352,
+      "trial_parity": 3666,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 116,
+      "accepted_exterior": 324,
+      "arm": "A",
+      "ball": "l1",
+      "cells": 384,
+      "exact_exterior_stops": 18,
+      "exact_label": 216,
+      "false": 100,
+      "feasibility_rejects": 0,
+      "mapping_parity": 928,
+      "profile": "tight",
+      "statuses": {
+        "converged": 216,
+        "nonfinite_composite": 120,
+        "start_refused": 48
+      },
+      "stop_refines": 0,
+      "success": 216,
+      "trial_parity": 4157,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 176,
+      "accepted_exterior": 505,
+      "arm": "B",
+      "ball": "l1",
+      "cells": 384,
+      "exact_exterior_stops": 58,
+      "exact_label": 16,
+      "false": 0,
+      "feasibility_rejects": 2347,
+      "mapping_parity": 9695,
+      "profile": "tight",
+      "statuses": {
+        "approximate_solution": 160,
+        "converged": 16,
+        "iteration_limit": 8,
+        "numerical_resolution": 12,
+        "numerical_stagnation": 130,
+        "start_refused": 48,
+        "trial_limit": 10
+      },
+      "stop_refines": 0,
+      "success": 176,
+      "trial_parity": 18229,
+      "trial_refines": 0,
+      "unresolved_rejects": 109
+    },
+    {
+      "acceptable_stops": 176,
+      "accepted_exterior": 501,
+      "arm": "C",
+      "ball": "l1",
+      "cells": 384,
+      "exact_exterior_stops": 58,
+      "exact_label": 116,
+      "false": 0,
+      "feasibility_rejects": 2450,
+      "mapping_parity": 9691,
+      "profile": "tight",
+      "statuses": {
+        "approximate_solution": 60,
+        "converged": 116,
+        "iteration_limit": 8,
+        "numerical_resolution": 12,
+        "numerical_stagnation": 130,
+        "start_refused": 48,
+        "trial_limit": 10
+      },
+      "stop_refines": 2226,
+      "success": 176,
+      "trial_parity": 18225,
+      "trial_refines": 142,
+      "unresolved_rejects": 6
+    },
+    {
+      "acceptable_stops": 16,
+      "accepted_exterior": 26,
+      "arm": "A",
+      "ball": "l2",
+      "cells": 32,
+      "exact_exterior_stops": 4,
+      "exact_label": 20,
+      "false": 4,
+      "feasibility_rejects": 0,
+      "mapping_parity": 36,
+      "profile": "mixed",
+      "statuses": {
+        "converged": 20,
+        "nonfinite_composite": 12
+      },
+      "stop_refines": 0,
+      "success": 20,
+      "trial_parity": 706,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 32,
+      "accepted_exterior": 96,
+      "arm": "B",
+      "ball": "l2",
+      "cells": 32,
+      "exact_exterior_stops": 23,
+      "exact_label": 7,
+      "false": 0,
+      "feasibility_rejects": 20,
+      "mapping_parity": 88,
+      "profile": "mixed",
+      "statuses": {
+        "approximate_solution": 25,
+        "converged": 7
+      },
+      "stop_refines": 0,
+      "success": 32,
+      "trial_parity": 769,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 223,
+      "accepted_exterior": 559,
+      "arm": "A",
+      "ball": "l2",
+      "cells": 816,
+      "exact_exterior_stops": 113,
+      "exact_label": 454,
+      "false": 231,
+      "feasibility_rejects": 0,
+      "mapping_parity": 735,
+      "profile": "ordinary",
+      "statuses": {
+        "converged": 454,
+        "nonfinite_composite": 122,
+        "start_refused": 240
+      },
+      "stop_refines": 0,
+      "success": 454,
+      "trial_parity": 13441,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 551,
+      "accepted_exterior": 2729,
+      "arm": "B",
+      "ball": "l2",
+      "cells": 816,
+      "exact_exterior_stops": 170,
+      "exact_label": 293,
+      "false": 0,
+      "feasibility_rejects": 705,
+      "mapping_parity": 5861,
+      "profile": "ordinary",
+      "statuses": {
+        "approximate_solution": 258,
+        "converged": 293,
+        "iteration_limit": 7,
+        "numerical_stagnation": 18,
+        "start_refused": 240
+      },
+      "stop_refines": 0,
+      "success": 551,
+      "trial_parity": 17915,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 273,
+      "accepted_exterior": 707,
+      "arm": "A",
+      "ball": "l2",
+      "cells": 816,
+      "exact_exterior_stops": 55,
+      "exact_label": 442,
+      "false": 169,
+      "feasibility_rejects": 0,
+      "mapping_parity": 777,
+      "profile": "tight",
+      "statuses": {
+        "converged": 442,
+        "nonfinite_composite": 134,
+        "start_refused": 240
+      },
+      "stop_refines": 0,
+      "success": 442,
+      "trial_parity": 16205,
+      "trial_refines": 0,
+      "unresolved_rejects": 0
+    },
+    {
+      "acceptable_stops": 216,
+      "accepted_exterior": 3038,
+      "arm": "B",
+      "ball": "l2",
+      "cells": 816,
+      "exact_exterior_stops": 71,
+      "exact_label": 88,
+      "false": 0,
+      "feasibility_rejects": 5131,
+      "mapping_parity": 16941,
+      "profile": "tight",
+      "statuses": {
+        "approximate_solution": 128,
+        "converged": 88,
+        "numerical_resolution": 31,
+        "numerical_stagnation": 282,
+        "start_refused": 248,
+        "trial_limit": 39
+      },
+      "stop_refines": 0,
+      "success": 216,
+      "trial_parity": 39483,
+      "trial_refines": 0,
+      "unresolved_rejects": 1804
+    }
+  ],
+  "coverage": {
+    "b_c_parity": [
+      {
+        "B_only_success": 0,
+        "C_only_success": 0,
+        "bounds": "auto",
+        "cells": 224,
+        "different_success": 0,
+        "same_mapping_hash": 222,
+        "same_output": 222,
+        "same_trial_hash": 222,
+        "version": "1.10.13"
+      },
+      {
+        "B_only_success": 0,
+        "C_only_success": 0,
+        "bounds": "yes",
+        "cells": 224,
+        "different_success": 0,
+        "same_mapping_hash": 222,
+        "same_output": 222,
+        "same_trial_hash": 222,
+        "version": "1.10.13"
+      },
+      {
+        "B_only_success": 0,
+        "C_only_success": 0,
+        "bounds": "auto",
+        "cells": 224,
+        "different_success": 0,
+        "same_mapping_hash": 223,
+        "same_output": 223,
+        "same_trial_hash": 223,
+        "version": "1.13.4"
+      },
+      {
+        "B_only_success": 0,
+        "C_only_success": 0,
+        "bounds": "yes",
+        "cells": 224,
+        "different_success": 0,
+        "same_mapping_hash": 223,
+        "same_output": 223,
+        "same_trial_hash": 223,
+        "version": "1.13.4"
+      }
+    ],
+    "cells": 6016,
+    "histories": 80,
+    "probes": 2816,
+    "projection_checks": 189946
+  },
+  "fixed_sign": [
+    {
+      "B_unknown": 152,
+      "C_decided_where_B_unresolved": 146,
+      "C_unknown": 6,
+      "ball": "l1",
+      "cells": 256
+    },
+    {
+      "B_unknown": 224,
+      "C_decided_where_B_unresolved": 0,
+      "C_unknown": 0,
+      "ball": "l2",
+      "cells": 448
+    }
+  ],
+  "historical": [
+    {
+      "arm": "H4eps",
+      "cells": 48,
+      "false_exact": 48,
+      "false_gap": 0,
+      "stops": 48
+    },
+    {
+      "arm": "Hworking",
+      "cells": 32,
+      "false_exact": 0,
+      "false_gap": 24,
+      "stops": 32
+    }
+  ]
+}

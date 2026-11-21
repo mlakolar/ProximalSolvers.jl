@@ -1,0 +1,7 @@
+T	control	method	status	projection_parity
+Float32	nonnegative	PGD	converged	true
+Float32	nonnegative	APG	public_refused	true
+Float32	box	PGD	converged	true
+Float32	box	APG	converged	true
+Float32	linf	PGD	converged	true
+Float32	linf	APG	converged	true

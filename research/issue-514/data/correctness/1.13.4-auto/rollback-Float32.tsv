@@ -1,0 +1,5 @@
+T	case	method	arm	callback	callback_smooth	callback_composite	failure	bitwise_rollback
+Float32	l1_correlated_interior	PGD	B	callback_stop	0.3370943069458008	missing	injected_trial_failure	true
+Float32	l1_correlated_interior	PGD	C	callback_stop	0.3370943069458008	missing	injected_trial_failure	true
+Float32	l1_correlated_interior	APG	B	callback_stop	0.3370943069458008	missing	injected_trial_failure	true
+Float32	l1_correlated_interior	APG	C	callback_stop	0.3370943069458008	missing	injected_trial_failure	true
