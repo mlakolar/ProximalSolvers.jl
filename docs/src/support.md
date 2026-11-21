@@ -80,8 +80,8 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 - **(f)** The weighted lasso and weighted elastic net take a `Vector{T}` of
   finite nonnegative weights. A zero weight removes that coordinate's L1 term.
   The elastic-net ridge term applies to each coordinate. See [IN-03](@ref) for
-  the level, shape, alias and coefficient-range rules. The weighted reference
-  tests for PGD and APG allow objective increases near working precision.
+  the level, shape, alias and coefficient-range rules. Selected weighted
+  reference tests for PGD and APG use `allow_f_increases = true`.
 - **(g)** The multi-response group lasso needs `X` and `Y` to be `Matrix{T}`, the coefficients to be a `Matrix{T}` or
   a `BlockIterate{T}` over `vec(B)` with the row groups of `B`, and `momentum` other than `true`
   ([the rules](@ref "Multi-response group lasso with coordinate descent")). The tests check the `Matrix` and the
@@ -158,8 +158,9 @@ unweighted elastic net
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda_1\|\beta\|_1+\frac{\lambda_2}{2}\|\beta\|_2^2,
 ~~~
 
-with `ElasticNet(lambda1, lambda2)`, or `ElasticNet(lambda1, lambda2, w)` with one weight
-per coefficient on the L1 term only ([IN-03](@ref)). `CDSolver` also accepts uncentered
+with `ElasticNet(lambda1, lambda2)`. The weighted form
+`ElasticNet(lambda1, lambda2, w)` applies one weight per coefficient to
+the L1 term as specified in [IN-03](@ref). `CDSolver` also accepts uncentered
 `SqrNormL2(lambda)` for ridge, the elastic-net objective with the L1 level set to
 zero. Its supported storage and center type are specified in [IN-01](@ref).
 `ProximalGradientDescent` and `AccProxGradDescent` also solve the

@@ -150,7 +150,7 @@ Initialization can accept finite `f(x0)` with `g(x0)` overflowing in `T` (for ex
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** test/elasticnet.jl: residual conversion, stopping honesty, ridge zero-scale and overflowing-start testsets. test/weighted_elasticnet.jl: the weighted scale and residual are probed separately at prescribed iterates and checked through the public result flags.
+**Tests.** test/elasticnet.jl: residual conversion, stopping honesty, ridge zero-scale and overflowing-start testsets. test/weighted_elasticnet.jl: prescribed-iterate probes isolate the weighted scale and residual. Public solves cover the large-weight scale and the zero-scale veto through their result flags.
 
 **Sources.** `docs/src/numerics.md:L86`, `docs/src/numerics.md:L168`, `docstring:src/types.jl:L23`, `docs/src/developer/implementation-notes.md:L286`, `README.md:L79`.
 
