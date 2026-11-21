@@ -289,9 +289,9 @@ function _pn_load!(work, b::Vector{Float64})
 end
 
 # The gradient of the surrogate at the candidate: the original gradient plus the curvature action of the model on the
-# displacement, scale·matᵀ(mat (cand - b)), not the model's own residual (which subtracts the working response a
-# second time). Returns the point-aware surrogate KKT score of that gradient at cand (not the score of the original
-# problem, which `_pn_search!` takes from the logistic gradient), or NaN when the displacement or gradient is not finite.
+# displacement, scale·matᵀ(mat (cand - b)), computed independently of the residual maintained by CD.
+# Returns the point-aware surrogate KKT score at cand, or NaN when the displacement or gradient is not finite.
+# `_pn_search!` computes the original-problem score from the logistic gradient.
 function _pn_surrogate_residual!(w::_PNWork, mat::Matrix{Float64}, scale::Float64)
   @. w.delta = w.cand - w.b
   mul!(w.u, mat, w.delta)

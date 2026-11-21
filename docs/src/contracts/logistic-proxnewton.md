@@ -150,8 +150,8 @@ belongs to `ProxNewton`'s inner solve only: `CDSolver` keeps its own, and `Proxi
 *Forcing target and refinement.* At an accepted point with score `ρ = kkt`, a run meets the target when the
 surrogate KKT score at its candidate is at most `max(0.1 tol, min(1/4, √ρ) ρ)`. The surrogate gradient is the original
 gradient plus the curvature action of the model on the displacement, `∇f(b) + scale · Mᵀ(M (cand - b))` with `M = A`
-and `scale = 1` for the weighted model and `M = X` and `scale = 1/4` for the fixed model; it is not formed from the
-model's own residual, which subtracts the working response a second time. The score is ProximalBase's
+and `scale = 1` for the weighted model and `M = X` and `scale = 1/4` for the fixed model. The calculation is
+independent of the residual maintained by coordinate descent. The score is ProximalBase's
 point-aware `kkt_violation` of that gradient at the candidate; it is not the score of the original problem, which
 [PN-04](@ref) takes from the logistic gradient at a trial. While the target is missed, the threshold `δ` is divided by ten and
 the run continues from the candidate, at most four times and within the allowance. The candidate is the point of the
