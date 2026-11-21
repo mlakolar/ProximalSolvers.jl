@@ -18,6 +18,7 @@ standard = [
   "nonnegative_least_squares",
   "constrained_least_squares",
   "multiresponse_cd",
+  "multiresponse_lasso_pgd_apg",
   "core_regressions",
   "sparse_cd",
   "accelerated_pgd",
@@ -35,6 +36,7 @@ standard = [
   "weighted_lasso",
   "scaled_lasso",
   "logistic_pgd",
+  "logistic_proxnewton",
 ]
 full = [
   "examples",

@@ -14,8 +14,10 @@ The following remain deferred:
 - matrix-shaped coefficient owners except the dense `Matrix` coefficient of
   least-squares CD with a matrix response and native row-group `GroupNormL2`
   ([CDM-01](@ref), #396) and the dense `Matrix` iterate of the graphical
-  lasso with ADMM or PGD ([ADM-04](@ref), [PGD-06](@ref)); matrix responses outside the CD case, which uses a private
-  `BlockIterate` over `vec(B)`;
+  lasso with ADMM or PGD ([ADM-04](@ref), [PGD-06](@ref)), and the matrix-response
+  entrywise lasso with PGD or APG ([IN-10](@ref)); matrix-response regression
+  penalties and storage outside those solver contracts, including weighted
+  matrix `NormL1`;
 - weighted `ElasticNet`, `Scaled` penalties, and CD group penalties other than
   `GroupNormL2`;
 - `SqrNormL2` as a CD penalty with a declared center type other than `Nothing`,
@@ -29,11 +31,13 @@ The following remain deferred:
   unpenalized coordinate, with penalty weight zero, under the input rules of a weighted
   `NormL1`); generalized losses and
   compositions, except the raw `LogisticLoss` with `NormL1` and `ProximalGradientDescent`
-  in the scope of [IN-09](@ref). For the logistic loss, `AccProxGradDescent`,
-  `CDSolver`, Newton-type methods, `Scaled(LogisticLoss)`, observation weights and
+  in the scope of [IN-09](@ref), and with `ProxNewton` in the scope of [PN-01](@ref). For the
+  logistic loss, `AccProxGradDescent`, `CDSolver`, Newton-type methods other than `ProxNewton`,
+  `Scaled(LogisticLoss)`, observation weights and
   offsets, `Float32` data, sparse designs and penalties other than `NormL1` remain
   deferred, as do Poisson and other generalized linear model losses;
-- monotone or active-set acceleration, APG diagonal preconditioning, Newton,
+- monotone or active-set acceleration, APG diagonal preconditioning, Newton (other than
+  `ProxNewton` for the raw logistic loss, [PN-01](@ref)),
   primal-dual methods, SLOPE and direct precision-matrix solvers other than the
   graphical-lasso routes in [ADM-04](@ref) and [PGD-06](@ref);
 - ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref),
@@ -62,6 +66,6 @@ workspace API; see [ARCH-03](@ref).
 
 **Code.** `src/types.jl`: constructor validation; `src/solve.jl`: supported dispatch and input gates; `src/cd/models.jl`: private seams.
 
-**Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl`, `test/logistic_pgd.jl` (the logistic refusals) and solver-specific unsupported-input tests.
+**Tests.** `test/core_contracts.jl`, `test/naming.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl`, `test/logistic_pgd.jl` (the logistic refusals), `test/logistic_proxnewton.jl` (the same refusals for `ProxNewton`) and solver-specific unsupported-input tests.
 
 **Sources.** `docs/src/support.md:L385`, `docs/src/developer/implementation-notes.md:L238`, `docs/src/developer/implementation-notes.md:L240`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/index.md:L9`, `README.md:L96`; the later nonnegative-lasso refusals are specified by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The narrow ridge extension and remaining refusals are [upstream #420 at 217cde72](https://github.com/mlakolar/ProximalSolvers.jl/commit/217cde72cad2b324e174012accc949da59c1bba5).

@@ -14,8 +14,9 @@ function _image_model(f)
 end
 _image_buffer(m::_LSImage{TY, TX, A, T}) where {TY, TX, A, T} = zeros(T, size(m.Y))
 _image!(z, m::_LSImage, x) = mul!(z, m.X, x)
-# The image model of PGD for a raw LogisticLoss, which the gate of solve! accepts with PGD only and
-# without observation weights or offset (IN-09): Y = f.y, X = f.X and the image z = X x. α is not a
+# The image model of PGD for a raw LogisticLoss, which the gate of solve! accepts without observation weights or
+# offset (IN-09): Y = f.y, X = f.X and the image z = X x. ProxNewton, the other solver that the gate admits for this
+# loss, forms its own images (src/solvers/logistic_proxnewton.jl) and does not use this model. α is not a
 # loss scale but the factor 1/4 of the Hessian bound ∇²f(b) = Xᵀ diag(σᵢ(1 - σᵢ)) X ⪯ ¼ XᵀX (a formula
 # in exact arithmetic), read where least squares reads its scale: the initial curvature min(1, α B²), with B the
 # upper estimate of ‖X‖_F from _frobenius_upper (PGD-02, with its floor and its fallback for X = 0), and the
@@ -222,17 +223,22 @@ struct _BoundConstants{T}
   product::_SE{T}        # γ_p ‖X‖_F: relative error of a fresh product, per ‖v‖
   fresh::_SE{T}          # (γ_p + 2u) ‖X‖_F: error of fl(X d̂) against X d, per ‖d̂‖
   extrapolation::_SE{T}  # (2γ_p + 16u) ‖X‖_F: extrapolated image, per ‖x_a‖ + ‖x_b‖
-  under_product::_SE{T}  # 2p √n η: absolute underflow of a fresh product
-  under_extrapolation::_SE{T}  # 8p √n η + 2√p ‖X‖_F η: of an extrapolated image and y
+  under_product::_SE{T}  # 2p √(nK) η: absolute underflow of a fresh product
+  under_extrapolation::_SE{T}  # 8p √(nK) η + 2√(pK) ‖X‖_F η: of an extrapolated image and y
 end
 
-function _bound_constants(::Type{T}, X, normX) where {T}
+# For K columns, apply the componentwise product bound to each column.
+# ‖|X||B|‖_F ≤ ‖X‖_F ‖B‖_F by Cauchy–Schwarz in each column. Each dot product
+# still has p terms, but the norm reductions and uniform absolute errors span
+# nK image entries or pK coefficient entries. See APG-07 for the bound argument.
+function _bound_constants(::Type{T}, X, normX, K::Int = 1) where {T}
   n, p = size(X)
+  q, r = n * K, p * K   # lengths verified by _check_bound_size before initial_state
   u = _unit(T)
-  δn, δp, γp = _gamma(T, n + 4), _gamma(T, p + 4), _gamma(T, p)
+  δn, δp, γp = _gamma(T, q + 4), _gamma(T, r + 4), _gamma(T, p)
   κ = 32u
   η = _SE{T}(nextfloat(zero(T)))
-  rn, rp = _SE{T}(sqrt(T(n))), _SE{T}(sqrt(T(p)))
+  rn, rp = _SE{T}(sqrt(T(q))), _SE{T}(sqrt(T(r)))
   _BoundConstants{T}(_SE{T}(inv((1 - δn) * (1 - u))), _SE{T}(inv((1 + δn) * (1 + u))),
     _SE{T}(inv((1 + δp) * (1 + u))), _SE{T}(inv((1 - δp) * (1 - u))), _SE{T}(inv(1 - δn)),
     _SE{T}(inv(1 - δp)), _SE{T}((1 + 4eps(T)) / (1 + κ)), _SE{T}((1 + 4eps(T)) * (1 + κ)),
