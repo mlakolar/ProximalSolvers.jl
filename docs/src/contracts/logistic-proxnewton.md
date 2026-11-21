@@ -60,7 +60,7 @@ accepted point with `converged = false`. No warning is logged for any stop.
 
 **Code.** `src/solvers/logistic_proxnewton.jl`: `ProxNewton`, `ProxNewtonResults`, `solve!`, `_solve_newton!`, `_pn_workspace`; `src/solve.jl`: `_check_newton_problem`, `_check_logistic_problem`, `_logistic_method_error`.
 
-**Tests.** `test/logistic_proxnewton.jl`: the constructor and its refusals; the result fields, accessors and display against the independent objective and scores; a zero iteration budget at a stationary and a nonstationary start; budgets of iterations and of passes; the refusals above with the coefficients unchanged, including the text that names `ProxNewton`.
+**Tests.** `test/logistic_proxnewton.jl`: the constructor and its refusals; the result fields, accessors and display against the independent objective and scores; a zero iteration budget at a stationary and a nonstationary start, and a zero pass budget at a nonstationary start giving exactly `:stalled`; budgets of iterations and of passes; the refusals above with the coefficients unchanged, including the text that names `ProxNewton`.
 
 **Sources.** [Issue #447](https://github.com/mlakolar/ProximalSolvers.jl/issues/447) (scope) and [pull request #496](https://github.com/mlakolar/ProximalSolvers.jl/pull/496).
 
@@ -70,8 +70,8 @@ accepted point with `converged = false`. No warning is logged for any stop.
 
 At an accepted point with predictor `η = X b` and observation derivative `d = σ(η) - y` (from ProximalBase, which
 evaluates it without cancellation in the saturated tails), a model is a least-squares problem in the step
-whose gradient at `b` is the gradient `Xᵀd` of the loss. Two models are formed, and each is solved with the scalar
-`LSModel` of [CD-01](@ref).
+whose gradient at `b` is the gradient `Xᵀd` of the loss. There are two models, a weighted one and a fixed one that is
+conditional on the first (below), and each is solved with the scalar `LSModel` of [CD-01](@ref).
 
 *Weighted model.* Row `i` has the root `s = q / (1 + q²)` with `q = exp(-|ηᵢ| / 2)`, which is
 `√(σ(ηᵢ)σ(-ηᵢ))` in exact arithmetic. The design is `A[i, :] = s X[i, :]` and the response is
@@ -84,7 +84,8 @@ whose root and derivative are both zero is a zero row (`s = 0` and `r[i] = 0`). 
 `d = 1`, the ratio exceeds the bound, and the row takes `s = 1/2`; `η = -2000` gives `s = 0` and `d = 0`, a zero row. A
 saturated row on the side of its label keeps its small root even where the square of that root underflows.
 
-*Fixed model.* The `LSModel` with loss scale `1/4`, the borrowed `X` and the response `η - 4d`. In exact arithmetic its
+*Fixed model (conditional).* It is formed and solved in an iteration only when the weighted model is unavailable or gives
+no accepted step ([PN-03](@ref) for its budget). It is the `LSModel` with loss scale `1/4`, the borrowed `X` and the response `η - 4d`. In exact arithmetic its
 gradient at `b` is `Xᵀd` and its Hessian is `XᵀX/4`, which bounds that of the loss, so that
 `f(b + Δ) ≤ f(b) + ∇f(b)ᵀΔ + ‖XΔ‖²/8` for every `Δ`.
 
@@ -98,7 +99,8 @@ eligible under the flat-column step in [CD-01](@ref).
 
 The weighted model keeps one `n × p` design with vectors of length `n` and `p`. The fixed model
 borrows `X`. The inner solver refreshes the residual and curvature caches before its first run
-for a model and carries that state through refinements ([PN-03](@ref)). The fixed model follows
+for a model, from the observation derivative `d` and not from the stored coefficients, and carries that state
+through refinements (the cache refresh of [PN-03](@ref)). The fixed model follows
 an unavailable weighted model or one that gives no accepted step, within the remaining pass
 budget. Both forms use coordinate operations on the model's design columns.
 
@@ -132,12 +134,26 @@ may use `B - ⌈B/4⌉` passes, leaves the rest for the fixed model, which may u
 spend; for `B = 1` the weighted model has the single pass. A model with no passes left makes no run and gives no direction.
 With `B = 0` no direction exists, and the iteration is stalled unless the point is already stationary.
 
+*Cache refresh.* Before the first run of a model, the private residual of the `LSModel` is the model response minus
+its weighted predictor at the accepted point, which in exact arithmetic is `-dᵢ/sᵢ` for row `i` of the weighted model
+(`0` for a zero root `sᵢ = 0`, whose represented derivative is zero, so no division is made) and `-4dᵢ` for the fixed
+model, and the curvature cache is cleared. The solver sets these values from the observation derivative `d` of
+[PN-02](@ref), and does not subtract the images of the stored coefficients from the response (the `initialize!` of
+[CD-01](@ref)): where those images are large and cancel, the response is rounded away and the cache loses a
+representable gradient. For example, at `η = 0` with `y = 0`, `d = 1/2` and `s = 1/2`, the residual is `-1` for the
+weighted model and `-2` for the fixed model, and with `y = 1` the signs reverse. Refinements continue with the
+maintained residual. The solve from `b = (2⁶⁰, -2⁶⁰, 0)` with `X = [1 1 -1; 1 1 1]`, `y = (0, 1)` and the
+penalty `0.5` on the third coefficient only has the predictor zero and a score of `1/2`; seeded this way both models
+move the third coefficient to `1`, and a residual formed from the stored images would be zero. This initialization
+belongs to `ProxNewton`'s inner solve only: `CDSolver` keeps its own, and `ProximalGradientDescent` has no such cache.
+
 *Forcing target and refinement.* At an accepted point with score `ρ = kkt`, a run meets the target when the
-score of the model's gradient at its candidate is at most `max(0.1 tol, min(1/4, √ρ) ρ)`. That gradient is the original
+surrogate KKT score at its candidate is at most `max(0.1 tol, min(1/4, √ρ) ρ)`. The surrogate gradient is the original
 gradient plus the curvature action of the model on the displacement, `∇f(b) + scale · Mᵀ(M (cand - b))` with `M = A`
 and `scale = 1` for the weighted model and `M = X` and `scale = 1/4` for the fixed model; it is not formed from the
 model's own residual, which subtracts the working response a second time. The score is ProximalBase's
-point-aware `kkt_violation` at the candidate. While the target is missed, the threshold `δ` is divided by ten and
+point-aware `kkt_violation` of that gradient at the candidate; it is not the score of the original problem, which
+[PN-04](@ref) takes from the logistic gradient at a trial. While the target is missed, the threshold `δ` is divided by ten and
 the run continues from the candidate, at most four times and within the allowance. The candidate is the point of the
 last run whether or not the target was met.
 
@@ -147,9 +163,9 @@ gives no direction. Every pass of every run is counted in `passes`, also where t
 
 **Applies to.** `ProxNewton`.
 
-**Code.** `src/solvers/logistic_proxnewton.jl`: `_pn_direction!`, `_pn_surrogate_residual!`, `_pn_load!`, `_pn_step!`, `_pn_forcing`; `src/cd/solver.jl`: `_cd!`, `_CDState`.
+**Code.** `src/solvers/logistic_proxnewton.jl`: `_pn_direction!`, `_pn_seed_residual!`, `_pn_surrogate_residual!`, `_pn_load!`, `_pn_step!`, `_pn_forcing`; `src/cd/solver.jl`: `_cd!`, `_CDState`.
 
-**Tests.** `test/logistic_proxnewton.jl`: the model gradient at a candidate against a BigFloat formula; the forcing target met by a run; no run without a pass budget; the loader; passes counted when every trial is rejected and the sharing of a budget of `8` passes (`6` and `2`) and of one pass; a zero change tolerance (each run spends its allowance); loose and tight values of `inner.tol` reaching the same fit; a cyclic `CDSolver` with its default settings.
+**Tests.** `test/logistic_proxnewton.jl`: the seeded residual of both models, with a zero root and reversed labels, and the public warm start with cancelling coefficient images of `2⁶⁰` (an accepted step, the reduced objective against the BigFloat reference and the computed KKT score), also for the fixed model alone; the model gradient at a candidate against a BigFloat formula; the forcing target met by a run; no run without a pass budget; the loader; passes counted when every trial is rejected and the sharing of a budget of `8` passes (`6` and `2`) and of one pass; a zero change tolerance (each run spends its allowance); loose and tight values of `inner.tol` reaching the same fit; a cyclic `CDSolver` with its default settings.
 
 **Sources.** [Issue #447](https://github.com/mlakolar/ProximalSolvers.jl/issues/447) and [pull request #496](https://github.com/mlakolar/ProximalSolvers.jl/pull/496).
 
@@ -157,9 +173,11 @@ gives no direction. Every pass of every run is counted in `passes`, also where t
 
 **Statement.**
 
-For the accepted point `b`, its gradient `G`, the candidate `u` and the coefficients `cⱼ`, the composite slope is the first-order change of
-`F` along the step from `b` to `u`, `G·(u - b) + Σⱼ cⱼ(|uⱼ| - |bⱼ|)`, formed by coordinate before the terms are
-added. Where `bⱼ` and `uⱼ` have the same sign (zero counts for either), the term is `(Gⱼ + cⱼ sign) (uⱼ - bⱼ)`
+For the accepted point `b`, its gradient `G`, the candidate `u` and the coefficients `cⱼ`, the composite slope is the linearized loss change plus the full penalty change
+from `b` to `u`, `G·(u - b) + Σⱼ cⱼ(|uⱼ| - |bⱼ|)`, formed by coordinate before the terms are
+added. In exact arithmetic it is an upper bound on the directional derivative of `F` along `u - b`, with equality
+unless a coordinate changes sign; for `bⱼ = 1` and `uⱼ = -2` its penalty term is `+cⱼ`, while the penalty's
+directional derivative is `-3cⱼ`. The search uses it as the Armijo quantity below. Where `bⱼ` and `uⱼ` have the same sign (zero counts for either), the term is `(Gⱼ + cⱼ sign) (uⱼ - bⱼ)`
 with the common sign; where they differ it is split at zero,
 `(Gⱼ + sign(uⱼ) cⱼ) uⱼ - (Gⱼ + sign(bⱼ) cⱼ) bⱼ`. For `bⱼ = 1`, `uⱼ = 2` and `cⱼ = λ` the term is `(Gⱼ + λ)(2 - 1)`; for
 `bⱼ = 1` and `uⱼ = -2` it is `(Gⱼ - λ)(-2) - (Gⱼ + λ)(1)`. The grouping keeps a coordinate at its
@@ -183,7 +201,7 @@ If the weighted model gives no accepted step, the fixed model is tried within th
 
 **Code.** `src/solvers/logistic_proxnewton.jl`: `_pn_slope`, `_pn_accepts`, `_pn_search!`.
 
-**Tests.** `test/logistic_proxnewton.jl`: the slope against the cases above, against BigFloat formulas and at a stationary coordinate with large totals; the acceptance rule, including the tie example; the search accepting a model direction with a fresh objective, gradient and score, a displacement that rounds to nothing, and an ascent direction that fails every trial; the fixed model alone reaching the tolerance on seeded problems of three shapes.
+**Tests.** `test/logistic_proxnewton.jl`: the slope against the cases above, the upper-bound property at a sign change, against BigFloat formulas and at a stationary coordinate with large totals; the acceptance rule, including the tie example; the search accepting a model direction with a fresh objective, gradient and score, a displacement that rounds to nothing, and an ascent direction that fails every trial; the fixed model alone reaching the tolerance on seeded problems of three shapes.
 
 **Sources.** [Issue #447](https://github.com/mlakolar/ProximalSolvers.jl/issues/447) and [pull request #496](https://github.com/mlakolar/ProximalSolvers.jl/pull/496).
 

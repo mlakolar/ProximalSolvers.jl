@@ -429,7 +429,9 @@ fits seeded data and checks its objective and KKT residual from the data.
 `ProxNewton` minimizes the same objective with the same inputs. Each outer iteration solves a weighted
 least-squares model of the loss by cyclic coordinate descent and searches along the result on the true
 objective; the weights follow the curvature of the loss row by row, so a correctly classified row with a large leverage
-does not slow the step the way the constant curvature bound of PGD can.
+can have a small weight and a smaller influence on the step than under the constant curvature bound of PGD. That is a
+potential benefit, not a guarantee: where the weighted model gives no accepted step, the fixed model with the constant
+curvature `1/4` is tried.
 
 ~~~julia
 using ProximalBase, ProximalSolvers
@@ -440,8 +442,8 @@ result.converged, result.kkt, result.iterations, result.passes, result.stop_reas
 `tol` bounds the largest KKT score of the original problem, in the units of the gradient of the summed loss.
 `inner` is a `CDSolver` in cyclic order: its `maxpasses` is the budget of coordinate passes of one outer iteration and its
 `tol` is the first absolute threshold on the change of the coefficients in a pass (no relative test is used). The result's
-`stop_reason` is `:converged`, `:maxiter` or `:stalled`; a stopped solve returns the last accepted point with
-`converged = false` (the [results contract](@ref RES-01) gives the meaning of the flag). The weighted design costs
+`stop_reason` is `:converged`, `:maxiter` or `:stalled`; a solve that stops with `:maxiter` or `:stalled` returns the
+last accepted point with `converged = false` (the [results contract](@ref RES-01) gives the meaning of the flag). The weighted design costs
 one `n × p` array. The rules are in [PN-01](@ref) to [PN-05](@ref).
 
 ### Nonnegative lasso with proximal gradient descent

@@ -205,7 +205,11 @@ end
   @test PS._pn_slope([0.3], [0.0], [-2.0], [0.7]) == (0.3 - 0.7) * (-2.0)
   @test PS._pn_slope([0.3], [4.0], [0.0], [0.7]) == (0.3 + 0.7) * (0.0 - 4.0)
   @test PS._pn_slope([0.3], [0.0], [0.0], [0.7]) == 0
-  # against the exact first-order change G·(cand - b) + Σ cⱼ(|candⱼ| - |bⱼ|) in BigFloat, with zeros and sign changes
+  # a sign change: the full-step penalty change is c(|u| - |b|) = c, above the penalty's directional derivative -3c, so
+  # the grouped value is an upper bound on the directional derivative G·(u - b) - 3c = -3 (G = 0.3, c = 0.7, b = 1, u = -2)
+  @test PS._pn_slope([0.3], [1.0], [-2.0], [0.7]) >= 0.3 * (-3.0) - 3 * 0.7
+  # against the exact linearized loss change plus the full penalty change G·(cand - b) + Σ cⱼ(|candⱼ| - |bⱼ|) in BigFloat,
+  # with zeros and sign changes
   rng = MersenneTwister(5)
   for _ in 1:30
     p = 12
@@ -310,6 +314,68 @@ end
     @test PS._pn_direction!(w0, adaptive, 0, method.inner.tol, method.tol) == 0
     @test w0.cand == b0 && w0.passes == 0 && PS._pn_slope(w0.G, w0.b, w0.cand, w0.c) == 0
   end
+end
+
+@testset "the inner residual is seeded from the observation derivative, also where the stored images cancel" begin
+  # logit 0 in both rows (the images 2^60 and -2^60 of the first two columns cancel exactly), y = (0, 1), d = (1/2, -1/2)
+  # and the row root s = 1/2: the response minus the weighted predictor is -d/s = (-1, 1) for the weighted model and
+  # -4d = (-2, 2) for the fixed one, and the curvature cache is cleared
+  X = [1.0 1.0 -1.0; 1.0 1.0 1.0]
+  y = [0.0, 1.0]
+  b0 = [2.0^60, -2.0^60, 0.0]
+  f, g = LogisticLoss(y, X), NormL1(0.5, [0.0, 0.0, 1.0])
+  method = ProxNewton()
+  w = PS._pn_workspace(copy(b0), f, g, method)
+  @test w.eta == zeros(2) && w.d == [0.5, -0.5] && w.G == [0.0, 0.0, -1.0] && w.rho == 0.5
+  @test PS._pn_adaptive_model!(w.A, w.resp, w.rows, w.X, w.eta, w.d) && w.rows == [0.5, 0.5]
+  fill!(w.adaptive.a, 1.0)
+  PS._pn_direction!(w, true, 0, method.inner.tol, method.tol)    # no pass: only the seeding
+  @test w.adaptive.r == [-1.0, 1.0] && all(isnan, w.adaptive.a)
+  @test PS._pn_fixed_response!(w.resp_fixed, w.eta, w.d)
+  fill!(w.fixed.a, 1.0)
+  PS._pn_direction!(w, false, 0, method.inner.tol, method.tol)
+  @test w.fixed.r == [-2.0, 2.0] && all(isnan, w.fixed.a)
+  # a zero root needs no division: the row has the derivative zero, and the seeded residual is zero
+  wz = PS._pn_workspace([0.0, 0.0, 0.0], f, g, method)
+  wz.eta[2] = -2000.0
+  wz.d[2] = 0.0
+  @test PS._pn_adaptive_model!(wz.A, wz.resp, wz.rows, wz.X, wz.eta, wz.d) && wz.rows[2] == 0
+  PS._pn_direction!(wz, true, 0, method.inner.tol, method.tol)
+  @test wz.adaptive.r[2] == 0 && wz.adaptive.r[1] == -wz.d[1] / wz.rows[1]
+  # the same logits with the labels reversed reverse the signs
+  wr = PS._pn_workspace(copy(b0), LogisticLoss([1.0, 0.0], X), g, method)
+  @test PS._pn_adaptive_model!(wr.A, wr.resp, wr.rows, wr.X, wr.eta, wr.d)
+  PS._pn_direction!(wr, true, 0, method.inner.tol, method.tol)
+  @test wr.adaptive.r == [1.0, -1.0]
+end
+
+@testset "a warm start with large cancelling coefficient images still takes the coordinate step" begin
+  # The two large coefficients leave the predictor exactly zero, with the gradient (0, 0, -1) and the score 1/2. Both
+  # models start from the residual of the accepted derivative, so the third coefficient can move to 1, which lowers the
+  # objective from 2 log 2 to 2 log(1 + e⁻¹) + 1/2 = 1.12652338.
+  X = [1.0 1.0 -1.0; 1.0 1.0 1.0]
+  y = [0.0, 1.0]
+  b0 = [2.0^60, -2.0^60, 0.0]
+  w = [0.0, 0.0, 1.0]
+  f, g = LogisticLoss(y, X), NormL1(0.5, w)
+  start = independent(X, y, b0, 0.5, w)
+  @test start.score == 0.5 && start.objective ≈ 2 * log(2)
+  b = copy(b0)
+  r = solve!(b, f, g, ProxNewton())
+  @test r.iterations >= 1 && r.passes > 0 && r.stop_reason !== :stalled
+  @test r.minimum < start.objective - 0.2
+  ind = check_result(r, b, X, y, 0.5, w; converged = false)
+  @test ind.objective < start.objective - 0.2 && ind.score < 0.5
+  @test b[1:2] == b0[1:2] && b[3] > 0
+  # the fixed model alone, through the private test mode of one step, takes the same step from the same start
+  method = ProxNewton()
+  wk = PS._pn_workspace(copy(b0), f, g, method)
+  @test PS._pn_step!(wk, method, (:fixed,))
+  @test wk.b[1:2] == b0[1:2] && wk.b[3] ≈ 1
+  indf = independent(X, y, wk.b, 0.5, w)
+  @test wk.F ≈ indf.objective rtol = 1e-12 && wk.F < start.objective - 0.2
+  @test wk.F ≈ 2 * log1p(exp(-1)) + 0.5 rtol = 1e-9
+  @test wk.rho < 0.5 && abs(wk.rho - indf.score) <= 1e-12
 end
 
 @testset "the objective search accepts, rejects, rounds to nothing and exhausts" begin
@@ -464,6 +530,12 @@ end
   r = solve!(b, LogisticLoss(y, X), NormL1(λ, wts), ProxNewton(maxiter = 0))
   @test !r.converged && r.stop_reason === :maxiter && r.iterations == 0 && r.passes == 0 && b == b0
   @test r.kkt > r.tolerance
+  check_result(r, b, X, y, λ, wts; converged = false)
+  # the same start with no pass budget has no direction, so the solve is exactly stalled at the start (PN-01)
+  nopass = ProxNewton(inner = CDSolver(order = :cyclic, momentum = false, relative = false, maxpasses = 0))
+  b = copy(b0)
+  r = solve!(b, LogisticLoss(y, X), NormL1(λ, wts), nopass)
+  @test !r.converged && r.stop_reason === :stalled && r.iterations == 0 && r.passes == 0 && b == b0
   check_result(r, b, X, y, λ, wts; converged = false)
 end
 

@@ -177,10 +177,11 @@ function _pn_fixed_response!(resp::Vector{Float64}, eta::Vector{Float64}, d::Vec
 end
 
 # ---- the composite slope and the search rule ---------------------------------------------------------------------
-# The first-order change of f(b) + Σ cⱼ|bⱼ| along the step from b to cand: G·(cand - b) + Σ cⱼ(|candⱼ| - |bⱼ|),
+# The linearized loss change plus the full penalty change from b to cand: G·(cand - b) + Σ cⱼ(|candⱼ| - |bⱼ|),
 # formed by coordinate before the products are added, so that the gradient and the penalty slope of a coordinate
-# cancel in the factor that multiplies its displacement. Where old and new have the same sign (zero counts for
-# either) the penalty adds sign·cⱼ to Gⱼ; where they differ it is split at zero.
+# cancel in the factor that multiplies its displacement. In exact arithmetic it is an upper bound on the directional
+# derivative of f + Σ cⱼ|·| along cand - b, with equality unless a coordinate changes sign. Where old and new have the
+# same sign (zero counts for either) the penalty adds sign·cⱼ to Gⱼ; where they differ it is split at zero.
 function _pn_slope(G::Vector{Float64}, b::Vector{Float64}, cand::Vector{Float64}, c::Vector{Float64})
   s = 0.0
   @inbounds for j in eachindex(b)
@@ -287,9 +288,10 @@ function _pn_load!(work, b::Vector{Float64})
   work
 end
 
-# The gradient of the model at the candidate: the original gradient plus the curvature action of the model on the
+# The gradient of the surrogate at the candidate: the original gradient plus the curvature action of the model on the
 # displacement, scale·matᵀ(mat (cand - b)), not the model's own residual (which subtracts the working response a
-# second time). Its original-problem KKT score at cand, or NaN when the displacement or the gradient is not finite.
+# second time). Returns the point-aware surrogate KKT score of that gradient at cand (not the score of the original
+# problem, which `_pn_search!` takes from the logistic gradient), or NaN when the displacement or gradient is not finite.
 function _pn_surrogate_residual!(w::_PNWork, mat::Matrix{Float64}, scale::Float64)
   @. w.delta = w.cand - w.b
   mul!(w.u, mat, w.delta)
@@ -298,8 +300,29 @@ function _pn_surrogate_residual!(w::_PNWork, mat::Matrix{Float64}, scale::Float6
   _allfinite(w.grad_model) ? kkt_violation(w.g, w.grad_model, w.cand) : NaN
 end
 
+# The initial residual of the inner solve: the model response minus its weighted predictor at the accepted point, which
+# is -d/s for a row of the weighted model (0 for a zero root, whose represented derivative is zero) and -4d for the
+# fixed model, with d the observation derivative from ProximalBase. `initialize!` is not used: it subtracts the images
+# of the stored coefficients from the response, and where those images are large and cancel it rounds the response
+# away (PN-03). The curvature cache is cleared, so that the first coordinate step refreshes it.
+function _pn_seed_residual!(model, w::_PNWork, adaptive::Bool)
+  r, d = model.r, w.d
+  if adaptive
+    rows = w.rows
+    @inbounds for i in eachindex(r)
+      r[i] = iszero(rows[i]) ? 0.0 : -d[i] / rows[i]
+    end
+  else
+    @inbounds for i in eachindex(r)
+      r[i] = -4 * d[i]
+    end
+  end
+  fill!(model.a, NaN)
+  model
+end
+
 # The inner solve of one model, from the accepted point: coordinate descent in cyclic order with an absolute change
-# threshold, which is lowered tenfold and the run continued while the model's score at the candidate misses the
+# threshold, which is lowered tenfold and the run continued while the surrogate KKT score at the candidate misses the
 # forcing target, at most `_PN_REFINEMENTS` times and within `limit` passes. The candidate is left in w.cand, whatever
 # the outcome. Counts the passes of every run in w.passes and returns them. With limit = 0 no run is made, and the
 # candidate is the accepted point.
@@ -308,7 +331,7 @@ function _pn_direction!(w::_PNWork, adaptive::Bool, limit::Int, delta0::Float64,
   mat = adaptive ? w.A : w.X
   scale = adaptive ? 1.0 : 0.25
   _pn_load!(w.work, w.b)
-  initialize!(model, w.work)
+  _pn_seed_residual!(model, w, adaptive)
   copyto!(w.cand, w.b)
   target = _pn_forcing(w.rho, tol)
   delta = delta0
