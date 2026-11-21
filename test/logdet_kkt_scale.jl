@@ -1,24 +1,29 @@
 module LogDetKKTScale
-# Entrywise KKT scales of matrix PGD for the graphical lasso (#492, PGD-08). At a committed point
-# the solver divides the violation rᵢⱼ of entry (i, j) by max(1, sᵢsⱼ), sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|), and
-# reports R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ). Before #492 it divided every entry by the single scale
-# max(1, maximum(abs, S), maximum(C)), so a large entry of S or C loosened the old threshold for the
-# other entries when it raised the global scale. It forms the violations from G = S - inv(Θ) and tests each entry for an uncertain
-# rounding of that form (mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ). If one is uncertain it rebuilds W = inv(Θ)
-# from the Cholesky factor and evaluates every violation from the inputs and W by error-free sums,
-# because S - inv(Θ) can round a decisive residual away.
+# Entrywise KKT scales of matrix PGD for the graphical lasso (#492, PGD-08). At the start and at each
+# committed point the solver divides the violation rᵢⱼ of entry (i, j) by max(1, sᵢsⱼ), with
+# sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|), and reports R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ). Before #492 it divided every entry by
+# the single scale max(1, maximum(abs, S), maximum(C)), so a large entry of S or C loosened the old
+# threshold for the other entries when it raised the global scale. The first pass forms the violations
+# from G = S - inv(Θ) and tests each entry for an uncertain rounding of that form (uncertain if
+# mᵢⱼ/4 > dᵢⱼ, with mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ). If one is uncertain, the solver rebuilds W = inv(Θ) from
+# the Cholesky factor and attempts to evaluate every violation from the inputs and W through TwoSum
+# decompositions. The recombinations round, and an entry or side whose terms are not finite falls back
+# to the first-pass value (PGD-08). S - inv(Θ) can round a decisive residual away, which the fixtures
+# below exercise.
 #
-# References computed here in BigFloat (256 bits unless a test needs more) from the stored data and the
-# returned matrices, without ProximalBase's gradient or the solver's helpers (the helpers are called
-# only as the objects under test): the inverse, every violation, the scales, R, and a first-order
-# estimate of the rounding of the computed score (`rulef`; it compares in Float64). The tests use
-# analytic values where an optimum or a fixed point is known (the 2 × 2 fixtures, the 1 × 1 cases, the
-# two blockers of the review, the rescaling), direct assertions on the helpers (the uncertainty
-# test, the evaluation of one entry), and BigFloat scores at fixed points and returned points. Fixed
-# points check the reported `g_residual` against the definition. A solve that reports converged = true
-# and is checked with `check_result` or `rulef` is compared with R ≤ max(gradtol, 64eps(T)) plus the
-# estimated allowance. The analytic tests and some direct `rulef` assertions (the two review inputs) use
-# explicit tolerances stated beside them instead.
+# References computed here in BigFloat (256 bits unless a test says otherwise; 2048 bits is a chosen
+# reference precision) from the stored data and the returned matrices, without ProximalBase's gradient or
+# the solver's helpers (the helpers are called only as the objects under test): the inverse, every
+# violation, the scales, R, and a first-order estimate of the rounding of the computed score (`rulef`,
+# which returns its BigFloat results converted to Float64). The tests use analytic values as
+# exact-arithmetic references where an optimum or a prescribed point has a known value (the 2 × 2
+# fixtures, the 1 × 1 cases, the two inputs where the first pass rounds a decisive violation to zero, the
+# rescaling), direct assertions on the helpers (the uncertainty test, the evaluation of one entry), and
+# BigFloat scores at prescribed points and returned points. A solve with `time_limit = 0` evaluates the
+# score at the prescribed Θ, which need not be a fixed point of the solver; the reported `g_residual`
+# there is compared with the definition. A solve that reports converged = true and is checked with
+# `check_result` or `rulef` is compared with R ≤ max(gradtol, 64eps(T)) plus the estimated allowance. The
+# analytic tests and some direct `rulef` assertions use explicit tolerances stated beside them instead.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 const PGD = ProximalGradientDescent
@@ -52,7 +57,7 @@ end
 # here from a BigFloat estimate of the gradient, the scale and the trigger of PGD-08 (the inputs form if some
 # entry has |Sᵢⱼ| + |gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ); the solver's branch can differ from that choice where the
 # working-precision gradient, scale or range rounding differs. `inputs` forces the choice. Each entry is
-# divided by its scale, as in R. The values are rounded to Float64.
+# divided by its scale, as in R. The BigFloat results are converted to Float64.
 # ---------------------------------------------------------------------------------------------------------
 function rulef(Θ, S, c, ::Type{T}; inputs = nothing, bits = 256) where T
   setprecision(BigFloat, bits) do
@@ -82,8 +87,8 @@ function rulef(Θ, S, c, ::Type{T}; inputs = nothing, bits = 256) where T
   end
 end
 
-# The reported residual is the definition, up to the allowance; a converged solve meets the stop rule of
-# PGD-08 recomputed here. Returns the BigFloat score and its allowance.
+# The reported residual is compared with the definition, up to the allowance; a converged solve is compared
+# with the stop rule of PGD-08 recomputed here. Returns the score and its allowance, converted to Float64.
 function check_result(r, Θ, S, λ0, Λ, ::Type{T}, o; inputs = nothing, bits = 256) where T
   b = rulef(Θ, S, T(λ0) .* Λ, T; inputs, bits)
   @test abs(r.g_residual - b.R) <= b.e
@@ -113,10 +118,11 @@ end
 end
 
 @testset "indefinite S: an off-diagonal entry that cancels its penalty" begin
-  # S₁₂ = 1e9 (Float64) or 2¹⁶ (Float32) against C₁₂ = S₁₂ - e, with e = 0.4 or 0.375 up to the stored
-  # numbers. The optimum is Θ = inv([1 e; e 1]) with Θ₁₂ < 0. Before #492 the solve converged after one step,
-  # 26% from the optimum. Here the zero entry has |G₁₂| ≥ C₁₂/2 and mᵢⱼ far above 4 max(1, s₁s₂) = 4, so the
-  # violations are formed from the inputs and W = inv(Θ).
+  # S₁₂ = 1e9 (Float64) or 2¹⁶ (Float32) against C₁₂ = S₁₂ - e, where e is the stored difference: about 0.4
+  # (0.3999999761581421) in Float64 and 0.375 in Float32. The optimum is Θ = inv([1 e; e 1]) with Θ₁₂ < 0.
+  # Before #492 the solve converged after one step, at a relative max-entry error from the optimum of 26.0%
+  # (Float64) and 28.9% (Float32). Here the zero entry has 2|G₁₂| ≥ C₁₂ and mᵢⱼ/4 far above d₁₂ = 1, so the
+  # entry is uncertain and the pass attempts the violations from the inputs and W = inv(Θ).
   for (T, S12, λ0, δ) in ((Float64, 1e9, 1e9 - 0.4, 4e-8), (Float32, 2f0^16, Float64(Float32(65536 - 0.375)), 1e-3))
     S, Λ = T[1 S12; S12 1], ones0(T, 2)
     c = T(λ0) .* Λ
@@ -157,12 +163,14 @@ end
 end
 
 @testset "one large variance does not loosen the other entries" begin
-  # S = diag(1e9, 1.4) (Float64) or diag(1e5, 1.5) (Float32), no penalty. At Θ = diag(1/S₁₁, 1) the second
-  # entry has violation S₂₂ - 1 and scale S₂₂, so R = 0.4/1.4 (or 1/3); the global scale before #492 gave
-  # 4e-10 (or 5e-6). The first entry's violation is about eps(T) S₁₁ against its scale S₁₁. PGD makes almost
-  # no progress on θ₂₂ here, because its step is limited by the curvature in θ₁₁. The allowance of
-  # the rounded inverse is not informative at the condition number 1e9, so the comparisons use the fixed
-  # allowance 1e-6, which is far below the scores in question.
+  # S = diag(1e9, 1.4) (Float64) or diag(1e5, 1.5) (Float32), no penalty. In exact arithmetic, at the
+  # prescribed point Θ = diag(1/S₁₁, 1) the first entry has no violation and the second has violation
+  # S₂₂ - 1 and scale S₂₂, so R = 0.4/1.4 (or 1/3); these are the references below. The working-precision
+  # diagonal residuals can be zero or contain rounding error (of the order of eps(T) S₁₁ for the first
+  # entry, against its scale S₁₁). The global scale before #492 gave 4e-10 (or 5e-6) at this point. PGD
+  # makes almost no progress on θ₂₂ here, because its step is limited by the curvature in θ₁₁. The
+  # allowance of the rounded inverse is not informative at the condition number 1e9, so the comparisons use
+  # the fixed allowance 1e-6, which is far below the scores in question.
   for (T, S, expected) in ((Float64, Diagonal([1e9, 1.4]), 0.4 / 1.4), (Float32, Diagonal(Float32[1e5, 1.5]), 1 / 3))
     S, Λ = Matrix{T}(S), zeros(T, 2, 2)
     Θ = Matrix{T}(Diagonal([inv(S[1, 1]), one(T)]))
@@ -179,7 +187,7 @@ end
 end
 
 @testset "entry scales: formula, floor and overflow" begin
-  # S = [a₁ x; x a₂], Θ = diag(1/a₁, 1/a₂) and λ0 = 0: the diagonal gradients vanish and the only violation
+  # S = [a₁ x; x a₂], Θ = diag(1/a₁, 1/a₂) and λ0 = 0: in exact arithmetic the diagonal gradients vanish and the only violation
   # is |x| at the zero entry (1, 2), scaled by d₁₂ = max(1, sqrt(a₁) sqrt(a₂)).
   for T in (Float64, Float32)
     for (a, x, d) in (((4, 9), 0.6, 6), ((0.25, 0.25), 0.1, 1), ((4, 16), 0.8, 8))
@@ -205,8 +213,9 @@ end
 end
 
 @testset "the uncertainty test of the pass from G" begin
-  # mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ against 4dᵢⱼ, with c̃ᵢⱼ = Cᵢⱼ at a nonzero Θᵢⱼ or at a zero with |Gᵢⱼ| ≥ Cᵢⱼ/2, else 0.
-  # The helper is called with chosen matrices; the scales are those of S + C (here 1, so dᵢⱼ = 1 or the unit floor).
+  # The code flags an entry if mᵢⱼ T(0.25) > dᵢⱼ, with mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ and c̃ᵢⱼ = Cᵢⱼ at a nonzero Θᵢⱼ
+  # or where 2|Gᵢⱼ| ≥ Cᵢⱼ, else 0; the cases below are written as mᵢⱼ against 4dᵢⱼ. The helper is called with
+  # chosen matrices; the scales are those of S + C (here 1, so dᵢⱼ = 1 or the unit floor).
   gform(Θ, S, G, C, s) = PS._logdet_pgd_gform(Θ, S, G, C, s)
   for T in (Float64, Float32)
     I1 = Matrix{T}(I, 1, 1)
@@ -219,7 +228,7 @@ end
     # a larger scale raises the threshold: s = 2 gives d = 4 and the threshold 16
     @test !gform(I1, fill(T(8), 1, 1), fill(T(4), 1, 1), fill(T(3), 1, 1), T[2])[2]
     @test gform(I1, fill(T(8), 1, 1), fill(T(6), 1, 1), fill(T(3), 1, 1), T[2])[2]
-    # a zero entry: |G₁₂| < C₁₂/2 gives c̃ = 0 and m = 2.9, while |G₁₂| = C₁₂/2 gives c̃ = C₁₂ and m = 9
+    # a zero entry: 2|G₁₂| < C₁₂ gives c̃ = 0 and m = 2.9, while 2|G₁₂| = C₁₂ gives c̃ = C₁₂ and m = 9
     Θ0 = T[1 0; 0 1]
     S0 = T[1 0; 0 1]
     C0 = T[0 6; 6 0]
@@ -228,8 +237,9 @@ end
     # an entry whose m overflows is uncertain, also where 4dᵢⱼ would overflow
     big_s = T[sqrt(floatmax(T)), sqrt(floatmax(T))]
     @test gform(Θ0, T[1 floatmax(T); floatmax(T) 1], T[0 floatmax(T); floatmax(T) 0], T[0 1; 1 0], big_s)[2]
-    # ordinary problems are certain: a positive semidefinite S, zero weights and Θ = I, so Θᵢⱼ = 0 and
-    # |Sᵢⱼ| ≤ sᵢsⱼ; a positive-definite S with moderate weights at its optimum; a positive diagonal weight
+    # fixtures that the test does not flag: a positive semidefinite S, zero weights and Θ = I, so Θᵢⱼ = 0 and
+    # |Sᵢⱼ| ≤ sqrt(SᵢᵢSⱼⱼ) with exact roots (the computed sᵢsⱼ can be slightly below that); a positive-definite
+    # S with moderate weights at Θ = 0.9I; a positive diagonal weight
     for seed in 1:20, p in (2, 5, 12)
       X = randn(Xoshiro(seed), 3, p)                       # fewer rows than columns: rank deficient
       S = Matrix{T}(Symmetric(X' * X ./ 3))
@@ -319,10 +329,11 @@ end
   # S → DSD, Λ → DΛD and Θ → D⁻¹ΘD⁻¹ with D = diag(2ᵏ), k ≥ 0, map the stored problem and the point to an
   # equivalent pair. Cholesky and the inverse commute with a power-of-two scaling unless something under-
   # or overflows, so the gradient becomes DGD and a violation rᵢⱼ becomes DᵢDⱼrᵢⱼ. The scale max(1, sᵢsⱼ)
-  # becomes DᵢDⱼ sᵢsⱼ when every Sᵢᵢ ≥ 1 (then sᵢsⱼ ≥ 1 and DᵢDⱼsᵢsⱼ ≥ 1), and R is unchanged. The test
-  # observes this agreement on its seeded fixtures; it does not prove it. The unit
-  # floor is absolute, so R is not invariant where it applies. The weights here have a zero diagonal; the
-  # shift S → S + Diagonal(C) of positive diagonal weights is tested in its own testset below.
+  # becomes DᵢDⱼ sᵢsⱼ when the unit floor is inactive for S and for DSD, which holds on these fixtures
+  # (Sᵢᵢ ≥ 2 by the shift 2I), and R is then unchanged. The unit floor is absolute, so an active floor can
+  # break the invariance, and the test makes no claim there. The test observes the agreement on its seeded
+  # fixtures; it does not prove it. The weights here have a zero diagonal; the shift S → S + Diagonal(C)
+  # of positive diagonal weights is tested in its own testset below.
   for T in (Float64, Float32)
     for p in (4, 7), seed in 1:3
       X = randn(Xoshiro(seed + 10p), 3p, p)
@@ -439,9 +450,10 @@ end
 @testset "a positive diagonal weight that cancels a negative Sᵢᵢ: the table of #492" begin
   # 1 × 1 with S = -(C - 1) and C = λ0 · 1, so S + C = 1, the scale is max(1, sqrt(1)²) = 1 and the optimum is
   # θ = 1. At θ = 1.5 the violation is |S + C - 1/θ| = 1/3, so R = 1/3; before #492 the scale max(1, |S|, C) was
-  # about C and the same point scored (1/3)/C. |S| exceeds 2 max(1, 1), so the input form is used. From θ = 2
-  # (maxiter 100, ftol = 0) the old rule converged at θ = 1.5, 1 + 3.1e-7, 1.5 and 1.024 in these four cases. On
-  # Julia 1.13.4 the solves now converge in 4 to 6 iterations, at θ within 1.2e-13 of 1.
+  # about C and the same point scored (1/3)/C. Here mᵢⱼ/4 exceeds d = 1, so the entry is uncertain and the
+  # pass attempts the evaluation from the inputs. From θ = 2 (maxiter 100, ftol = 0) the old rule converged at
+  # θ = 1.5, 1 + 3.1e-7, 1.5 and 1.024 in these four cases. On Julia 1.13.4 the solves now converge in 4 to 6
+  # iterations, at θ within 1.2e-13 of 1.
   for (T, s, c) in ((Float64, -2.0^32, 2.0^32 + 1), (Float64, -1000.0, 1001.0),
                     (Float32, -2f0^16, 2f0^16 + 1), (Float32, -4096f0, 4097f0))
     S, Λ, λ0 = fill(T(s), 1, 1), ones(T, 1, 1), Float64(c)
@@ -454,7 +466,7 @@ end
     o = ProximalOptions(maxiter = 100, gradtol = gradtol(T), ftol = 0)
     r, Θ = solve_from(fill(T(2), 1, 1), S, λ0, Λ, o)
     check_result(r, Θ, S, λ0, Λ, T, o)
-    # a = 1, so R is the distance of 1/θ from 1: a converged solve is within the stop tolerance of θ = 1
+    # a = 1, so R = |1 - 1/θ|. For a converged solve the assertion allows |θ - 1| ≤ 4τ, with τ = max(gradtol, 64eps(T)).
     @test !r.converged || abs(Θ[1] - 1) <= 4 * τof(T, o)
   end
 end
@@ -523,7 +535,7 @@ end
 end
 
 # ---------------------------------------------------------------------------------------------------------
-# The two inputs on which the first implementation of #492 stopped at a decisive violation (round 1 of its review)
+# The two inputs on which the first implementation of #492 stopped at a decisive violation
 # ---------------------------------------------------------------------------------------------------------
 @testset "cancellation of W against C where S is small: the unit floor does not bound |W₁₂|" begin
   # D = diag(2ᵃ, 2⁻ᵇ, 1), M = [1 0 1; 0 1 -1; 1 -1 3] with M⁻¹ = [2 -1 -1; -1 2 1; -1 1 1] (det M = 1), Θ = DMD,
@@ -531,10 +543,12 @@ end
   # a power of two times a small integer, so Θ, S and W = D⁻¹M⁻¹D⁻¹ are exact in T. The computed inverse is W:
   # the Cholesky factor of M and its inverse are integer matrices, those of Θ = DMD are the same scaled by powers
   # of two, and no step rounds. W₁₂ = -B, S₁₂ = 1/4,
-  # Θ₁₂ = 0, so the violation of entry (1, 2) is (|S₁₂ - W₁₂| - C₁₂) = 1/4 with d₁₂ = 1; the form from G rounds
-  # fl(1/4 + B) - B to 0. The small diagonal S₁₁ passes through the unit floor, so |W₁₂| is not bounded by a multiple of d₁₂
-  # (the scales are s₁ = 2^(-b-1/2), s₂ = 2^(b+1/2)). The references are analytic: W is built here from the integers,
-  # and BigFloat uses 2048 bits because κ(Θ) is about 2^(2a+2b+...) (the 256-bit default does not resolve Θ⁻¹).
+  # Θ₁₂ = 0, so the violation of entry (1, 2) is (|S₁₂ - W₁₂| - C₁₂) = 1/4 with d₁₂ = 1 in exact arithmetic (the
+  # computed product s₁s₂ can exceed 1 by a rounding step); the form from G rounds fl(1/4 + B) - B to 0. The
+  # small diagonal S₁₁ passes through the unit floor, so |W₁₂| is not bounded by a multiple of d₁₂ (the exact
+  # scales are s₁ = 2^(-b-1/2), s₂ = 2^(b+1/2)). The references are analytic: W is built here from the integers,
+  # and BigFloat uses 2048 bits as a chosen reference precision (a standalone 256-bit Cholesky calculation
+  # matched the analytic inverse in both configurations).
   for (T, a, b) in ((Float32, 30, 58), (Float64, 55, 110))
     pw(k) = ldexp(one(T), k)
     D = Diagonal(T[pw(a), pw(-b), 1])
@@ -548,7 +562,7 @@ end
     setprecision(BigFloat, 2048) do
       Dinv = Diagonal(BigFloat[ldexp(big(1.0), -a), ldexp(big(1.0), b), 1])
       W = Dinv * BigFloat[2 -1 -1; -1 2 1; -1 1 1] * Dinv
-      @test big.(Θ) * W == I                                # the analytic inverse, exactly
+      @test big.(Θ) * W == I                                # the analytic inverse, in 2048-bit arithmetic
       @test W[1, 2] == -big(B)
       @test issuccess(cholesky(Symmetric(big.(S)); check = false))
     end
@@ -569,12 +583,14 @@ end
 
 @testset "an overflowing unused endpoint does not discard the violation at the other" begin
   # B = 0.75 floatmax(T), σ = ±1, Θ = [2 0 1; 0 2 -σ; 1 -σ 2], and S equal to W = Θ⁻¹ = [3 -σ -2; -σ 3 2σ; -2 2σ 4] / 4
-  # except that S₁₂ = σB. With C₁₂ = B and every other weight zero, x = S₁₂ - W₁₂ = σ(B + 1/4) at the zero entry. The
-  # side of x - C or -x - C that has the sign of x is (|x| - B) = 1/4, and the opposite side is about -2B, whose
-  # TwoSum overflows outward, so that side cannot be violated. The first form from the inputs would add S₁₂ + C₁₂
-  # (σ = 1) or S₁₂ - C₁₂ (σ = -1) beyond floatmax and fall back to G, which rounds the violation to 0. The scales are
-  # s₁ = s₂ = sqrt(0.75), so d₁₂ = 1 and R = 1/4. The BigFloat references use 2048 bits to span the exponent gap
-  # between B (about 2^1024 in Float64) and 1/4, although Θ itself is well conditioned.
+  # except that S₁₂ = S₂₁ = σB (both symmetric entries are replaced). With C₁₂ = B and every other weight zero,
+  # x = S₁₂ - W₁₂ = σ(B + 1/4) at the zero entry. For σ = 1 the side x - C is 1/4 and the side -x - C is about
+  # -2B; for σ = -1 the sides exchange. The side that is about -2B has a TwoSum that overflows outward, so that
+  # side is -Inf and cannot be violated. Forming S₁₂ + C₁₂ (σ = 1) or S₁₂ - C₁₂ (σ = -1) overflows. A
+  # fallback to G for the whole entry would score 0, because G rounds the violation to 0. The scales are
+  # s₁ = s₂ = sqrt(0.75), so d₁₂ = 1 and R = 1/4. The BigFloat references use 2048 bits, a chosen reference
+  # precision that spans the exponent gap between B (about 2^1024 in Float64) and 1/4, although Θ itself is well
+  # conditioned.
   for T in (Float32, Float64), σ in (1, -1)
     B = T(0.75) * floatmax(T)
     Θ = T[2 0 1; 0 2 -σ; 1 -σ 2]
@@ -602,9 +618,10 @@ kkt_allocations(args...) = @allocated PS._logdet_pgd_kkt!(args...)
 @testset "the KKT evaluation allocates the same bytes at dimensions 12 and 36" begin
   # The evaluation after the factorization, which the solver's trial has done into the scratch matrix, with a
   # certain point (the pass from G only) and an uncertain one (a large S₁₂ also rebuilds W and evaluates from the
-  # inputs). A warmed call allocates nothing on Julia 1.13; on Julia 1.10 a call that returns a Float64 reports
-  # 16 bytes (the evaluation before #492 did as well). The assertion measures dimensions 12 and 36 and requires
-  # equal bytes, at most 16.
+  # inputs). Observed with these fixtures (Wishart, seed 5, S₁₂ = 1000 for the uncertain one) in Float64 and
+  # Float32 at dimensions 12 and 36: a warmed call allocated 0 bytes on Julia 1.13.4 and 16 bytes on Julia
+  # 1.10.13 (the evaluation before #492 also reported 16 bytes there). The assertion requires equal bytes at the
+  # two dimensions, at most 16.
   for T in (Float64, Float32), uncertain in (false, true)
     bytes = map((12, 36)) do p
       S = wishart(T, p, 5)

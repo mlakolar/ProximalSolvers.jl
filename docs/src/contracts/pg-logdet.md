@@ -98,90 +98,55 @@ before the search backtracks to a positive-definite step.
 
 ## [PGD-08 KKT stopping, limits and results](@id PGD-08)
 
-**Statement.** Let `C = T(λ₀)Λ`, `aᵢ = Sᵢᵢ + Cᵢᵢ` and `sᵢ = sqrt(|aᵢ|)`, with each
-root taken in `T` before any product. Entry `(i, j)` has the scale
-`dᵢⱼ = max(1, sᵢ sⱼ)`. A subnormal `aᵢ` does not by itself give a unit scale: in Float64,
-`aᵢ = prevfloat(floatmin(Float64))` with `aⱼ = 0.75 floatmax(Float64)` gives `dᵢⱼ ≈ sqrt(3)`.
-Under round-to-nearest, `sqrt(floatmax(T))` rounds below the next power of two in both supported
-formats and its square is finite, so the root product does not overflow; an underflowing product is
-below the unit floor. An infinite sum `aᵢ` gives an infinite scale beside a positive root (a finite
-violation then scores 0) and a NaN scale beside a zero root (`Inf·0`); the finiteness guard of
-[PGD-06](@ref) prevents both.
-At a committed point, with `G` the symmetrized gradient `S - inv(Θ)` of [PGD-07](@ref), the
-violation `rᵢⱼ` of entry `(i, j)` is `abs(Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ))` where `Θᵢⱼ ≠ 0`, and
-`max(abs(Gᵢⱼ) - Cᵢⱼ, 0)` at exact zeros. The start and each committed point have passed
-Cholesky in `T`, so their diagonal entries are positive and the diagonal violation is
-`abs(Gᵢᵢ + Cᵢᵢ)`; with `Cᵢᵢ = 0` it is `abs(Gᵢᵢ)`. The KKT score is `R = maxᵢⱼ rᵢⱼ / dᵢⱼ`.
-Each violation, scale and quotient is evaluated in `T`, over the upper triangle, which repeats
-the lower because `Θ`, `S`, `Λ` and the symmetrized `G` are exactly symmetric. `g_residual` is
-`R` as a `Float64`. It is a violation relative to the entry's own scale, not a maximum absolute
-violation: the two agree where every `dᵢⱼ` is one. The scale of entry `(i, j)` depends only on
-`aᵢ` and `aⱼ`, so a weight or an off-diagonal entry of `S` elsewhere, or a large `aₖ` with
-`k ∉ {i, j}`, does not enter it. The score that the solver keeps is checked for finiteness, and a
-nonfinite score raises an error: the score from `G` when no entry is uncertain, otherwise the score
-from the inputs. After a completed step, convergence requires `g_residual ≤ g_tol`, where `g_tol = max(gradtol, 64eps(T))`. The check is
-independent of the trial step and the iterate and objective change tests. An accepted
-elementwise unchanged point outside the KKT threshold sets
+**Statement.** Let `C = T(λ₀)Λ`, `aᵢ = Sᵢᵢ + Cᵢᵢ` and `sᵢ = sqrt(|aᵢ|)`, with the sum and each root
+computed in `T`, each root before any product. [PGD-06](@ref) requires every `aᵢ` to be finite. Entry
+`(i, j)` has the scale `dᵢⱼ = max(1, sᵢ sⱼ)`, computed in `T`. At the start and at each committed
+point the score is `R = maxᵢⱼ rᵢⱼ / dᵢⱼ` over the upper triangle (`Θ`, `S`, `Λ` and the symmetrized
+`G` are exactly symmetric), where `rᵢⱼ` is the violation of entry `(i, j)` defined below. The score is
+relative to each entry's own scale. `g_residual` is `Float64(R)`, and a nonfinite score raises an
+error. After a completed step, convergence requires `g_residual ≤ g_tol`, where
+`g_tol = max(gradtol, 64eps(T))`. The check is independent of the trial step and of the iterate and
+objective change tests. An accepted elementwise unchanged point outside the KKT threshold sets
 `stagnated=true` and `converged=false`.
 
-**Uncertain entries and the evaluation from the inputs.** The violations above come from `G`, which
-carries the rounding of `Sᵢⱼ - (Θ⁻¹)ᵢⱼ`. For each entry the solver evaluates, in `T`, from the stored
-`Sᵢⱼ` and the computed `Gᵢⱼ`, `mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ`, where `c̃ᵢⱼ = Cᵢⱼ` at a nonzero `Θᵢⱼ` and at a
-zero with `|Gᵢⱼ| ≥ Cᵢⱼ/2`, and `c̃ᵢⱼ = 0` at a zero with `|Gᵢⱼ| < Cᵢⱼ/2`. The entry is *uncertain* if
-`mᵢⱼ/4 > dᵢⱼ`; an overflowing `mᵢⱼ` is uncertain. The test is a heuristic bound, chosen so that for
-entries below it the rounding of the form from `G` is small relative to `dᵢⱼ`. It does not cover the
-error of the working inverse. The test uses stored entries and the computed `G`, and an entry becomes
-uncertain when `|Sᵢⱼ|`, `|Gᵢⱼ|` or a near-active weight is large relative to `dᵢⱼ`: for example indefinite
-data, data rounded before storage, or a small `Sᵢⱼ` with `Wᵢⱼ` and the weight both large (the unit floor lets
-a small diagonal pass). For a stored positive semidefinite `S` the mathematical root product satisfies
-`|Sᵢⱼ| ≤ sqrt(Sᵢᵢ Sⱼⱼ) ≤ sqrt(aᵢ aⱼ)` under the nonnegative weights of [PGD-06](@ref), while the rounded
-product `sᵢ sⱼ` can be slightly below `|Sᵢⱼ|`: stored `S = [3 3; 3 3]` with zero weights gives
-`2.9999999999999996` in Float64.
+**First pass.** With `G = S - inv(Θ)` symmetrized as in [PGD-07](@ref), the first-pass violation of
+entry `(i, j)`, diagonal included, is evaluated in `T` as `rᵢⱼ = |Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ)|` where
+`Θᵢⱼ ≠ 0` and `rᵢⱼ = max(|Gᵢⱼ| - Cᵢⱼ, 0)` where `Θᵢⱼ = 0`.
 
-If no entry is uncertain, `g_residual` is the single pass above. If one is, `W = inv(Θ)` is rebuilt in
-place from the upper Cholesky factor that the SPD check of that point left in the solver's scratch matrix
-([PGD-07](@ref)), and the violation of every entry is evaluated from `Sᵢⱼ`, `Wᵢⱼ` and `Cᵢⱼ` by two-sums,
-without forming `Sᵢⱼ ± Cᵢⱼ`. Write `x = Sᵢⱼ - Wᵢⱼ` as `h + l` by Knuth's two-sum, written without
-`@fastmath` (which permits reassociation) and without `muladd` (which permits contraction). The
-decomposition is exact when `h` and `l` are both finite, and each recombination below rounds once:
-- at a nonzero `Θᵢⱼ`, `rᵢⱼ = |x + Cᵢⱼ sign(Θᵢⱼ)|`, from a second two-sum of `h` and `Cᵢⱼ sign(Θᵢⱼ)`;
-- at a zero, `rᵢⱼ = max(x - Cᵢⱼ, -x - Cᵢⱼ, 0)`, each side from its own two-sum.
+**Uncertainty test.** This is a heuristic test on computed values, evaluated in `T` for each entry of
+the upper triangle. Let `c̃ᵢⱼ = Cᵢⱼ` if `Θᵢⱼ ≠ 0` or `2|Gᵢⱼ| ≥ Cᵢⱼ`, and `c̃ᵢⱼ = 0` otherwise, and let
+`mᵢⱼ = (|Sᵢⱼ| + |Gᵢⱼ|) + c̃ᵢⱼ`. The entry is uncertain if `mᵢⱼ T(0.25) > dᵢⱼ`. An `mᵢⱼ` that
+overflows is uncertain.
 
-Three cases use the violation from `G` or discard a side:
-1. If `h` or `l` of the first two-sum is not finite, the whole entry takes its violation from `G`. For
-   example, with `M = floatmax(T)` and `u = M - prevfloat(M)`, the two-sum of `1.5u` and `-M` has a
-   finite high term and a NaN low term in Float32 and Float64, so `Sᵢⱼ = 1.5u` with `Wᵢⱼ = M` takes
-   this case.
-2. At a zero, each side is handled separately. If the high term of that side's two-sum is not finite
-   (an outward overflow), the side is `-Inf` and `G` is not read: with a finite `Wᵢⱼ` it is negative and
-   cannot be violated, and the other side is still evaluated. If the high term is finite but the
-   recombination is not, only that side takes its value from `G`, `Gᵢⱼ - Cᵢⱼ` for `x - Cᵢⱼ` and
-   `-Gᵢⱼ - Cᵢⱼ` for `-x - Cᵢⱼ`.
-3. At a nonzero `Θᵢⱼ`, a recombination that is not finite gives the entry's violation from `G`.
+**Evaluation from the inputs.** If some entry is uncertain, `W = inv(Θ)` is rebuilt in place from the
+upper Cholesky factor that the SPD check of that point left in the solver's scratch matrix
+([PGD-07](@ref)); this adds one inverse computed from an existing factor. The pass then attempts to
+evaluate the violation of every entry from `Sᵢⱼ`, `Wᵢⱼ` and `Cᵢⱼ` without forming `Sᵢⱼ ± Cᵢⱼ`. All
+operations are in `T`. `TwoSum` is Knuth's algorithm, an exact decomposition under round-to-nearest
+with gradual underflow when both of its outputs are finite. Let `(h, l) = TwoSum(Sᵢⱼ, -Wᵢⱼ)`.
+- At a nonzero `Θᵢⱼ`, let `(h2, l2) = TwoSum(h, Cᵢⱼ sign(Θᵢⱼ))`. Then `rᵢⱼ = |h2 + (l + l2)|`.
+- At a zero, let `(u, lu) = TwoSum(h, -Cᵢⱼ)` and `(v, lv) = TwoSum(-h, -Cᵢⱼ)`. Then
+  `rᵢⱼ = max(u + (lu + l), v + (lv - l), 0)`.
 
-The uncertain path adds one inverse from an existing factor to the evaluations that take it. The factor
-is then overwritten, and the next trial that reaches its factorization writes it again.
+The additions of the recombinations round. Three cases fall back to the first-pass values:
+1. If `h` or `l` is not finite, the entry takes its first-pass violation.
+2. At a zero, each side is handled separately. If its high term (`u` or `v`) is not finite, the side
+   is `-Inf` and its first-pass value, `Gᵢⱼ - Cᵢⱼ` or `-Gᵢⱼ - Cᵢⱼ`, is discarded. If the high term
+   is finite but the recombination is not, the side takes that first-pass value.
+3. At a nonzero `Θᵢⱼ`, if `h2 + (l + l2)` is not finite, the entry takes its first-pass violation.
 
-**Limits.**
-- Where `|Sᵢⱼ|` is large relative to `dᵢⱼ`, the step `Θ - tG` uses `G` as ProximalBase rounds it. That
-  rounding can be of the order of `eps(T) |Sᵢⱼ|` in `Gᵢⱼ`, so the iterate can lose resolution of the order
-  of `eps(T) t |Sᵢⱼ|`, and a solve can end by stagnation or at an iteration limit with `converged=false`. The
-  off-diagonal cases measured in `test/logdet_kkt_scale.jl` did, while its `1 × 1` diagonal cases converged.
-- `Wᵢⱼ` carries the rounding of the Cholesky inverse, which can be large for an ill-conditioned `Θ`. That
-  error enters the violation in absolute units and is divided by `dᵢⱼ` in the score, in either evaluation.
-  For `Θ = [2 2; 2 nextfloat(T(2))]` with `S` equal to its stored Cholesky inverse and no penalty,
-  `g_residual = 0` and the solve reported `converged=true` in both precisions, against independent scores
-  of about 0.5 (Float32) and 1 (Float64).
-- Where a diagonal weight cancels a negative `Sᵢᵢ`, state the problem as `S + Diagonal(C)` with
-  zero diagonal weight, so that the sum is formed once in `T`.
+**Limits.** These are possibilities, not guarantees.
+- Where `|Sᵢⱼ|` is large relative to `dᵢⱼ`, the step `Θ - tG` uses `G` as ProximalBase rounds it, so a
+  solve can end by stagnation or at a limit with `converged=false`, as the cancellation runs recorded
+  on the [evidence page](@ref evidence-kkt-scale-492) did.
+- Rounding in the computed `inv(Θ)` can change the violation and the normalized score, in either pass,
+  and this rule does not bound it.
+- Where a diagonal weight cancels a negative `Sᵢᵢ`, state the problem as `S + Diagonal(C)` with zero
+  diagonal weight.
 
-The matrix rule does not copy the per-entry scale `max(cᵢ, λmax)` of [STOP-03](@ref). A
-penalty term in the scale lets a cancelled diagonal pass: with `Sᵢᵢ = -2³²` and `Cᵢᵢ = 2³² + 1`, at `Θᵢᵢ = 3/2`
-the violation `1/3` over a scale near `2³²` is about `7.8e-11`, below `gradtol = 5e-10`. The entry scale
-`abs(Sᵢᵢ + Cᵢᵢ)` is unchanged by the shift to `S + Diagonal(C)`. The measurements behind the rule are
-in the [evidence page](@ref evidence-kkt-scale-492); its [Float32 section](@ref evidence-kkt-scale-492-float32)
-and [timing section](@ref evidence-kkt-scale-492-performance) record a Float32 convergence loss and the cost
-of the rule on ordinary problems.
+The evidence page also records the comparison with the per-entry scale of [STOP-03](@ref), the
+[Float32 convergence loss](@ref evidence-kkt-scale-492-float32) and the
+[timing](@ref evidence-kkt-scale-492-performance) of the rule.
 
 `OptimizationResults.minimizer` aliases the caller's matrix.
 `minimum` is `f(Θ) + g(Θ)` there. `x_residual` is
@@ -215,29 +180,27 @@ the uncertainty test, the two evaluations of the KKT score and the rounding-stal
 `_solve_gradient!` in `src/solve.jl` handles limit exits and constructs
 `OptimizationResults`.
 
-**Tests.** `test/pgd_graphical_lasso.jl` checks, in Float32 and Float64, the
-returned points of analytic and seeded problems with zero and positive diagonal
-weights. It recomputes positive definiteness, the primal objective and the entrywise
-KKT score in BigFloat, together with a numerical estimate of a dual lower bound. These are
-those of the problem with the rounded effective coefficients `T(λ₀)Λ`, which is the original
-problem for the fixtures whose coefficient products are exact; `test/TESTING.md` lists the
-fixtures. It also compares the reported KKT score with the recomputed one, for
-direct PGD and for PGD on the covariance-shifted problem. The tests also check reported
-counters, the diagonal KKT score at a start with a positive diagonal weight, the
-convergence flags at a known fixed point, a rounded Float32 stall outside the threshold and
-limit precedence. A call limit during a rejected trial checks the retained iterate, the
-reported objective and the `x` and `f` residuals. `test/logdet_kkt_scale.jl` uses analytic
-values for the 2 × 2 and 1 × 1 fixtures and for two inputs on which the form from `G` rounds a
-decisive violation to zero: a cancellation of `W` against a weight where `S` is small (one sign,
-both precisions) and a zero entry with an overflowing unused endpoint (both signs, both
-precisions). It also uses direct assertions on the scales, the uncertainty test and the
-evaluation of single entries, and BigFloat scores at fixed points and at returned points where
-stated (an estimate of the rounding of the computed score is allowed; the two inputs above use
-2048 bits, for the condition number of the first and for the exponent gap between the weight
-and `1/4` in the second, whose iterate is well conditioned). It covers the diagonal-weight
-cancellation cases and the `2^51` numerator through `solve!` (the Float32 case is an analogue), the direct and covariance-shifted formulations,
-seeded heterogeneous and ordinary problems, and a power-of-two rescaling on its fixtures. It also
-compares the allocation of warmed evaluations at dimensions 12 and 36.
+**Tests.** `test/pgd_graphical_lasso.jl` checks, in Float32 and Float64, the returned points of
+analytic and seeded problems with zero and positive diagonal weights against BigFloat recomputations
+of positive definiteness, the primal objective, the entrywise score and a numerical estimate of a dual
+lower bound. These are those of the problem with the rounded effective coefficients `T(λ₀)Λ`, which
+is the original problem for the fixtures whose coefficient products are exact (`test/TESTING.md` lists
+the fixtures). It compares the reported score with the recomputed one, for direct PGD and for PGD on
+the covariance-shifted problem, and checks reported counters, the diagonal score at a start with a
+positive diagonal weight, the convergence flags at a known fixed point, a rounded Float32 stall outside
+the threshold and limit precedence. A call limit during a rejected trial checks the retained iterate, the
+reported objective and the `x` and `f` residuals. On its fixtures, `test/logdet_kkt_scale.jl` checks
+the reported start score at prescribed points against the definition, the stop rule at the converged
+solves of its seeded heterogeneous and ordinary problems, two inputs on which the first pass rounds a
+decisive violation to zero (a cancellation of `W` against a weight where `S` is small, with one sign,
+and a zero entry with an overflowing unused endpoint, with both signs, each in both precisions), the
+diagonal-weight cancellation cases and the `2^51` numerator through `solve!` (the Float32 case is an
+analogue), the direct and covariance-shifted formulations, and a power-of-two rescaling where the unit
+floor is inactive. It also asserts directly on the scales, the uncertainty test and the evaluation of single
+entries, and compares the allocation of warmed evaluations at dimensions 12 and 36. Its BigFloat
+references use 256 bits, and 2048 bits for the two inputs above as a chosen reference precision. Its
+analytic values are exact-arithmetic references, and its BigFloat scores are reported after conversion
+to Float64 and compared with an allowance for the rounding of the computed score.
 
 **Sources.** [Approved graphical-lasso PGD stopping rule](https://github.com/mlakolar/ProximalSolvers.jl/issues/444).
 [Entrywise KKT normalization](https://github.com/mlakolar/ProximalSolvers.jl/issues/492).

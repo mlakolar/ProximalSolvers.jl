@@ -112,8 +112,9 @@ function check_solution!(Θ, S, g; method=ProximalGradientDescent(), reference=n
   # The reported score is that of the solved problem's stored S and weights; d.score is that
   # of the original problem. The entry scales sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|) of PGD-08 are the same in
   # exact arithmetic for the shifted problem, so the two scores can differ by the rounding of the
-  # stored Sᵢᵢ + Cᵢᵢ, by the rounding of the computed inverse and by the rounding of the residual itself.
-  # With Θ = 1, S = -eps(T)/2 and C = 1, the shift and the inverse are exact, yet the certain form from G
+  # stored Sᵢᵢ + Cᵢᵢ, of the computed inverse and of the residual itself, and, in the reported score, of
+  # the roots, their product and the quotient.
+  # With Θ = 1, S = -eps(T)/2 and C = 1, the shift and the inverse are exact, yet the first pass from G
   # scores 0 for the direct problem (fl(S - 1) = -1) and eps(T)/2 for the shifted one, both far below the
   # floor of g_tol.
   @test abs(d.score - r.g_residual) <= 32eps(T)
@@ -476,8 +477,9 @@ end
     V1, V2 = only(z) - G, only(z) - G / 2
     @test (G, V1, V2) == (-3/4, 7/4, 11/8) && V1 < 1 * 2 && V2 > 1/2 * 2
     # At Θ = 1 the violation is |G + C| = |-3/4 + 2| = 5/4 and the entry scale is
-    # max(1, sqrt(|S + C|)²) = 9/4, so the score is (5/4)/(9/4) = 5/9. Before the entrywise scale
-    # of #492 it was (5/4)/max(1, S, C) = 5/8.
+    # max(1, sqrt(|S + C|)²) = 9/4, so the exact-arithmetic score is (5/4)/(9/4) = 5/9, the reference
+    # for the approximate assertion below. Before the entrywise scale of #492 it was
+    # (5/4)/max(1, S, C) = 5/8.
     r = solve!(z, f, g, m, ProximalOptions(time_limit=0))
     @test !r.converged && z == array(1)
     @test r.g_residual ≈ 5/9 rtol=4eps(T)
@@ -485,8 +487,8 @@ end
     r = solve!(z, f, g, m, ProximalOptions(prox_calls_limit=2))
     @test r.call_limit_reached && !r.converged && z == array(3/8) && r.x_residual == 5/8
     @test (r.iterations, r.backtrack_steps, r.prox_calls, r.f_calls, r.grad_calls) == (1, 2, 2, 2, 2)
-    # At Θ = 3/8, G = 1/4 - 8/3 = -29/12, the violation is |G + 2| = 5/12 and the score
-    # (5/12)/(9/4) = 5/27 (5/24 before #492).
+    # At Θ = 3/8, G = 1/4 - 8/3 = -29/12, the violation is |G + 2| = 5/12 and the exact-arithmetic score
+    # (5/12)/(9/4) = 5/27 (5/24 before #492), the reference for the approximate assertion below.
     @test r.g_residual ≈ 5/27 rtol=64eps(T)
     check_solution!(array(1), S, g; reference=fill(inv(BigFloat(1/4) + 2), 1, 1))
   end

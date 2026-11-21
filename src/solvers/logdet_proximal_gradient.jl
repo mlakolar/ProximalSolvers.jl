@@ -56,23 +56,23 @@ function _logdet_pgd_symmetrize!(G::Matrix{T}, S) where T
   nothing
 end
 
-# The KKT violation of entry (i, j) from the gradient G = S - inv(Θ): at a nonzero Θᵢⱼ the
-# distance of Gᵢⱼ from -Cᵢⱼ sign(Θᵢⱼ), at an exact zero the excess of |Gᵢⱼ| over Cᵢⱼ.
+# The first-pass KKT violation of entry (i, j) from the gradient G = S - inv(Θ), diagonal included:
+# |Gᵢⱼ + Cᵢⱼ sign(Θᵢⱼ)| at a nonzero Θᵢⱼ and max(|Gᵢⱼ| - Cᵢⱼ, 0) at an exact zero.
 @inline _logdet_pgd_violation(θ, g, c) =
   iszero(θ) ? max(abs(g) - c, zero(g)) : abs(g + c * sign(θ))
 
-# Knuth's TwoSum: s = fl(a + b), and e with a + b = s + e when s and e are both finite. The code is
-# written without @fastmath, which permits reassociation, and without muladd, which permits contraction.
+# Knuth's TwoSum: s = fl(a + b), and e with a + b = s + e. The pair is an exact decomposition under
+# round-to-nearest with gradual underflow when s and e are both finite. The code is written without
+# @fastmath, which permits reassociation, and without muladd, which permits contraction.
 @inline function _logdet_pgd_two_sum(a, b)
   s = a + b
   bb = s - a
   s, (a - (s - bb)) + (b - bb)
 end
 
-# One side of the zero-entry violation, a + b + l, where TwoSum gives a + b = u + lu. If u is not finite,
-# the sum overflowed and the side is -Inf: G is not read, because with a finite inverse entry an
-# outward overflow has the sign that makes the side negative. If u is finite but u + (lu + l) is not,
-# the side takes its value `gside` from G.
+# One side of the violation at a zero entry, in the working precision. TwoSum gives a + b = u + lu and the
+# side is u + (lu + l). If u is not finite the side is -Inf and `gside`, the first-pass value of the
+# side, is discarded. If u is finite but u + (lu + l) is not, the side is `gside`.
 @inline function _logdet_pgd_side(a, b, l, gside)
   u, lu = _logdet_pgd_two_sum(a, b)
   isfinite(u) || return oftype(u, -Inf)
@@ -80,15 +80,16 @@ end
   isfinite(v) ? v : gside
 end
 
-# The same violation from the stored Sᵢⱼ, the weight cᵢⱼ and the inverse entry wᵢⱼ = (Θ⁻¹)ᵢⱼ, without
-# forming Sᵢⱼ ± cᵢⱼ. TwoSum gives x = Sᵢⱼ - wᵢⱼ as h + l when h and l are both finite; each recombination
-# below rounds once. At a nonzero Θᵢⱼ the violation is |x + cᵢⱼ sign(Θᵢⱼ)|, with h + cᵢⱼ sign(Θᵢⱼ) also a
-# two-sum. At a zero it is the larger of x - cᵢⱼ, -x - cᵢⱼ and 0, each side from its own two-sum. Three cases
-# use the form from G or discard a side: (a) if h or l of the first two-sum is not finite, the whole entry takes
-# its violation from G; (b) at a zero, a side whose two-sum high term is not finite is -Inf, without reading G
-# (see `_logdet_pgd_side`), and a side whose high term is finite but whose recombination is not takes its own
-# value from G, g - c or -g - c; (c) at a nonzero Θᵢⱼ, a recombination that is not finite gives the entry's
-# violation from G.
+# The violation of entry (i, j) from the stored Sᵢⱼ, the weight cᵢⱼ and the inverse entry wᵢⱼ = (Θ⁻¹)ᵢⱼ,
+# attempted without forming Sᵢⱼ ± cᵢⱼ. Every operation is in the working precision. TwoSum of Sᵢⱼ and -wᵢⱼ
+# gives (h, l). At a nonzero θ, TwoSum of h and cᵢⱼ sign(θ) gives (h2, l2) and the violation is
+# abs(h2 + (l + l2)). At a zero, `_logdet_pgd_side` gives the two sides, u + (lu + l) from the TwoSum of h
+# and -cᵢⱼ and u + (lu + (-l)) from the TwoSum of -h and -cᵢⱼ, and the violation is the larger of the
+# two sides and 0. The additions of the recombinations round. Three cases fall back to the first-pass
+# value: (a) if h or l is not finite, the whole entry takes its first-pass violation; (b) at a zero, a
+# side whose u is not finite is -Inf and its first-pass value g - c or -g - c is discarded, and a side
+# whose u is finite but whose recombination is not takes that first-pass value; (c) at a nonzero θ, if
+# the recombination is not finite the entry takes its first-pass violation.
 @inline function _logdet_pgd_violation(θ, g, c, sij, w)
   h, l = _logdet_pgd_two_sum(sij, -w)
   isfinite(h) && isfinite(l) || return _logdet_pgd_violation(θ, g, c)
@@ -103,14 +104,13 @@ end
   end
 end
 
-# The score R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ) of PGD-08 from G, over the upper triangle, and a flag for
-# uncertain entries. Θ, G, C and S are symmetric by entrywise equality when this runs (G after
-# `_logdet_pgd_symmetrize!`), so the entries below the diagonal equal those above it. An entry is
-# uncertain if mᵢⱼ > 4dᵢⱼ, with mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ, where c̃ᵢⱼ = Cᵢⱼ at a nonzero Θᵢⱼ or at a zero
-# with |Gᵢⱼ| ≥ Cᵢⱼ/2, and c̃ᵢⱼ = 0 at a zero with |Gᵢⱼ| < Cᵢⱼ/2; an overflowing mᵢⱼ is uncertain. The test
-# is a heuristic bound, chosen so that for entries below it the rounding of the form from G is small
-# relative to dᵢⱼ. It does not cover the error of the working inverse. The comparison uses mᵢⱼ/4, which
-# does not overflow where 4dᵢⱼ could.
+# The first-pass score R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ) of PGD-08 over the upper triangle, diagonal included,
+# and a flag for uncertain entries. Θ, G, C and S are symmetric by entrywise equality when this runs (G
+# after `_logdet_pgd_symmetrize!`), so the entries below the diagonal equal those above it. In the
+# working precision, entry (i, j) is uncertain if m * T(0.25) > d, with d = max(1, sᵢsⱼ),
+# m = (|Sᵢⱼ| + |Gᵢⱼ|) + c̃ᵢⱼ, and c̃ᵢⱼ = Cᵢⱼ if Θᵢⱼ ≠ 0 or 2|Gᵢⱼ| ≥ Cᵢⱼ, else 0. An m that overflows is
+# uncertain. The test is a heuristic on computed values. It compares m * T(0.25) with d, not m with 4d,
+# because 4d can overflow.
 function _logdet_pgd_gform(Θ::Matrix{T}, S, G, C, scales) where T
   worst = zero(T)
   uncertain = false
@@ -124,9 +124,9 @@ function _logdet_pgd_gform(Θ::Matrix{T}, S, G, C, scales) where T
   worst, uncertain
 end
 
-# The same score from the inputs and W = inv(Θ). Every entry is evaluated by
-# `_logdet_pgd_violation(θ, g, c, S, W)`, with the three fallback cases listed there. The returned score
-# is checked for finiteness.
+# The same score from the inputs and W = inv(Θ). Each entry is evaluated by
+# `_logdet_pgd_violation(θ, g, c, S, W)`, which attempts the evaluation from the inputs and has the
+# three fallback cases listed there. The returned score is checked for finiteness.
 function _logdet_pgd_wform(Θ::Matrix{T}, S, W, G, C, scales) where T
   worst = zero(T)
   @inbounds for j in axes(Θ, 2), i in 1:j
@@ -138,11 +138,12 @@ function _logdet_pgd_wform(Θ::Matrix{T}, S, W, G, C, scales) where T
 end
 
 # The score of a point Θ whose upper Cholesky factor, from `_admm_passes_cholesky!`, is in `scratch`.
-# If the pass from G finds an uncertain entry, W = inv(Θ) is rebuilt in place from that factor and the
-# score is the one from the inputs and W, which evaluates every entry. The factor is then overwritten, so a
-# later use of `scratch` as a factor must factorize into it again; a trial that reaches its factorization
-# does. The returned score is checked for finiteness: the score from G on the first path and the score from
-# the inputs on the second. The score from G that the second path discards is not checked.
+# If the first pass finds an uncertain entry, W = inv(Θ) is rebuilt in place from that factor and the
+# score is the one from the inputs and W, which attempts every entry. The factor is then overwritten, so
+# a later use of `scratch` as a factor must factorize into it again; a trial that reaches its
+# factorization does. The returned score is checked for finiteness: the first-pass score on the first
+# path and the score from the inputs on the second. The first-pass score that the second path discards
+# is not checked.
 function _logdet_pgd_kkt!(scratch, Θ, S, G, C, scales)
   worst, uncertain = _logdet_pgd_gform(Θ, S, G, C, scales)
   if !uncertain
