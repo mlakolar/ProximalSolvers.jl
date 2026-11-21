@@ -372,8 +372,8 @@ unweighted `NormL1Nonneg(lambda)` for nonnegative lasso. These penalties are acc
 by PGD and by `CDSolver` on a dense `Vector`, with dense same-type least-squares data
 and a nonnegative starting vector; APG, and CD on a `SparseIterate`, refuse them. An
 infeasible start is refused before writes. PGD's stopping check uses the
-constrained KKT residual and the lasso's symmetric gradient scale. `CDSolver` stops on
-its change test, so its `converged` flag is not a KKT check; assess its point with an
+constrained KKT residual and the lasso's symmetric gradient scale. `CDSolver` reports
+convergence on its change test, so its `converged` flag is not a KKT check; assess its point with an
 independent constrained KKT score.
 See [inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-07),
 [PGD's stopping check](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-16)

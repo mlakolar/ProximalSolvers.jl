@@ -269,8 +269,8 @@ dense vector, with `IndNonnegative()` or `NormL1Nonneg(0)`. Use unweighted
 feasible dense vector, such as zeros; a `SparseIterate` is not supported for these
 penalties. The [NNLS example](examples/problems/nonnegative_least_squares.md)
 compares the two models. See [IN-07](@ref) for input rules. [STOP-16](@ref) is
-PGD's constrained KKT check; `CDSolver` stops on the change test of [CD-03](@ref)
-and [RES-01](@ref), so assess a CD fit with an independently computed constrained KKT
+PGD's constrained KKT check; `CDSolver` reports convergence on the change test of
+[CD-03](@ref) and [RES-01](@ref), so assess a CD fit with an independently computed constrained KKT
 score, as the example does.
 
 For sparse logistic regression with a binary response, use `ProximalGradientDescent`

@@ -79,7 +79,8 @@ _flat_column(m::LSModel, k::Int) = all(iszero, view(m.X, :, k))
 # 1/(1 + λ2/(m.s a))). For an uncentered SqrNormL2 the prox applies ridge shrinkage to c.
 # For an unweighted NormL1Nonneg the step is max(c - τ, 0) with τ = γλ formed by the prox of ProximalBase from
 # the supplied level, and for IndNonnegative it is max(c, 0). Outside the band their exceptional steps take the
-# same forms with τ formed from Float64(λ0), the level converted to Float64 (see `_exceptional_step`).
+# same forms with τ formed from Float64(λ0), the level converted to Float64, and capped at floatmax(T) (see
+# `_exceptional_step`).
 # A flat column (a = 0 and X_k = 0) takes the penalty's minimizer. A
 # curvature a that is 0 for a column that is not flat (its squares underflow), or that is not finite, is
 # refused before the coordinate or the residual changes. For a finite a, p = m.s a is formed in `S` and
@@ -94,7 +95,7 @@ _flat_column(m::LSModel, k::Int) = all(iszero, view(m.X, :, k))
 # the band, and `_exceptional_step` takes the lasso's range-safe form at λ2 = 0 (the penalty NormL1(λ1))
 # and refuses the step at λ2 > 0. For an uncentered SqrNormL2, the exceptional step keeps c at λ = 0
 # and refuses positive levels. For an unweighted NormL1Nonneg the exceptional step is max(c - τ, 0) with the
-# range-safe τ of the lasso method (formed from Float64(λ0), as for NormL1), and for IndNonnegative
+# range-safe τ of the lasso method (formed from Float64(λ0) and capped at floatmax(T), as for NormL1), and for IndNonnegative
 # it is max(c, 0). In exact arithmetic a fixed point of the lasso step
 # x = shrink(x + b/a′, λ/(m.s a′)) satisfies m.s b ∈ λ ∂|x| for any positive a′ used in both places, so
 # a rounded or subnormal curvature does not move the fixed point (whether and how fast the iteration
@@ -166,7 +167,8 @@ end
 # NormL1 (formed by `_threshold` from Float64(g.λ0), the level converted to Float64, and capped at floatmax(T)),
 # and max(c, 0) for IndNonnegative. As for NormL1, τ is formed from Float64(g.λ0), the level converted to
 # Float64, so the bounds stated at `_threshold` are against that converted level. The preconditions are those of
-# `solve!`: a finite level, a positive finite scale α and a positive finite curvature a. For a finite c the
+# `solve!`: the admitted level of IN-07 (docs/src/contracts/inputs.md), a positive finite scale α and a positive finite
+# curvature a. For a finite c the
 # result is finite and nonnegative (+0 where c - τ is not positive). A centre of +Inf stays +Inf and a NaN centre
 # stays NaN, and `_visit!` refuses both; a centre of -Inf gives +0, unlike the signed soft threshold of the
 # lasso method.

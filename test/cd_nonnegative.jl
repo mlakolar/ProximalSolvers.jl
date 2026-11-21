@@ -87,7 +87,8 @@ function diagonal(::Type{T}, seed) where T
   Matrix(Diagonal(d)), d .* t, t
 end
 
-# max_j s (Xᵀy)_j as Float64: in exact arithmetic the level at and above which the solution is 0 (a level rounded to T
+# max_j s (Xᵀy)_j as Float64: in exact arithmetic the level at and above which 0 is a minimizer (at a zero level of a
+# rank-deficient design, nonzero minimizers can exist too; a level rounded to T
 # from a multiple f of it can fall on either side of that boundary at f = 1)
 smax(X, y, s) = setprecision(BigFloat, 256) do
   Float64(big(sval(s)) * maximum(big.(X)' * big.(y)))
@@ -444,9 +445,10 @@ end
 # ---------------------------------------------------------------------------------------------
 # The allowances for the threshold τ = λ/(α a) (the test levels are of type T, so the conversion to Float64 of the
 # level is exact) are those of the existing tests of `_threshold`: Float32 within one
-# Float32 ulp of the quotient (and at least floatmax where the quotient is); Float64 within 3 eps relative where
-# normal, plus nextfloat(0.0) where subnormal. Returns the allowed absolute error of τ̂ and whether the quotient is
-# at or above floatmax(T).
+# Float32 ulp of the quotient where it is below floatmax; Float64 within 3 eps relative where normal, plus
+# nextfloat(0.0) where subnormal. Returns the allowed absolute error of τ̂ and whether the quotient is in the capped
+# region: at or above floatmax(T) for Float32, above floatmax(T) (1 - 3 eps) for Float64. In that region the sweep
+# accepts a capped threshold within four floats below floatmax(T).
 function tau_allowance(::Type{Float32}, τ̂::Float32, ref)
   ref >= big(floatmax(Float32)) && return big(0), true
   max(big(eps(τ̂)), big(eps(min(nextfloat(τ̂), floatmax(Float32))))), false
@@ -480,8 +482,8 @@ end
           ref_τ = big(λ) / (big(α) * big(a))
           τ̂ = min(PS._threshold(T, λ, α, a), floatmax(T))
           Δτ, atmax = tau_allowance(T, τ̂, ref_τ)
-          # where the quotient is at or above floatmax(T), the threshold is within 4 floats of floatmax(T) (the bound of
-          # the existing `_threshold` tests); elsewhere within the allowance
+          # in the capped region of `tau_allowance` the threshold is within 4 floats below floatmax(T); elsewhere within
+          # the allowance
           check(atmax ? τ̂ >= prevfloat(floatmax(T), 4) : abs(big(τ̂) - ref_τ) <= Δτ, "threshold", info...)
           ref = max(big(c) - ref_τ, 0)
           allowed = Δτ + big(eps(T)) * abs(ref) + big(tiny)
@@ -649,8 +651,7 @@ end
 end
 
 # A refusal during a pass after an earlier coordinate has moved leaves the caller's coefficients unchanged. In each
-# fixture the coordinate before the failing column 3 moves in the private run (checked at the model), and the
-# cyclic order visits it first.
+# fixture column 1 moves in the private run (checked at the model), and the cyclic order visits it before column 3.
 @testset "rollback: a refusal at column 3 after column 1 moved leaves the start unchanged ($T)" for T in FLOATS
   X0, y = design(T, 20, 4, 91)
   huge = T === Float32 ? T(1e20) : T(1e160)
@@ -686,8 +687,8 @@ end
 end
 
 # ---------------------------------------------------------------------------------------------
-# The bytes of a solve with a fixed number of passes (tol = 0 runs to the cap), measured after a warm-up inside a
-# function so that no argument is boxed; the minimum of three runs.
+# The bytes of a solve with a fixed number of passes (tol = 0 runs to the cap), measured after one warm-up run, as the
+# minimum of three runs. The two budgets pay the same fixed cost, which the difference removes.
 function pass_bytes(f, g, x0, passes)
   run() = quiet() do
     x = copy(x0)
@@ -700,7 +701,7 @@ end
 # the bytes of 6 more passes (8 against 2), divided by 6
 pass_increment(f, g, x0) = (pass_bytes(f, g, x0, 8) - pass_bytes(f, g, x0, 2)) / 6
 
-@testset "the bytes per pass of the nonnegative penalties are at most those of NormL1 ($T)" for T in FLOATS
+@testset "the mean bytes per added pass (passes 3 to 8, cyclic, no momentum) of the nonnegative penalties are at most those of NormL1 ($T)" for T in FLOATS
   X, y = design(T, 40, 8, 24)
   λ = level_at(T, X, y, nothing, 0.1)
   f = LeastSquaresLoss(y, X)

@@ -56,7 +56,7 @@ _float64_scale_ok(a::Float64, ::Type{T}) where T = isfinite(a) && a > 0 && (n = 
 end
 
 # IndNonnegative and unweighted NormL1Nonneg are accepted under :pgd and :cd, with the vector-response
-# LeastSquaresLoss (raw or one positive Scaled) and a feasible start checked by _check_problem on a dense Vector (a SparseIterate is refused by _check_owner_problem).
+# LeastSquaresLoss (raw or one supported positive Scaled, IN-02) and a feasible start checked by _check_problem on a dense Vector (a SparseIterate is refused by _check_owner_problem).
 # :gradient retains the APG gate.
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
 # :gradient (APG), :pgd (PGD) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
