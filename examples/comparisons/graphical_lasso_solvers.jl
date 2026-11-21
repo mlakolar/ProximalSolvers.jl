@@ -87,8 +87,10 @@ end;
 # [Graphical lasso](../problems/graphical_lasso.md) page. Build a candidate in
 # BigFloat by clipping the off-diagonal deviations of `inv(Θ)` from `S` to this box. Check the
 # diagonal and the box with rational arithmetic on the stored values, then check a BigFloat
-# Cholesky factorization. Only if both pass is `primal - (logdet(W) + p)` a gap; otherwise the
-# result is `missing`. The Cholesky test and the value use rounded BigFloat arithmetic.
+# Cholesky factorization. Only if both pass is `primal - (logdet(W) + p)` reported, as a
+# numerically validated dual gap; otherwise the result is `missing`. The affine checks are exact,
+# but the Cholesky test and the value use rounded BigFloat arithmetic, so the gap is not a
+# rigorous certificate.
 function dual_gap(Θ, λdiag, primal)
   Sb, off = BigFloat.(S), BigFloat(λoff)
   inverse = inv(BigFloat.(Θ))
@@ -158,11 +160,11 @@ foreach(check_fit, (run for s in sweeps for route in (:ADMM, :PGD) for run in s[
 
 # ## Compare the two solvers at the same accuracy
 #
-# At the matched and the tightest fits, the dual candidate must be certified, and its gap must lie
+# At the matched and the tightest fits, the dual candidate must pass both checks, and its gap must lie
 # between minus the allowance and the target scaled by `max(1, |P|)`. The lower bound is weak
 # duality up to rounding in the numerical gap: the Float64 primal, the BigFloat dual value and the
-# conversion of the gap to Float64 are all rounded. A candidate that is not certified prints
-# `not certified` with its policy, solver and stage before the assertion fails. At each policy,
+# conversion of the gap to Float64 are all rounded. A candidate that fails a check prints
+# `dual gap not validated` with its policy, solver and stage before the assertion fails. At each policy,
 # the objectives of the matched fits must agree within `target * max(1, |P|)` with `P` the
 # objective of the PGD fit. Their largest
 # entrywise difference is bounded from the KKT violations. For positive-definite `A` and `B`,
@@ -184,16 +186,16 @@ display_threshold = 1e-6
 true_graph = Set((i, i + 1) for i in 1:p-1)
 graph(Θ) = Set((i, j) for j in 2:p for i in 1:j-1 if abs(Θ[i, j]) > display_threshold)
 
-function certified_gap(run, λdiag, stage)
+function validated_gap(run, λdiag, stage)
   gap = dual_gap(run.Θ, λdiag, run.d.primal)
-  ismissing(gap) && @printf("λdiag = %.2f %s %s: not certified\n", λdiag, run.route, stage)
+  ismissing(gap) && @printf("λdiag = %.2f %s %s: dual gap not validated\n", λdiag, run.route, stage)
   @assert !ismissing(gap) && -run.d.allowance <= gap <= target * max(1, abs(run.d.primal))
   gap
 end
 
 for case in cases
   for (stage, pair) in pairs((matched=case.matched, tightest=case.tightest)), run in pair
-    certified_gap(run, case.policy.λdiag, stage)
+    validated_gap(run, case.policy.λdiag, stage)
   end
   a, b = case.matched
   Δobjective, Δentry = abs(a.d.primal - b.d.primal), maximum(abs, a.Θ - b.Θ)
@@ -231,7 +233,7 @@ for (; λdiag, route, run) in rows
   r, d = run.result, run.d
   @printf("%.2f   %-6s  %.0e    %-9s  %.2e   %.2e   %.10f  %.2e               %10.2e  %.4f\n",
           λdiag, route, run.t, r.converged, d.kkt, d.kkt_abs, d.primal, abs(r.minimum - d.primal),
-          certified_gap(run, λdiag, :matched), d.eigmin)
+          validated_gap(run, λdiag, :matched), d.eigmin)
 end
 println("\nλdiag  solver  iterations  prox_calls  f_calls  grad_calls  backtracks  r_norm    s_norm    illustrative_ms")
 for (; λdiag, route, run, ms) in rows
@@ -256,7 +258,8 @@ end
 #
 # Each top panel plots the independent normalized KKT violation of every fit in a sweep against
 # its proximal calls, and the dashed line marks the target. The three panels share their
-# vertical limits. Each heatmap shows ADMM's matched estimate above the diagonal and PGD's below
+# vertical limits. Each marker is a separate solve from the identity, so the markers are not
+# joined. Each heatmap shows ADMM's matched estimate above the diagonal and PGD's below
 # it, with the diagonal set to zero for display. The three heatmaps share one symmetric color
 # scale. Each marker pairs a solver's reported proximal calls with the script's independent KKT
 # violation, floored at `eps()`. The off-diagonal heatmap entries are the returned estimates; the
@@ -269,8 +272,8 @@ end
 #!jl   panel = plot(; yscale=:log10, ylims=(ylimits[1] / 2, 2 * ylimits[2]), xlabel="Proximal calls",
 #!jl                 ylabel=k == 1 ? "Normalized KKT violation" : "", title=labels[k], legend=k == 1 ? :topright : false)
 #!jl   for route in (:ADMM, :PGD)
-#!jl     plot!(panel, [run.result.prox_calls for run in s[route]], [max(run.d.kkt, eps()) for run in s[route]];
-#!jl           label=string(route), marker=:circle)
+#!jl     scatter!(panel, [run.result.prox_calls for run in s[route]], [max(run.d.kkt, eps()) for run in s[route]];
+#!jl              label=string(route), marker=route === :ADMM ? :circle : :diamond)
 #!jl   end
 #!jl   hline!(panel, [target]; label="Target", linestyle=:dash, color=:gray)
 #!jl end
