@@ -102,28 +102,32 @@ end
 # ---- the stationarity check of a proposed stop -------------------------------------------------
 #
 # The check is for the least-squares problem ½α‖Xb - y‖² + h(b) (α = 1 for a raw LeastSquaresLoss),
-# whose gradient ∇f the solver forms, with h = λ‖·‖₁ for NormL1(λ), h = Σⱼ λ wⱼ |bⱼ| for NormL1(λ, w), or
-# h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2). G is the element of ∇f(x) + ∂h(x) of least norm:
+# whose gradient ∇f the solver forms, with h = λ‖·‖₁ for NormL1(λ), h = Σⱼ λ wⱼ |bⱼ| for NormL1(λ, w),
+# h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2), or h = Σⱼ λ1 wⱼ |bⱼ| + (λ2/2)‖·‖² for ElasticNet(λ1, λ2, w).
+# G is the element of ∇f(x) + ∂h(x) of least norm:
 # for NormL1, |∇fᵢ| - cᵢ clipped at 0 where xᵢ = 0 and |∇fᵢ + cᵢ sign xᵢ| otherwise, with cᵢ = λ (cᵢ = λ wᵢ
-# with weights); for ElasticNet, the same with cᵢ = λ1 and the term λ2 xᵢ added to ∇fᵢ where xᵢ ≠ 0 (the ridge
-# part has gradient λ2 x, which is 0 where xᵢ = 0). A zero weight leaves its entry unpenalized: cᵢ = 0 and
-# the score is |∇fᵢ|. The stop is kept when ‖G‖∞ < τ S, with S = max(λ1, λmax) (λ1 = λ for NormL1(λ); for
-# NormL1(λ, w) the largest coefficient, S = max(maxᵢ cᵢ, λmax)), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞, and
-# τ = max(gradtol, 64 eps(T)). S does not contain λ2: for
-# ElasticNet the problem is the lasso with level λ1 on the data [√α X; √λ2 I], [√α y; 0], whose
+# with weights); for ElasticNet, the same with cᵢ = λ1 (cᵢ = λ1 wᵢ with weights) and the term λ2 xᵢ added to ∇fᵢ
+# where xᵢ ≠ 0. A zero weight gives cᵢ = 0, so its score is |∇fᵢ| for NormL1 and |∇fᵢ + λ2 xᵢ| for
+# ElasticNet. The stop is kept when ‖G‖∞ < τ S, with S = max(maxᵢ cᵢ, λmax), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞,
+# and τ = max(gradtol, 64 eps(T)). S does not depend on λ2. In exact arithmetic the ElasticNet objective is
+# a lasso with the same L1 coefficients on the data [√α X; √λ2 I], [√α y; 0], whose
 # gradient is ∇f(x) + λ2 x and whose λmax is the λmax above. The threshold is relative to S, which a
 # common positive factor on the loss and the penalty levels scales alike (within the range of T), and
 # 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a bound on the error of the
 # computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
 # that may have underflowed; a computed S = 0, as for λ1 = 0 and y = 0, is one) or when ‖G‖∞ is not finite.
-# ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)), NormL1(T(λ0), w) or
-# ElasticNet(T(λ1), T(λ2)), the coefficients of the formulas above: each level is converted to T once, into
-# a penalty that gives both S and the residual, so that ProximalBase does not round the levels again.
+# ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)), NormL1(T(λ0), w),
+# ElasticNet(T(λ1), T(λ2)) or ElasticNet(T(λ1), T(λ2), w), the coefficients of the formulas above: each level is
+# converted to T once, into a penalty that gives both S and the residual, so that ProximalBase does not round the
+# levels again.
 # For NormL1(λ0, w), solve! requires w to be a Vector{T}, so ProximalBase's coefficient of entry i is the product
 # T(λ0) wᵢ rounded in T: the cᵢ that solve! checked (finite and, where both factors are positive, a normal number of T).
 # Rounding is monotone, so T(λ0) maximum(w) is maxᵢ cᵢ. The weights are not converted or copied. A proposed
 # stop adds to the O(p) pass of kkt_violation one O(p) scan of w for `maximum` and one in the constructor of
 # the NormL1 that holds the converted level; for w ≡ 1 the coefficients and S are those of NormL1(λ0).
+# A weighted ElasticNet is the same with λ1 in place of λ0, except that the converted penalty is the working penalty
+# of the solve (_working_gradient_penalty), which is already native, so `_converted_penalty` returns it as it is and
+# a proposed stop adds only the scan for `maximum` (IN-03, STOP-06, STOP-08).
 # An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
@@ -236,10 +240,19 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
 end
 
 # After validation, unweighted lasso solves share a working-type penalty across
-# the initial value, the fused trial steps and the stationarity check.
+# the initial value, the fused trial steps and the stationarity check. So does a weighted ElasticNet (IN-03): its
+# levels are converted to T once, and its weights, which solve! requires to be a Vector{T}, are kept as they are. The
+# other penalties, including unweighted ElasticNet and weighted NormL1, keep their supplied levels in the value and prox.
 _working_gradient_penalty(g, ::Type) = g
 _working_gradient_penalty(g::Union{NormL1{<:Real, Nothing}, NormL1Nonneg{<:Real, Nothing}}, ::Type{T}) where T =
   _converted_penalty(g, T)
+_working_gradient_penalty(g::ElasticNet{<:Real, <:Vector}, ::Type{T}) where T = _converted_penalty(g, T)
+
+# The penalty that CDSolver's private run receives on a dense Vector or a one-dimensional SparseIterate, after the
+# gates: only a weighted ElasticNet is converted (to the working penalty of _converted_penalty); a native one is
+# returned as it is. The run uses it for every coordinate step and for the final objective.
+_working_cd_penalty(g, ::Type) = g
+_working_cd_penalty(g::ElasticNet{<:Real, <:Vector}, ::Type{T}) where T = _converted_penalty(g, T)
 
 # Penalties with levels in T for the dedicated stationarity check.
 # The Real bound makes the native identity methods more specific than the mixed conversions.
@@ -253,7 +266,12 @@ _converted_penalty(g::NormL1{<:Real, Vector{T}}, ::Type{T}) where T = NormL1(T(g
 # Rational{Int64} levels). A level of type T is returned as it is.
 _converted_level(::Type{T}, λ::T) where T = λ
 @noinline _converted_level(::Type{T}, λ) where T = T(λ)
-_converted_penalty(g::ElasticNet, ::Type{T}) where T = ElasticNet(_converted_level(T, g.λ1), _converted_level(T, g.λ2))
+_converted_penalty(g::ElasticNet{<:Real, Nothing}, ::Type{T}) where T = ElasticNet(_converted_level(T, g.λ1), _converted_level(T, g.λ2))
+# A weighted ElasticNet (solve! requires its weights to be a Vector{T}) keeps its weights, which are not converted or
+# copied. A penalty whose levels are both of type T is returned as it is, so a native weighted object keeps its
+# identity; otherwise each level that is not of type T is converted in a call of its own, as above.
+_converted_penalty(g::ElasticNet{<:Real, Vector{T}}, ::Type{T}) where T =
+  g.λ1 isa T && g.λ2 isa T ? g : ElasticNet(_converted_level(T, g.λ1), _converted_level(T, g.λ2), g.w)
 _converted_penalty(g::NormL1Nonneg{T, Nothing}, ::Type{T}) where {T<:Real} = g
 _converted_penalty(g::NormL1Nonneg{<:Real, Nothing}, ::Type{T}) where T = NormL1Nonneg(T(g.λ0))
 # For stopping, the indicator and NormL1Nonneg(0) have the same normal cone.
@@ -263,7 +281,10 @@ _l1_level(g::NormL1Nonneg) = g.λ0
 _l1_level(g::NormL1) = g.λ0
 # the largest coefficient λ0 wᵢ of a penalty with weights in T and a level in T
 _l1_level(g::NormL1{<:Real, <:Vector}) = g.λ0 * maximum(g.w)
-_l1_level(g::ElasticNet) = g.λ1
+_l1_level(g::ElasticNet{<:Real, Nothing}) = g.λ1
+# the largest L1 coefficient λ1 wᵢ of a weighted ElasticNet with weights in T and a level in T (the ridge level is not
+# part of the scale)
+_l1_level(g::ElasticNet{<:Real, <:Vector}) = g.λ1 * maximum(g.w)
 # solve! requires the parameters of a GroupNormL2 to be of type T; the level of the scale is the largest coefficient
 _converted_penalty(g::GroupNormL2{T}, ::Type{T}) where T = g
 _l1_level(g::GroupNormL2) = g.λ0 * maximum(g.w)

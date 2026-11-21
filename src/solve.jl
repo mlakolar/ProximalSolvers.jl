@@ -59,20 +59,24 @@ end
 # checked by _check_problem. :gradient retains the APG gate.
 # The penalty check of _check_data for an x that is not a BlockIterate. `kind` is the gate's:
 # :gradient (APG), :pgd (PGD) and :cd (CDSolver on a dense Vector or a SparseIterate, and the default of a call
-# without `kind`) accept a NormL1, with or without weights, and an unweighted ElasticNet. :cd also accepts
+# without `kind`) accept a NormL1 and an ElasticNet, each with or without weights. :cd also accepts
 # SqrNormL2 with the Nothing center type. Both gradient kinds also accept a NormLinf, which :cd refuses
 # with a message of its own (this CDSolver needs a separable penalty for
 # its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
 # pointer to the supported alternatives. The levels must pass _scalar_parameter for T (finite, nonnegative,
 # representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
-# weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
-# Scaled(NormLinf(λ)) is refused as any other penalty.
+# weights also passes _check_l1_weights, which refuses a level that is subnormal in T. An ElasticNet with weights
+# passes _check_elasticnet_weights: the L1 level λ1 and the weights are checked as for a NormL1 with weights, and the
+# ridge level λ2 only by _scalar_parameter, so that a subnormal λ2 passes it (IN-03). A wrapper such as
+# Scaled(NormLinf(λ)) or Scaled(ElasticNet(λ1, λ2, w)) is refused as any other penalty.
 function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   if g isa NormL1
     g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
   elseif g isa ElasticNet && g.w === nothing
     _scalar_parameter(g.λ1, T, "penalty lambda1")
     _scalar_parameter(g.λ2, T, "penalty lambda2")
+  elseif g isa ElasticNet
+    _check_elasticnet_weights(g, x, T)
   elseif g isa SqrNormL2 && kind === :cd
     # The scalar prox dispatches on the declared center type.
     g isa SqrNormL2{<:Real, Nothing} ||
@@ -99,11 +103,11 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa IndNonnegative
     kind === :pgd || throw(ArgumentError("IndNonnegative is supported only by ProximalGradientDescent on a dense Vector"))
   elseif kind === :pgd
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"))
+    throw(ArgumentError("only NormL1, ElasticNet (with optional weights), NormLinf, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"))
   elseif kind === :gradient
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, IndBox or IndBallL2 is supported"))
+    throw(ArgumentError("only NormL1, ElasticNet (with optional weights), NormLinf, GroupNormL2, IndBox or IndBallL2 is supported"))
   else
-    throw(ArgumentError("CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2"))
+    throw(ArgumentError("CDSolver supports NormL1, ElasticNet (with optional weights), and uncentered SqrNormL2"))
   end
   nothing
 end
@@ -138,12 +142,26 @@ function _check_box(g, x, ::Type{T}) where T
   nothing
 end
 
-# The weights of a NormL1 for data of type T. They must be a Vector{T} with one entry per entry of x,
-# finite and nonnegative, and x must not alias them (x is the caller's array or owner, as for X and y).
-# The level and the coefficients pass _weighted_level and _check_coefficients.
+# The weights of a NormL1 for data of type T: the level passes _weighted_level, and the weights _check_weights.
 function _check_l1_weights(g, x, ::Type{T}) where T
-  λ = _weighted_level(g.λ0, T)
-  w = g.w
+  _check_weights(_weighted_level(g.λ0, T), g.w, x, T)
+end
+
+# The weights of an ElasticNet for data of type T, checked in this order: the L1 level λ1 (_weighted_level, named
+# "penalty lambda1"), the ridge level λ2 (_scalar_parameter only: a ridge level that is subnormal in T is accepted,
+# as for an unweighted ElasticNet), then the weights and the coefficients λ1 wⱼ (_check_weights). The weights
+# scale the L1 term only; the ridge term is common to all entries.
+function _check_elasticnet_weights(g, x, ::Type{T}) where T
+  λ = _weighted_level(g.λ1, T, "penalty lambda1")
+  _scalar_parameter(g.λ2, T, "penalty lambda2")
+  _check_weights(λ, g.w, x, T)
+end
+
+# The weights w of a penalty with the L1 level λ = T(λ0), for data of type T. They must be a Vector{T} with one entry
+# per entry of x, finite and nonnegative, and x must not alias them (x is the caller's array or owner, as for X and
+# y). The coefficients λ wⱼ pass _check_coefficients. The weights are read at every call, so a change since their
+# construction is checked.
+function _check_weights(λ::T, w, x, ::Type{T}) where T
   w isa Vector{T} ||
     throw(ArgumentError("penalty weights must be a Vector{$T} (the element type of the data); convert an array with collect($T, vec(w)), which takes it in linear order"))
   length(w) == length(x) ||
@@ -154,11 +172,13 @@ function _check_l1_weights(g, x, ::Type{T}) where T
 end
 
 # The level λ = T(λ0) of a penalty with weights: it passes _scalar_parameter and must be zero or a normal
-# number of T (not subnormal). Returns λ.
-function _weighted_level(λ0, ::Type{T}) where T
-  _scalar_parameter(λ0, T, "penalty lambda")
-  λ = T(λ0)
-  issubnormal(λ) && _l1_level_error(λ0, λ, T)
+# number of T (not subnormal). Returns λ. `name` names the level in the messages ("penalty lambda1" for an
+# ElasticNet). The conversion is `_converted_level`, the one that builds the working penalty, so the level that is
+# checked is the level that is used.
+function _weighted_level(λ0, ::Type{T}, name::String = "penalty lambda") where T
+  _scalar_parameter(λ0, T, name)
+  λ = _converted_level(T, λ0)
+  issubnormal(λ) && _l1_level_error(λ0, λ, T, name)
   λ
 end
 
@@ -180,8 +200,8 @@ function _check_coefficients(λ::T, w::Vector{T}, unit::Symbol) where T
   nothing
 end
 
-@noinline _l1_level_error(λ0, λ::T, ::Type{T}) where T =
-  throw(ArgumentError("penalty lambda $λ0 is subnormal in $T (it converts to $λ); with weights the level must be zero " *
+@noinline _l1_level_error(λ0, λ::T, ::Type{T}, name::String = "penalty lambda") where T =
+  throw(ArgumentError("$name $λ0 is subnormal in $T (it converts to $λ); with weights the level must be zero " *
                       "or at least floatmin($T); rescale the level or the weights"))
 
 @noinline function _l1_weight_error(λ::T, wj::T, j, ::Type{T}, unit::Symbol = :entry) where T

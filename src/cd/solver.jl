@@ -41,12 +41,15 @@ lasso; see [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/
 # Extended help
 
 The data arrays share one `Float32` or `Float64` element type. With least squares,
-use `NormL1(lambda)`, `NormL1(lambda, w)`, an unweighted `ElasticNet` or an
+use `NormL1(lambda)`, `NormL1(lambda, w)`, `ElasticNet(lambda1, lambda2)`,
+`ElasticNet(lambda1, lambda2, w)` or an
 uncentered `SqrNormL2(lambda)` for scalar coefficients. Ridge via `SqrNormL2`
 is supported only by CD, for dense vectors or one-dimensional `SparseIterate`;
 a centered penalty is refused, even with an all-zero center. Weights must be a
-matching `Vector{T}` satisfying the validated
-coefficient-range rules; a zero weight leaves its coordinate unpenalized.
+matching `Vector{T}` satisfying the coefficient-range rules. A zero weight
+removes that coordinate's L1 term. For `ElasticNet`, the ridge level
+`lambda2` applies to each coordinate. Its input and arithmetic rules are
+[IN-03](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-03).
 Group penalties require matching partitions; matrix-response groups are the rows
 of the coefficient matrix, indexed through `vec(B)`.
 
@@ -486,11 +489,14 @@ function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   dest
 end
 
+# The dense and one-dimensional SparseIterate routes pass the private run the working penalty of the solve
+# (`_working_cd_penalty`, after the gates): a weighted ElasticNet with levels in T, whose weights are kept as they
+# are; any other penalty is passed as supplied. The block and matrix routes take their penalty as supplied.
 function solve!(x, f, g, method::CDSolver; kwargs...)
   _check_keywords(kwargs)
   if x isa SparseIterate
     _check_owner_problem(x, f, g)
-    return _solve_owner!(x, f, g, method)
+    return _solve_owner!(x, f, _working_cd_penalty(g, eltype(x)), method)
   elseif x isa BlockIterate
     _check_block_problem(x, f, g, method)
     return _solve_owner!(x, f, g, method)
@@ -499,7 +505,7 @@ function solve!(x, f, g, method::CDSolver; kwargs...)
     return _solve_matrix!(x, f, g, method)
   end
   _check_problem(x, f, g, :cd)
-  _solve_dense!(x, f, g, method)
+  _solve_dense!(x, f, _working_cd_penalty(g, eltype(x)), method)
 end
 solve!(x, f, g, method::ProximalSolver, args...; kwargs...) =
   throw(ArgumentError("unsupported solver/options combination"))

@@ -1,8 +1,8 @@
 """
     ProximalSolvers
 
-Least-squares lasso, with or without weights (`NormL1(λ)` or `NormL1(λ, w)`), and elastic net (an
-unweighted `ElasticNet`) with dense Matrix designs, for
+Least-squares lasso, with or without weights (`NormL1(λ)` or `NormL1(λ, w)`), and elastic net
+(`ElasticNet(λ1, λ2)`, or `ElasticNet(λ1, λ2, w)` with weights on its L1 term) with dense Matrix designs, for
 [`CDSolver`](@ref), [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref).
 [`CDSolver`](@ref) also solves least-squares ridge with uncentered `SqrNormL2`.
 [`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also solve the least-squares

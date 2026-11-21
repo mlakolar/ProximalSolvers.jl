@@ -2,8 +2,8 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent for least squares with `NormL1` (optionally weighted),
-unweighted `ElasticNet`, `NormLinf`, `GroupNormL2`, unweighted `NormL1Nonneg` or
+Proximal gradient descent for least squares with `NormL1` or `ElasticNet` (each
+optionally weighted), `NormLinf`, `GroupNormL2`, unweighted `NormL1Nonneg` or
 `IndNonnegative()`.
 Vector regression uses dense Float32 or Float64 coefficients and same-type data.
 For a matrix response, use dense same-type `X`, `Y` and `B` with unweighted
@@ -36,6 +36,8 @@ for the supported options and the KKT stopping check.
 
 The entrywise matrix lasso applies the penalty to every coefficient, including
 diagonal entries. See [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
+The weights of an `ElasticNet(lambda1, lambda2, w)` scale only its L1 term; see
+[IN-03](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-03).
 Weighted matrix regression penalties are deferred. PGD requires dense
 coefficients and refuses `SparseIterate`, `BlockIterate` and square-root loss. A group penalty must have the same
 parameter type as the data and groups partitioning the coefficients.
