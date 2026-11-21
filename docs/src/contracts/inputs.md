@@ -33,7 +33,7 @@ the design requirement.
 | `ADMMSolver`, centered `SqrNormL2` | dense `Vector{T}` | unweighted `NormL1` under [ADM-01](@ref) |
 | `ADMMSolver`, raw least squares | dense `Vector{Float64}` with a `Matrix{Float64}` design, `Vector{Float64}` response and `n ≥ p` | unweighted `NormL1`, level `nλ` for the normalized lasso, under [ADM-05](@ref) |
 | `ADMMSolver`, graphical lasso with `LogDetLoss` | dense, exactly symmetric `Matrix{T}` with a successful Cholesky factorization in `T` | `NormL1` with finite, nonnegative, exactly symmetric `Matrix{T}` weights, including the diagonal, under [ADM-04](@ref) |
-| `ProximalGradientDescent`, graphical lasso with `LogDetLoss` | dense SPD `Matrix{T}` | same-type symmetric zero-diagonal matrix weights in `NormL1` under [PGD-06](@ref) |
+| `ProximalGradientDescent`, graphical lasso with `LogDetLoss` | dense SPD `Matrix{T}` | `NormL1` with finite, nonnegative, exactly symmetric `Matrix{T}` weights, including the diagonal, under [PGD-06](@ref) |
 
 The gradient methods refuse `SparseIterate` and `BlockIterate`; scalar CD refuses
 `GroupNormL2`, and all CD storage forms refuse `NormLinf` before any coefficient write
@@ -70,7 +70,7 @@ specified by their solver contracts. For complete runnable calls, see
 
 **Code.** `src/solve.jl`: `_check_data`, `_check_penalty` and the solver-specific owner gates; public `solve!` dispatch.
 
-**Tests.** `test/core_contracts.jl`, `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/linf.jl`, `test/norml2_pgd.jl`, `test/nonnegative_lasso.jl`, `test/logistic_pgd.jl`; `test/cd_elasticnet.jl` checks supported ridge solves plus centered and union-center refusals, while `test/sqrt_lasso.jl` explicitly refuses `SqrNormL2` with square-root loss. Existing generic gates refuse it for PGD/APG and unsupported storage. `test/admm_graphical_lasso.jl` checks acceptance of finite nonnegative diagonal weights and refusal of invalid weights.
+**Tests.** `test/core_contracts.jl`, `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/linf.jl`, `test/norml2_pgd.jl`, `test/nonnegative_lasso.jl`, `test/logistic_pgd.jl`; `test/cd_elasticnet.jl` checks supported ridge solves plus centered and union-center refusals, while `test/sqrt_lasso.jl` explicitly refuses `SqrNormL2` with square-root loss. Existing generic gates refuse it for PGD/APG and unsupported storage. `test/admm_graphical_lasso.jl` checks acceptance of finite nonnegative diagonal weights and refusal of invalid weights; `test/pgd_graphical_lasso.jl` does so for matrix PGD.
 
 **Sources.** `docs/src/numerics.md:L732`, `docs/src/support.md:L316`, `docs/src/support.md:L323`, `docs/src/support.md:L356`, `docs/src/developer/implementation-notes.md:L7`, `docs/src/developer/implementation-notes.md:L192`, `docstring:src/solvers/proximal_gradient_descent.jl:L296`, `docs/src/index.md:L9`, `README.md:L79`, `README.md:L96`, `docs/src/support.md:L130`, `docstring:src/ProximalSolvers.jl:L4`; the later nonnegative-lasso addition is [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The ridge extension is [upstream #420 at 217cde72, exact penalty gate](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/src/solve.jl#L59-L100) and [support note (j)](https://github.com/mlakolar/ProximalSolvers.jl/blob/217cde72cad2b324e174012accc949da59c1bba5/docs/src/support.md#L75-L80).
 

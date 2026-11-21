@@ -13,8 +13,8 @@ function _logdet_pgd_preflight(Θ::Matrix{T}, f, g, ls, options) where T
     throw(ArgumentError("Θ, S and the NormL1 weights must be finite"))
   _admm_issymmetric(Θ) && _admm_issymmetric(S) && _admm_issymmetric(Λ) ||
     throw(ArgumentError("Θ, S and the NormL1 weights must be exactly symmetric"))
-  all(>=(zero(T)), Λ) && all(i -> iszero(Λ[i, i]), axes(Λ, 1)) ||
-    throw(ArgumentError("the NormL1 weights must be nonnegative with zero diagonal"))
+  all(>=(zero(T)), Λ) ||
+    throw(ArgumentError("the NormL1 weights must be nonnegative"))
   (_admm_mightalias(Θ, S) || _admm_mightalias(Θ, Λ) || _admm_mightalias(S, Λ)) &&
     throw(ArgumentError("Θ, S and the NormL1 weights must be independent buffers"))
   (options.allow_f_increases || options.store_trace || options.show_trace ||

@@ -15,7 +15,8 @@
 # ## Two routes to one objective
 #
 # Matrix ADMM accepts the full weight matrix `Λfull` with `λdiag` on its diagonal. Matrix PGD
-# requires a zero diagonal, so it receives `Sshift = S + λdiag*I` and the weights `Λzero` with a
+# also accepts diagonal weights ([PGD-06](@ref)); this comparison gives it the equivalent shifted
+# problem instead: it receives `Sshift = S + λdiag*I` and the weights `Λzero` with a
 # zero diagonal. For symmetric positive-definite `Θ`, `tr(SshiftΘ) = tr(SΘ) + λdiag Σᵢ Θᵢᵢ`
 # and `Θᵢᵢ > 0`. Mathematically, the shifted problem therefore has the objective `P(Θ)` at every
 # such `Θ`, not only at the minimizer. The stored `Sshift` is rounded, and the checks below allow
