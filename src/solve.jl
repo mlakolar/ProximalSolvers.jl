@@ -62,11 +62,14 @@ end
 # without `kind`) accept a NormL1, with or without weights, and an unweighted ElasticNet. :cd also accepts
 # SqrNormL2 with the Nothing center type. Both gradient kinds also accept a NormLinf, which :cd refuses
 # with a message of its own (this CDSolver needs a separable penalty for
-# its coordinate step), and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
+# its coordinate step), a NormL2 (the Euclidean norm of the whole vector; :cd refuses it with the general list of
+# its penalties) and a GroupNormL2 that passes _check_dense_group_penalty. Under :cd a GroupNormL2 is refused with a
 # pointer to the supported alternatives. The levels must pass _scalar_parameter for T (finite, nonnegative,
 # representable without overflow or underflow; a level that is subnormal in T passes it). A NormL1 with
 # weights also passes _check_l1_weights, which refuses a level that is subnormal in T. A wrapper such as
-# Scaled(NormLinf(λ)) is refused as any other penalty.
+# Scaled(NormLinf(λ)) or Scaled(NormL2(λ)) is refused as any other penalty. A NormL2 passes only under the two
+# dense vector gradient paths. The matrix-response least-squares gate takes unweighted NormL1. The
+# BlockIterate, logistic and square-root gates also refuse NormL2.
 function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   if g isa NormL1
     g.w === nothing ? _scalar_parameter(g.λ0, T, "penalty lambda") : _check_l1_weights(g, x, T)
@@ -82,6 +85,8 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
     _scalar_parameter(g.λ, T, "penalty lambda")
   elseif g isa NormLinf
     throw(ArgumentError("CDSolver does not support NormLinf (its coordinate step needs a separable penalty); use ProximalGradientDescent or AccProxGradDescent"))
+  elseif g isa NormL2 && kind in (:gradient, :pgd)
+    _scalar_parameter(g.λ, T, "penalty lambda")
   elseif g isa GroupNormL2 && kind in (:gradient, :pgd)
     _check_dense_group_penalty(g, x, T)
   elseif g isa GroupNormL2
@@ -99,9 +104,9 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
   elseif g isa IndNonnegative
     kind === :pgd || throw(ArgumentError("IndNonnegative is supported only by ProximalGradientDescent on a dense Vector"))
   elseif kind === :pgd
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported"))
   elseif kind === :gradient
-    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, GroupNormL2, IndBox or IndBallL2 is supported"))
+    throw(ArgumentError("only NormL1, unweighted ElasticNet, NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"))
   else
     throw(ArgumentError("CDSolver supports NormL1, unweighted ElasticNet, and uncentered SqrNormL2"))
   end
