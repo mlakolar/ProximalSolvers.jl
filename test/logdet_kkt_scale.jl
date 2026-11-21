@@ -2,8 +2,8 @@ module LogDetKKTScale
 # Entrywise KKT scales of matrix PGD for the graphical lasso (#492, PGD-08). At a committed point
 # the solver divides the violation rᵢⱼ of entry (i, j) by max(1, sᵢsⱼ), sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|), and
 # reports R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ). Before #492 it divided every entry by the single scale
-# max(1, maximum(abs, S), maximum(C)), so one large entry of S or C loosened the stop of every
-# other entry. It forms the violations from G = S - inv(Θ) and tests each entry for an uncertain
+# max(1, maximum(abs, S), maximum(C)), so a large entry of S or C loosened the old threshold for the
+# other entries when it raised the global scale. It forms the violations from G = S - inv(Θ) and tests each entry for an uncertain
 # rounding of that form (mᵢⱼ = |Sᵢⱼ| + |Gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ). If one is uncertain it rebuilds W = inv(Θ)
 # from the Cholesky factor and evaluates every violation from the inputs and W by error-free sums,
 # because S - inv(Θ) can round a decisive residual away.
@@ -14,9 +14,10 @@ module LogDetKKTScale
 # estimate of the rounding of the computed score (`rulef`; it compares in Float64). The tests use
 # analytic values where an optimum or a fixed point is known (the 2 × 2 fixtures, the 1 × 1 cases, the
 # two blockers of the review, the rescaling), direct assertions on the helpers (the uncertainty
-# test, the evaluation of one entry), and BigFloat scores at returned points. Fixed points check the
-# reported `g_residual` against the definition. Each solve below that reports converged = true is
-# checked against R ≤ max(gradtol, 64eps(T)) plus the estimate.
+# test, the evaluation of one entry), and BigFloat scores at fixed points and returned points. Fixed
+# points check the reported `g_residual` against the definition. A solve that reports converged = true
+# and is checked with `check_result` or `rulef` is compared with R ≤ max(gradtol, 64eps(T)) plus the
+# estimate; the analytic tests use their own assertions.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 const PGD = ProximalGradientDescent
@@ -47,8 +48,9 @@ end
 # the unit roundoff u: a first-order estimate with slack, not a bound for the BLAS kernel in use. The
 # inverse from the Cholesky factor has an error of about (p + 4) u κ₁(Θ) ‖Θ⁻¹‖₁ in each entry. The form from
 # G = S - W adds u(|Sᵢⱼ| + |Wᵢⱼ|); the form from the inputs adds about 4u rᵢⱼ. Which form the solver uses
-# is decided here, as in PGD-08, from the exact gradient: the inputs form if some entry has
-# |Sᵢⱼ| + |gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ. `inputs` forces the choice. Each entry is divided by its scale, as in R.
+# is decided here, as in PGD-08, from the BigFloat gradient of the stored point: the inputs form if some
+# entry has |Sᵢⱼ| + |gᵢⱼ| + c̃ᵢⱼ > 4dᵢⱼ. That selection can differ from the working-precision trigger of the
+# solver near the boundary mᵢⱼ = 4dᵢⱼ. `inputs` forces the choice. Each entry is divided by its scale, as in R.
 # The values are rounded to Float64.
 # ---------------------------------------------------------------------------------------------------------
 function rulef(Θ, S, c, ::Type{T}; inputs = nothing, bits = 256) where T
@@ -525,8 +527,9 @@ end
 @testset "cancellation of W against C where S is small: the unit floor does not bound |W₁₂|" begin
   # D = diag(2ᵃ, 2⁻ᵇ, 1), M = [1 0 1; 0 1 -1; 1 -1 3] with M⁻¹ = [2 -1 -1; -1 2 1; -1 1 1] (det M = 1), Θ = DMD,
   # S = [2^(-2b-1) 1/4 0; 1/4 2^(2b+1) 2ᵇ; 0 2ᵇ 1], and zero weights except C₁₂ = C₂₁ = B = 2^(b-a). Every entry is
-  # a power of two times a small integer, so Θ, S and W = D⁻¹M⁻¹D⁻¹ are exact in T, and the computed inverse is W
-  # because the scaling by powers of two commutes with the rounding of the Cholesky inverse. W₁₂ = -B, S₁₂ = 1/4,
+  # a power of two times a small integer, so Θ, S and W = D⁻¹M⁻¹D⁻¹ are exact in T. The computed inverse is W:
+  # the Cholesky factor of M and its inverse are integer matrices, those of Θ = DMD are the same scaled by powers
+  # of two, and no step rounds. W₁₂ = -B, S₁₂ = 1/4,
   # Θ₁₂ = 0, so the violation of entry (1, 2) is (|S₁₂ - W₁₂| - C₁₂) = 1/4 with d₁₂ = 1; the form from G rounds
   # fl(1/4 + B) - B to 0. The small diagonal S₁₁ passes through the unit floor, so |W₁₂| is not bounded by a multiple of d₁₂
   # (the scales are s₁ = 2^(-b-1/2), s₂ = 2^(b+1/2)). The references are analytic: W is built here from the integers,
@@ -569,7 +572,8 @@ end
   # side of x - C or -x - C that has the sign of x is (|x| - B) = 1/4, and the opposite side is about -2B, whose
   # TwoSum overflows outward, so that side cannot be violated. The first form from the inputs would add S₁₂ + C₁₂
   # (σ = 1) or S₁₂ - C₁₂ (σ = -1) beyond floatmax and fall back to G, which rounds the violation to 0. The scales are
-  # s₁ = s₂ = sqrt(0.75), so d₁₂ = 1 and R = 1/4.
+  # s₁ = s₂ = sqrt(0.75), so d₁₂ = 1 and R = 1/4. The BigFloat references use 2048 bits to span the exponent gap
+  # between B (about 2^1024 in Float64) and 1/4, although Θ itself is well conditioned.
   for T in (Float32, Float64), σ in (1, -1)
     B = T(0.75) * floatmax(T)
     Θ = T[2 0 1; 0 2 -σ; 1 -σ 2]
@@ -598,7 +602,8 @@ kkt_allocations(args...) = @allocated PS._logdet_pgd_kkt!(args...)
   # The evaluation after the factorization, which the solver's trial has done into the scratch matrix, with a
   # certain point (the pass from G only) and an uncertain one (a large S₁₂ also rebuilds W and evaluates from the
   # inputs). A warmed call allocates nothing on Julia 1.13; on Julia 1.10 a call that returns a Float64 reports
-  # 16 bytes (the evaluation before #492 did as well), which does not depend on the dimension.
+  # 16 bytes (the evaluation before #492 did as well). The assertion measures dimensions 12 and 36 and requires
+  # equal bytes, at most 16.
   for T in (Float64, Float32), uncertain in (false, true)
     bytes = map((12, 36)) do p
       S = wishart(T, p, 5)

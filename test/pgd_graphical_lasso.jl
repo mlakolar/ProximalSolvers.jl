@@ -21,7 +21,8 @@ end
 offdiagonal(p) = [(i, j) for j in 1:p for i in 1:p if i != j]
 soft(x, level) = sign(x) * max(abs(x) - level, 0)
 # The effective weights Cᵢⱼ = T(λ₀)Λᵢⱼ of PGD-06, the products rounded in T as the solver forms them,
-# converted to BigFloat.
+# converted to BigFloat. The helper `independent` below judges a point against this rounded-coefficient
+# problem; for the fixtures whose coefficient products are exact, it is the original problem.
 effective(g) = BigFloat.(eltype(g.w)(g.λ0) .* g.w)
 target(::Type{Float32}) = 5e-4
 target(::Type{Float64}) = 1e-8
@@ -45,7 +46,9 @@ function positive_definite_exactly(M)
 end
 
 # Use BigFloat independently of PB and the solver's working-precision gradient. The score is
-# rule F of PGD-08: each entry's violation over max(1, sᵢsⱼ), sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|).
+# rule F of PGD-08: each entry's violation over max(1, sᵢsⱼ), sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|). The score, the
+# primal objective, the dual candidate and the gap all use the rounded effective coefficients Cᵢⱼ
+# of `effective`, which give the original problem where the coefficient products are exact.
 # The dual candidate W is built in BigFloat with Wᵢᵢ = Sᵢᵢ + Cᵢᵢ and, off the diagonal,
 # Wᵢⱼ = Sᵢⱼ + clamp((Θ⁻¹ - S)ᵢⱼ, -Cᵢⱼ, Cᵢⱼ). A symmetric W ≻ 0 with
 # |Wᵢⱼ - Sᵢⱼ| ≤ Cᵢⱼ for all entries, diagonal included, gives logdet(W) + p as a lower
@@ -109,8 +112,10 @@ function check_solution!(Θ, S, g; method=ProximalGradientDescent(), reference=n
   # The reported score is that of the solved problem's stored S and weights; d.score is that
   # of the original problem. The entry scales sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|) of PGD-08 are the same in
   # exact arithmetic for the shifted problem, so the two scores differ by the rounding of the
-  # stored Sᵢᵢ + Cᵢᵢ (a relative eps(T) in a violation of order dᵢᵢ and in each scale) and by the
-  # rounding of the computed inverse.
+  # stored Sᵢᵢ + Cᵢᵢ (a relative eps(T) in a violation of order dᵢᵢ and in each scale), by the
+  # rounding of the computed inverse and by the rounding of the residual itself. With Θ = 1, S = -eps(T)/2
+  # and C = 1, the shift and the inverse are exact, yet the certain form from G scores 0 for the direct
+  # problem (fl(S - 1) = -1) and eps(T)/2 for the shifted one, both far below the floor of g_tol.
   @test abs(d.score - r.g_residual) <= 32eps(T)
   @test abs(r.minimum - d.primal) <= 32 * size(Θ, 1) * eps(T) * d.scale_objective
   @test -big"1e-60" <= d.gap <= target(T) * max(1, abs(d.primal))
