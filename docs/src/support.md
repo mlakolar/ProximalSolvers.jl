@@ -52,9 +52,8 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
-  `Float32`-sized tolerances. Except for the weighted lasso (see (f)), selected
-  nonnegative-lasso checks (see (i)), and the ℓ∞ reference fixtures in `test/linf.jl`,
-  the tests do not require `converged = true`, because a `Float32` solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
+  `Float32`-sized tolerances. Selected fixtures also check `converged = true`.
+  With `ftol = 0`, `ProximalGradientDescent` can stop at
   numerical stagnation with `stagnated = true` and `converged = false`, and with the default
   options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
   returned point with an independent residual; see [Numerical behavior](numerics.md).

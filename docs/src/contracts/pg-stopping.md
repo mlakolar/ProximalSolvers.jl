@@ -123,7 +123,7 @@ The check uses the gradient already held (PGD) or the one APG forms at `x`, and 
 
 ### [STOP-04 Threshold arithmetic and scale guards](@id STOP-04)
 
-**Statement.** For a dedicated KKT check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The stop passes precisely when `S` is finite, `threshold ≥ floatmin(T)`, the computed residual is finite, and that residual is **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref), [STOP-17](@ref)).
+**Statement.** For a dedicated KKT check, form `τ = T(max(gradtol, 64 eps(T)))` and `threshold = τ * S` in `T`. The full-point comparison passes precisely when `S` is finite, `threshold ≥ floatmin(T)`, the computed residual is finite, and that residual is **strictly below** `threshold`. The scale and residual are penalty-specific ([STOP-03](@ref), [STOP-05](@ref), [STOP-06](@ref), [STOP-16](@ref), [STOP-17](@ref)).
 
 The threshold need not be finite: a huge `gradtol` can make conversion or multiplication produce `Inf`, and a finite residual then passes. Dividing the residual by `S` and comparing with the unrounded tolerance is the exact-arithmetic interpretation, not an additional floating-point guarantee. A `gradtol` below `64 eps(T)`, including `gradtol = 0`, uses that floor.
 
