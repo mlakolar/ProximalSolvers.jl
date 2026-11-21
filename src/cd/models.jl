@@ -24,7 +24,7 @@ _uncertified(m::CDModel) = false
 _fallback!(m::CDModel, g, x, st, s) = nothing
 cdmodel(f,x)=throw(ArgumentError("unsupported private coordinate-descent model"))
 # The coordinate along a flat LS column (zero slope and curvature), which does not enter the loss: the
-# prox of the penalty at the step floatmax(T) from 0. For NormL1, unweighted ElasticNet, uncentered
+# prox of the penalty at the step floatmax(T) from 0. For NormL1, ElasticNet (with or without weights), uncentered
 # SqrNormL2, unweighted NormL1Nonneg and IndNonnegative with the levels and weights accepted by `solve!`,
 # this gives the minimizer 0, including when the coordinate is unpenalized and the minimizer is nonunique.
 # For the two nonnegative penalties the result is +0 of type T (checked for levels 0, 0.3, floatmax(T) and

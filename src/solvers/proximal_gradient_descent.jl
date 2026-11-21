@@ -2,8 +2,8 @@
     ProximalGradientDescent(; ls=LineSearches.BackTracking(), normalized=false,
                              debias=0, preconditioner=:none)
 
-Proximal gradient descent for least squares with `NormL1` (optionally weighted),
-unweighted `ElasticNet`, `NormLinf`, `NormL2`, `GroupNormL2`, unweighted `NormL1Nonneg` or
+Proximal gradient descent for least squares with `NormL1` or `ElasticNet` (each
+optionally weighted), `NormLinf`, `NormL2`, `GroupNormL2`, unweighted `NormL1Nonneg` or
 `IndNonnegative()`.
 Vector regression uses dense Float32 or Float64 coefficients and same-type data.
 For a matrix response, use dense same-type `X`, `Y` and `B` with unweighted
@@ -36,6 +36,8 @@ for the supported options and the KKT stopping check.
 
 The entrywise matrix lasso applies the penalty to every coefficient, including
 diagonal entries. See [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
+The weights of an `ElasticNet(lambda1, lambda2, w)` scale only its L1 term; see
+[IN-03](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-03).
 Weighted matrix regression penalties are deferred. PGD requires dense
 coefficients and refuses `SparseIterate`, `BlockIterate` and square-root loss. A group penalty must have the same
 parameter type as the data and groups partitioning the coefficients.
@@ -352,8 +354,9 @@ The meaning of `converged` depends on the method and loss; see
 
 `LeastSquaresLoss` is half the sum of squared residuals. Multiply by `1/n` for
 the conventional normalized lasso. One supported positive scalar loss wrapper
-is accepted. Penalty levels and weights must meet the relevant input rules;
-a zero weight leaves its coefficient or group unpenalized.
+is accepted. Penalty levels and weights must meet the relevant input rules.
+A zero weight removes the weighted term for its coefficient or group.
+For `ElasticNet`, the ridge term still applies to every coefficient.
 
 Do not modify data during a solve, or alias `x` with the data, penalty weights
 or other disallowed mutable storage. Results share `x`; copying the result
@@ -375,8 +378,8 @@ this penalty with PGD, APG, block/matrix coefficients or square-root loss are re
 See [supported inputs](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01).
 
 Group CD requires a `BlockIterate` with the penalty's ordered groups; group
-PGD/APG require a same-type `GroupNormL2{T}` and dense coefficients. `NormL2(lambda)`
-is accepted by PGD and APG on dense coefficients, as in [`ProximalGradientDescent`](@ref).
+PGD/APG require a same-type `GroupNormL2{T}` and dense coefficients. PGD and APG
+accept `NormL2(lambda)` for least squares with a dense coefficient vector.
 Square-root lasso is available only with CD, an unscaled loss and an unweighted
 positive L1 level; its successful stopping flag requires a certificate.
 

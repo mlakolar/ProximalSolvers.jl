@@ -35,6 +35,7 @@ standard = [
   "norml2_pgd",
   "sqrt_lasso",
   "weighted_lasso",
+  "weighted_elasticnet",
   "scaled_lasso",
   "logistic_pgd",
   "entry_thresholds",
