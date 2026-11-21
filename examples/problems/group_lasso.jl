@@ -151,6 +151,10 @@ println("APG: iterations = ", res_apg.iterations, "; largest violation ",
 # the zero vector minimizes the objective when `λ ≥ s ‖Xᵀy‖₂`. We use one quarter
 # of this threshold to obtain a nonzero fit.
 lambda_one = 0.25 * s * norm(X' * y)
+
+# Near the solution, rounding can make the computed objective increase.
+# Allowing increases lets the solver continue in that case. We check both fits
+# against the stationarity condition below.
 options_one = ProximalOptions(maxiter = 20_000, gradtol = 1e-10, allow_f_increases = true)
 beta_l2 = zeros(p)
 solve!(beta_l2, f, NormL2(lambda_one), ProximalGradientDescent(), options_one)

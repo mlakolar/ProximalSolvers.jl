@@ -102,8 +102,8 @@ The scale is `S = max(λ, ‖∇f(0)‖₂)`. Form the product `Xᵀy`, then sca
 vector by `s` as in [FP-03](@ref) before computing its norm with LinearAlgebra's
 `norm`. The norm is cached as `λmax` under [STOP-08](@ref). In exact arithmetic
 zero is a minimizer exactly when `‖∇f(0)‖₂ ≤ λ`. Apply the threshold and
-guards of [STOP-04](@ref) to the residual and scale. In particular, a nonfinite
-computed norm vetoes the stop, even if the entries used to compute it are finite.
+guards of [STOP-04](@ref) to the residual and scale. A nonfinite computed norm
+of the gradient at zero vetoes the stop, even when that gradient has finite entries.
 
 The check uses the gradient already held (PGD) or the one APG forms at `x`, and makes no proximal evaluation, so it adds no `prox_calls`. The one-group `GroupNormL2` of [IN-11](@ref) has the same residual and scale in exact arithmetic.
 
