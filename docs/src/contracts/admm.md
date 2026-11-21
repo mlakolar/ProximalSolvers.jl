@@ -20,7 +20,9 @@ step `inv(ρ)` must be finite and strictly positive in `T`. A positive subnormal
 penalty or reciprocal is allowed when both pass these checks.
 
 Function, type, scalar, alias, setting and entry checks precede writes to the
-caller. Incompatible lengths and empty vectors raise `DimensionMismatch`. Other
+caller. A `LogisticLoss`, raw or in a `Scaled` wrapper, is refused for a `z` of any
+type, after the keyword and option checks, with an `ArgumentError` that names
+`LogisticADMM`, the predictor-splitting method of [LA-01](@ref). Incompatible lengths and empty vectors raise `DimensionMismatch`. Other
 preflight refusals raise `ArgumentError`. The solve runs in private storage.
 With `u=nothing`, the initial dual vector is zero. With explicit `u`, the solve
 starts from its entries. On normal return, the caller's `z` and explicit `u`
@@ -37,7 +39,9 @@ or square design. The settings, ownership and refusal timing above are common to
 
 **Code.** `src/solvers/admm.jl`.
 
-**Tests.** `test/admm.jl` covers input refusals, initial states, ownership and restart.
+**Tests.** `test/admm.jl` covers input refusals, initial states, ownership and restart. `test/logistic_pgd.jl`
+and `test/logistic_admm.jl` check the logistic refusal on a vector and a matrix `z`, with the raw and the scaled
+loss and a supplied `u` that is left unchanged.
 
 **Sources.** [Issue #433](https://github.com/mlakolar/ProximalSolvers.jl/issues/433)
 and [archived ADMM](https://github.com/mlakolar/ProximalSolvers.jl/blob/9be1773e911a44ec21d49df28cb01fea37c4316e/src/solvers/admm.jl).
