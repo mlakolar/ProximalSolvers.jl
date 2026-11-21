@@ -124,8 +124,9 @@ end
     @test r.converged && q.converged
     @test (collect(x), r.minimum, steps(r)) == (collect(z), q.minimum, steps(q))
     mixed_scale = T === Float32 ? 0.75 : T(0.75)
-    expected = y .* T(mixed_scale / (mixed_scale + b))
-    fit_and_check(X, y, mixed_scale, zero(T), b, w, x0, expected, method, sparse)
+    corr = mixed_scale .* y
+    expected = T.(sign.(corr) .* max.(abs.(corr) .- a .* w, 0) ./ (mixed_scale + b))
+    fit_and_check(X, y, mixed_scale, a, b, w, x0, expected, method, sparse)
   end
 end
 
@@ -160,6 +161,26 @@ end
   @test !PS._stationary!(state, f, g, opts)
 end
 
+@testset "Weighted ElasticNet public PG result flags ($T)" for T in (Float32, Float64), method in PG_METHODS
+  X, y = T[1 0; 0 2], T[2, 0]
+  f = LeastSquaresLoss(y, X)
+  w = T[0, 1000]
+  x = zeros(T, 2)
+  opts = ProximalOptions(maxiter = 2, gradtol = 0.01, ftol = 100)
+  result = solve!(x, f, ElasticNet(one(T), one(T), w), method, opts)
+  at_x = reference_at(X, y, one(T), w, one(T), x)
+  @test result.converged && result.f_converged && result.iterations == 1
+  threshold = T(opts.gradtol) * T(at_x.scale)
+  @test threshold == T(10)
+  @test 0.02 < at_x.kkt < threshold
+
+  fill!(x, zero(T))
+  zero_loss = LeastSquaresLoss(zeros(T, 2), X)
+  result = solve!(x, zero_loss, ElasticNet(one(T), one(T), zeros(T, 2)), method, opts)
+  @test iszero(x) && result.iteration_converged && !result.converged
+  @test !(result.x_converged || result.f_converged || result.grad_converged)
+end
+
 @testset "CD exceptional band uses the checked L1 coefficient ($T)" for T in (Float32, Float64)
   λ = floatmin(T)
   f = (λ / T(4)) * LeastSquaresLoss(T[8], fill(one(T), 1, 1))
@@ -172,6 +193,39 @@ end
     before = snapshot(x)
     @test_throws ArgumentError solve!(x, f, ElasticNet(λ, nextfloat(zero(T)), T[w]), method)
     @test isequal(snapshot(x), before)
+  end
+end
+
+@testset "CD overflowed step product and private rollback ($T)" for T in (Float32, Float64)
+  scale = floatmax(T)
+  method = CDSolver(order = :cyclic, relative = false)
+  for sparse in (false, true)
+    x = start(T[0.25], sparse)
+    f = scale * LeastSquaresLoss(T[2], fill(T(2), 1, 1))
+    r = solve!(x, f, ElasticNet(scale, zero(T), T[0.5]), method)
+    @test r.converged && x[1] == T(0.875) && isfinite(r.minimum)
+
+    # The first coordinate takes a normal step from 0.25 to 2. The second
+    # coordinate has a finite curvature and an overflowing scale product.
+    X = Matrix(Diagonal(T[0.25, 2]))
+    f = scale * LeastSquaresLoss(T[0.5, 0.25], X)
+    x = start(T[0.25, 0.25], sparse)
+    g = ElasticNet(one(T), one(T), T[1, 2])
+    before = snapshot(x)
+    error = try
+      solve!(x, f, g, method)
+      nothing
+    catch err
+      err
+    end
+    @test error isa ArgumentError && occursin("coordinate 2 is outside the normal range", error.msg)
+    @test isequal(snapshot(x), before)
+
+    # This ordinary step has an overlarge step-times-level product and zero weight.
+    x = start(T[0.25], sparse)
+    f = T(0.25) * LeastSquaresLoss(T[2], fill(one(T), 1, 1))
+    r = solve!(x, f, ElasticNet(scale, T(0.25), T[0]), method)
+    @test r.converged && x[1] == one(T)
   end
 end
 

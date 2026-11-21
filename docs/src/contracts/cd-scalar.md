@@ -160,9 +160,10 @@ coordinate in the private pass moved. A borrowed RNG may already have advanced.
 
 The coordinate step is the soft threshold of the centre `c = x_k + b / a` at
 `τ = λ / (s * a)`, with `b` the inner product of the residual and the column.
-With `p = s * a` and `γ = inv(p)` in `S`, it is `prox_block(g, c, k, γ)`, the
-step as it was, with the same bits, where `p` and `γ` are both at least
-`floatmin(S)`. Otherwise `_exceptional_step` applies `shrink(c, min(τ,
+Form `p = s * a` and `γ = inv(p)` in `S`. If both are at least
+`floatmin(S)`, use `prox_block(g, c, k, γ)`. For weighted `ElasticNet`,
+`g` is the working penalty in [IN-03](@ref). Outside this band the
+lasso's `_exceptional_step` applies `shrink(c, min(τ,
 floatmax(T)))`, with `τ` formed from `g.λ0` converted to `Float64` and from `s`
 and `a` without `p` or `γ`: for `Float32` in `Float64`, where the product of two
 `Float32` values is exact and the quotient is rounded to `Float64` and then to

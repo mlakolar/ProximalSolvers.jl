@@ -53,12 +53,12 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 
 - **(a)** `ProximalGradientDescent` and `AccProxGradDescent` accept `Float32` data, and the
   tests check the returned point against `BigFloat` or `Float64` references with
-  `Float32`-sized tolerances. Except for the weighted lasso and weighted elastic net (see (f)), selected
-  nonnegative-lasso checks (see (i)), and the ℓ∞ reference fixtures in `test/linf.jl`,
-  the tests do not require `converged = true`, because a `Float32` solve can end without it: with `ftol = 0`, `ProximalGradientDescent` can stop at
-  numerical stagnation with `stagnated = true` and `converged = false`, and with the default
-  options a `Float32` solve can end on the objective-increase exit with `converged = false`. Assess the
-  returned point with an independent residual; see [Numerical behavior](numerics.md).
+  `Float32`-sized tolerances. The weighted-lasso and weighted elastic-net
+  reference fixtures in (f), selected nonnegative-lasso checks in (i), and
+  the ℓ∞ reference fixtures in `test/linf.jl` require convergence with their
+  selected data and options. With `ftol = 0`, `ProximalGradientDescent` can
+  stagnate. With default options, a `Float32` solve can stop on an objective
+  increase. Assess the returned point with an independent residual; see [Numerical behavior](numerics.md).
 - **(b)** `AccProxGradDescent` also needs `max(n, p) + 4 < 1/(4 eps(T))` and
   `n p + 3 < 1/(4 eps(Float64))` (see "What works today?" below).
 - **(c)** The elastic net is accepted for the least-squares loss with
@@ -80,7 +80,8 @@ that loss and scaling. Their PGD feasibility rules are specified in [IN-07](@ref
 - **(f)** The weighted lasso and weighted elastic net take a `Vector{T}` of
   finite nonnegative weights. A zero weight removes that coordinate's L1 term.
   The elastic-net ridge term applies to each coordinate. See [IN-03](@ref) for
-  the level, shape, alias and coefficient-range rules.
+  the level, shape, alias and coefficient-range rules. The weighted reference
+  tests for PGD and APG allow objective increases near working precision.
 - **(g)** The multi-response group lasso needs `X` and `Y` to be `Matrix{T}`, the coefficients to be a `Matrix{T}` or
   a `BlockIterate{T}` over `vec(B)` with the row groups of `B`, and `momentum` other than `true`
   ([the rules](@ref "Multi-response group lasso with coordinate descent")). The tests check the `Matrix` and the
@@ -151,7 +152,7 @@ square-root lasso, and PGD and APG a group lasso on a dense vector, below):
 where `s=1` for raw `LeastSquaresLoss` or `s=1/n` for the
 usual normalized convention; all three solvers also accept per-coordinate weights
 (`NormL1(lambda, w)`, see [Weighted lasso](@ref weighted-lasso-support)). `CDSolver`, `ProximalGradientDescent` and `AccProxGradDescent` also solve the
-elastic net
+unweighted elastic net
 
 ~~~math
 \min_\beta\quad \frac{s}{2}\|y-X\beta\|_2^2+\lambda_1\|\beta\|_1+\frac{\lambda_2}{2}\|\beta\|_2^2,

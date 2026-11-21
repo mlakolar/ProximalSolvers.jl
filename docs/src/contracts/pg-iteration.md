@@ -32,7 +32,7 @@ Solvers, options and `BackTracking` each have a validating inner constructor. Se
 
 ### [PGD-01 Image, loss, gradient and proximal iteration order](@id PGD-01)
 
-**Statement.** PGD keeps the native least-squares image buffers and uses ProximalBase's value and gradient oracles. It forms the image before value and gradient, takes scalar steps, and uses fused `value_and_prox!` for each penalty step. Unweighted lasso levels follow [IN-02](@ref).
+**Statement.** PGD keeps the native least-squares image buffers and uses ProximalBase's value and gradient oracles. It forms the image before value and gradient, takes scalar steps, and calls `value_and_prox!` for each penalty step. Unweighted lasso levels follow [IN-02](@ref).
 
 At an iteration it saves the last accepted point, objective components and gradient; multiplies `L` by the line search's `α`; then repeats the following trial until [LS-01](@ref) accepts it:
 

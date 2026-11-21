@@ -204,7 +204,8 @@ Validate the stored `lambda1` under the weighted-level rule above. Then validate
 subnormals for this ridge level. For `w` and the rounded coefficients
 `c_j = T(lambda1) * w_j`, apply the weight, alias and coefficient rules above.
 Each solve reads the current weights and completes these checks before copying
-or writing `x` and before using the CD random number generator.
+or writing `x` and before using the CD random number generator. During the solve
+the borrowed weights are read-only under [IN-05](@ref).
 
 After validation the solver uses `ElasticNet(T(lambda1), T(lambda2), w)` for
 its objective evaluations, proximal steps and PGD/APG stationarity checks.
@@ -268,8 +269,10 @@ subnormal square.
 
 `X` and the response are borrowed read-only during a solve: do not mutate them while
 the solver is running. The mutable coefficient storage must not alias either input.
-Weighted `NormL1` and dense-group PGD/APG also prohibit aliasing the penalty weights;
-matrix-response CD and PGD/APG have additional alias rules in [CDM-01](@ref) and [IN-10](@ref).
+Weighted `NormL1`, weighted `ElasticNet` and dense-group PGD/APG also prohibit
+aliasing the penalty weights. Treat borrowed weights as read-only during the
+solve, including in callbacks. Matrix-response CD and PGD/APG have additional
+alias rules in [CDM-01](@ref) and [IN-10](@ref).
 For `SparseIterate`, alias checks cover the owner's whole
 backing storage, even when it has no active entries; passing
 `parent(activevalues(x))` or a reshape of it as `y` or `X` is refused.

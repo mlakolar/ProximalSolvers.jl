@@ -117,9 +117,7 @@ end
 # computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
 # that may have underflowed; a computed S = 0, as for λ1 = 0 and y = 0, is one) or when ‖G‖∞ is not finite.
 # ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)), NormL1(T(λ0), w),
-# ElasticNet(T(λ1), T(λ2)) or ElasticNet(T(λ1), T(λ2), w), the coefficients of the formulas above: each level is
-# converted to T once, into a penalty that gives both S and the residual, so that ProximalBase does not round the
-# levels again.
+# ElasticNet(T(λ1), T(λ2)) or ElasticNet(T(λ1), T(λ2), w). The same native penalty gives both S and the residual.
 # For NormL1(λ0, w), solve! requires w to be a Vector{T}, so ProximalBase's coefficient of entry i is the product
 # T(λ0) wᵢ rounded in T: the cᵢ that solve! checked (finite and, where both factors are positive, a normal number of T).
 # Rounding is monotone, so T(λ0) maximum(w) is maxᵢ cᵢ. The weights are not converted or copied. A proposed
@@ -239,10 +237,10 @@ function _gradient_at_x!(state::AccProxGradDescentState, f)
   state.xhat
 end
 
-# After validation, unweighted lasso solves share a working-type penalty across
-# the initial value, the fused trial steps and the stationarity check. So does a weighted ElasticNet (IN-03): its
-# levels are converted to T once, and its weights, which solve! requires to be a Vector{T}, are kept as they are. The
-# other penalties, including unweighted ElasticNet and weighted NormL1, keep their supplied levels in the value and prox.
+# After validation, each unweighted lasso or weighted ElasticNet solve uses one working penalty for the
+# initial value, value_and_prox! trials and stationarity. The working ElasticNet uses levels in T and
+# borrows its Vector{T} weights (IN-03). Unweighted ElasticNet and weighted NormL1 keep their supplied
+# levels in the value and prox.
 _working_gradient_penalty(g, ::Type) = g
 _working_gradient_penalty(g::Union{NormL1{<:Real, Nothing}, NormL1Nonneg{<:Real, Nothing}}, ::Type{T}) where T =
   _converted_penalty(g, T)
