@@ -12,6 +12,7 @@ min(0.95, A/A p10).
 """
 import argparse
 import csv
+import gzip
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -21,6 +22,10 @@ VERSIONS = ("1.10.13", "1.13.4")
 
 
 def read(path):
+    path = Path(path)
+    if not path.exists():
+        with gzip.open(str(path) + ".gz", "rt", newline="") as stream:
+            return list(csv.DictReader(stream, delimiter="\t"))
     with open(path, newline="") as stream:
         return list(csv.DictReader(stream, delimiter="\t"))
 
