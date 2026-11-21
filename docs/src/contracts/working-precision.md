@@ -39,6 +39,11 @@ in [ADM-02](@ref), and its Cholesky checks in `T` for the graphical lasso in
 arithmetic, the proximal operator that ProximalBase computes from a cached SVD and the
 stationarity score. It states that no cutoff on `ρ`, the penalty or the coefficients applies.
 
+`ProxNewton` ([PN-01](@ref)) works in `Float64` only. It forms its predictors, the weighted design,
+the model gradients and the objective in `Float64`, takes the logistic value and gradient from
+ProximalBase's predictor oracles, and converts the penalty level to `Float64` once; the weighted model's
+saturated rows and the range errors of its inner solve are specified in [PN-02](@ref) and [PN-05](@ref).
+
 `converged` has the algorithm-specific meaning in [RES-01](@ref). Independently
 evaluate the objective and [KKT residual](../sparsity-and-kkt.md) when accuracy
 matters, especially for `Float32`.
@@ -49,7 +54,7 @@ accounts for feasible directions at a zero coefficient.
 
 **Code.** `src/solvers/image_models.jl`; `src/cd/leastsquares.jl`; `src/solve.jl`; ProximalBase least-squares oracles at the dependency pin.
 
-**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl` and the solver-specific numerical tests.
+**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/logistic_proxnewton.jl` (the `ProxNewton` rows at extreme logits, against `BigFloat` references) and the solver-specific numerical tests.
 
 **Sources.** `docs/src/numerics.md:L791`, `docs/src/numerics.md:L800`, `docs/src/numerics.md:L909`, `docs/src/developer/implementation-notes.md:L151`, `docs/src/developer/implementation-notes.md:L169`, `docs/src/getting-started.md:L119`. The constrained-residual application is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
 
