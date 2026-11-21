@@ -650,7 +650,7 @@ end
     X, y = T[1 0; 0 2; 1 1], T[1, -1, 0.5]
     f = LeastSquaresLoss(y, X)
     en = ElasticNet(T(0.1), T(0.2))
-    shared = "CDSolver supports NormL1, ElasticNet (with optional weights), and uncentered SqrNormL2"
+    shared = "CDSolver supports NormL1, ElasticNet (with optional weights), and uncentered SqrNormL2, and on a dense Vector also unweighted NormL1Nonneg and IndNonnegative"
     for kind in (:dense, :warm)
       x0 = T[0.3, -0.2]
       # a weighted ElasticNet is accepted (IN-03; test/weighted_elasticnet.jl); its Scaled wrapper is refused

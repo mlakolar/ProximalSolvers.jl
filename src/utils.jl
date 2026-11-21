@@ -151,8 +151,8 @@ end
 # block is its magnitude); the iterates and the residuals of the two penalties can differ by rounding, since
 # ProximalBase's group operations are not its ℓ1 operations.
 #
-# NormL2 uses the full-point KKT score and the zero-gradient norm of a single
-# group with unit weight. See STOP-17 for the score and scale.
+# NormL2 uses the full-point KKT score and Euclidean zero-gradient norm.
+# In exact arithmetic these equal the single-group results with unit weight (STOP-17).
 function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, ElasticNet, GroupNormL2, NormL2}, options::ProximalOptions)
   T = eltype(state.x)
   λmax = _lambda_max!(state, _scale_norm(g))   # first: it uses xhat, which APG's gradient below also uses

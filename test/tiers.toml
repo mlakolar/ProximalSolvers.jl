@@ -30,6 +30,7 @@ standard = [
   "stopping_scale",
   "elasticnet",
   "cd_elasticnet",
+  "cd_nonnegative",
   "linf",
   "norml2_pgd",
   "sqrt_lasso",

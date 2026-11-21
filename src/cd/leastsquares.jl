@@ -77,6 +77,10 @@ _flat_column(m::LSModel, k::Int) = all(iszero, view(m.X, :, k))
 # The coordinate step. With a = ‖X_k‖², b = rᵀX_k and the centre c = old + b/a, the step is the soft
 # threshold of c at τ = λ/(m.s a) for a NormL1 (for an ElasticNet, followed by the ridge weight
 # 1/(1 + λ2/(m.s a))). For an uncentered SqrNormL2 the prox applies ridge shrinkage to c.
+# For an unweighted NormL1Nonneg the step is max(c - τ, 0) with τ = γλ formed by the prox of ProximalBase from
+# the supplied level, and for IndNonnegative it is max(c, 0). Outside the band their exceptional steps take the
+# same forms with τ formed from Float64(λ0), the level converted to Float64, and capped at floatmax(T) (see
+# `_exceptional_step`).
 # A flat column (a = 0 and X_k = 0) takes the penalty's minimizer. A
 # curvature a that is 0 for a column that is not flat (its squares underflow), or that is not finite, is
 # refused before the coordinate or the residual changes. For a finite a, p = m.s a is formed in `S` and
@@ -92,7 +96,9 @@ _flat_column(m::LSModel, k::Int) = all(iszero, view(m.X, :, k))
 # weights the weighted lasso at the coefficient T(λ1) wₖ) and refuses the step at λ2 > 0. A weighted ElasticNet
 # reaches this step as the working penalty of `solve!` (levels in T, weights as supplied; see IN-03 and CD-04).
 # For an uncentered SqrNormL2, the exceptional step keeps c at λ = 0
-# and refuses positive levels. In exact arithmetic a fixed point of the lasso step
+# and refuses positive levels. For an unweighted NormL1Nonneg the exceptional step is max(c - τ, 0) with the
+# range-safe τ of the lasso method (formed from Float64(λ0) and capped at floatmax(T), as for NormL1), and for IndNonnegative
+# it is max(c, 0). In exact arithmetic a fixed point of the lasso step
 # x = shrink(x + b/a′, λ/(m.s a′)) satisfies m.s b ∈ λ ∂|x| for any positive a′ used in both places, so
 # a rounded or subnormal curvature does not move the fixed point (whether and how fast the iteration
 # reaches it can change).
@@ -169,6 +175,19 @@ end
   iszero(g.λ2) ? _weighted_lasso_step(g.λ1, g.w, c, α, a, k) : _refuse_ridge_step(T, k)
 @noinline _refuse_ridge_step(::Type{T}, k::Int) where T =
   throw(ArgumentError("the coordinate step of coordinate $k is outside the normal range of $T (the loss scale times the squared norm of its column, or its reciprocal, is below floatmin); ElasticNet with lambda2 > 0 has no range-safe step there; rescale the data or the loss"))
+# The nonnegative counterparts of the lasso method, for S == T ∈ {Float32, Float64}: max(c - τ, 0) with τ as for
+# NormL1 (formed by `_threshold` from Float64(g.λ0), the level converted to Float64, and capped at floatmax(T)),
+# and max(c, 0) for IndNonnegative. As for NormL1, τ is formed from Float64(g.λ0), the level converted to
+# Float64, so the bounds stated at `_threshold` are against that converted level. The preconditions are those of
+# `solve!`: the admitted level of IN-07 (docs/src/contracts/inputs.md), a positive finite scale α and a positive finite
+# curvature a. For a finite c the
+# result is finite and nonnegative (+0 where c - τ is not positive). A centre of +Inf stays +Inf and a NaN centre
+# stays NaN, and `_visit!` refuses both; a centre of -Inf gives +0, unlike the signed soft threshold of the
+# lasso method.
+@noinline function _exceptional_step(g::NormL1Nonneg{<:Real, Nothing}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}}
+  max(c - min(_threshold(T, g.λ0, α, a), floatmax(T)), zero(T))
+end
+@noinline _exceptional_step(::IndNonnegative, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}} = max(c, zero(T))
 @noinline function _exceptional_step(g::SqrNormL2{<:Real, Nothing}, c::T, α::T, a::T, k::Int) where {T<:Union{Float32, Float64}}
   iszero(g.λ) && return c
   throw(ArgumentError("the coordinate step of coordinate $k is outside the normal range of $T (the loss scale times the squared norm of its column, or its reciprocal, is below floatmin); SqrNormL2 with lambda > 0 has no range-safe step there; rescale the data or the loss"))

@@ -1067,7 +1067,7 @@ end
     text = err.msg
     # A scaled penalty, a scaled weighted ElasticNet included, gets each solver's supported-penalty list. A weighted
     # ElasticNet itself is supported (IN-03, test/weighted_elasticnet.jl).
-    generic = s.kind === :cd ? "CDSolver supports NormL1, ElasticNet (with optional weights), and uncentered SqrNormL2" :
+    generic = s.kind === :cd ? "CDSolver supports NormL1, ElasticNet (with optional weights), and uncentered SqrNormL2, and on a dense Vector also unweighted NormL1Nonneg and IndNonnegative" :
               method isa ProximalGradientDescent ?
                 "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, unweighted NormL1Nonneg, IndNonnegative, IndBox or IndBallL2 is supported" :
                 "only NormL1, ElasticNet (with optional weights), NormLinf, NormL2, GroupNormL2, IndBox or IndBallL2 is supported"
