@@ -101,7 +101,7 @@ end
   PS.update_state!(f, g, state, method)
   @test state.x ≈ [1.2, 1.6]
   # The accepted-point score is 2. The extrapolated gradient gives 4.
-  @test reference(X, y, 1, 1, state.x).kkt ≈ 2
+  @test reference(X, y, 1, 1, state.x).kkt ≈ 2 atol=8eps(Float64)
   @test PS._stationary!(state, f, g, opts)
 end
 
