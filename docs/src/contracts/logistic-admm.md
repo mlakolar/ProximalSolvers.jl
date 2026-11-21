@@ -41,7 +41,8 @@ zero in `Float64`; a keyword `inner` that is not a `CDSolver`; an `inner` that i
 `ρ`, `tol`, `abstol`, `reltol` or `abstol_dual` that is not a `Real`, or a `maxiter` that is not an `Integer`,
 raises a `TypeError` from the keyword signature. The positional constructor
 `LogisticADMM(ρ, maxiter, tol, abstol, reltol, abstol_dual, inner)` takes `Real` values, an `Integer` `maxiter` and a
-`CDSolver`; other argument types raise a `MethodError`. The default `inner` is
+`CDSolver`; other argument types raise a `MethodError`. `maxiter` is stored as an `Int`: a nonnegative `Integer` above
+`typemax(Int)` raises an `InexactError`. The default `inner` is
 `CDSolver(order = :cyclic, momentum = false, relative = false, tol = 1e-8, maxpasses = 1000)`; [LA-02](@ref) uses
 its `maxpasses` and `tol`, not its `relative`, `momentum` or `rng`. The range of `ρ` bounds the exact width of the
 bracket of the scalar root by `1/ρ ≤ 1e10` ([LA-03](@ref)) and the dual `u = w/ρ` by `1e10 |w|`. The default `ρ = 1/4` is the
@@ -72,11 +73,14 @@ or to a supplied `u`. `AccProxGradDescent` and `CDSolver` refuse the loss with a
 `ProximalGradientDescent`, `ProxNewton` and `LogisticADMM`.
 
 *State.* The start is `t⁰ = t` when `t` is given and `X * b` otherwise, and `u⁰ = u` when `u` is given and
-`(σ(t⁰) - y)/ρ` otherwise, with `σ(t) - y` formed as in [LA-03](@ref). The solve holds the dual as `w = ρ u` and
-reports `u = w/ρ`; the default initial `w` lies in `[-1, 1]`, and a later computed `w` can leave that interval by
-rounding ([LA-03](@ref)). With the default dual, an exact minimizer `b` of the same objective, with `t⁰ = X b`, is a
-fixed point of the ideal iteration. A computed solution of another solver, or a minimizer for another level, is not
-such a point, and the iteration can move from it. `u` is the scaled dual of the `ρ` it was computed with: a restart
+`(σ(t⁰) - y)/ρ` otherwise, with `σ(t) - y` formed as in [LA-03](@ref). The solve holds the dual as `w = ρ u`. It
+reports `u = w/ρ`, except that a supplied `u` is returned with its entries when no iteration completes. The default
+initial `w` lies in `[-1, 1]`, and a later computed `w` can leave that interval by rounding ([LA-03](@ref)). With
+the default dual, an exact minimizer `b` of the same objective, with `t⁰ = X b`, is a fixed point of the ideal
+iteration. A warm start from another solver's solution or from a fit at another level can move; a computed solution
+can also coincide with an exact fixed point (an intercept that is exactly optimal, for example), and the number of
+iterations a warm start takes depends on the fit. In the tests a start at a `ProxNewton` solution converges in one
+iteration. `u` is the scaled dual of the `ρ` it was computed with: a restart
 with another `ρ` passes `u * ρ_old / ρ_new`. The start `b` warm-starts the first coefficient step and sets the
 default `t⁰`.
 
@@ -92,8 +96,8 @@ default `t⁰`.
 | `root_iterations` | all steps of the scalar roots ([LA-03](@ref)), counted in the same way |
 | `r_norm`, `s_norm`, `eps_pri`, `eps_dual` | the residuals and thresholds of [LA-04](@ref) at the last completed iteration; `NaN` when no iteration completed |
 | `inner_kkt`, `inner_met` | the score of the coefficient step of the last completed iteration and whether it met its forcing target ([LA-02](@ref)); `NaN` and `false` when no iteration completed |
-| `dual_kkt` | `kkt_violation(g, ρ Xᵀu, b)` at the returned `b` and `u`, from a fresh product: the score of `0 ∈ ∂g(b) + ρ Xᵀu`; `Inf` where `ρ Xᵀu` overflows |
-| `predictor_residual` | the largest entry of `abs.(σ.(t) .- y .- ρ .* u)` at the returned `t` and `u`: the residual of `∇ℓ(t) = ρ u` |
+| `dual_kkt` | `kkt_violation(g, Xᵀŵ, b)` with `ŵ = ρ .* u` formed first, at the returned `b` and `u`, from a fresh product: the score of `0 ∈ ∂g(b) + ρ Xᵀu`. For a supplied `u` returned with no completed iteration, `ŵ` is the product that the start checks to be finite; for `u = w/ρ`, `ŵ` is `w` up to the roundings of `w/ρ` and `ρ .* (w/ρ)`. `dual_kkt` is `Inf`, without an error, where `Xᵀŵ` overflows |
+| `predictor_residual` | the largest entry of `abs.(σ.(t) .- y .- ŵ)` at the returned `t` and `u`: the residual of `∇ℓ(t) = ρ u` |
 | `t`, `u` | the returned predictor and dual, each the caller's vector when one was passed (left with its entries when no iteration completed) and a new vector otherwise |
 | `ρ` | the `ρ` of the solver |
 | `converged` | whether the stop reason is `:converged` |
@@ -117,7 +121,9 @@ logistic refusal of `ADMMSolver`.
 `_logistic_solver_name`, `_logistic_method_error`; `src/solvers/admm.jl`: the logistic refusal in `solve!`.
 
 **Tests.** `test/logistic_admm.jl`: the constructor and its refusals, including `ρ` at and outside `1e-10` and
-`1e10`, a keyword `inner` that is not a `CDSolver`, and the `TypeError` and `MethodError` of other argument types;
+`1e10`, a keyword `inner` that is not a `CDSolver`, the `TypeError` and `MethodError` of other argument types and the
+`InexactError` of a `maxiter` above `typemax(Int)`; an exactly optimal start that converges in one iteration without
+moving;
 the workspace at the start with the default and with a supplied `t` and `u`; the result fields, accessors and
 display; `maxiter = 0` at a nonstationary start and at a minimizer, `maxiter = 1`, a spent budget; two stalled solves
 with a positive score, one with a subnormal supplied `u`; the refusals with `b`, `t`, `u`, `X` and `y` unchanged,
@@ -201,46 +207,56 @@ rounded to `Float64` and clamped to `±floatmax(Float64)`. It can therefore be w
 near `±floatmax` the exact root can lie outside it (for `y = 0` and `v = -floatmax(Float64)`, `h(v) > 0` puts the
 root below `v`).
 
-*Iteration.* The iteration starts at `s = v`. With the computed terms `r = σ(s) - y` and `q = ρ(s - v)`, the computed
-`h = r + q` and the threshold `B = 4 eps(Float64) (|r| + |q|)`, each pass of the loop, in this order:
+*Iteration.* With the computed terms `r = σ(s) - y` and `q = ρ(s - v)`, the computed `h = r + q` and the threshold
+`B = 4 eps(Float64) (|r| + |q|)`, the loop of `_la_root` is the following. A nonfinite `v` returns a failure with no
+step. Otherwise `s` starts at `v`, `steps` starts at `0` and counts the points that become `s` after `v` (Newton
+points and midpoints; `root_iterations` adds them up), `ref` starts at the width of the working bracket, and `window`
+starts at `0`. Each pass of the loop, in this order:
 
-1. returns `s` when `|h| ≤ B`, which includes `h = 0`;
-2. updates the bracket from the sign of `h`: `lo = s` when `h < 0`, otherwise `hi = s`;
-3. returns the end of the bracket with the smaller computed `|h|` (evaluating `h` there when it was not evaluated)
-   when no `Float64` lies strictly inside it;
-4. fails when `cap` steps have been taken;
-5. forms the Newton point `s - h/(σ(1 - σ) + ρ)` and returns `s` when that point rounds to `s`;
-6. replaces the Newton point by the midpoint `lo/2 + hi/2` when it is not strictly inside `(lo, hi)`, or when this is
-   the third step of a window of steps in which the bracket did not halve (a window starts at the first step and
-   after each pass in which the width is at most half the width at the start of the window); it returns the better
-   end of the bracket as in step 3 if that midpoint, after rounding, is not strictly inside;
-7. moves to the new point, which counts as one step in `root_iterations`.
+1. returns `s` as a success when `|h| ≤ B` at `s`;
+2. sets `lo = s` when `h < 0` and `hi = s` otherwise;
+3. sets `ref` to the new width and `window` to `0` when the width is at most `ref/2`, and otherwise adds `1` to
+   `window`;
+4. returns, as a success, the end of the bracket with the smaller computed `|h|` (evaluating `h` there when it was not
+   evaluated) when no `Float64` lies strictly inside `(lo, hi)`;
+5. returns `s` as a failure when `steps ≥ cap`;
+6. forms the Newton point `s - h/(σ(1 - σ) + ρ)` and returns `s` as a success when that point equals `s`;
+7. replaces the Newton point by the midpoint `lo/2 + hi/2` when `window ≥ 2` or the Newton point is not strictly inside
+   `(lo, hi)`, and returns the better end as in step 4 when that midpoint is not strictly inside;
+8. moves `s` to the point and adds `1` to `steps`.
 
-`B` is a threshold formed from the computed terms, not a bound on the error of the computed `h`: for `y = 0` and
-`v = -746`, `exp(-746)` underflows to `0`, so `r`, `h` and `B` are `0` at `s = v` while the exact `h(v)` is positive,
-and `v` is returned. Because tests 1 and 3 come before test 4, a root can still succeed in
-the pass that reaches the cap. The stop of step 5 compares the Newton point with `s` before any replacement, so a
-midpoint that replaced a Newton point is not returned in the pass that forms it; a later pass at that midpoint can
-return it. For `y = 1`, `v = 40` and `ρ = 1` the bracket starts at `lo = 40`, the Newton point rounds to `40`, and the
-answer is `40`; the root is `40 + 4.2e-18`, and a stop tested after the replacement would return the midpoint `40.5`.
+A root therefore fails only in a pass that reaches step 5 with `steps ≥ cap`, after the tests of steps 1 and 4 at that
+pass. A midpoint of step 7 is not tested in the pass that forms it; the next pass tests it at step 1. Examples, each
+in the tests:
 
-*Step budget.* The budget is `cap = 3 (34 + 1074 + 2) = 3330` steps, sized as three steps for each halving of a
-bracket of the exact width `1/ρ < 2³⁴` down to the smallest spacing `2⁻¹⁰⁷⁴` of `Float64`, with two halvings to
-spare. It is a budget, not a proved bound on the steps of a successful root: the working bracket can start wider
-than `1/ρ`, and a rounded midpoint can keep more than half of the width (between `1.0` and `nextfloat(1.0, 3)` the
-midpoint rounds to `nextfloat(1.0, 2)`). A nonfinite `v` or a spent budget is a failed root ([LA-05](@ref)).
+- For `y = 0`, `v = 0` and `ρ = 1` (the bracket `[-1, 0]`), the first pass leaves the width at `1` and sets
+  `window = 1`; its Newton point `-0.4` is the first step. The second pass sets `hi = -0.4`, leaves the width
+  `0.6 > 1/2` and sets `window = 2`, so the midpoint `-0.7` replaces its Newton point and is the second step.
+- For `y = 0`, `v = 500` and `ρ = 0.001`, the first Newton point rounds to `lo = -500`, the midpoint `0` replaces it,
+  and the next pass returns `0` at step 1. With `cap = 1` the same root succeeds: step 1 of that pass comes before
+  step 5.
+- For `y = 1`, `v = 40` and `ρ = 1`, the first Newton point equals `40`, which is returned at step 6; the root is
+  `40 + 4.2e-18`.
+- For `y = 0` and `v = -746`, `exp(-746)` underflows to `0`, so `r`, `h` and `B` are `0` at `s = v`, and `v` is
+  returned at step 1 although the exact `h(v)` is positive: `B` is a threshold formed from the computed terms, not a
+  bound on the error of the computed `h`.
+
+*Step budget.* `cap` defaults to `_LA_ROOT_CAP = 3 (34 + 1074 + 2) = 3330`. No bound on the number of steps a root needs
+is claimed. A failed root ends the solve with `:prox_failed` ([LA-05](@ref)).
 
 *Accuracy.* The accuracy is stated as a backward error. For a returned `s`, let `v'` be the argument for which `s` is
 an exact root, `v' = s + (σ(s) - y)/ρ` in exact arithmetic. The tests check
 `|v' - v| ≤ 32 eps(Float64) max(|v|, |s|)` on the arguments they cover; this is a tested bound, not a proved one.
 These formulas and stopping rules do not establish a small error in units of the last place of `s`. For `y = 0`,
 `v = 500` and `ρ = 0.001` the root is about `4.15e-17`, and the computed `h` is exactly `0` at `s = 0`, `1e-17` and
-`1e-16`. The first Newton point there rounds to the end `lo = -500`, so the midpoint `0` replaces it; the next pass
-returns that midpoint by test 1, with a backward error of about `0.09` units of `eps(Float64) · 500`.
+`1e-16`; the returned `s = 0` (the second example above) has a backward error of about `0.09` units of
+`eps(Float64) · 500`.
 
-*Dual update.* The dual is `w = ρ (v - s)`, from the same `v` as the root, so that `w = σ(t) - y` holds to the
-accuracy of `h`; `predictor_residual` reports the largest difference at the returned point ([LA-01](@ref)). The
-rounded update need not lie in `[-1, 1]`: for `y = 0`, `v = 2⁵⁵ + 8` and `ρ = 1/4` the root succeeds and `w = 2`.
+*Dual update.* The working dual is `w = ρ (v - s)`, from the same `v` as the root, so that the working relation
+`w = σ(t) - y` holds to the accuracy of the computed `h`. The rounded update need not lie in `[-1, 1]`: for `y = 0`,
+`v = 2⁵⁵ + 8` and `ρ = 1/4` the root succeeds and `w = 2`. `predictor_residual` is a different quantity: it is formed
+at the return from the reported `u`, through `ŵ = ρ .* u` ([LA-01](@ref)), which can differ from the working `w` by
+rounding.
 
 **Applies to.** `LogisticADMM`.
 
@@ -250,7 +266,7 @@ rounded update need not lie in `[-1, 1]`: for `y = 0`, `v = 2⁵⁵ + 8` and `ρ
 **Tests.** `test/logistic_admm.jl`: the residual and the curvature against `BigFloat` formulas, including the
 subnormal value at `s = -720`; the worked examples above, the midpoint regression, the plateau (with its step count),
 the subnormal residual at `v = -720` with `ρ = 1e-10` and its mirror, the zero threshold at `v = -746`, the working
-bracket at `v = 2⁸⁶`, the rounded midpoint between `1.0` and `nextfloat(1.0, 3)`, the dual update at `v = 2⁵⁵ + 8`,
+bracket at `v = 2⁸⁶`, the forced midpoint `-0.7` as the second step at `v = 0`, the plateau root with `cap = 1`, the dual update at `v = 2⁵⁵ + 8`,
 the side of the root; a nonfinite argument and a reduced cap giving a failure; a sweep over `v ∈ {±1e300, ±800, -720, -50, -1, 0, 1e-3, 3, 40, 500}`, `y ∈ {0, 1}` and
 `ρ ∈ {1e-10, 1e-3, 1/4, 1, 1e3, 1e10}` against a 256-bit `BigFloat` bisection, with the backward error, the bracket
 and the implied forward bound, and step counts below the budget; each root and dual of one iteration against
@@ -288,9 +304,11 @@ neither can a score below `tol` with a residual above its threshold; such an ite
 it with `:stalled` or `:maxiter` ([LA-01](@ref)). With mismatched settings, such as a large `abstol` and a small `tol`,
 the solve can run to `maxiter`.
 
-*Products.* An iteration whose coefficient step makes `m` runs (`1 ≤ m ≤ 5`) forms `2m + 3` products with `X` or
-`Xᵀ` of cost `O(np)`: `X b` and `Xᵀ(X b - resp)` per run, `Xᵀ(t⁺ - t)`, `Xᵀw⁺`, and the gradient `Xᵀd` in
-ProximalBase's oracle. The start forms `X b` and `Xᵀd` and the return forms `Xᵀu` for `dual_kkt`. The coordinate passes are counted
+*Products.* A completed iteration whose coefficient step makes `m` runs (`1 ≤ m ≤ 5`) forms `2m + 3` products with
+`X` or `Xᵀ` of cost `O(np)`: `X b` and `Xᵀ(X b - resp)` per run (the last `X b` is the `X b⁺` that the primal
+residual and its threshold share), `Xᵀ(t⁺ - t)`, `Xᵀw⁺`, and the gradient `Xᵀd` in ProximalBase's oracle. An
+iteration discarded by a failed root forms the `2m` products of its coefficient step only. The start forms `X b` and
+`Xᵀd`, and the return forms `Xᵀŵ` for `dual_kkt` ([LA-01](@ref)). The coordinate passes are counted
 separately in `passes`.
 
 `converged = true` reports computed checks: the residual tests above, and the largest ProximalBase KKT score of the
@@ -330,8 +348,10 @@ The solve computes on private buffers: the coefficients, their image, the predic
 current iteration, the response and the gradients. At a normal return (`:converged`, `:maxiter`, `:stalled` or
 `:prox_failed`) it writes the caller's `b` once, with the returned coefficients. A supplied `t` and `u` are written
 then too, with the predictor and `u = w/ρ` of the last completed iteration, when an iteration completed; when none
-completed they keep their entries and are the returned `t` and `u`. The result's diagnostics are formed from the
-returned `b`, `t` and `u` before any of these writes. The borrowed `X`, `y`, the penalty weights and the scratch
+completed they keep their entries and are the returned `t` and `u`. `dual_kkt` and `predictor_residual` are formed
+from the returned `b`, `t` and `u` before any of these writes; the residuals, thresholds, `inner_kkt` and `inner_met`
+are those of the last completed iteration (the dual residual uses the predictor before that iteration, `eps_dual` the
+working dual, and the inner score the response of its coefficient step). The borrowed `X`, `y`, the penalty weights and the scratch
 `f.tmp` of the loss are not written.
 
 A failed scalar root ([LA-03](@ref)), from a nonfinite `v` or the step cap, discards its iteration: the solve returns
@@ -353,8 +373,9 @@ reported when it is not finite, without an exception.
 was; a solve with a zero cap returns the start with `:prox_failed`, `NaN` residuals, the supplied `t` and `u`
 unchanged and the passes counted; a solve whose roots fail in the fourth iteration returns the third, with its
 coefficients, predictor, dual, objective, score, residuals, thresholds and inner score, and counts the work of the
-discarded iteration; the diagnostics of a reported `u` that rounds `w/ρ` to `0`, and a `dual_kkt` of `Inf` at
-`maxiter = 0`; a column curvature that underflows (with a supplied `t` and `u`) or overflows, a penalty that
+discarded iteration; the diagnostics of a reported `u` that rounds `w/ρ` to `0`; the scaled dual formed before the
+product, which gives a finite `dual_kkt` of `1e299` at `ρ = 1e-10` where `X u` overflows and a subnormal one at
+`ρ = 1e10` where `X u` underflows; a `dual_kkt` of `Inf` at `maxiter = 0` where `X ŵ` overflows; a column curvature that underflows (with a supplied `t` and `u`) or overflows, a penalty that
 overflows after an iteration (the `ErrorException`), and starts with a nonfinite predictor or gradient, with the
 caller's arrays and the inputs unchanged.
 

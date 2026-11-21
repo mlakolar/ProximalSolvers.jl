@@ -13,11 +13,9 @@ const _LA_REFINEMENTS = 4
 # The multiple of eps(Float64) in the stopping threshold of the computed scalar residual h, a threshold formed from the
 # computed terms of h (LA-03)
 const _LA_ROOT_BOUND = 4
-# The step budget of the scalar root, a budget and not a proved bound (LA-03). It is sized as three steps for each of
-# 34 + 1074 + 2 halvings: an exact bracket of width 1/ρ ≤ 1e10 < 2^34 halved down to the smallest spacing 2^-1074 of
-# Float64, with two halvings to spare. The working bracket can start up to 2/ρ wide after rounding, and a rounded
-# midpoint can keep more than half of the width, which this sizing does not account for. A root that spends the
-# budget fails, and the solve ends with :prox_failed.
+# The default step budget `cap` of `_la_root` (LA-03). No bound on the steps that a root needs is claimed. A pass of
+# `_la_root` that reaches its budget check with `steps >= cap` returns ok = false, and the solve then ends with
+# :prox_failed.
 const _LA_ROOT_CAP = 3 * (34 + 1074 + 2)
 
 # A tolerance of the solver: finite and nonnegative, and not a positive value that rounds to zero in Float64
@@ -61,9 +59,10 @@ this problem; its iteration count depends on `ρ`, a tuning parameter.
 
 `solve!(b, f, g, LogisticADMM(); t = t0, u = u0)` starts from a given predictor and dual (each a `Vector{Float64}` of
 length `n`); without them `t = X * b` and `u = (σ(t) - y) / ρ`. With this dual, an exact minimizer of the same
-objective and its own predictor are a fixed point of the exact iteration; a computed solution of another solver is
-close to such a point, not at it. To restart with a different `ρ`, pass `u * ρ_old / ρ_new`: `u` is the scaled dual of
-the `ρ` it was computed with.
+objective and its own predictor are a fixed point of the ideal iteration. A warm start from another solver's solution
+or from a fit at another level can move (a computed solution can also coincide with an exact fixed point), and the
+number of iterations it takes depends on the fit. To restart with a different `ρ`, pass `u * ρ_old / ρ_new`: `u` is
+the scaled dual of the `ρ` it was computed with.
 
 # Extended help
 
@@ -159,9 +158,12 @@ The diagnostics and work counters are:
   completed;
 - `inner_kkt`, `inner_met`: the KKT score of the coefficient step of the last completed iteration, formed from a fresh
   product at its coefficients, and whether it met its forcing target (`NaN` and `false` when no iteration completed);
-- `dual_kkt`: the largest ProximalBase KKT score of `0 ∈ ∂g(b) + ρ X' u` at the returned `b` and `u`, from a fresh
-  product; it can be `Inf` where `ρ X' u` overflows, without an error;
-- `predictor_residual`: the largest entry of `abs.(σ.(t) .- y .- ρ .* u)` at the returned `t` and `u`;
+- `dual_kkt`: the largest ProximalBase KKT score of `0 ∈ ∂g(b) + ρ X' u` at the returned `b` and `u`, from the fresh
+  product `X' * (ρ .* u)` (the scaled dual is formed first); it is `Inf`, without an error, where that product
+  overflows in `Float64`;
+- `predictor_residual`: the largest entry of `abs.(σ.(t) .- y .- ρ .* u)` at the returned `t` and `u`; these two are
+  formed from the returned values, while the residuals, thresholds and inner score are those of the last completed
+  iteration;
 - `passes`: all coordinate passes of the coefficient steps, including those of an iteration discarded by
   `:prox_failed`; `root_iterations`: all steps of the scalar roots, counted in the same way.
 
@@ -230,9 +232,8 @@ end
 @inline _la_curvature(s::Float64) = (e = exp(-abs(s)); e / (1 + e)^2)
 
 # The computed h(s) = (σ(s) - y) + ρ(s - v) and the stopping threshold `_LA_ROOT_BOUND * eps * (|σ(s) - y| + |ρ(s - v)|)`,
-# both from the two computed terms. The threshold scales with the computed terms; it is not a bound on the error of the
-# computed h against the exact one (where exp(-|s|) underflows, both the computed σ(s) - y and the threshold can be 0
-# while the exact h is not).
+# both from the two computed terms. The threshold is not a bound on the error of the computed h: at s = v = -746 with
+# y = 0, exp(-746) underflows and both are 0 while the exact h is positive.
 @inline function _la_scalar(s::Float64, v::Float64, one_label::Bool, ρ::Float64)
   r = _la_residual(s, one_label)
   q = ρ * (s - v)
@@ -247,17 +248,18 @@ function _la_endpoint(lo, hlo, hi, hhi, v, one_label, ρ)
 end
 
 # The root of h(s) = σ(s) - y + ρ(s - v) for a binary y (`one_label` is y == 1) and ρ in [1e-10, 1e10], LA-03.
-# Returns (s, steps, ok). h is increasing (h' = σ(1 - σ) + ρ > 0) and |σ - y| < 1, so in exact arithmetic the root lies
-# in [v - 1/ρ, v] for y = 0 and in [v, v + 1/ρ] for y = 1. The working bracket has these ends rounded and clamped to
-# ±floatmax, so it can be up to 2/ρ wide and need not enclose the exact root near ±floatmax. The iteration starts at
-# the end v. In each pass of the loop, in this order: s is returned when |h| at s is within the threshold of
-# `_la_scalar` (which includes h = 0); the bracket is updated from the sign of h; the end with the smaller |h| is
-# returned when no Float64 lies strictly inside the bracket; ok = false is returned after `cap` steps; s is returned
-# when the Newton point s - h/(σ(1 - σ) + ρ) rounds to s; and the Newton point, or the midpoint lo/2 + hi/2 in its
-# place when it is outside the open bracket or on the third step of a window in which the bracket did not halve,
-# becomes the next s (one step). The stagnation stop compares the Newton point with s before any replacement, so a
-# midpoint that replaces a Newton point is not returned in the pass that forms it; it is returned only if a test of a
-# later pass, at that midpoint, stops there. A nonfinite v gives ok = false; a cap below `_LA_ROOT_CAP` is for tests.
+# Returns (s, steps, ok). In exact arithmetic the root lies in [v - 1/ρ, v] for y = 0 and in [v, v + 1/ρ] for y = 1
+# (h is increasing and |σ - y| < 1); the working bracket [lo, hi] is that interval with the far end rounded and clamped
+# to ±floatmax. A nonfinite v returns ok = false. Otherwise s starts at v, `steps` counts the points that become s after
+# it (Newton points and midpoints), and `window` counts loop passes since its last reset. Each pass, in this order:
+# returns (s, steps, true) when |h| ≤ the threshold of `_la_scalar` at s; sets lo = s when h < 0 and hi = s otherwise;
+# resets `window` to 0 and `ref` to the width when the width is at most ref/2 (`ref` starts at the initial width), and
+# otherwise adds 1 to `window`; returns the end with the smaller |h| (evaluated there if it was not) when no Float64
+# lies strictly inside (lo, hi); returns (s, steps, false) when steps ≥ cap; forms the Newton point
+# s - h/(σ(1 - σ) + ρ) and returns (s, steps, true) when it equals s; replaces it by lo/2 + hi/2 when window ≥ 2 or it
+# is not strictly inside (lo, hi), and returns the better end as above when that midpoint is not strictly inside; then
+# moves s to the point and adds 1 to `steps`. A replacement midpoint is not tested in the pass that forms it. A cap
+# below `_LA_ROOT_CAP` is for tests.
 function _la_root(v::Float64, one_label::Bool, ρ::Float64, cap::Int = _LA_ROOT_CAP)
   isfinite(v) || return v, 0, false
   γ = inv(ρ)
@@ -344,10 +346,11 @@ function _check_la_vector(v, name::String, n::Int, x, f, g, other)
 end
 
 # The private state at the supplied coefficients, with the objective, gradient and score there, the predictor t0 (X b
-# when t0 is nothing) and the dual w = ρ u0 (σ(t) - y when u0 is nothing). In this order, each with an ArgumentError:
-# coefficients x whose memory range overlaps X, y, the scratch of the loss or the penalty weights (a check on byte
-# ranges, which also catches overlaps that Base.mightalias in the shared gate does not report); a start with a
-# nonfinite predictor X b, objective, gradient or score; a supplied t0 or u0 (`_check_la_vector`); with a supplied u0,
+# when t0 is nothing) and the dual w = ρ u0 (σ(t) - y when u0 is nothing). In this order, each with an ArgumentError
+# except a wrong length (DimensionMismatch): coefficients x whose memory range overlaps X, y, the scratch of the loss or
+# the penalty weights (a check on byte ranges, which also catches overlaps that Base.mightalias in the shared gate does
+# not report); a start with a nonfinite predictor X b, objective, gradient or score; a supplied t0 or u0
+# (`_check_la_vector`); with a supplied u0,
 # a product ρ u0 or a difference t - u0, formed directly in Float64, that is not finite; a working response t - w/ρ
 # that is not finite. Every refusal is before any write to the caller's arrays. `cap` is the step budget of each scalar
 # root; a smaller one is for tests.
@@ -523,16 +526,20 @@ function _solve_logistic_admm!(x::Vector{Float64}, f, g::NormL1, method::Logisti
     end
   end
   # The reported dual: with no completed iteration a supplied u keeps its entries; otherwise u = w/ρ, formed in a private
-  # vector. The diagnostics are those of the reported b, t and u, formed before any write to the caller's arrays:
-  # ρ Xᵀu from a fresh product (it can overflow to Inf, which is reported, not refused) and σ(t) - y - ρ u.
+  # vector. dual_kkt and predictor_residual are those of the reported b, t and u, formed before any write to the
+  # caller's arrays, from the scaled dual ŵ = ρ .* u (in w.diff, free at this point): dual_kkt is the score of Xᵀŵ and
+  # predictor_residual the largest |σ(t) - y - ŵ|. ŵ is formed first so that the product with X is of the scaled
+  # dual. For a kept supplied u, ŵ is the product ρ .* u that the start checked to be finite. For u = w/ρ, ŵ is w up
+  # to the two roundings of w/ρ and ρ .* (w/ρ). Xᵀŵ can still overflow to Inf, which is reported, not refused.
   kept = iterations == 0 && u0 !== nothing
   uout = kept ? u0 : w.w ./ ρ
-  mul!(w.sv, transpose(w.X), uout)
-  w.sv .*= ρ
+  ŵ = w.diff
+  @. ŵ = ρ * uout
+  mul!(w.sv, transpose(w.X), ŵ)
   dual_kkt = kkt_violation(w.g, w.sv, w.b)
   residual = 0.0
   @inbounds for i in eachindex(w.t)
-    residual = max(residual, abs(_la_residual(w.t[i], isone(w.y[i])) - ρ * uout[i]))
+    residual = max(residual, abs(_la_residual(w.t[i], isone(w.y[i])) - ŵ[i]))
   end
   copyto!(x, w.b)
   # with no completed iteration a supplied t keeps its entries (the predictor of the start is that t)

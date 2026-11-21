@@ -517,8 +517,9 @@ The solve stops with `converged = true` when the primal residual `‖X b - t‖`
 `ρ ‖Xᵀ(t - t_previous)‖` and the largest KKT score of the original problem at the returned coefficients are within
 their thresholds (`abstol`, `reltol` and `abstol_dual` for the residuals, `tol` for the score). Without `t` and `u`
 the solve starts from `t = X b` and the dual `(σ(t) - y)/ρ`. With this dual an exact minimizer of the same objective
-and its predictor are a fixed point of the ideal iteration; a computed solution of another solver, or a fit for a
-nearby level, is near such a point, not at it, and the iteration can move from it. `solve!(beta, f, g, LogisticADMM(); t = t, u = u)` restarts from
+and its predictor are a fixed point of the ideal iteration. A warm start from another solver's solution or from a fit
+at another level can move, or can coincide with such a fixed point, and the number of iterations it takes depends on
+the fit. `solve!(beta, f, g, LogisticADMM(); t = t, u = u)` restarts from
 a returned predictor and dual; with another `ρ`, rescale `u` by `ρ_old / ρ_new`. The `stop_reason` is `:converged`,
 `:maxiter`, `:stalled` or `:prox_failed`. The rules are in [LA-01](@ref) to [LA-05](@ref), and the
 [solver comparison](examples/comparisons/logistic_solvers.md) runs the three logistic solvers on one problem.

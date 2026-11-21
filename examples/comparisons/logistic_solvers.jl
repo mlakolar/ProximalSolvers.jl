@@ -85,8 +85,9 @@ end
 #
 # Each solve starts from zero. PGD runs with the options of the tutorial; ProxNewton and LogisticADMM
 # bound the KKT score of the returned point by `tol = 1e-8`, which LogisticADMM combines with its primal
-# and dual residual tests. The work is reported in each method's units. For PGD: iterations, and all its
-# gradient calls, the one at the start included (`grad_calls`). For ProxNewton: outer iterations
+# and dual residual tests. The work is reported in each method's units. For PGD: iterations, and its
+# gradient-oracle calls, the one at the start included (`grad_calls`; the product `X' * (0.5 .- y)` that PGD
+# forms once for the scale of its stationarity check is not one of them). For ProxNewton: outer iterations
 # and the coordinate passes of its inner solves. For ADMM: iterations, the coordinate passes of its lasso
 # steps, and the root steps, the Newton or bisection points of its scalar roots (the evaluation at the
 # starting point of each root is not a step). A coordinate pass is full, over every coordinate, or
@@ -102,12 +103,12 @@ r_admm = solve!(b_admm, f, g, LogisticADMM(tol = 1e-8))
 
 checks = [check(b_pgd), check(b_pn), check(b_admm)]
 Fbest = minimum(c.objective for c in checks)
-@printf("%-14s %10s %28s %16s %12s\n", "solver", "iterations", "inner work", "objective - min", "KKT score")
-@printf("%-14s %10d %28s %16.2e %12.2e\n", "PGD", r_pgd.iterations,
-        @sprintf("%d gradient calls", r_pgd.grad_calls), checks[1].objective - Fbest, checks[1].kkt)
-@printf("%-14s %10d %28s %16.2e %12.2e\n", "ProxNewton", r_pn.iterations,
+@printf("%-14s %10s %32s %16s %12s\n", "solver", "iterations", "inner work", "objective - min", "KKT score")
+@printf("%-14s %10d %32s %16.2e %12.2e\n", "PGD", r_pgd.iterations,
+        @sprintf("%d gradient-oracle calls", r_pgd.grad_calls), checks[1].objective - Fbest, checks[1].kkt)
+@printf("%-14s %10d %32s %16.2e %12.2e\n", "ProxNewton", r_pn.iterations,
         @sprintf("%d passes", r_pn.passes), checks[2].objective - Fbest, checks[2].kkt)
-@printf("%-14s %10d %28s %16.2e %12.2e\n", "LogisticADMM", r_admm.iterations,
+@printf("%-14s %10d %32s %16.2e %12.2e\n", "LogisticADMM", r_admm.iterations,
         @sprintf("%d passes, %d root steps", r_admm.passes, r_admm.root_iterations), checks[3].objective - Fbest,
         checks[3].kkt)
 
@@ -146,9 +147,10 @@ end
 #
 # Without a supplied predictor and dual, `LogisticADMM` starts from ``t=\tilde Xb`` and
 # ``u=(\sigma(t)-y)/\rho``. With these, an exact minimizer of the same objective is a fixed point of
-# the ideal iteration. The ProxNewton solution is a computed point near such a minimizer; on this problem
-# the start there converges in one iteration and changes the coefficients by at most `1e-8`, which the
-# script checks. A fit for a nearby level starts away from the new minimizer and can take more iterations.
+# the ideal iteration. A warm start from another solver's solution, or from the fit at another level, can
+# move from its start, and the number of iterations it takes depends on the fit. On this problem the start at
+# the ProxNewton solution converges in one iteration and changes the coefficients by at most `1e-8`, which the
+# script checks.
 b_warm = copy(b_pn)
 r_warm = solve!(b_warm, f, g, LogisticADMM(tol = 1e-8))
 @assert r_warm.converged && r_warm.iterations == 1 && norm(b_warm - b_pn, Inf) <= 1e-8

@@ -46,8 +46,8 @@ saturated rows and the range errors of its inner solve are specified in [PN-02](
 `LogisticADMM` ([LA-01](@ref)) also works in `Float64` only, with `ρ` in `[1e-10, 1e10]`. It forms the image `X b`,
 the response and residual of its coefficient step, the scalar roots and the residual tests in `Float64`, takes the
 loss value and gradient from ProximalBase's predictor oracle and adds the penalty itself, and holds the dual as
-`w = ρ u`. Its scalar root forms `σ(t) - y` from `exp(-|t|)`; in the tail of the label `0` this value is subnormal,
-rather than `0`, while `exp(-|t|)` has not underflowed ([LA-03](@ref)). The accuracy of the root is stated there as
+`w = ρ u`. Its scalar root forms `σ(t) - y` from `exp(-|t|)`; for the label `0` and `t` between about `-745.13` and
+`-708.40` this value is subnormal rather than `0`, and below that range it is `0` ([LA-03](@ref)). The accuracy of the root is stated there as
 a tested backward error, and the failure boundary in [LA-05](@ref).
 
 `converged` has the algorithm-specific meaning in [RES-01](@ref). Independently

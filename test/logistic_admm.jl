@@ -172,6 +172,7 @@ end
   @test_throws TypeError LogisticADMM(ρ = "0.25")
   @test_throws TypeError LogisticADMM(maxiter = 1.5)
   @test_throws TypeError LogisticADMM(tol = :small)
+  @test_throws InexactError LogisticADMM(maxiter = big(2)^70)
   @test_throws MethodError LogisticADMM(0.5, 10, 1e-7, 1e-8, 1e-6, 1e-8, 1)
   @test LogisticADMM(inner = CDSolver(order = :cyclic, maxpasses = 1)).inner.maxpasses == 1
   # tolerances: finite, nonnegative and not a positive value that rounds to zero
@@ -269,8 +270,15 @@ end
   @test bigresidual(big(-746.0), false) > 0
   # the working bracket: its far end is rounded, so it can be wider than 1/ρ (2^34 at v = 2^86, y = 1, ρ = 1e-10)
   @test (2.0^86 + inv(1e-10)) - 2.0^86 == 2.0^34 && 2.0^34 > 1e10
-  # a rounded midpoint can keep more than half the width: between 1 and nextfloat(1, 3) it is nextfloat(1, 2)
-  @test 1.0 / 2 + nextfloat(1.0, 3) / 2 == nextfloat(1.0, 2)
+  # the loop of LA-03: at v = 0, y = 0, ρ = 1 the first step is the Newton point -0.4; the second pass leaves the width
+  # 0.6 > 1/2, so window = 2 and the midpoint of [-1, -0.4] replaces its Newton point as the second step (a budget of
+  # one or two steps stops the root after it, at step 5 of the next pass)
+  s1, k1, ok1 = PS._la_root(0.0, false, 1.0, 1)
+  s2, k2, ok2 = PS._la_root(0.0, false, 1.0, 2)
+  @test (s1, k1, ok1) == (-0.4, 1, false)
+  @test s2 == -1.0 / 2 + s1 / 2 && isapprox(s2, -0.7; atol = 1e-15) && (k2, ok2) == (2, false)
+  # the threshold test of a pass comes before its budget test: the plateau root succeeds with a budget of one step
+  @test PS._la_root(500.0, false, 0.001, 1) == (0.0, 1, true)
   # the rounded dual update need not lie in [-1, 1]: y = 0, v = 2^55 + 8, ρ = 1/4 gives w = 2
   v = 2.0^55 + 8
   s, k, ok = PS._la_root(v, false, 0.25)
@@ -549,6 +557,11 @@ end
   r = solve!(b, f, g, LogisticADMM())
   check_result(r, b, X, y, λ, w)
   @test r.iterations == 1 && norm(b - bpn, Inf) <= 1e-9
+  # an exactly optimal start: with X = 1 and y = (0, 1) the intercept 0 has a zero score for every level, and the
+  # start there converges in one iteration without moving
+  b0 = [0.0]
+  r0 = solve!(b0, LogisticLoss([0.0, 1.0], ones(2, 1)), NormL1(0.3), LogisticADMM())
+  @test r0.converged && r0.iterations == 1 && b0 == [0.0] && r0.kkt == 0
   # the same warm start with ρ = 1e3 converges; with the largest ρ, 1e10, it keeps finite outputs and the coefficients
   b = copy(bpn)
   r = solve!(b, f, g, LogisticADMM(ρ = 1e3))
@@ -640,10 +653,11 @@ end
 end
 
 @testset "a stalled solve: an iteration that changes no bit of b, t and the working dual w" begin
-  # y = 0 and b = t = -800 with X = 1: exp(-800) underflows, so the default dual is w = 0, the coefficient step keeps
-  # b (its subproblem gradient is 0), the root of v = -800 is v (h and its threshold are 0 there) and w stays 0. The
-  # residuals are 0, but the score of the original problem is |0 - 1e-20 sign(b)| = 1e-20 > tol = 0, so the first
-  # iteration stalls.
+  # y = 0 and b = t = -800 with X = 1: exp(-800) underflows, so the default dual is w = 0. The coefficient step has a
+  # zero smooth gradient, and the soft-threshold shift of the penalty 1e-20 rounds away at -800, so it keeps b. The
+  # computed root of v = -800 is v (h and its threshold are 0 there after the underflow, although the exact root lies
+  # below v), so t and w = 0 are unchanged. The residuals are 0, but the score of the original problem is
+  # |0 + 1e-20 sign(b)| = 1e-20 > tol = 0, so the first iteration stalls.
   f, g = LogisticLoss([0.0], ones(1, 1)), NormL1(1e-20)
   m = LogisticADMM(tol = 0, abstol = 0, reltol = 0)
   b = [-800.0]
@@ -664,8 +678,18 @@ end
   r = solve!([0.0], LogisticLoss([0.0], ones(1, 1)), NormL1(0.0), LogisticADMM(ρ = 1e10, maxiter = 0); t = [-735.0])
   w0 = PS._la_residual(-735.0, false)
   @test r.u == [0.0] && w0 > 0 && r.dual_kkt == 0 && r.predictor_residual == w0
-  # a supplied u with maxiter = 0 is reported as it is, and ρ Xᵀu can overflow: dual_kkt is Inf, without an error,
-  # while the score of the original problem is finite
+  # the scaled dual ŵ = ρ u is formed before the product with X. With ρ = 1e-10, X = 1e155 and u = 1e154 the product
+  # X u overflows, while X ŵ = 1e299 is finite: dual_kkt is that value, against a BigFloat evaluation
+  r = solve!([0.0], LogisticLoss([0.0], fill(1e155, 1, 1)), NormL1(0.0), LogisticADMM(ρ = 1e-10, maxiter = 0);
+             t = [0.0], u = [1e154])
+  @test isinf(1e155 * 1e154) && r.dual_kkt == 1e155 * (1e-10 * 1e154)
+  @test isapprox(r.dual_kkt, Float64(big(1e155) * big(1e-10) * big(1e154)); rtol = 4 * eps())
+  # with ρ = 1e10, X = 1e-165 and u = 1e-165 the product X u underflows to 0, while X ŵ is the subnormal 1e-320
+  r = solve!([0.0], LogisticLoss([0.0], fill(1e-165, 1, 1)), NormL1(0.0), LogisticADMM(ρ = 1e10, maxiter = 0);
+             t = [0.0], u = [1e-165])
+  @test 1e10 * (1e-165 * 1e-165) == 0 && r.dual_kkt == 1e-165 * (1e10 * 1e-165) > 0
+  # a supplied u with maxiter = 0 is reported as it is, and X ŵ can overflow: dual_kkt is Inf, without an error, while
+  # the score of the original problem is finite
   X = reshape([1e155, -1e155], 2, 1)
   u0 = [1e154, -1e154]
   r = solve!([0.0], LogisticLoss([0.0, 0.0], X), NormL1(0.0), LogisticADMM(maxiter = 0); t = [0.0, 0.0], u = u0)
