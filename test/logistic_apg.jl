@@ -141,8 +141,8 @@ function check_stop(X, y, b, λ, w, options; margin = true)
 end
 
 # The objectives of two points compared through convexity. At a point b, take the element G of the subdifferential of F
-# whose coordinates have the smallest magnitudes: |Gⱼ| is the score of coordinate j, with Gⱼ = ∇fⱼ plus the value of
-# smallest magnitude in [-cⱼ, cⱼ] at bⱼ = 0 and ∇fⱼ + cⱼ sign(bⱼ) elsewhere. By convexity F(other) ≥ F(b) + ⟨G, other - b⟩, so
+# whose coordinates have the smallest magnitudes: |Gⱼ| is the score of coordinate j, with Gⱼ = ∇fⱼ + u for the u in
+# [-cⱼ, cⱼ] that minimizes |∇fⱼ + u| at bⱼ = 0 and Gⱼ = ∇fⱼ + cⱼ sign(bⱼ) elsewhere. By convexity F(other) ≥ F(b) + ⟨G, other - b⟩, so
 # F(b) - F(other) ≤ Σⱼ |Gⱼ| |otherⱼ - bⱼ| ≤ KKT∞(b) ‖b - other‖₁; with the roles exchanged,
 # |F(a) - F(b)| ≤ max(KKT∞(a), KKT∞(b)) ‖a - b‖₁. The scores, the objectives and the bound are all BigFloat from the stored
 # points. The rounding term covers the rounding of that evaluation at the default BigFloat precision of 256 bits, which
@@ -224,8 +224,8 @@ end
     d = big.(x) .- big.(y0)
     iszero(sum(abs2, d)) && continue
     # the directional curvature ¼‖X d‖²/‖d‖², formed in BigFloat and rounded to Float64; the factors below put L below, at
-    # and above it. In exact arithmetic the relaxed image inequality holds from L = q / (1 + 4eps)², with q the BigFloat
-    # quotient before that rounding.
+    # and above it. In exact arithmetic the relaxed image inequality holds from L = q / (1 + 4eps)², with q the exact
+    # quotient; the BigFloat quotient formed here approximates q before that rounding.
     curvature = Float64(sum(abs2, big.(X) * d) / 4 / sum(abs2, d))
     for factor in (1 / 4, 1 / 2, 1, 2, 4), use_fresh in (false, true)
       a = decision(logistic, X, x, xa, xb, ω, curvature * factor; fresh_only = use_fresh)

@@ -12,8 +12,8 @@ with `NormL1` or `ElasticNet` (each with optional weights), `NormLinf`, `NormL2`
 `GroupNormL2`. A dense matrix response with dense same-type coefficients uses
 unweighted `NormL1` on its entries. A raw `LogisticLoss(y, X)` with `NormL1` on a
 `Vector{Float64}` is also supported (see below). APG extrapolates
-from previous accepted iterates, takes a backtracked proximal step, and restarts
-momentum on an objective increase. Pass [`ProximalOptions`](@ref) as the fifth
+from previous accepted iterates, takes a backtracked proximal step, and restarts the step
+without momentum when it used momentum and the objective increased. Pass [`ProximalOptions`](@ref) as the fifth
 argument to [`solve!`](@ref); the result and stopping interface are shared with PGD.
 
 ```julia
@@ -54,8 +54,8 @@ Sparse logistic regression takes a raw `LogisticLoss(y, X)` (dense `Matrix{Float
 `Vector{Float64}` response, no observation weights or offset) with `NormL1`, with or without penalty weights, on a
 `Vector{Float64}`; a zero penalty weight leaves an intercept column unpenalized. The loss, coefficient and penalty
 rules are those of the gate of [`ProximalGradientDescent`](@ref), and the dimension limits above also apply. The factor
-`1/4` of the logistic Hessian bound takes the place of the loss scale in the certified line-search test, which decides a
-nonzero step from the extrapolated point. The test does not use the local curvature, so a step can be shorter than a test on
+`1/4` of the logistic Hessian bound takes the place of the loss scale in the certified line-search test: a nonzero trial
+from the extrapolated point can be accepted only if the image bound is certified, after the guards in APG-08. The test does not use the local curvature, so a step can be shorter than a test on
 the loss value would allow. See
 [the logistic input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09) and
 [APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
@@ -65,8 +65,8 @@ gradient-mapping residual is measured from the extrapolated point, so use the
 stopping documentation when interpreting it. The extra gradient for a proposed
 stop is included in `grad_calls`.
 
-- [Extrapolation, restarts and dimension limits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01).
-- [Certified local bound test and assumptions](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01).
+- [Extrapolation and restarts](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01) and [dimension limits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-02).
+- [Certified local bound test and assumptions](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-06).
 - [Shared stopping and exceptional exits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
 """
 struct AccProxGradDescent{T<:AbstractFloat} <: ProximalSolver
@@ -345,7 +345,7 @@ matrix coefficients and unweighted `NormL1` under
 
 For least squares, the options and their validation are those of
 `ProximalGradientDescent` (see [`ProximalOptions`](@ref)), and the penalties are those listed for
-[`AccProxGradDescent`](@ref); `IndNonnegative()` and `NormL1Nonneg` are accepted by `ProximalGradientDescent` and
+[`AccProxGradDescent`](@ref); `IndNonnegative()` and unweighted `NormL1Nonneg` on dense vector coefficients are accepted by `ProximalGradientDescent` and
 `CDSolver` only. The listed penalties, a weighted `ElasticNet` and a `GroupNormL2` included, apply to dense vector
 coefficients with least squares, and the group stopping check is described under `ProximalGradientDescent`. In addition `β`
 and `α` must satisfy their bounds after conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and

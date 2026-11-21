@@ -494,13 +494,13 @@ solve and disjoint from `X`, `y`, `f.tmp` and `x`.
 
 **`AccProxGradDescent`.** It uses the same ProximalBase functions `value_from_predictor` and
 `value_and_gradient_from_predictor!`, each run only for a finite image (see the paragraph on overflowed images). Each
-trial forms its image `X x` and takes its value from `value_from_predictor` when that image is finite. The gradient of a step is
-`value_and_gradient_from_predictor!` at the cached image of the extrapolated point, which is the same combination of cached images
-as the point ([APG-01](@ref)). The stationarity check of a proposed stop forms a separate gradient at the accepted point from its
+trial forms its image `X x` and takes its value from `value_from_predictor` when that image is finite. For the gradient of a step
+the solver uses the fused oracle `value_and_gradient_from_predictor!` at the cached image of the extrapolated point, which is the
+same combination of cached images as the point ([APG-01](@ref)). The stationarity check of a proposed stop forms a separate gradient at the accepted point from its
 cached image ([APG-05](@ref), [STOP-08](@ref)). The trial sequence is that of
 [APG-01](@ref), the initial curvature is that of [PGD-02](@ref) with the factor `¼`, and the stopping check is the one below. In place of
-the loss-value test, the gradient-mode test and the recheck of PGD, a nonzero displacement is decided by the certified test of
-[APG-06](@ref) with `s = ¼`. [APG-08](@ref) states that rule, what it certifies and what it leaves to the computed values.
+the loss-value test, the gradient-mode test and the recheck of PGD, a nonzero trial can be accepted only if the image bound of
+[APG-06](@ref) with `s = ¼` is certified. [APG-08](@ref) states the guards that precede it, what it certifies and what it leaves to the computed values.
 
 **Overflowed images.** When the image `z` has a nonfinite entry, a guard skips
 ProximalBase's predictor oracle and the loss value is `Inf`. (ProximalBase gives a
