@@ -151,23 +151,22 @@ println("APG: iterations = ", res_apg.iterations, "; largest violation ",
 # the zero vector minimizes the objective when `λ ≥ s ‖Xᵀy‖₂`. We use one quarter
 # of this threshold to obtain a nonzero fit.
 lambda_one = 0.25 * s * norm(X' * y)
-options_one = ProximalOptions(maxiter = 20_000, gradtol = 1e-10)
+options_one = ProximalOptions(maxiter = 20_000, gradtol = 1e-10, allow_f_increases = true)
 beta_l2 = zeros(p)
-res_l2 = solve!(beta_l2, f, NormL2(lambda_one), ProximalGradientDescent(), options_one)
+solve!(beta_l2, f, NormL2(lambda_one), ProximalGradientDescent(), options_one)
 beta_one = zeros(p)
-res_one = solve!(beta_one, f, GroupNormL2(lambda_one, [collect(1:p)], [1.0]),
-                 ProximalGradientDescent(), options_one)
-@assert res_l2.converged && res_one.converged
-@assert !iszero(beta_l2)
+solve!(beta_one, f, GroupNormL2(lambda_one, [collect(1:p)], [1.0]),
+       ProximalGradientDescent(), options_one)
+@assert !iszero(beta_l2) && !iszero(beta_one)
 @assert maximum(abs, beta_l2 - beta_one) <= 1e-6
 
 # The Euclidean-norm optimality condition is checked from the data: at a nonzero point,
 # `s Xᵀ(Xβ − y) + λ β / ‖β‖₂ = 0`.
-grad_l2 = s * (X' * (X * beta_l2 - y))
-violation_l2 = norm(grad_l2 + lambda_one * beta_l2 / norm(beta_l2))
-@assert violation_l2 <= 1e-7
+one_group_violation(b) = norm(s * (X' * (X * b - y)) + lambda_one * b / norm(b))
+violation_one = max(one_group_violation(beta_l2), one_group_violation(beta_one))
+@assert violation_one <= 1e-7
 println("one group: largest difference between NormL2 and GroupNormL2 ", maximum(abs, beta_l2 - beta_one),
-        "; violation ", violation_l2)
+        "; largest violation ", violation_one)
 
 # ## Limitations
 #
