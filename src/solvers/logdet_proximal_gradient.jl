@@ -29,7 +29,20 @@ function _logdet_pgd_preflight(Θ::Matrix{T}, f, g, ls, options) where T
   scratch = similar(Θ)
   _admm_passes_cholesky!(scratch, Θ) ||
     throw(ArgumentError("Θ must have a successful Cholesky factorization in $T"))
-  C, max(one(T), maximum(abs, S), maximum(C)), α, β, scratch
+  # The diagonal weights are zero here, so Sᵢᵢ + Cᵢᵢ = Sᵢᵢ is finite.
+  scales = T[sqrt(abs(S[i, i] + C[i, i])) for i in axes(S, 1)]
+  C, scales, _logdet_pgd_cancellation(S, scales), α, β, scratch
+end
+
+# True if some stored |Sᵢⱼ| exceeds 2 max(1, sᵢsⱼ), the entry scale of PGD-08. S is symmetric by
+# entrywise equality here (checked above), so the upper triangle holds all the magnitudes. Each
+# root sᵢ is taken before the product, so sᵢsⱼ overflows only if both aᵢ and aⱼ are within a few
+# eps(T) of floatmax(T).
+function _logdet_pgd_cancellation(S::Matrix{T}, scales::Vector{T}) where T
+  @inbounds for j in axes(S, 2), i in 1:j
+    abs(S[i, j]) > 2 * max(one(T), scales[i] * scales[j]) && return true
+  end
+  false
 end
 
 function _logdet_pgd_symmetrize!(G::Matrix{T}, S) where T
@@ -44,15 +57,58 @@ function _logdet_pgd_symmetrize!(G::Matrix{T}, S) where T
   nothing
 end
 
-function _logdet_pgd_kkt(Θ, G, C, scale)
-  worst = zero(eltype(Θ))
-  @inbounds for i in eachindex(Θ, G, C)
-    violation = iszero(Θ[i]) ? max(abs(G[i]) - C[i], zero(worst)) :
-                               abs(G[i] + C[i] * sign(Θ[i]))
-    worst = max(worst, violation)
+# The KKT violation of entry (i, j) from the gradient G = S - inv(Θ): at a nonzero Θᵢⱼ the
+# distance of Gᵢⱼ from -Cᵢⱼ sign(Θᵢⱼ), at an exact zero the excess of |Gᵢⱼ| over Cᵢⱼ.
+@inline _logdet_pgd_violation(θ, g, c) =
+  iszero(θ) ? max(abs(g) - c, zero(g)) : abs(g + c * sign(θ))
+
+# The same violation from the stored Sᵢⱼ, the weight cᵢⱼ and the inverse entry wᵢⱼ = (Θ⁻¹)ᵢⱼ. The
+# input combination Sᵢⱼ ± cᵢⱼ is formed before wᵢⱼ is subtracted. That avoids the rounding of
+# Sᵢⱼ - wᵢⱼ that the form from G carries when Sᵢⱼ ± cᵢⱼ is much smaller than |Sᵢⱼ|. A combination
+# that is not finite falls back to the form from G.
+@inline function _logdet_pgd_violation(θ, g, c, sij, w)
+  if iszero(θ)
+    lower, upper = sij - c, sij + c
+    isfinite(lower) && isfinite(upper) || return _logdet_pgd_violation(θ, g, c)
+    max(lower - w, w - upper, zero(w))
+  else
+    shifted = sij + c * sign(θ)
+    isfinite(shifted) || return _logdet_pgd_violation(θ, g, c)
+    abs(shifted - w)
+  end
+end
+
+# The score R = maxᵢⱼ rᵢⱼ / max(1, sᵢsⱼ) of PGD-08, over the upper triangle. Θ, G, C and S are
+# symmetric by entrywise equality when this runs (G after `_logdet_pgd_symmetrize!`), so the
+# entries below the diagonal equal those above it. The first method uses the violations from G,
+# the second those from the inputs and W = inv(Θ).
+function _logdet_pgd_kkt(Θ::Matrix{T}, G, C, scales) where T
+  worst = zero(T)
+  @inbounds for j in axes(Θ, 2), i in 1:j
+    violation = _logdet_pgd_violation(Θ[i, j], G[i, j], C[i, j])
+    worst = max(worst, violation / max(one(T), scales[i] * scales[j]))
   end
   isfinite(worst) || error("matrix PGD produced a nonfinite KKT violation")
-  Float64(worst / scale)
+  Float64(worst)
+end
+
+function _logdet_pgd_kkt(Θ::Matrix{T}, S, W, G, C, scales) where T
+  worst = zero(T)
+  @inbounds for j in axes(Θ, 2), i in 1:j
+    violation = _logdet_pgd_violation(Θ[i, j], G[i, j], C[i, j], S[i, j], W[i, j])
+    worst = max(worst, violation / max(one(T), scales[i] * scales[j]))
+  end
+  isfinite(worst) || error("matrix PGD produced a nonfinite KKT violation")
+  Float64(worst)
+end
+
+# The score of a point Θ whose upper Cholesky factor, from `_admm_passes_cholesky!`, is in
+# `scratch`. With `cancellation` set, the factor is overwritten by inv(Θ), which the input form
+# needs, so a later use of `scratch` as a factor must factorize into it again; the next trial does.
+function _logdet_pgd_kkt!(scratch, Θ, S, G, C, scales, cancellation::Bool)
+  cancellation || return _logdet_pgd_kkt(Θ, G, C, scales)
+  W = LinearAlgebra.inv!(Cholesky(scratch, 'U', 0))
+  _logdet_pgd_kkt(Θ, S, W, G, C, scales)
 end
 
 function _logdet_pgd_trial_argument!(V, Θ, G, t)
@@ -87,7 +143,8 @@ mutable struct LogDetPGDState{T}
   displacement::Matrix{T}
   cholesky_scratch::Matrix{T}
   weights::Matrix{T}
-  scale::T
+  scales::Vector{T}
+  cancellation::Bool
   step::T
   α::T
   β::T
@@ -144,7 +201,11 @@ function _gradient_step!(state::LogDetPGDState{T}, f, g, method, options, t0) wh
             state.grad_calls += 1
             gradient!(G, f, Z)
             _logdet_pgd_symmetrize!(G, f.S)
-            state.score = _logdet_pgd_kkt(Z, G, state.weights, state.scale)
+            # The check of Z above factored it into `scratch`, and no later trial has written to it,
+            # so it holds the upper factor of Z. A flagged evaluation overwrites it with inv(Z); the
+            # next trial factors into it again.
+            state.score = _logdet_pgd_kkt!(state.cholesky_scratch, Z, f.S, G, state.weights,
+                                          state.scales, state.cancellation)
             state.x_change = Float64(norm(D))
             state.unchanged = Z == Θ
             state.f_x_previous, state.g_x_previous = state.f_x, state.g_x
@@ -168,14 +229,15 @@ function solve!(Θ::Matrix{T}, f::LogDetLoss{T}, g::NormL1, method::ProximalGrad
                 options::ProximalOptions = ProximalOptions(); kwargs...) where T
   _check_keywords(kwargs)
   start = time_ns()
-  C, scale, α, β, scratch = _logdet_pgd_preflight(Θ, f, g, method.ls, options)
+  C, scales, cancellation, α, β, scratch = _logdet_pgd_preflight(Θ, f, g, method.ls, options)
   G = similar(Θ)
   loss, penalty = value_and_gradient!(G, f, Θ), g(Θ)
   isfinite(loss + penalty) || throw(ArgumentError("matrix PGD requires a finite starting objective"))
   _logdet_pgd_symmetrize!(G, f.S)
-  score = _logdet_pgd_kkt(Θ, G, C, scale)
+  # `scratch` holds the upper factor of Θ from the preflight check: nothing has written to it since.
+  score = _logdet_pgd_kkt!(scratch, Θ, f.S, G, C, scales, cancellation)
   state = LogDetPGDState(Θ, loss, penalty, T(NaN), T(NaN), G, similar(Θ), similar(Θ),
-                         similar(Θ), scratch, C, scale, one(T), α, β, score, NaN, false,
-                         0, 1, 1, 0)
+                         similar(Θ), scratch, C, scales, cancellation, one(T), α, β, score, NaN,
+                         false, 0, 1, 1, 0)
   _solve_gradient!(state, f, g, method, options, start)
 end

@@ -16,16 +16,19 @@ target(::Type{Float32}) = 5e-4
 target(::Type{Float64}) = 1e-8
 pg_options() = ProximalOptions(; maxiter=20000, gradtol=5e-10, ftol=0)
 
-# Use BigFloat independently of PB and the solver's working-precision gradient.
+# Use BigFloat independently of PB and the solver's working-precision gradient. The score is
+# rule F of PGD-08: each entry's violation over max(1, sᵢsⱼ), sᵢ = sqrt(|Sᵢᵢ + Cᵢᵢ|).
 function independent(Θ, S, g)
   X, A, C = BigFloat.(Θ), BigFloat.(S), BigFloat(g.λ0) .* BigFloat.(g.w)
   factor = cholesky(Symmetric(X))
   inverse = inv(factor)
   G = A - inverse
-  scale = max(big(1), maximum(abs, A), maximum(C))
-  score = maximum(eachindex(G)) do i
-    iszero(X[i]) ? max(abs(G[i]) - C[i], 0) : abs(G[i] + sign(X[i]) * C[i])
-  end / scale
+  s = [sqrt(abs(A[i, i] + C[i, i])) for i in axes(A, 1)]
+  score = maximum(CartesianIndices(G)) do I
+    i, j = Tuple(I)
+    violation = iszero(X[I]) ? max(abs(G[I]) - C[I], 0) : abs(G[I] + sign(X[I]) * C[I])
+    violation / max(big(1), s[i] * s[j])
+  end
   trace, ld, penalty = dot(A, X), logdet(factor), dot(C, abs.(X))
   primal = trace - ld + penalty
   # U satisfies the dual box and has zero diagonal. A Cholesky check is

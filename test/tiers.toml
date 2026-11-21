@@ -36,6 +36,7 @@ standard = [
   "scaled_lasso",
   "logistic_pgd",
   "entry_thresholds",
+  "logdet_kkt_scale",
   "logistic_proxnewton",
 ]
 full = [
