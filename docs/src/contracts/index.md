@@ -44,6 +44,7 @@ Clause IDs are permanent. When a clause is replaced, keep its heading, mark it
 | `CDM` | Matrix responses and row groups | [Multiresponse CD](@ref CDM-01) |
 | `CDQ` | Square-root lasso and certificates | [Square-root lasso](@ref CDQ-01) |
 | `PGD` | Iteration, initialization, traces and limits | [Vector PGD](@ref PGD-01), [matrix PGD](@ref PGD-06) |
+| `PN` | Proximal Newton for sparse logistic regression: inputs, models, inner solve, search and result | [Proximal Newton](@ref PN-01) |
 | `APG` | Extrapolation, restart and the bound test | [Accelerated PG](@ref APG-01) |
 | `ADM` | Two-function consensus ADMM | [Consensus ADMM](@ref ADM-01) |
 | `LS` | Backtracking, acceptance and range recovery | [Line search](@ref LS-01) |
