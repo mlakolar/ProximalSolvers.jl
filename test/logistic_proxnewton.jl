@@ -336,9 +336,9 @@ end
   PS._pn_direction!(w, false, 0, method.inner.tol, method.tol)
   @test w.fixed.r == [-2.0, 2.0] && all(isnan, w.fixed.a)
   # a zero root needs no division: the row has the derivative zero, and the seeded residual is zero
-  wz = PS._pn_workspace([0.0, 0.0, 0.0], f, g, method)
-  wz.eta[2] = -2000.0
-  wz.d[2] = 0.0
+  # (a naturally saturated accepted workspace: the logits are (0, 2000), and label 1 at logit 2000 has the derivative 0)
+  wz = PS._pn_workspace([1000.0, 0.0, 1000.0], f, g, method)
+  @test wz.eta == [0.0, 2000.0] && wz.d[2] == 0.0 && wz.d[1] == 0.5
   @test PS._pn_adaptive_model!(wz.A, wz.resp, wz.rows, wz.X, wz.eta, wz.d) && wz.rows[2] == 0
   PS._pn_direction!(wz, true, 0, method.inner.tol, method.tol)
   @test wz.adaptive.r[2] == 0 && wz.adaptive.r[1] == -wz.d[1] / wz.rows[1]

@@ -303,8 +303,8 @@ end
 # The initial residual of the inner solve: the model response minus its weighted predictor at the accepted point, which
 # is -d/s for a row of the weighted model (0 for a zero root, whose represented derivative is zero) and -4d for the
 # fixed model, with d the observation derivative from ProximalBase. `initialize!` is not used: it subtracts the images
-# of the stored coefficients from the response, and where those images are large and cancel it rounds the response
-# away (PN-03). The curvature cache is cleared, so that the first coordinate step refreshes it.
+# of the stored coefficients from the response, and where those images are large and cancel it can round a small
+# response away (PN-03, and CD-05 for the CD initializer). The curvature cache is cleared, so that the first coordinate step refreshes it.
 function _pn_seed_residual!(model, w::_PNWork, adaptive::Bool)
   r, d = model.r, w.d
   if adaptive

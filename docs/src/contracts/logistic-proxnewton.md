@@ -139,8 +139,8 @@ its weighted predictor at the accepted point, which in exact arithmetic is `-d�
 (`0` for a zero root `sᵢ = 0`, whose represented derivative is zero, so no division is made) and `-4dᵢ` for the fixed
 model, and the curvature cache is cleared. The solver sets these values from the observation derivative `d` of
 [PN-02](@ref), and does not subtract the images of the stored coefficients from the response (the `initialize!` of
-[CD-01](@ref)): where those images are large and cancel, the response is rounded away and the cache loses a
-representable gradient. For example, at `η = 0` with `y = 0`, `d = 1/2` and `s = 1/2`, the residual is `-1` for the
+[CD-01](@ref)): where those images are large and cancel, a small response can be rounded away and the cache loses a
+representable gradient; [CD-05](@ref) describes this mechanism for the CD initializer. For example, at `η = 0` with `y = 0`, `d = 1/2` and `s = 1/2`, the residual is `-1` for the
 weighted model and `-2` for the fixed model, and with `y = 1` the signs reverse. Refinements continue with the
 maintained residual. The solve from `b = (2⁶⁰, -2⁶⁰, 0)` with `X = [1 1 -1; 1 1 1]`, `y = (0, 1)` and the
 penalty `0.5` on the third coefficient only has the predictor zero and a score of `1/2`; seeded this way both models
@@ -165,7 +165,7 @@ gives no direction. Every pass of every run is counted in `passes`, also where t
 
 **Code.** `src/solvers/logistic_proxnewton.jl`: `_pn_direction!`, `_pn_seed_residual!`, `_pn_surrogate_residual!`, `_pn_load!`, `_pn_step!`, `_pn_forcing`; `src/cd/solver.jl`: `_cd!`, `_CDState`.
 
-**Tests.** `test/logistic_proxnewton.jl`: the seeded residual of both models, with a zero root and reversed labels, and the public warm start with cancelling coefficient images of `2⁶⁰` (an accepted step, the reduced objective against the BigFloat reference and the computed KKT score), also for the fixed model alone; the model gradient at a candidate against a BigFloat formula; the forcing target met by a run; no run without a pass budget; the loader; passes counted when every trial is rejected and the sharing of a budget of `8` passes (`6` and `2`) and of one pass; a zero change tolerance (each run spends its allowance); loose and tight values of `inner.tol` reaching the same fit; a cyclic `CDSolver` with its default settings.
+**Tests.** `test/logistic_proxnewton.jl`: the seeded residual of both models, with a zero root and reversed labels, and the public cancelling-warm-start regression with coefficient images of `2⁶⁰` (an accepted step, the reduced objective against the BigFloat reference and the computed KKT score), which runs the default solver; the private fixed-only step of the same start, through the test mode of `_pn_step!`, is checked separately; a zero root from a naturally saturated accepted workspace; the model gradient at a candidate against a BigFloat formula; the forcing target met by a run; no run without a pass budget; the loader; passes counted when every trial is rejected and the sharing of a budget of `8` passes (`6` and `2`) and of one pass; a zero change tolerance (each run spends its allowance); loose and tight values of `inner.tol` reaching the same fit; a cyclic `CDSolver` with its default settings.
 
 **Sources.** [Issue #447](https://github.com/mlakolar/ProximalSolvers.jl/issues/447) and [pull request #496](https://github.com/mlakolar/ProximalSolvers.jl/pull/496).
 

@@ -430,8 +430,9 @@ fits seeded data and checks its objective and KKT residual from the data.
 least-squares model of the loss by cyclic coordinate descent and searches along the result on the true
 objective; the weights follow the curvature of the loss row by row, so a correctly classified row with a large leverage
 can have a small weight and a smaller influence on the step than under the constant curvature bound of PGD. That is a
-potential benefit, not a guarantee: where the weighted model gives no accepted step, the fixed model with the constant
-curvature `1/4` is tried.
+potential benefit, not a guarantee: where the weighted model gives no accepted step and inner passes remain, the fixed
+model with the constant curvature `1/4` is tried. At `inner.maxpasses = 1` the weighted model can use the entire pass,
+and then no fixed model is tried.
 
 ~~~julia
 using ProximalBase, ProximalSolvers
