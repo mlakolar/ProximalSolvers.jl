@@ -56,3 +56,9 @@ python3 summarize.py numerical data/correctness
 python3 summarize.py timing data/timing
 sha256sum --check SHA256SUMS
 ```
+
+## Campaign record
+
+Job `14435006` was the locked import run, `14435214` the correctness canary, and `14435430` the complete correctness matrix. After exclusive timing canary `14435433`, the official timing job `14435649` completed three warmup/process configurations before its wall-time limit. `14435992` used the same exclusive node and finished the `1.13.4-reverse` configuration with the identical measurement source. `resume-benchmark.sbatch` runs missing configurations and checks the CPU model against the earlier allocation. `data/timing/units.tsv` identifies the source job of each complete unit. The timing summary uses only complete units and preserves the per-pair records. The scheduler states, thread counts, CPU model and loaded-source records are in `data/`.
+
+`python3 check_vectors.py data/correctness` independently reconstructs every stored membership sign with integer arithmetic on the binary coordinates. It compares squared sums to the squared radius for ℓ₂. The check agreed with 5,856 finite output records, including 2,152 mathematically exterior outputs, and identified 160 nonfinite starts.
