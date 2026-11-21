@@ -1,0 +1,824 @@
+{
+ "1.10.13-auto": {
+  "arms": {
+   "B0": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "none": 368
+    },
+    "false_success": 0,
+    "full_checks": 6173,
+    "mapping_parity_checks": 6173,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 0,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6173,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 181,
+     "converged": 123,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 33,
+     "start_refused": 20,
+     "trial_limit": 2
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12786
+   },
+   "B1": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "none": 368
+    },
+    "false_success": 0,
+    "full_checks": 6173,
+    "mapping_parity_checks": 6173,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 0,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6173,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 181,
+     "converged": 123,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 33,
+     "start_refused": 20,
+     "trial_limit": 2
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12786
+   },
+   "B2": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "gap,gap_noise,mapping,map_noise,projections": 2,
+     "gradients": 37,
+     "gradients,projections": 175,
+     "none": 152,
+     "projections": 2
+    },
+    "false_success": 0,
+    "full_checks": 2699,
+    "mapping_parity_checks": 2699,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 3474,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6173,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 181,
+     "converged": 123,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 33,
+     "start_refused": 20,
+     "trial_limit": 2
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12786
+   }
+  },
+  "rollback": [
+   [
+    "Float32",
+    "PGD",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "PGD",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "PGD",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ]
+  ]
+ },
+ "1.10.13-yes": {
+  "arms": {
+   "B0": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "none": 368
+    },
+    "false_success": 0,
+    "full_checks": 6325,
+    "mapping_parity_checks": 6325,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 0,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6325,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 184,
+     "converged": 120,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 32,
+     "start_refused": 20,
+     "trial_limit": 3
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12944
+   },
+   "B1": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "none": 368
+    },
+    "false_success": 0,
+    "full_checks": 6325,
+    "mapping_parity_checks": 6325,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 0,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6325,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 184,
+     "converged": 120,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 32,
+     "start_refused": 20,
+     "trial_limit": 3
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12944
+   },
+   "B2": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "gap,gap_noise,mapping,map_noise,projections": 2,
+     "gradients": 45,
+     "gradients,projections": 174,
+     "none": 145,
+     "projections": 2
+    },
+    "false_success": 0,
+    "full_checks": 2824,
+    "mapping_parity_checks": 2824,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 3501,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6325,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 184,
+     "converged": 120,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 32,
+     "start_refused": 20,
+     "trial_limit": 3
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12944
+   }
+  },
+  "rollback": [
+   [
+    "Float32",
+    "PGD",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "PGD",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "PGD",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ]
+  ]
+ },
+ "1.13.4-auto": {
+  "arms": {
+   "B0": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "none": 368
+    },
+    "false_success": 0,
+    "full_checks": 6134,
+    "mapping_parity_checks": 6134,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 0,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6134,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 177,
+     "converged": 127,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 33,
+     "start_refused": 20,
+     "trial_limit": 2
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12561
+   },
+   "B1": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "none": 368
+    },
+    "false_success": 0,
+    "full_checks": 6134,
+    "mapping_parity_checks": 6134,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 0,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6134,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 177,
+     "converged": 127,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 33,
+     "start_refused": 20,
+     "trial_limit": 2
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12561
+   },
+   "B2": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "gap,gap_noise,mapping,map_noise,projections": 2,
+     "gradients": 37,
+     "gradients,projections": 176,
+     "none": 151,
+     "projections": 2
+    },
+    "false_success": 0,
+    "full_checks": 2624,
+    "mapping_parity_checks": 2624,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 3510,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6134,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 177,
+     "converged": 127,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 33,
+     "start_refused": 20,
+     "trial_limit": 2
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12561
+   }
+  },
+  "rollback": [
+   [
+    "Float32",
+    "PGD",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "PGD",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "PGD",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ]
+  ]
+ },
+ "1.13.4-yes": {
+  "arms": {
+   "B0": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "none": 368
+    },
+    "false_success": 0,
+    "full_checks": 6091,
+    "mapping_parity_checks": 6091,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 0,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6091,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 179,
+     "converged": 125,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 32,
+     "start_refused": 20,
+     "trial_limit": 3
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12494
+   },
+   "B1": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "none": 368
+    },
+    "false_success": 0,
+    "full_checks": 6091,
+    "mapping_parity_checks": 6091,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 0,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6091,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 179,
+     "converged": 125,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 32,
+     "start_refused": 20,
+     "trial_limit": 3
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12494
+   },
+   "B2": {
+    "budget_bits_differ": 0,
+    "decision_differences": [],
+    "differs_from_B0": {
+     "gap,gap_noise,mapping,map_noise,projections": 2,
+     "gradients": 44,
+     "gradients,projections": 175,
+     "none": 145,
+     "projections": 2
+    },
+    "false_success": 0,
+    "full_checks": 2806,
+    "mapping_parity_checks": 2806,
+    "mixed_success": 32,
+    "ordinary_admitted": 88,
+    "ordinary_runs": 96,
+    "ordinary_success": 88,
+    "ordinary_success_acceptable": 88,
+    "over_cap_accepted": 0,
+    "prescreen_rejects": 3285,
+    "profile_runs": 144,
+    "profile_success": 140,
+    "proposals": 6091,
+    "runs": 368,
+    "status": {
+     "approximate_solution": 179,
+     "converged": 125,
+     "iteration_limit": 6,
+     "numerical_resolution": 3,
+     "numerical_stagnation": 32,
+     "start_refused": 20,
+     "trial_limit": 3
+    },
+    "tight_success": 44,
+    "trial_digest_differs": 0,
+    "trial_parity_checks": 12494
+   }
+  },
+  "rollback": [
+   [
+    "Float32",
+    "PGD",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "PGD",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "PGD",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float32",
+    "APG",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "PGD",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B0",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B1",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ],
+   [
+    "Float64",
+    "APG",
+    "B2",
+    "callback_stop",
+    "injected_trial_failure",
+    "true"
+   ]
+  ]
+ },
+ "cross_arm_output_identical": true,
+ "output_identical_across_configurations": false
+}

@@ -1,0 +1,4 @@
+cpu	AMD EPYC 7513 32-Core Processor
+node	a01-05
+other_jobs_start	5
+other_jobs_end	5
