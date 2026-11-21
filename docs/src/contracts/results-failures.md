@@ -135,7 +135,7 @@ convergence or an accuracy target. Flags report independent conditions, so
 `stagnated` can coincide with `call_limit_reached`, `iteration_converged`, or an
 iteration whose callback returned true. [STOP-09](@ref) specifies simultaneous
 flag combinations. [STOP-18](@ref) classifies a return by these flags, and
-notes that a callback stop and a time-limit stop set the same fields.
+notes that the result has no dedicated field for a callback or time-limit stop.
 
 **Applies to.** `OptimizationResults` from PGD or APG, including nonconverged finite returns.
 
