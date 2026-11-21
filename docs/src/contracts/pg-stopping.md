@@ -328,7 +328,7 @@ still move at a later iteration if the solve continued. For `Float64` data, for
 | --- | --- | --- |
 | Computed stationarity convergence | `converged = true` | A proposal passed the computed stationarity check of [STOP-01](@ref) to [STOP-07](@ref). The comparison uses the computed residual and threshold, so it establishes no exact residual bound ([STOP-12](@ref)) and no accuracy target. For the lasso, [STOP-19](@ref) states the gap ceiling that holds when the exact residual also meets the threshold. |
 | Float32 PGD stagnation | `stagnated = true` | An unchanged accepted iterate after the qualifying rejection of [STOP-11](@ref), under `ftol = 0`. The point is not checked. |
-| Objective increase | `f_increased = true` with `allow_f_increases = false` | A computed objective rise ended the solve ([STOP-09](@ref)). The flag records only the sign of the comparison; the result has no count of units in the last place. The relative size of the last change is `f_residual` ([RES-02](@ref)), and a stored trace holds both objective values. With `allow_f_increases = true`, `f_increased` describes only the last comparison; read the remaining rows. |
+| Objective increase | `f_increased = true` with `allow_f_increases = false` | A computed objective rise ended the solve ([STOP-09](@ref)). The flag records only the sign of the comparison; the result has no count of units in the last place. The relative size of the last change is `f_residual` ([RES-02](@ref)), and a stored trace holds both objective values once at least two iterations have completed. With `allow_f_increases = true`, `f_increased` describes only the last comparison; read the remaining rows. |
 | Iteration limit | `iteration_converged = true` | The budget `maxiter` was used. |
 | Call limit | `call_limit_reached = true` | A positive call limit was reached ([PGD-04](@ref)). |
 | Callback or time limit | none of the fields above is set, `f_increased` excepted when `allow_f_increases = true`, and `iterations < maxiter` | A callback returned `true`, the time limit elapsed, or both. The result has no dedicated field for either cause. |
@@ -434,7 +434,7 @@ rounding errors of that evaluation are not bounded here.
 a = τ S / λ = τ max(1, λmax / λ),   B = 2a + a².
 ```
 
-Then `k = ‖G‖∞ / λ ≤ a` in [STOP-13](@ref), and in exact arithmetic the relative duality gap at its dual point is at most `2k + k² ≤ B`. The pointwise bound `2k + k²` can be zero, for example at the zero minimizer with `λ ≥ λmax`; the ceiling `B` is what the check's threshold alone can guarantee.
+Then `k = ‖G‖∞ / λ ≤ a` in [STOP-13](@ref), and in exact arithmetic the relative duality gap at its dual point is at most `2k + k² ≤ B`. The pointwise bound `2k + k²` can be zero, for example at the zero minimizer with `λ ≥ λmax`; the ceiling `B` is the bound obtained from the stated exact-residual hypothesis.
 
 `B` is at least `2τ + τ²`. At the Float32 floor `τ = 64 eps(Float32) ≈ 7.63e-6`, `B` is `1.53e-5` for `λ ≥ λmax`, `1.02e-4` for `λ = 0.15 λmax` and `7.6e-4` for `λ = 0.02 λmax`. Since [STOP-04](@ref) does not let `gradtol` go below the floor, the ceiling of a Float32 check exceeds `1e-5` at every penalty level and `gradtol`. At the Float64 floor (`τ ≈ 1.42e-14`), `B` at `λ = 0.02 λmax` is `1.4e-12`. The ceiling certifies a relative gap `ε` exactly when `τ ≤ (λ/S) ε / (1 + √(1 + ε))`, approximately `ε λ / (2S)` for small `ε`.
 
@@ -454,7 +454,7 @@ Then `k = ‖G‖∞ / λ ≤ a` in [STOP-13](@ref), and in exact arithmetic the
 
 A `target_missed` record says only that a valid independent gap exceeded the finite target. It does not name the exit, and it can carry `converged = true` ([STOP-19](@ref)). Float32 stops depend on objective rounding ([STOP-14](@ref)), so a change that alters rounding without changing any stopping rule can move individual Float32 records between `ok` and `target_missed`. Evidence for or against such a change compares counts over draws and records each return's class from [STOP-18](@ref). A future solver claim of target accuracy needs its own clause and certificate.
 
-**Applies to.** Benchmark records of PGD and APG; T = Float32 or Float64.
+**Applies to.** Benchmark records of the current-core PGD and APG lasso cases and the #320 harness profile; T = Float32 or Float64. Historical records such as `gradient/lasso/pg/R/call`, which use `ProximalOptions()` and no target, are outside it.
 
 **Code.** `benchmark/cases.jl: benchmark_options, accuracy_options, CORE_TARGETS`; `benchmark/run.jl: certificate_status`.
 

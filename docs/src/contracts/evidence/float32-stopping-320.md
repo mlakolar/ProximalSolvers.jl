@@ -10,21 +10,27 @@ solver guarantees.
 
 - **Exits under the harness options.** In the 240 Float32 PGD records at `dac9f4b` on the Xeon E5-2640 v4 (harness and adverse designs, both Julia versions), the objective test made the first stop proposal in 237 records; no proposal was made in the other 3. All 156 objective-increase exits were rises of one to three Float32 spacings of `F`, 142 of exactly one. The Xeon Silver 4116 rerun had 157 objective-increase exits. These exits form the [STOP-18](@ref) objective-increase class; the flag records only the sign of the change, and the relative size is in `f_residual`.
 - **Computed-KKT convergence and the gap.** Under the harness options, on the Xeon E5-2640 v4 and across the three revisions, each of the 231 Float32 PGD records with `converged = true` had an independent normalized KKT residual below `64 eps(Float32) ≈ 7.63e-6`. Among those that missed the `1e-5` target, the ratio of gap to normalized KKT residual was 2.3 to 7.0 on the harness designs and 16.9 to 47.2 on the adverse set. Dividing the [STOP-13](@ref) bound by the normalized residual gives `(2 + k) S/λ` for a positive residual; its leading term `2S/λ` is about 13 at `λ = 0.15 λmax` and 100 at `λ = 0.02 λmax`.
-- **Numerical check of [STOP-13](@ref) on the archive.** The archive's per-solve summaries hold 25,200 library-run rows with finite independent gap and KKT residual (all precisions, solvers, option profiles, arms and CPUs; rows of the same solve on several arms are counted separately). The trajectory-derived rows of the simulated gradient-tolerance sweep have no residual and are excluded. With `k` taken as the independent normalized KKT residual divided by the design's nominal `λ / λmax`, no row's gap exceeded `2k + k²`. The largest ratio of gap to that bound was 0.68 for Float32 PGD with `converged = true` (2,119 rows), 0.65 for Float32 APG with `converged = true` (4,830 rows) and 0.55 for Float64 PGD.
-- **The residual hypothesis of [STOP-19](@ref).** A passed computed check does not imply it. Among the converged rows above, 14 Float32 APG rows had an independent normalized residual above `τ`, by at most a factor `1.00024`. They are copies, across revisions and CPUs, of two solves: `adv-equi-low-cold` draw 5 with the library defaults on Julia 1.13.3 reported convergence at `1.00024e-5` against `τ = 1e-5`, and `adv-ill-low-cold` draw 6 with `gradtol = 1e-7` on Julia 1.10.13 at `7.6297e-6` against the floor `7.6294e-6`. On the converged rows that meet the hypothesis (2,119 Float32 PGD, 4,816 Float32 APG and 5,906 Float64 PGD), no gap exceeded the ceiling `B` of [STOP-19](@ref), computed with the profile's `τ`; the largest ratio was 0.62.
-- The check, run with `python3 -I` on the extracted archive:
+- **Numerical check of [STOP-13](@ref) on the archive.** The archive's per-solve summaries hold 25,200 library-run rows with finite 256-bit gap and normalized KKT residual (`gap_big`, `kkt_big`; all precisions, solvers, option profiles, arms and CPUs; rows of the same solve on several arms are counted separately). The other rows (540 library-run rows and the trajectory-derived rows of the simulated gradient-tolerance sweep) have no 256-bit values and are excluded. The residual is normalized by an independently recomputed scale, not by the solver's working-precision `S`. With `k` taken as that residual divided by the design's nominal `λ / λmax`, no row's gap exceeded `2k + k²`. The largest ratio of gap to that bound was 0.67 for Float32 PGD with `converged = true` (2,119 rows), 0.65 for Float32 APG with `converged = true` (4,830 rows) and 0.55 for Float64 PGD.
+- **Rows with independent residual below `τ`.** The residual hypothesis of [STOP-19](@ref) uses the solver's computed `S`, which the archive does not store, so it cannot be checked exactly. With the independent scale, 14 converged Float32 APG rows had `kkt_big` above the profile's `τ`, by at most a factor `1.00024`. They are copies, across revisions and CPUs, of two solves: `adv-equi-low-cold` draw 5 with the library defaults on Julia 1.13.3 reported convergence at `1.00024e-5` against `τ = 1e-5`, and `adv-ill-low-cold` draw 6 with `gradtol = 1e-7` on Julia 1.10.13 at `7.6297e-6` against the floor `7.6294e-6`. On the converged rows with `kkt_big ≤ τ` (2,119 Float32 PGD, 4,816 Float32 APG and 5,906 Float64 PGD), no gap exceeded the ceiling `B` of [STOP-19](@ref), computed from `τ` and the nominal fraction; the largest ratio was 0.62.
+- The checks, run with `python3 -I` on the extracted archive:
 
   ```python
   import gzip, csv, glob, sys, math
   frac = {"adv-cor-low-cold": .02, "adv-cor-low-warm": .02, "adv-equi-low-cold": .02, "adv-ill-mid-cold": .15,
           "adv-ill-low-cold": .02, "adv-ill-low-warm": .02, "adv-wide-low-cold": .02}   # harness designs: 0.15
+  gradtol = {"D": 1e-5, "H": 1e-11, "S": 1e-11, "A": 1e-10}          # profile Q: 1e-7 (Float32), 1e-10 (Float64)
+  eps = {"Float32": 2.0**-23, "Float64": 2.0**-52}
   for fn in glob.glob(sys.argv[1] + "/results/*/*/run-summary.tsv.gz"):
       for r in csv.DictReader(gzip.open(fn, "rt"), delimiter="\t"):
           if "lib" not in r["kind"]: continue
-          g, kr = float(r["gap_big"] or r["gap"]), float(r["kkt_big"] or r["kkt_rel"])
+          g, kr = float(r["gap_big"] or "nan"), float(r["kkt_big"] or "nan")
           if not (math.isfinite(g) and math.isfinite(kr)): continue
-          k = kr / frac.get(r["design"], .15)
-          assert g <= 2 * k + k * k
+          f = frac.get(r["design"], .15); k = kr / f
+          assert g <= 2 * k + k * k                                  # STOP-13 with measured k
+          if r["converged"] == "true":
+              gt = gradtol.get(r["profile"], 1e-7 if r["T"] == "Float32" else 1e-10)
+              tau = max(gt, 64 * eps[r["T"]]); a = tau / f
+              assert kr > tau or g <= 2 * a + a * a                  # ceiling B on rows with kkt_big <= tau
   ```
 
 - **Exit fields.** On `1a9f196b` with Julia 1.13.4, a Float32 lasso solve stopped by a callback and one stopped by `time_limit = 0` returned the same flags for both PGD and APG: `converged`, `f_increased`, `stagnated`, `iteration_converged` and `call_limit_reached` were all false after one iteration ([STOP-18](@ref)).
