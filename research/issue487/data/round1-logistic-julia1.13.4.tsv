@@ -1,0 +1,10 @@
+fixture	pen	λ2	T	method	rule	gradtol	converged	iter	stagn	f_incr	gconv	fconv	xconv	lmax	lmax_ref_T	lmax_P0	relexcess	free_score_rel	kkt_rel_ref	coef_relerr
+L logistic b0=0.0 ybar=0.525	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	7	false	false	false	true	false	3.709e+01	3.666e+01	3.709e+01	6.77e-12	3.11e-06	5.22e-06	1.24e-05
+L logistic b0=0.0 ybar=0.525	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	13	false	true	true	true	true	3.709e+01	3.666e+01	3.709e+01	2.66e-18	1.87e-09	3.74e-09	8.87e-09
+L logistic b0=0.0 ybar=0.525	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	7	false	false	false	true	false	3.709e+01	3.666e+01	3.709e+01	6.77e-12	3.11e-06	5.22e-06	1.24e-05
+L logistic b0=3.0 ybar=0.935	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	17	false	false	false	true	false	8.700e+01	9.121e+00	1.477e+01	6.72e-10	4.53e-05	4.59e-05	2.13e-05
+L logistic b0=3.0 ybar=0.935	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	27	false	false	false	true	false	8.700e+01	9.121e+00	1.477e+01	1.36e-15	6.44e-08	6.53e-08	3.02e-08
+L logistic b0=3.0 ybar=0.935	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	18	false	false	true	true	false	8.700e+01	9.121e+00	1.477e+01	1.94e-11	7.70e-06	7.81e-06	3.62e-06
+L logistic b0=5.0 ybar=0.99	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	32	false	false	false	true	false	9.800e+01	2.251e+00	1.254e+01	3.39e-08	2.83e-04	2.83e-04	1.19e-04
+L logistic b0=5.0 ybar=0.99	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	37	false	false	true	true	false	9.800e+01	2.251e+00	1.254e+01	2.28e-16	2.36e-08	2.36e-08	9.83e-09
+L logistic b0=5.0 ybar=0.99	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	35	false	false	true	true	false	9.800e+01	2.251e+00	1.254e+01	1.73e-11	6.39e-06	6.39e-06	2.69e-06

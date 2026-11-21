@@ -1,0 +1,289 @@
+fixture	pen	λ2	T	method	rule	gradtol	converged	iter	stagn	f_incr	gconv	fconv	xconv	lmax	lmax_ref_T	lmax_P0	relexcess	free_score_rel	kkt_rel_ref	coef_relerr
+O1 off=0.0	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	5.18e-11	5.30e-06	6.18e-06	1.47e-05
+O1 off=0.0	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	17	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	4.81e-17	5.02e-09	6.01e-09	1.43e-08
+O1 off=0.0	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	5.18e-11	5.30e-06	6.18e-06	1.47e-05
+O1 off=0.0	NormL1	0.0	Float64	APG	cur	1.0e-5	true	11	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	9.34e-11	4.20e-06	1.09e-05	1.98e-05
+O1 off=0.0	NormL1	0.0	Float64	APG	cur	1.0e-8	true	20	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	2.47e-17	3.26e-09	4.95e-09	9.56e-09
+O1 off=0.0	NormL1	0.0	Float64	APG	profA	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	2.32e-11	4.96e-06	4.96e-06	8.83e-06
+O1 off=0.0	ElasticNet	0.0	Float64	PGD	cur	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	5.18e-11	5.30e-06	6.18e-06	1.47e-05
+O1 off=0.0	ElasticNet	0.0	Float64	PGD	cur	1.0e-8	true	17	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	4.81e-17	5.02e-09	6.01e-09	1.43e-08
+O1 off=0.0	ElasticNet	0.0	Float64	PGD	profA	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	5.18e-11	5.30e-06	6.18e-06	1.47e-05
+O1 off=0.0	ElasticNet	0.0	Float64	APG	cur	1.0e-5	true	11	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	9.34e-11	4.20e-06	1.09e-05	1.98e-05
+O1 off=0.0	ElasticNet	0.0	Float64	APG	cur	1.0e-8	true	20	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	2.47e-17	3.26e-09	4.95e-09	9.56e-09
+O1 off=0.0	ElasticNet	0.0	Float64	APG	profA	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	2.32e-11	4.96e-06	4.96e-06	8.83e-06
+O1 off=0.0	ElasticNet	1.0	Float64	PGD	cur	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	3.05e-11	4.15e-06	4.84e-06	1.15e-05
+O1 off=0.0	ElasticNet	1.0	Float64	PGD	cur	1.0e-8	true	17	false	false	true	true	false	8.113e+01	7.168e+01	8.113e+01	2.21e-17	3.46e-09	4.15e-09	9.83e-09
+O1 off=0.0	ElasticNet	1.0	Float64	PGD	profA	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	3.05e-11	4.15e-06	4.84e-06	1.15e-05
+O1 off=0.0	ElasticNet	1.0	Float64	APG	cur	1.0e-5	true	9	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	1.08e-11	1.70e-07	3.90e-06	6.35e-06
+O1 off=0.0	ElasticNet	1.0	Float64	APG	cur	1.0e-8	true	14	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	6.12e-17	4.08e-09	7.56e-09	1.64e-08
+O1 off=0.0	ElasticNet	1.0	Float64	APG	profA	1.0e-5	true	9	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	1.08e-11	1.70e-07	3.90e-06	6.35e-06
+O1 off=0.0	ElasticNet	25.0	Float64	PGD	cur	1.0e-5	true	9	false	false	true	true	false	8.113e+01	7.471e+01	8.113e+01	1.94e-11	4.50e-06	5.29e-06	1.22e-05
+O1 off=0.0	ElasticNet	25.0	Float64	PGD	cur	1.0e-8	true	13	false	false	false	true	false	8.113e+01	7.471e+01	8.113e+01	1.05e-17	3.29e-09	3.89e-09	8.97e-09
+O1 off=0.0	ElasticNet	25.0	Float64	PGD	profA	1.0e-5	true	9	false	false	true	true	false	8.113e+01	7.471e+01	8.113e+01	1.94e-11	4.50e-06	5.29e-06	1.22e-05
+O1 off=0.0	ElasticNet	25.0	Float64	APG	cur	1.0e-5	true	9	false	false	false	true	false	8.113e+01	7.471e+01	8.113e+01	5.45e-11	7.95e-06	9.21e-06	2.19e-05
+O1 off=0.0	ElasticNet	25.0	Float64	APG	cur	1.0e-8	true	17	false	false	false	true	false	8.113e+01	7.471e+01	8.113e+01	3.69e-17	1.19e-09	9.54e-09	1.97e-08
+O1 off=0.0	ElasticNet	25.0	Float64	APG	profA	1.0e-5	true	9	false	false	false	true	false	8.113e+01	7.471e+01	8.113e+01	5.45e-11	7.95e-06	9.21e-06	2.19e-05
+O1 off=100.0	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	16	false	false	false	true	false	4.962e+03	7.150e+01	1.346e+03	2.90e-09	3.77e-05	4.73e-05	1.15e-06
+O1 off=100.0	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	19	false	false	false	true	false	4.962e+03	7.150e+01	1.346e+03	2.71e-13	5.27e-07	5.27e-07	1.09e-08
+O1 off=100.0	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	17	false	false	true	true	false	4.962e+03	7.150e+01	1.346e+03	9.64e-12	4.17e-06	4.17e-06	7.17e-08
+O1 off=100.0	NormL1	0.0	Float64	APG	cur	1.0e-5	true	13	false	false	true	false	false	4.962e+03	7.150e+01	1.346e+03	3.26e-08	2.89e-05	2.07e-04	4.53e-06
+O1 off=100.0	NormL1	0.0	Float64	APG	cur	1.0e-8	true	17	false	false	false	true	false	4.962e+03	7.150e+01	1.346e+03	3.50e-13	2.55e-07	5.36e-07	1.03e-08
+O1 off=100.0	NormL1	0.0	Float64	APG	profA	1.0e-5	true	16	false	false	true	true	false	4.962e+03	7.150e+01	1.346e+03	5.96e-12	2.30e-06	2.30e-06	4.75e-08
+O1 off=100.0	ElasticNet	0.0	Float64	PGD	cur	1.0e-5	true	16	false	false	false	true	false	4.962e+03	7.150e+01	1.346e+03	2.90e-09	3.77e-05	4.73e-05	1.15e-06
+O1 off=100.0	ElasticNet	0.0	Float64	PGD	cur	1.0e-8	true	19	false	false	false	true	false	4.962e+03	7.150e+01	1.346e+03	2.71e-13	5.27e-07	5.27e-07	1.09e-08
+O1 off=100.0	ElasticNet	0.0	Float64	PGD	profA	1.0e-5	true	17	false	false	true	true	false	4.962e+03	7.150e+01	1.346e+03	9.64e-12	4.17e-06	4.17e-06	7.17e-08
+O1 off=100.0	ElasticNet	0.0	Float64	APG	cur	1.0e-5	true	13	false	false	true	false	false	4.962e+03	7.150e+01	1.346e+03	3.26e-08	2.89e-05	2.07e-04	4.53e-06
+O1 off=100.0	ElasticNet	0.0	Float64	APG	cur	1.0e-8	true	17	false	false	false	true	false	4.962e+03	7.150e+01	1.346e+03	3.50e-13	2.55e-07	5.36e-07	1.03e-08
+O1 off=100.0	ElasticNet	0.0	Float64	APG	profA	1.0e-5	true	16	false	false	true	true	false	4.962e+03	7.150e+01	1.346e+03	5.96e-12	2.30e-06	2.30e-06	4.75e-08
+O1 off=100.0	ElasticNet	1.0	Float64	PGD	cur	1.0e-5	true	20	false	false	false	true	false	4.962e+03	5.717e+01	1.346e+03	1.44e-08	8.22e-04	8.22e-04	1.77e-05
+O1 off=100.0	ElasticNet	1.0	Float64	PGD	cur	1.0e-8	true	32	false	false	false	true	false	4.962e+03	5.717e+01	1.346e+03	1.43e-14	7.71e-07	7.71e-07	1.76e-08
+O1 off=100.0	ElasticNet	1.0	Float64	PGD	profA	1.0e-5	true	29	false	false	true	true	false	4.962e+03	5.717e+01	1.346e+03	1.74e-12	6.00e-06	6.00e-06	1.84e-07
+O1 off=100.0	ElasticNet	1.0	Float64	APG	cur	1.0e-5	true	14	false	false	false	true	false	4.962e+03	5.717e+01	1.346e+03	2.24e-09	2.85e-04	3.12e-04	5.38e-06
+O1 off=100.0	ElasticNet	1.0	Float64	APG	cur	1.0e-8	true	21	false	false	false	true	false	4.962e+03	5.717e+01	1.346e+03	5.45e-15	4.84e-07	4.84e-07	1.05e-08
+O1 off=100.0	ElasticNet	1.0	Float64	APG	profA	1.0e-5	true	19	false	false	true	true	false	4.962e+03	5.717e+01	1.346e+03	1.34e-13	1.91e-06	2.45e-06	4.70e-08
+O1 off=100.0	ElasticNet	25.0	Float64	PGD	cur	1.0e-5	true	13	false	false	false	true	false	4.962e+03	4.529e+02	1.346e+03	6.62e-10	4.65e-05	8.81e-05	1.34e-05
+O1 off=100.0	ElasticNet	25.0	Float64	PGD	cur	1.0e-8	true	22	false	false	false	true	false	4.962e+03	4.529e+02	1.346e+03	4.14e-16	8.28e-08	8.28e-08	1.21e-08
+O1 off=100.0	ElasticNet	25.0	Float64	PGD	profA	1.0e-5	true	17	false	false	true	true	false	4.962e+03	4.529e+02	1.346e+03	1.22e-12	2.74e-06	3.73e-06	5.82e-07
+O1 off=100.0	ElasticNet	25.0	Float64	APG	cur	1.0e-5	true	14	false	false	true	true	false	4.962e+03	4.529e+02	1.346e+03	2.19e-10	6.04e-05	6.04e-05	9.05e-06
+O1 off=100.0	ElasticNet	25.0	Float64	APG	cur	1.0e-8	true	20	false	false	true	true	false	4.962e+03	4.529e+02	1.346e+03	1.75e-16	4.87e-08	4.87e-08	7.94e-09
+O1 off=100.0	ElasticNet	25.0	Float64	APG	profA	1.0e-5	true	16	false	false	true	true	false	4.962e+03	4.529e+02	1.346e+03	3.52e-12	7.18e-06	7.18e-06	1.14e-06
+O1 off=10000.0	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	22	false	false	true	false	false	5.000e+05	7.150e+01	1.350e+05	1.68e-05	5.98e-03	5.98e-03	9.44e-07
+O1 off=10000.0	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	27	false	false	false	true	false	5.000e+05	7.150e+01	1.350e+05	2.45e-09	3.63e-05	4.26e-05	1.04e-08
+O1 off=10000.0	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	29	false	false	true	true	true	5.000e+05	7.150e+01	1.350e+05	4.49e-12	1.51e-06	1.85e-06	4.50e-10
+O1 off=10000.0	NormL1	0.0	Float64	APG	cur	1.0e-5	true	18	false	false	true	false	false	5.000e+05	7.150e+01	1.350e+05	4.32e-05	1.54e-03	6.85e-03	1.50e-06
+O1 off=10000.0	NormL1	0.0	Float64	APG	cur	1.0e-8	true	22	false	false	false	true	false	5.000e+05	7.150e+01	1.350e+05	4.98e-10	2.11e-05	2.11e-05	4.80e-09
+O1 off=10000.0	NormL1	0.0	Float64	APG	profA	1.0e-5	true	24	false	false	true	true	true	5.000e+05	7.150e+01	1.350e+05	9.48e-12	3.02e-06	3.02e-06	6.47e-10
+O1 off=10000.0	ElasticNet	0.0	Float64	PGD	cur	1.0e-5	true	22	false	false	true	false	false	5.000e+05	7.150e+01	1.350e+05	1.68e-05	5.98e-03	5.98e-03	9.44e-07
+O1 off=10000.0	ElasticNet	0.0	Float64	PGD	cur	1.0e-8	true	27	false	false	false	true	false	5.000e+05	7.150e+01	1.350e+05	2.45e-09	3.63e-05	4.26e-05	1.04e-08
+O1 off=10000.0	ElasticNet	0.0	Float64	PGD	profA	1.0e-5	true	29	false	false	true	true	true	5.000e+05	7.150e+01	1.350e+05	4.49e-12	1.51e-06	1.85e-06	4.50e-10
+O1 off=10000.0	ElasticNet	0.0	Float64	APG	cur	1.0e-5	true	18	false	false	true	false	false	5.000e+05	7.150e+01	1.350e+05	4.32e-05	1.54e-03	6.85e-03	1.50e-06
+O1 off=10000.0	ElasticNet	0.0	Float64	APG	cur	1.0e-8	true	22	false	false	false	true	false	5.000e+05	7.150e+01	1.350e+05	4.98e-10	2.11e-05	2.11e-05	4.80e-09
+O1 off=10000.0	ElasticNet	0.0	Float64	APG	profA	1.0e-5	true	24	false	false	true	true	true	5.000e+05	7.150e+01	1.350e+05	9.48e-12	3.02e-06	3.02e-06	6.47e-10
+O1 off=10000.0	ElasticNet	1.0	Float64	PGD	cur	1.0e-5	true	23	false	false	false	true	false	5.000e+05	2.652e+03	1.350e+05	1.83e-08	1.13e-03	1.26e-03	1.77e-05
+O1 off=10000.0	ElasticNet	1.0	Float64	PGD	cur	1.0e-8	true	39	false	false	false	true	false	5.000e+05	2.652e+03	1.350e+05	1.56e-14	1.17e-06	1.17e-06	1.67e-08
+O1 off=10000.0	ElasticNet	1.0	Float64	PGD	profA	1.0e-5	true	35	false	false	true	true	false	5.000e+05	2.652e+03	1.350e+05	4.41e-13	6.10e-06	6.10e-06	8.84e-08
+O1 off=10000.0	ElasticNet	1.0	Float64	APG	cur	1.0e-5	true	15	false	false	true	true	false	5.000e+05	2.652e+03	1.350e+05	6.84e-09	7.49e-04	7.96e-04	7.82e-06
+O1 off=10000.0	ElasticNet	1.0	Float64	APG	cur	1.0e-8	true	23	false	false	false	true	false	5.000e+05	2.652e+03	1.350e+05	2.21e-14	1.76e-06	1.76e-06	2.06e-08
+O1 off=10000.0	ElasticNet	1.0	Float64	APG	profA	1.0e-5	true	21	false	false	true	true	false	5.000e+05	2.652e+03	1.350e+05	1.80e-13	9.46e-09	6.28e-06	6.27e-08
+O1 off=10000.0	ElasticNet	25.0	Float64	PGD	cur	1.0e-5	true	13	false	false	false	true	false	5.000e+05	4.499e+04	1.350e+05	3.86e-10	4.07e-05	6.85e-05	1.00e-05
+O1 off=10000.0	ElasticNet	25.0	Float64	PGD	cur	1.0e-8	true	21	false	false	false	true	false	5.000e+05	4.499e+04	1.350e+05	5.01e-16	5.18e-08	7.72e-08	1.14e-08
+O1 off=10000.0	ElasticNet	25.0	Float64	PGD	profA	1.0e-5	true	16	false	false	true	true	false	5.000e+05	4.499e+04	1.350e+05	2.58e-12	7.41e-06	7.41e-06	9.96e-07
+O1 off=10000.0	ElasticNet	25.0	Float64	APG	cur	1.0e-5	true	13	false	false	false	true	false	5.000e+05	4.499e+04	1.350e+05	2.51e-10	4.95e-05	6.13e-05	8.86e-06
+O1 off=10000.0	ElasticNet	25.0	Float64	APG	cur	1.0e-8	true	19	false	false	true	true	false	5.000e+05	4.499e+04	1.350e+05	6.01e-17	2.58e-08	2.83e-08	3.38e-09
+O1 off=10000.0	ElasticNet	25.0	Float64	APG	profA	1.0e-5	true	15	false	false	true	true	false	5.000e+05	4.499e+04	1.350e+05	8.85e-13	4.23e-06	4.23e-06	4.81e-07
+O1 off=1.0e6	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	26	false	false	true	false	false	5.000e+07	7.150e+01	1.350e+07	3.50e+01	3.53e+00	3.53e+00	1.18e-05
+O1 off=1.0e6	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	36	false	false	true	false	true	5.000e+07	7.150e+01	1.350e+07	8.11e-06	2.11e-03	2.44e-03	6.00e-09
+O1 off=1.0e6	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	41	false	false	true	true	true	5.000e+07	7.150e+01	1.350e+07	3.94e-12	4.00e-07	2.09e-06	4.44e-12
+O1 off=1.0e6	NormL1	0.0	Float64	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.150e+01	1.350e+07	3.90e+01	3.76e+00	3.76e+00	1.03e-05
+O1 off=1.0e6	NormL1	0.0	Float64	APG	cur	1.0e-8	true	29	false	false	true	false	true	5.000e+07	7.150e+01	1.350e+07	8.04e-07	1.78e-04	1.06e-03	2.31e-09
+O1 off=1.0e6	NormL1	0.0	Float64	APG	profA	1.0e-5	true	33	false	false	true	true	true	5.000e+07	7.150e+01	1.350e+07	2.51e-11	3.41e-06	5.00e-06	1.20e-11
+O1 off=1.0e6	ElasticNet	0.0	Float64	PGD	cur	1.0e-5	true	26	false	false	true	false	false	5.000e+07	7.150e+01	1.350e+07	3.50e+01	3.53e+00	3.53e+00	1.18e-05
+O1 off=1.0e6	ElasticNet	0.0	Float64	PGD	cur	1.0e-8	true	36	false	false	true	false	true	5.000e+07	7.150e+01	1.350e+07	8.11e-06	2.11e-03	2.44e-03	6.00e-09
+O1 off=1.0e6	ElasticNet	0.0	Float64	PGD	profA	1.0e-5	true	41	false	false	true	true	true	5.000e+07	7.150e+01	1.350e+07	3.94e-12	4.00e-07	2.09e-06	4.44e-12
+O1 off=1.0e6	ElasticNet	0.0	Float64	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.150e+01	1.350e+07	3.90e+01	3.76e+00	3.76e+00	1.03e-05
+O1 off=1.0e6	ElasticNet	0.0	Float64	APG	cur	1.0e-8	true	29	false	false	true	false	true	5.000e+07	7.150e+01	1.350e+07	8.04e-07	1.78e-04	1.06e-03	2.31e-09
+O1 off=1.0e6	ElasticNet	0.0	Float64	APG	profA	1.0e-5	true	33	false	false	true	true	true	5.000e+07	7.150e+01	1.350e+07	2.51e-11	3.41e-06	5.00e-06	1.20e-11
+O1 off=1.0e6	ElasticNet	1.0	Float64	PGD	cur	1.0e-5	true	23	false	false	false	true	false	5.000e+07	2.646e+05	1.350e+07	1.84e-08	1.13e-03	1.27e-03	1.77e-05
+O1 off=1.0e6	ElasticNet	1.0	Float64	PGD	cur	1.0e-8	true	39	false	false	false	true	false	5.000e+07	2.646e+05	1.350e+07	1.57e-14	1.17e-06	1.17e-06	1.67e-08
+O1 off=1.0e6	ElasticNet	1.0	Float64	PGD	profA	1.0e-5	true	35	false	false	true	true	false	5.000e+07	2.646e+05	1.350e+07	4.43e-13	6.12e-06	6.12e-06	8.86e-08
+O1 off=1.0e6	ElasticNet	1.0	Float64	APG	cur	1.0e-5	true	18	false	false	true	true	false	5.000e+07	2.646e+05	1.350e+07	2.24e-08	1.42e-03	1.42e-03	1.99e-05
+O1 off=1.0e6	ElasticNet	1.0	Float64	APG	cur	1.0e-8	true	26	false	false	false	true	false	5.000e+07	2.646e+05	1.350e+07	1.39e-14	4.66e-07	1.29e-06	1.38e-08
+O1 off=1.0e6	ElasticNet	1.0	Float64	APG	profA	1.0e-5	true	24	false	false	true	true	false	5.000e+07	2.646e+05	1.350e+07	7.05e-13	3.43e-07	9.25e-06	1.01e-07
+O1 off=1.0e6	ElasticNet	25.0	Float64	PGD	cur	1.0e-5	true	13	false	false	false	true	false	5.000e+07	4.498e+06	1.350e+07	3.82e-10	4.04e-05	6.82e-05	1.00e-05
+O1 off=1.0e6	ElasticNet	25.0	Float64	PGD	cur	1.0e-8	true	21	false	false	false	true	false	5.000e+07	4.498e+06	1.350e+07	4.96e-16	5.15e-08	7.68e-08	1.14e-08
+O1 off=1.0e6	ElasticNet	25.0	Float64	PGD	profA	1.0e-5	true	16	false	false	true	true	false	5.000e+07	4.498e+06	1.350e+07	2.55e-12	7.38e-06	7.38e-06	9.92e-07
+O1 off=1.0e6	ElasticNet	25.0	Float64	APG	cur	1.0e-5	true	13	false	false	false	true	false	5.000e+07	4.498e+06	1.350e+07	2.50e-10	5.12e-05	6.10e-05	8.96e-06
+O1 off=1.0e6	ElasticNet	25.0	Float64	APG	cur	1.0e-8	true	19	false	false	true	true	false	5.000e+07	4.498e+06	1.350e+07	5.97e-17	2.49e-08	2.79e-08	3.36e-09
+O1 off=1.0e6	ElasticNet	25.0	Float64	APG	profA	1.0e-5	true	15	false	false	true	true	false	5.000e+07	4.498e+06	1.350e+07	8.58e-13	4.00e-06	4.00e-06	4.88e-07
+O1 reduced control	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	9	false	false	true	true	false	7.150e+01	7.150e+01	7.150e+01	2.36e-15	NaN	6.81e-08	9.38e-08
+O1 reduced control	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	11	false	false	false	true	false	7.150e+01	7.150e+01	7.150e+01	1.98e-17	NaN	5.60e-09	1.14e-08
+O1 reduced control	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	9	false	false	true	true	false	7.150e+01	7.150e+01	7.150e+01	2.36e-15	NaN	6.81e-08	9.38e-08
+O1 reduced control	NormL1	0.0	Float64	APG	cur	1.0e-5	true	8	false	false	false	true	false	7.150e+01	7.150e+01	7.150e+01	2.32e-11	NaN	5.11e-06	1.05e-05
+O1 reduced control	NormL1	0.0	Float64	APG	cur	1.0e-8	true	13	false	false	false	true	false	7.150e+01	7.150e+01	7.150e+01	9.72e-17	NaN	9.26e-09	1.97e-08
+O1 reduced control	NormL1	0.0	Float64	APG	profA	1.0e-5	true	8	false	false	false	true	false	7.150e+01	7.150e+01	7.150e+01	2.32e-11	NaN	5.11e-06	1.05e-05
+O2 case O	NormL1	0.0	Float64	PGD	cur	1.0e-5	true	27	false	false	true	false	false	5.000e+07	7.296e+01	1.350e+07	3.39e+00	8.85e-01	9.49e-01	2.57e-06
+O2 case O	NormL1	0.0	Float64	PGD	cur	1.0e-8	true	34	false	false	true	false	true	5.000e+07	7.296e+01	1.350e+07	3.46e-07	5.00e-04	5.00e-04	1.19e-09
+O2 case O	NormL1	0.0	Float64	PGD	profA	1.0e-5	true	36	false	false	true	true	true	5.000e+07	7.296e+01	1.350e+07	8.12e-11	8.37e-06	8.37e-06	1.89e-11
+O2 case O	NormL1	0.0	Float64	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.296e+01	1.350e+07	4.59e+01	4.25e+00	4.25e+00	1.03e-05
+O2 case O	NormL1	0.0	Float64	APG	cur	1.0e-8	true	28	false	false	true	false	true	5.000e+07	7.296e+01	1.350e+07	1.54e-06	1.03e-03	1.03e-03	2.48e-09
+O2 case O	NormL1	0.0	Float64	APG	profA	1.0e-5	true	33	false	false	true	true	true	5.000e+07	7.296e+01	1.350e+07	1.62e-11	3.41e-06	3.41e-06	8.10e-12
+O2 case O	ElasticNet	0.0	Float64	PGD	cur	1.0e-5	true	27	false	false	true	false	false	5.000e+07	7.296e+01	1.350e+07	3.39e+00	8.85e-01	9.49e-01	2.57e-06
+O2 case O	ElasticNet	0.0	Float64	PGD	cur	1.0e-8	true	34	false	false	true	false	true	5.000e+07	7.296e+01	1.350e+07	3.46e-07	5.00e-04	5.00e-04	1.19e-09
+O2 case O	ElasticNet	0.0	Float64	PGD	profA	1.0e-5	true	36	false	false	true	true	true	5.000e+07	7.296e+01	1.350e+07	8.12e-11	8.37e-06	8.37e-06	1.89e-11
+O2 case O	ElasticNet	0.0	Float64	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.296e+01	1.350e+07	4.59e+01	4.25e+00	4.25e+00	1.03e-05
+O2 case O	ElasticNet	0.0	Float64	APG	cur	1.0e-8	true	28	false	false	true	false	true	5.000e+07	7.296e+01	1.350e+07	1.54e-06	1.03e-03	1.03e-03	2.48e-09
+O2 case O	ElasticNet	0.0	Float64	APG	profA	1.0e-5	true	33	false	false	true	true	true	5.000e+07	7.296e+01	1.350e+07	1.62e-11	3.41e-06	3.41e-06	8.10e-12
+O2 case O	ElasticNet	1.0	Float64	PGD	cur	1.0e-5	true	19	false	false	false	true	false	5.000e+07	3.203e+05	1.350e+07	2.67e-08	1.43e-03	1.43e-03	2.11e-05
+O2 case O	ElasticNet	1.0	Float64	PGD	cur	1.0e-8	true	30	false	false	false	true	false	5.000e+07	3.203e+05	1.350e+07	2.37e-14	1.38e-06	1.38e-06	2.00e-08
+O2 case O	ElasticNet	1.0	Float64	PGD	profA	1.0e-5	true	27	false	false	true	true	false	5.000e+07	3.203e+05	1.350e+07	3.36e-13	3.80e-06	9.10e-06	6.35e-08
+O2 case O	ElasticNet	1.0	Float64	APG	cur	1.0e-5	true	13	false	false	false	true	false	5.000e+07	3.203e+05	1.350e+07	3.08e-09	7.95e-04	7.95e-04	7.75e-06
+O2 case O	ElasticNet	1.0	Float64	APG	cur	1.0e-8	true	21	false	false	false	true	false	5.000e+07	3.203e+05	1.350e+07	1.97e-15	6.22e-07	6.22e-07	5.75e-09
+O2 case O	ElasticNet	1.0	Float64	APG	profA	1.0e-5	true	20	false	false	true	true	false	5.000e+07	3.203e+05	1.350e+07	2.61e-13	4.33e-06	6.34e-06	7.63e-08
+FC free column	NormL1	0.0	Float64	PGD	cur	1.0e-5	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.69e-01	4.04e-03	1.46e+00	1.69e-02
+FC free column	NormL1	0.0	Float64	PGD	cur	1.0e-8	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.69e-01	4.04e-03	1.46e+00	1.69e-02
+FC free column	NormL1	0.0	Float64	PGD	profA	1.0e-5	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.69e-01	4.04e-03	1.46e+00	1.69e-02
+FC free column	NormL1	0.0	Float64	APG	cur	1.0e-5	true	7	false	false	true	false	false	2.502e+09	7.000e+01	8.473e+05	2.71e-01	2.29e+01	2.29e+01	1.69e-02
+FC free column	NormL1	0.0	Float64	APG	cur	1.0e-8	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.49e-01	1.15e-02	5.70e-01	1.68e-02
+FC free column	NormL1	0.0	Float64	APG	profA	1.0e-5	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.49e-01	1.15e-02	5.70e-01	1.68e-02
+FC free column	ElasticNet	0.0	Float64	PGD	cur	1.0e-5	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.69e-01	4.04e-03	1.46e+00	1.69e-02
+FC free column	ElasticNet	0.0	Float64	PGD	cur	1.0e-8	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.69e-01	4.04e-03	1.46e+00	1.69e-02
+FC free column	ElasticNet	0.0	Float64	PGD	profA	1.0e-5	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.69e-01	4.04e-03	1.46e+00	1.69e-02
+FC free column	ElasticNet	0.0	Float64	APG	cur	1.0e-5	true	7	false	false	true	false	false	2.502e+09	7.000e+01	8.473e+05	2.71e-01	2.29e+01	2.29e+01	1.69e-02
+FC free column	ElasticNet	0.0	Float64	APG	cur	1.0e-8	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.49e-01	1.15e-02	5.70e-01	1.68e-02
+FC free column	ElasticNet	0.0	Float64	APG	profA	1.0e-5	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.49e-01	1.15e-02	5.70e-01	1.68e-02
+FC free column	ElasticNet	1.0	Float64	PGD	cur	1.0e-5	true	10	false	false	true	false	false	2.502e+09	7.000e+01	8.473e+05	2.40e-02	1.46e+02	1.46e+02	1.64e-02
+FC free column	ElasticNet	1.0	Float64	PGD	cur	1.0e-8	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.32e-02	2.18e-01	1.46e+00	1.64e-02
+FC free column	ElasticNet	1.0	Float64	PGD	profA	1.0e-5	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.32e-02	2.18e-01	1.46e+00	1.64e-02
+FC free column	ElasticNet	1.0	Float64	APG	cur	1.0e-5	true	7	false	false	true	false	false	2.502e+09	7.000e+01	8.473e+05	2.33e-02	2.29e+01	2.29e+01	1.64e-02
+FC free column	ElasticNet	1.0	Float64	APG	cur	1.0e-8	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.14e-02	1.15e-02	5.70e-01	1.63e-02
+FC free column	ElasticNet	1.0	Float64	APG	profA	1.0e-5	false	200	false	false	false	false	false	2.502e+09	7.000e+01	8.473e+05	2.14e-02	1.15e-02	5.70e-01	1.63e-02
+G group offset	GroupNormL2	0.0	Float64	PGD	cur	1.0e-5	true	28	false	false	true	false	false	5.000e+07	7.150e+01	1.350e+07	4.10e-01	4.99e-01	4.99e-01	1.23e-06
+G group offset	GroupNormL2	0.0	Float64	PGD	cur	1.0e-8	true	35	false	false	true	false	true	5.000e+07	7.150e+01	1.350e+07	1.16e-07	2.43e-04	2.96e-04	7.22e-10
+G group offset	GroupNormL2	0.0	Float64	PGD	profA	1.0e-5	true	38	false	false	true	true	true	5.000e+07	7.150e+01	1.350e+07	1.17e-10	8.11e-06	9.20e-06	2.27e-11
+G group offset	GroupNormL2	0.0	Float64	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.150e+01	1.350e+07	3.90e+01	3.76e+00	3.76e+00	1.03e-05
+G group offset	GroupNormL2	0.0	Float64	APG	cur	1.0e-8	true	29	false	false	true	false	true	5.000e+07	7.150e+01	1.350e+07	8.04e-07	1.78e-04	1.06e-03	2.31e-09
+G group offset	GroupNormL2	0.0	Float64	APG	profA	1.0e-5	true	33	false	false	true	true	true	5.000e+07	7.150e+01	1.350e+07	2.51e-11	3.41e-06	5.00e-06	1.20e-11
+O1 off=0.0	NormL1	0.0	Float32	PGD	cur	1.0e-5	false	11	false	true	false	false	false	8.113e+01	7.150e+01	8.113e+01	8.24e-10	2.11e-05	2.47e-05	5.89e-05
+O1 off=0.0	NormL1	0.0	Float32	PGD	cur	1.0e-8	false	11	false	true	false	false	false	8.113e+01	7.150e+01	8.113e+01	8.24e-10	2.11e-05	2.47e-05	5.89e-05
+O1 off=0.0	NormL1	0.0	Float32	PGD	profA	1.0e-5	false	11	false	true	false	false	false	8.113e+01	7.150e+01	8.113e+01	8.24e-10	2.11e-05	2.47e-05	5.89e-05
+O1 off=0.0	NormL1	0.0	Float32	APG	cur	1.0e-5	true	10	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	3.33e-11	2.68e-06	5.53e-06	1.23e-05
+O1 off=0.0	NormL1	0.0	Float32	APG	cur	1.0e-8	true	10	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	3.33e-11	2.68e-06	5.53e-06	1.23e-05
+O1 off=0.0	NormL1	0.0	Float32	APG	profA	1.0e-5	true	10	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	3.33e-11	2.68e-06	5.53e-06	1.23e-05
+O1 off=0.0	ElasticNet	0.0	Float32	PGD	cur	1.0e-5	false	11	false	true	false	false	false	8.113e+01	7.150e+01	8.113e+01	8.24e-10	2.11e-05	2.47e-05	5.89e-05
+O1 off=0.0	ElasticNet	0.0	Float32	PGD	cur	1.0e-8	false	11	false	true	false	false	false	8.113e+01	7.150e+01	8.113e+01	8.24e-10	2.11e-05	2.47e-05	5.89e-05
+O1 off=0.0	ElasticNet	0.0	Float32	PGD	profA	1.0e-5	false	11	false	true	false	false	false	8.113e+01	7.150e+01	8.113e+01	8.24e-10	2.11e-05	2.47e-05	5.89e-05
+O1 off=0.0	ElasticNet	0.0	Float32	APG	cur	1.0e-5	true	10	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	3.33e-11	2.68e-06	5.53e-06	1.23e-05
+O1 off=0.0	ElasticNet	0.0	Float32	APG	cur	1.0e-8	true	10	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	3.33e-11	2.68e-06	5.53e-06	1.23e-05
+O1 off=0.0	ElasticNet	0.0	Float32	APG	profA	1.0e-5	true	10	false	false	false	true	false	8.113e+01	7.150e+01	8.113e+01	3.33e-11	2.68e-06	5.53e-06	1.23e-05
+O1 off=0.0	ElasticNet	1.0	Float32	PGD	cur	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	3.07e-11	4.14e-06	4.88e-06	1.16e-05
+O1 off=0.0	ElasticNet	1.0	Float32	PGD	cur	1.0e-8	true	12	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	3.07e-11	4.14e-06	4.88e-06	1.16e-05
+O1 off=0.0	ElasticNet	1.0	Float32	PGD	profA	1.0e-5	true	12	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	3.07e-11	4.14e-06	4.88e-06	1.16e-05
+O1 off=0.0	ElasticNet	1.0	Float32	APG	cur	1.0e-5	true	9	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	1.10e-11	1.35e-07	3.94e-06	6.43e-06
+O1 off=0.0	ElasticNet	1.0	Float32	APG	cur	1.0e-8	true	9	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	1.10e-11	1.35e-07	3.94e-06	6.43e-06
+O1 off=0.0	ElasticNet	1.0	Float32	APG	profA	1.0e-5	true	9	false	false	false	true	false	8.113e+01	7.168e+01	8.113e+01	1.10e-11	1.35e-07	3.94e-06	6.43e-06
+O1 off=0.0	ElasticNet	25.0	Float32	PGD	cur	1.0e-5	true	12	false	true	true	true	false	8.113e+01	7.471e+01	8.113e+01	2.17e-12	1.45e-06	1.84e-06	4.22e-06
+O1 off=0.0	ElasticNet	25.0	Float32	PGD	cur	1.0e-8	true	12	false	true	false	true	false	8.113e+01	7.471e+01	8.113e+01	2.17e-12	1.45e-06	1.84e-06	4.22e-06
+O1 off=0.0	ElasticNet	25.0	Float32	PGD	profA	1.0e-5	true	12	false	true	true	true	false	8.113e+01	7.471e+01	8.113e+01	2.17e-12	1.45e-06	1.84e-06	4.22e-06
+O1 off=0.0	ElasticNet	25.0	Float32	APG	cur	1.0e-5	true	9	false	false	false	true	false	8.113e+01	7.471e+01	8.113e+01	5.42e-11	7.82e-06	9.26e-06	2.19e-05
+O1 off=0.0	ElasticNet	25.0	Float32	APG	cur	1.0e-8	true	10	false	false	false	true	false	8.113e+01	7.471e+01	8.113e+01	1.39e-11	3.40e-06	5.16e-06	1.18e-05
+O1 off=0.0	ElasticNet	25.0	Float32	APG	profA	1.0e-5	true	9	false	false	false	true	false	8.113e+01	7.471e+01	8.113e+01	5.42e-11	7.82e-06	9.26e-06	2.19e-05
+O1 off=100.0	NormL1	0.0	Float32	PGD	cur	1.0e-5	true	16	false	true	false	true	false	4.962e+03	7.150e+01	1.346e+03	2.91e-09	4.00e-05	4.63e-05	1.14e-06
+O1 off=100.0	NormL1	0.0	Float32	PGD	cur	1.0e-8	true	16	false	true	false	true	false	4.962e+03	7.150e+01	1.346e+03	2.91e-09	4.00e-05	4.63e-05	1.14e-06
+O1 off=100.0	NormL1	0.0	Float32	PGD	profA	1.0e-5	false	16	false	true	false	false	false	4.962e+03	7.150e+01	1.346e+03	2.91e-09	4.00e-05	4.63e-05	1.14e-06
+O1 off=100.0	NormL1	0.0	Float32	APG	cur	1.0e-5	true	13	false	false	true	true	false	4.962e+03	7.150e+01	1.346e+03	3.26e-08	3.44e-05	2.05e-04	4.52e-06
+O1 off=100.0	NormL1	0.0	Float32	APG	cur	1.0e-8	true	13	false	false	false	true	false	4.962e+03	7.150e+01	1.346e+03	3.26e-08	3.44e-05	2.05e-04	4.52e-06
+O1 off=100.0	NormL1	0.0	Float32	APG	profA	1.0e-5	false	15	false	true	false	false	false	4.962e+03	7.150e+01	1.346e+03	9.53e-10	1.48e-05	3.47e-05	7.94e-07
+O1 off=100.0	ElasticNet	0.0	Float32	PGD	cur	1.0e-5	true	16	false	true	false	true	false	4.962e+03	7.150e+01	1.346e+03	2.91e-09	4.00e-05	4.63e-05	1.14e-06
+O1 off=100.0	ElasticNet	0.0	Float32	PGD	cur	1.0e-8	true	16	false	true	false	true	false	4.962e+03	7.150e+01	1.346e+03	2.91e-09	4.00e-05	4.63e-05	1.14e-06
+O1 off=100.0	ElasticNet	0.0	Float32	PGD	profA	1.0e-5	false	16	false	true	false	false	false	4.962e+03	7.150e+01	1.346e+03	2.91e-09	4.00e-05	4.63e-05	1.14e-06
+O1 off=100.0	ElasticNet	0.0	Float32	APG	cur	1.0e-5	true	13	false	false	true	true	false	4.962e+03	7.150e+01	1.346e+03	3.26e-08	3.44e-05	2.05e-04	4.52e-06
+O1 off=100.0	ElasticNet	0.0	Float32	APG	cur	1.0e-8	true	13	false	false	false	true	false	4.962e+03	7.150e+01	1.346e+03	3.26e-08	3.44e-05	2.05e-04	4.52e-06
+O1 off=100.0	ElasticNet	0.0	Float32	APG	profA	1.0e-5	false	15	false	true	false	false	false	4.962e+03	7.150e+01	1.346e+03	9.53e-10	1.48e-05	3.47e-05	7.94e-07
+O1 off=100.0	ElasticNet	1.0	Float32	PGD	cur	1.0e-5	true	20	false	false	false	true	false	4.962e+03	5.717e+01	1.346e+03	1.43e-08	8.17e-04	8.17e-04	1.76e-05
+O1 off=100.0	ElasticNet	1.0	Float32	PGD	cur	1.0e-8	true	22	false	true	false	true	false	4.962e+03	5.717e+01	1.346e+03	1.85e-09	2.55e-04	2.55e-04	6.31e-06
+O1 off=100.0	ElasticNet	1.0	Float32	PGD	profA	1.0e-5	false	22	false	true	false	false	false	4.962e+03	5.717e+01	1.346e+03	1.85e-09	2.55e-04	2.55e-04	6.31e-06
+O1 off=100.0	ElasticNet	1.0	Float32	APG	cur	1.0e-5	true	14	false	false	false	true	false	4.962e+03	5.717e+01	1.346e+03	2.27e-09	2.88e-04	3.12e-04	5.44e-06
+O1 off=100.0	ElasticNet	1.0	Float32	APG	cur	1.0e-8	true	14	false	false	false	true	false	4.962e+03	5.717e+01	1.346e+03	2.27e-09	2.88e-04	3.12e-04	5.44e-06
+O1 off=100.0	ElasticNet	1.0	Float32	APG	profA	1.0e-5	false	17	false	true	false	false	false	4.962e+03	5.717e+01	1.346e+03	3.54e-11	2.65e-05	2.65e-05	8.20e-07
+O1 off=100.0	ElasticNet	25.0	Float32	PGD	cur	1.0e-5	true	13	false	false	false	true	false	4.962e+03	4.529e+02	1.346e+03	6.60e-10	4.67e-05	8.82e-05	1.34e-05
+O1 off=100.0	ElasticNet	25.0	Float32	PGD	cur	1.0e-8	true	14	false	false	false	true	false	4.962e+03	4.529e+02	1.346e+03	1.00e-10	6.02e-05	6.02e-05	6.46e-06
+O1 off=100.0	ElasticNet	25.0	Float32	PGD	profA	1.0e-5	true	17	false	true	true	true	false	4.962e+03	4.529e+02	1.346e+03	1.52e-13	1.86e-06	1.86e-06	2.56e-07
+O1 off=100.0	ElasticNet	25.0	Float32	APG	cur	1.0e-5	false	16	false	true	false	false	false	4.962e+03	4.529e+02	1.346e+03	8.23e-10	1.11e-04	1.11e-04	1.75e-05
+O1 off=100.0	ElasticNet	25.0	Float32	APG	cur	1.0e-8	false	16	false	true	false	false	false	4.962e+03	4.529e+02	1.346e+03	8.23e-10	1.11e-04	1.11e-04	1.75e-05
+O1 off=100.0	ElasticNet	25.0	Float32	APG	profA	1.0e-5	false	16	false	true	false	false	false	4.962e+03	4.529e+02	1.346e+03	8.23e-10	1.11e-04	1.11e-04	1.75e-05
+O1 off=10000.0	NormL1	0.0	Float32	PGD	cur	1.0e-5	true	22	false	false	true	false	false	5.000e+05	7.150e+01	1.350e+05	1.61e-05	5.85e-03	5.85e-03	9.26e-07
+O1 off=10000.0	NormL1	0.0	Float32	PGD	cur	1.0e-8	false	23	false	true	false	false	false	5.000e+05	7.150e+01	1.350e+05	2.37e-06	8.30e-04	1.49e-03	3.45e-07
+O1 off=10000.0	NormL1	0.0	Float32	PGD	profA	1.0e-5	false	23	false	true	false	false	false	5.000e+05	7.150e+01	1.350e+05	2.37e-06	8.30e-04	1.49e-03	3.45e-07
+O1 off=10000.0	NormL1	0.0	Float32	APG	cur	1.0e-5	true	18	false	false	true	false	false	5.000e+05	7.150e+01	1.350e+05	4.46e-05	1.92e-03	6.84e-03	1.51e-06
+O1 off=10000.0	NormL1	0.0	Float32	APG	cur	1.0e-8	false	20	false	true	false	false	false	5.000e+05	7.150e+01	1.350e+05	3.82e-06	1.36e-03	1.78e-03	4.31e-07
+O1 off=10000.0	NormL1	0.0	Float32	APG	profA	1.0e-5	false	20	false	true	false	false	false	5.000e+05	7.150e+01	1.350e+05	3.82e-06	1.36e-03	1.78e-03	4.31e-07
+O1 off=10000.0	ElasticNet	0.0	Float32	PGD	cur	1.0e-5	true	22	false	false	true	false	false	5.000e+05	7.150e+01	1.350e+05	1.61e-05	5.85e-03	5.85e-03	9.26e-07
+O1 off=10000.0	ElasticNet	0.0	Float32	PGD	cur	1.0e-8	false	23	false	true	false	false	false	5.000e+05	7.150e+01	1.350e+05	2.37e-06	8.30e-04	1.49e-03	3.45e-07
+O1 off=10000.0	ElasticNet	0.0	Float32	PGD	profA	1.0e-5	false	23	false	true	false	false	false	5.000e+05	7.150e+01	1.350e+05	2.37e-06	8.30e-04	1.49e-03	3.45e-07
+O1 off=10000.0	ElasticNet	0.0	Float32	APG	cur	1.0e-5	true	18	false	false	true	false	false	5.000e+05	7.150e+01	1.350e+05	4.46e-05	1.92e-03	6.84e-03	1.51e-06
+O1 off=10000.0	ElasticNet	0.0	Float32	APG	cur	1.0e-8	false	20	false	true	false	false	false	5.000e+05	7.150e+01	1.350e+05	3.82e-06	1.36e-03	1.78e-03	4.31e-07
+O1 off=10000.0	ElasticNet	0.0	Float32	APG	profA	1.0e-5	false	20	false	true	false	false	false	5.000e+05	7.150e+01	1.350e+05	3.82e-06	1.36e-03	1.78e-03	4.31e-07
+O1 off=10000.0	ElasticNet	1.0	Float32	PGD	cur	1.0e-5	true	23	false	false	false	true	false	5.000e+05	2.652e+03	1.350e+05	1.83e-08	1.11e-03	1.27e-03	1.76e-05
+O1 off=10000.0	ElasticNet	1.0	Float32	PGD	cur	1.0e-8	true	23	false	false	false	true	false	5.000e+05	2.652e+03	1.350e+05	1.83e-08	1.11e-03	1.27e-03	1.76e-05
+O1 off=10000.0	ElasticNet	1.0	Float32	PGD	profA	1.0e-5	false	24	false	true	false	false	false	5.000e+05	2.652e+03	1.350e+05	8.30e-09	1.00e-03	1.00e-03	1.26e-05
+O1 off=10000.0	ElasticNet	1.0	Float32	APG	cur	1.0e-5	true	15	false	false	true	true	false	5.000e+05	2.652e+03	1.350e+05	6.87e-09	7.36e-04	8.06e-04	7.79e-06
+O1 off=10000.0	ElasticNet	1.0	Float32	APG	cur	1.0e-8	true	15	false	false	false	true	false	5.000e+05	2.652e+03	1.350e+05	6.87e-09	7.36e-04	8.06e-04	7.79e-06
+O1 off=10000.0	ElasticNet	1.0	Float32	APG	profA	1.0e-5	false	16	false	true	false	false	false	5.000e+05	2.652e+03	1.350e+05	1.09e-09	3.69e-04	3.69e-04	3.69e-06
+O1 off=10000.0	ElasticNet	25.0	Float32	PGD	cur	1.0e-5	true	13	false	false	false	true	false	5.000e+05	4.499e+04	1.350e+05	3.88e-10	4.12e-05	6.84e-05	1.00e-05
+O1 off=10000.0	ElasticNet	25.0	Float32	PGD	cur	1.0e-8	true	13	false	false	false	true	false	5.000e+05	4.499e+04	1.350e+05	3.88e-10	4.12e-05	6.84e-05	1.00e-05
+O1 off=10000.0	ElasticNet	25.0	Float32	PGD	profA	1.0e-5	false	17	false	true	false	false	false	5.000e+05	4.499e+04	1.350e+05	3.84e-12	1.18e-05	1.18e-05	8.02e-07
+O1 off=10000.0	ElasticNet	25.0	Float32	APG	cur	1.0e-5	true	11	false	false	true	true	false	5.000e+05	4.499e+04	1.350e+05	5.08e-11	1.79e-05	2.26e-05	3.67e-06
+O1 off=10000.0	ElasticNet	25.0	Float32	APG	cur	1.0e-8	true	11	false	false	false	true	false	5.000e+05	4.499e+04	1.350e+05	5.08e-11	1.79e-05	2.26e-05	3.67e-06
+O1 off=10000.0	ElasticNet	25.0	Float32	APG	profA	1.0e-5	true	14	false	false	true	true	false	5.000e+05	4.499e+04	1.350e+05	4.09e-12	5.05e-06	7.28e-06	1.06e-06
+O1 off=1.0e6	NormL1	0.0	Float32	PGD	cur	1.0e-5	true	28	false	false	true	false	false	5.000e+07	7.096e+01	1.350e+07	4.05e-01	4.87e-01	4.87e-01	1.21e-06
+O1 off=1.0e6	NormL1	0.0	Float32	PGD	cur	1.0e-8	false	32	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	4.08e-04	6.28e-03	2.20e-02	4.83e-08
+O1 off=1.0e6	NormL1	0.0	Float32	PGD	profA	1.0e-5	false	32	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	4.08e-04	6.28e-03	2.20e-02	4.83e-08
+O1 off=1.0e6	NormL1	0.0	Float32	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.096e+01	1.350e+07	3.90e+01	3.77e+00	3.77e+00	1.03e-05
+O1 off=1.0e6	NormL1	0.0	Float32	APG	cur	1.0e-8	false	27	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	3.68e-04	6.27e-03	1.99e-02	3.55e-08
+O1 off=1.0e6	NormL1	0.0	Float32	APG	profA	1.0e-5	false	27	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	3.68e-04	6.27e-03	1.99e-02	3.55e-08
+O1 off=1.0e6	ElasticNet	0.0	Float32	PGD	cur	1.0e-5	true	28	false	false	true	false	false	5.000e+07	7.096e+01	1.350e+07	4.05e-01	4.87e-01	4.87e-01	1.21e-06
+O1 off=1.0e6	ElasticNet	0.0	Float32	PGD	cur	1.0e-8	false	32	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	4.08e-04	6.28e-03	2.20e-02	4.83e-08
+O1 off=1.0e6	ElasticNet	0.0	Float32	PGD	profA	1.0e-5	false	32	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	4.08e-04	6.28e-03	2.20e-02	4.83e-08
+O1 off=1.0e6	ElasticNet	0.0	Float32	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.096e+01	1.350e+07	3.90e+01	3.77e+00	3.77e+00	1.03e-05
+O1 off=1.0e6	ElasticNet	0.0	Float32	APG	cur	1.0e-8	false	27	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	3.68e-04	6.27e-03	1.99e-02	3.55e-08
+O1 off=1.0e6	ElasticNet	0.0	Float32	APG	profA	1.0e-5	false	27	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	3.68e-04	6.27e-03	1.99e-02	3.55e-08
+O1 off=1.0e6	ElasticNet	1.0	Float32	PGD	cur	1.0e-5	true	23	false	true	false	true	false	5.000e+07	2.646e+05	1.350e+07	9.30e-09	4.97e-04	9.45e-04	1.21e-05
+O1 off=1.0e6	ElasticNet	1.0	Float32	PGD	cur	1.0e-8	true	23	false	true	false	true	false	5.000e+07	2.646e+05	1.350e+07	9.30e-09	4.97e-04	9.45e-04	1.21e-05
+O1 off=1.0e6	ElasticNet	1.0	Float32	PGD	profA	1.0e-5	false	23	false	true	false	false	false	5.000e+07	2.646e+05	1.350e+07	9.30e-09	4.97e-04	9.45e-04	1.21e-05
+O1 off=1.0e6	ElasticNet	1.0	Float32	APG	cur	1.0e-5	true	18	false	false	true	true	false	5.000e+07	2.646e+05	1.350e+07	2.24e-08	1.42e-03	1.42e-03	1.99e-05
+O1 off=1.0e6	ElasticNet	1.0	Float32	APG	cur	1.0e-8	true	18	false	false	false	true	false	5.000e+07	2.646e+05	1.350e+07	2.24e-08	1.42e-03	1.42e-03	1.99e-05
+O1 off=1.0e6	ElasticNet	1.0	Float32	APG	profA	1.0e-5	false	20	false	true	false	false	false	5.000e+07	2.646e+05	1.350e+07	1.05e-09	5.96e-05	2.92e-04	3.49e-06
+O1 off=1.0e6	ElasticNet	25.0	Float32	PGD	cur	1.0e-5	false	11	false	true	false	false	false	5.000e+07	4.498e+06	1.350e+07	1.81e-08	4.27e-04	4.60e-04	7.32e-05
+O1 off=1.0e6	ElasticNet	25.0	Float32	PGD	cur	1.0e-8	false	11	false	true	false	false	false	5.000e+07	4.498e+06	1.350e+07	1.81e-08	4.27e-04	4.60e-04	7.32e-05
+O1 off=1.0e6	ElasticNet	25.0	Float32	PGD	profA	1.0e-5	false	11	false	true	false	false	false	5.000e+07	4.498e+06	1.350e+07	1.81e-08	4.27e-04	4.60e-04	7.32e-05
+O1 off=1.0e6	ElasticNet	25.0	Float32	APG	cur	1.0e-5	false	10	false	true	false	false	false	5.000e+07	4.498e+06	1.350e+07	1.04e-08	3.93e-04	3.93e-04	6.23e-05
+O1 off=1.0e6	ElasticNet	25.0	Float32	APG	cur	1.0e-8	false	10	false	true	false	false	false	5.000e+07	4.498e+06	1.350e+07	1.04e-08	3.93e-04	3.93e-04	6.23e-05
+O1 off=1.0e6	ElasticNet	25.0	Float32	APG	profA	1.0e-5	false	10	false	true	false	false	false	5.000e+07	4.498e+06	1.350e+07	1.04e-08	3.93e-04	3.93e-04	6.23e-05
+O1 reduced control	NormL1	0.0	Float32	PGD	cur	1.0e-5	true	9	false	false	true	true	false	7.150e+01	7.150e+01	7.150e+01	4.17e-15	NaN	9.21e-08	1.26e-07
+O1 reduced control	NormL1	0.0	Float32	PGD	cur	1.0e-8	true	9	false	false	false	true	false	7.150e+01	7.150e+01	7.150e+01	4.17e-15	NaN	9.21e-08	1.26e-07
+O1 reduced control	NormL1	0.0	Float32	PGD	profA	1.0e-5	true	9	false	false	true	true	false	7.150e+01	7.150e+01	7.150e+01	4.17e-15	NaN	9.21e-08	1.26e-07
+O1 reduced control	NormL1	0.0	Float32	APG	cur	1.0e-5	true	8	false	false	false	true	false	7.150e+01	7.150e+01	7.150e+01	2.32e-11	NaN	5.08e-06	1.05e-05
+O1 reduced control	NormL1	0.0	Float32	APG	cur	1.0e-8	true	8	false	false	false	true	false	7.150e+01	7.150e+01	7.150e+01	2.32e-11	NaN	5.08e-06	1.05e-05
+O1 reduced control	NormL1	0.0	Float32	APG	profA	1.0e-5	true	8	false	false	false	true	false	7.150e+01	7.150e+01	7.150e+01	2.32e-11	NaN	5.08e-06	1.05e-05
+O2 case O	NormL1	0.0	Float32	PGD	cur	1.0e-5	true	27	false	false	true	false	false	5.000e+07	7.302e+01	1.350e+07	3.36e+00	8.51e-01	9.59e-01	2.53e-06
+O2 case O	NormL1	0.0	Float32	PGD	cur	1.0e-8	false	31	false	true	false	false	false	5.000e+07	7.302e+01	1.350e+07	4.01e-04	1.41e-02	1.41e-02	3.65e-08
+O2 case O	NormL1	0.0	Float32	PGD	profA	1.0e-5	false	31	false	true	false	false	false	5.000e+07	7.302e+01	1.350e+07	4.01e-04	1.41e-02	1.41e-02	3.65e-08
+O2 case O	NormL1	0.0	Float32	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.302e+01	1.350e+07	4.61e+01	4.29e+00	4.29e+00	1.04e-05
+O2 case O	NormL1	0.0	Float32	APG	cur	1.0e-8	false	28	false	true	false	false	false	5.000e+07	7.302e+01	1.350e+07	3.52e-04	2.15e-02	2.15e-02	3.46e-08
+O2 case O	NormL1	0.0	Float32	APG	profA	1.0e-5	false	28	false	true	false	false	false	5.000e+07	7.302e+01	1.350e+07	3.52e-04	2.15e-02	2.15e-02	3.46e-08
+O2 case O	ElasticNet	0.0	Float32	PGD	cur	1.0e-5	true	27	false	false	true	false	false	5.000e+07	7.302e+01	1.350e+07	3.36e+00	8.51e-01	9.59e-01	2.53e-06
+O2 case O	ElasticNet	0.0	Float32	PGD	cur	1.0e-8	false	31	false	true	false	false	false	5.000e+07	7.302e+01	1.350e+07	4.01e-04	1.41e-02	1.41e-02	3.65e-08
+O2 case O	ElasticNet	0.0	Float32	PGD	profA	1.0e-5	false	31	false	true	false	false	false	5.000e+07	7.302e+01	1.350e+07	4.01e-04	1.41e-02	1.41e-02	3.65e-08
+O2 case O	ElasticNet	0.0	Float32	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.302e+01	1.350e+07	4.61e+01	4.29e+00	4.29e+00	1.04e-05
+O2 case O	ElasticNet	0.0	Float32	APG	cur	1.0e-8	false	28	false	true	false	false	false	5.000e+07	7.302e+01	1.350e+07	3.52e-04	2.15e-02	2.15e-02	3.46e-08
+O2 case O	ElasticNet	0.0	Float32	APG	profA	1.0e-5	false	28	false	true	false	false	false	5.000e+07	7.302e+01	1.350e+07	3.52e-04	2.15e-02	2.15e-02	3.46e-08
+O2 case O	ElasticNet	1.0	Float32	PGD	cur	1.0e-5	true	19	false	false	false	true	false	5.000e+07	3.203e+05	1.350e+07	2.68e-08	1.44e-03	1.44e-03	2.11e-05
+O2 case O	ElasticNet	1.0	Float32	PGD	cur	1.0e-8	true	20	false	false	false	true	false	5.000e+07	3.203e+05	1.350e+07	6.98e-09	7.50e-04	7.50e-04	1.09e-05
+O2 case O	ElasticNet	1.0	Float32	PGD	profA	1.0e-5	true	25	false	true	true	true	false	5.000e+07	3.203e+05	1.350e+07	1.10e-12	8.87e-06	9.41e-06	1.19e-07
+O2 case O	ElasticNet	1.0	Float32	APG	cur	1.0e-5	true	13	false	false	false	true	false	5.000e+07	3.203e+05	1.350e+07	5.73e-09	1.03e-03	1.03e-03	9.94e-06
+O2 case O	ElasticNet	1.0	Float32	APG	cur	1.0e-8	true	13	false	false	false	true	false	5.000e+07	3.203e+05	1.350e+07	5.73e-09	1.03e-03	1.03e-03	9.94e-06
+O2 case O	ElasticNet	1.0	Float32	APG	profA	1.0e-5	true	18	false	true	true	true	false	5.000e+07	3.203e+05	1.350e+07	5.21e-13	5.52e-06	7.89e-06	9.86e-08
+FC free column	NormL1	0.0	Float32	PGD	cur	1.0e-5	true	10	false	false	true	false	false	2.502e+09	5.309e+02	8.473e+05	2.80e-01	1.48e+02	1.48e+02	1.69e-02
+FC free column	NormL1	0.0	Float32	PGD	cur	1.0e-8	false	13	false	true	false	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	7.51e-01	1.46e+00	1.69e-02
+FC free column	NormL1	0.0	Float32	PGD	profA	1.0e-5	false	13	false	true	false	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	7.51e-01	1.46e+00	1.69e-02
+FC free column	NormL1	0.0	Float32	APG	cur	1.0e-5	true	7	false	false	true	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	2.38e+01	2.38e+01	1.69e-02
+FC free column	NormL1	0.0	Float32	APG	cur	1.0e-8	false	9	false	true	false	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	7.50e-01	1.46e+00	1.69e-02
+FC free column	NormL1	0.0	Float32	APG	profA	1.0e-5	false	9	false	true	false	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	7.50e-01	1.46e+00	1.69e-02
+FC free column	ElasticNet	0.0	Float32	PGD	cur	1.0e-5	true	10	false	false	true	false	false	2.502e+09	5.309e+02	8.473e+05	2.80e-01	1.48e+02	1.48e+02	1.69e-02
+FC free column	ElasticNet	0.0	Float32	PGD	cur	1.0e-8	false	13	false	true	false	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	7.51e-01	1.46e+00	1.69e-02
+FC free column	ElasticNet	0.0	Float32	PGD	profA	1.0e-5	false	13	false	true	false	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	7.51e-01	1.46e+00	1.69e-02
+FC free column	ElasticNet	0.0	Float32	APG	cur	1.0e-5	true	7	false	false	true	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	2.38e+01	2.38e+01	1.69e-02
+FC free column	ElasticNet	0.0	Float32	APG	cur	1.0e-8	false	9	false	true	false	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	7.50e-01	1.46e+00	1.69e-02
+FC free column	ElasticNet	0.0	Float32	APG	profA	1.0e-5	false	9	false	true	false	false	false	2.502e+09	5.309e+02	8.473e+05	2.71e-01	7.50e-01	1.46e+00	1.69e-02
+FC free column	ElasticNet	1.0	Float32	PGD	cur	1.0e-5	true	10	false	false	true	false	false	2.502e+09	4.809e+02	8.473e+05	2.41e-02	1.47e+02	1.47e+02	1.64e-02
+FC free column	ElasticNet	1.0	Float32	PGD	cur	1.0e-8	false	13	false	true	false	false	false	2.502e+09	4.809e+02	8.473e+05	2.33e-02	3.65e-02	1.46e+00	1.64e-02
+FC free column	ElasticNet	1.0	Float32	PGD	profA	1.0e-5	false	13	false	true	false	false	false	2.502e+09	4.809e+02	8.473e+05	2.33e-02	3.65e-02	1.46e+00	1.64e-02
+FC free column	ElasticNet	1.0	Float32	APG	cur	1.0e-5	true	7	false	false	true	false	false	2.502e+09	4.809e+02	8.473e+05	2.33e-02	2.45e+01	2.45e+01	1.64e-02
+FC free column	ElasticNet	1.0	Float32	APG	cur	1.0e-8	false	9	false	true	false	false	false	2.502e+09	4.809e+02	8.473e+05	2.33e-02	3.56e-02	1.46e+00	1.64e-02
+FC free column	ElasticNet	1.0	Float32	APG	profA	1.0e-5	false	9	false	true	false	false	false	2.502e+09	4.809e+02	8.473e+05	2.33e-02	3.56e-02	1.46e+00	1.64e-02
+G group offset	GroupNormL2	0.0	Float32	PGD	cur	1.0e-5	true	28	false	false	true	false	false	5.000e+07	7.096e+01	1.350e+07	4.05e-01	4.87e-01	4.87e-01	1.21e-06
+G group offset	GroupNormL2	0.0	Float32	PGD	cur	1.0e-8	false	32	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	4.28e-04	5.94e-03	2.32e-02	5.02e-08
+G group offset	GroupNormL2	0.0	Float32	PGD	profA	1.0e-5	false	32	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	4.28e-04	5.94e-03	2.32e-02	5.02e-08
+G group offset	GroupNormL2	0.0	Float32	APG	cur	1.0e-5	true	19	false	false	true	false	false	5.000e+07	7.096e+01	1.350e+07	3.91e+01	3.77e+00	3.77e+00	1.03e-05
+G group offset	GroupNormL2	0.0	Float32	APG	cur	1.0e-8	false	27	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	2.58e-04	8.31e-03	1.41e-02	3.25e-08
+G group offset	GroupNormL2	0.0	Float32	APG	profA	1.0e-5	false	27	false	true	false	false	false	5.000e+07	7.096e+01	1.350e+07	2.58e-04	8.31e-03	1.41e-02	3.25e-08
