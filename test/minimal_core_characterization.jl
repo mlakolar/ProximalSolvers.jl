@@ -216,8 +216,8 @@ end
             solve!(x, f, NormL1(λ), method, strict_options(T))
         @test r.minimizer === x
         @test eltype(x) === T && typeof(r.minimum) === T
-        # A stopping test now holds only at a point where each coordinate's computed KKT score is below
-        # its coordinatewise threshold (#296, STOP-21), and a rounding-size objective increase can
+        # A stopping test now holds only at a point that passes the coordinatewise check of STOP-21 (#296), whose
+        # thresholds are formed for each coordinate, and a rounding-size objective increase can
         # end a strict PGD solve before that bound is met. warm_pgd_accepted accepts either
         # exit for PGD (a small objective increase alone does not show a residual below the
         # bound); the accuracy of the point is checked independently below
@@ -247,8 +247,8 @@ end
         r = method isa CDSolver ? solve!(x, f, NormL1(λ), method) :
             solve!(x, f, NormL1(λ), method, strict_options(T))
         push!(solutions, copy(x))
-        # A stopping test now holds only at a point where each coordinate's computed KKT score is below
-        # its coordinatewise threshold (#296, STOP-21), and a rounding-size objective increase can
+        # A stopping test now holds only at a point that passes the coordinatewise check of STOP-21 (#296), whose
+        # thresholds are formed for each coordinate, and a rounding-size objective increase can
         # end a strict PGD solve before that bound is met. warm_pgd_accepted accepts either
         # exit for PGD (a small objective increase alone does not show a residual below the
         # bound); the accuracy of the point is checked independently below
@@ -610,8 +610,8 @@ end
              ProximalOptions(maxiter = 2, ftol = 1e-30, xtol = 1e-30, gradtol = 0.))
   @test r.iterations == 2 && r.iteration_converged && !r.converged
   @test (r.f_calls, r.grad_calls, r.prox_calls, r.backtrack_steps) == (6, 3, 3, 3)
-  # Default stopping: a stop that a test proposes counts only at a point where each coordinate's computed KKT
-  # score is below its coordinatewise threshold (#296, STOP-21). The residual is checked independently against
+  # Default stopping: a stop that a test proposes counts only at a point that passes the coordinatewise check of
+  # STOP-21 (#296). The residual is checked independently against
   # the accuracy target max(gradtol, 64eps(T)) S, S = max(λ, λmax), with a fixture-specific allowance (a relative
   # 1e-3 and 1e3 eps(T) of S); the check does not imply that target, which this small problem meets
   # In Float32 the documented objective-increase exit can end the solve before the check passes

@@ -19,7 +19,8 @@ module WeightedLassoTests
 # guarantee for the BLAS kernel in use).
 #
 # Tolerances are stated relative to each solver's own tolerance. For PGD and APG a stop counts only where each
-# coordinate's computed score is below τ sᵢ, with τ = max(gradtol, 64 eps(T)) and sᵢ = α‖Xᵢ‖‖Xx - y‖ (STOP-21); the
+# coordinate passes the coordinatewise check (STOP-21): its computed score is below τ sᵢ, with τ = max(gradtol,
+# 64 eps(T)) and sᵢ = α‖Xᵢ‖‖Xx - y‖, or at most 0 for a zero column (and at x = 0 with y = 0); the
 # check is Gᵢ - eGᵢ <= τ (1 + 4 eps) (sᵢ + esᵢ) for every coordinate (`coordinate_bound`), where Gᵢ is the entry of G
 # below and eGᵢ, esᵢ the rounding allowances of the computed score and scale. For CD with the default `relative = true` and y ≠ 0, `converged` means that
 # every coordinate change of the last full pass, scaled, is below tol times the response scale:

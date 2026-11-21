@@ -69,7 +69,7 @@ end
 bound(options, ::Type{T}) where T = max(options.gradtol, 64 * Float64(eps(T))) * (1 + 1e-6) + 16 * Float64(eps(T))
 
 # The relative distance |x - x*| / x* of a one-coordinate exact fit X x* = y (X a column of ones, y constant), in
-# BigFloat: the returned point of a solve that cannot be certified (STOP-21) is checked by its accuracy
+# BigFloat: the returned point of a solve that the check does not certify (STOP-21) is checked by its accuracy
 fit_error(X, y, x) = setprecision(BigFloat, 256) do
   xstar = sum(BigFloat.(y)) / sum(BigFloat.(X))
   Float64(abs(BigFloat(x[1]) - xstar) / abs(xstar))
