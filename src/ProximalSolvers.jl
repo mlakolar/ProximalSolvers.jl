@@ -20,7 +20,7 @@ over its entries) with a dense `X`, `Y` and `LeastSquaresLoss`. [`ProximalGradie
 For a dense matrix response, both accept a same-type dense matrix of coefficients
 and an unweighted entrywise `NormL1` penalty under
 [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
-[`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`.
+[`ProximalGradientDescent`](@ref) also supports `IndNonnegative()` and unweighted `NormL1Nonneg` on a feasible dense `Vector`, and [`CDSolver`](@ref) does too with a vector-response `LeastSquaresLoss`, raw or with one supported positive scale (the input rules are [IN-01](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-01) and [IN-02](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-02)).
 [`ProximalGradientDescent`](@ref) also fits sparse logistic regression with a raw `LogisticLoss` (binary
 response, no observation weights or offset), dense `Float64` data and `NormL1`.
 [`ProxNewton`](@ref) fits the same problem by proximal Newton steps, each solved by cyclic coordinate descent on a

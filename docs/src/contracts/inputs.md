@@ -27,7 +27,7 @@ the design requirement.
 | `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1`, unweighted `ElasticNet`, `NormLinf`, `NormL2` under [IN-11](@ref), or `GroupNormL2` under [IN-04](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, matrix-response least squares | dense `Matrix{T}` | unweighted `NormL1` under [IN-10](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
-| `ProximalGradientDescent`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
+| `ProximalGradientDescent` or `CDSolver`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` (not a `SparseIterate`) | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
 | `ProximalGradientDescent`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) |
 | `ProxNewton`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) and [PN-01](@ref) |
 | `ADMMSolver`, centered `SqrNormL2` | dense `Vector{T}` | unweighted `NormL1` under [ADM-01](@ref) |
@@ -298,40 +298,47 @@ mutation or RNG use, as specified in [IN-01](@ref). See the
 
 **Statement.**
 
-`ProximalGradientDescent` accepts `IndNonnegative()` and the unweighted penalty
-`NormL1Nonneg(lambda)` with a dense least-squares loss. It minimizes
+`ProximalGradientDescent`, and `CDSolver` on a dense `Vector{T}`, accept `IndNonnegative()` and the
+unweighted penalty `NormL1Nonneg(lambda)` with a dense least-squares loss. They target
 `(s/2) * sum(abs2, y-X*x) + lambda * sum(x)` over `x >= 0`, where `s` is the
 accepted loss scale and `lambda = 0` for `IndNonnegative()`. The zero-level form
 `NormL1Nonneg(0)` gives the same nonnegative least-squares problem. The data
 and coefficients use the same `Float32` or `Float64` type and the shapes,
 finite-data, scale and alias rules of [IN-01](@ref), [IN-02](@ref) and [IN-05](@ref).
 
-The coefficient start must be a finite dense `Vector{T}` whose every entry is
-nonnegative. A negative starting entry raises `ArgumentError` before any write;
-the solver does not project an infeasible start as an initialization step.
+The coefficient start must be a finite dense `Vector{T}` whose entries are all
+nonnegative (`-0.0` is nonnegative). A negative starting entry raises `ArgumentError` before any write
+or RNG draw; the solver does not project an infeasible start as an initialization step.
 The level of `NormL1Nonneg` must be finite, nonnegative and representable in `T` without overflow
 or rounding a nonzero value to zero. A representable level of another scalar type
 is allowed, as is a subnormal converted level under [IN-02](@ref).
 
 For `NormL1Nonneg`, `g.w` must be `nothing`. An explicit weight vector is refused
-even when all its entries are one. APG, coordinate descent, sparse, block or matrix
-coefficient owners, matrix responses, square-root loss, `Scaled` penalties and
-general penalty compositions are unsupported for these problems. These refusals
-precede writes. No intercept is fitted.
+even when all its entries are one. APG, a `SparseIterate`, `BlockIterate` or `Matrix`
+coefficient, matrix responses, square-root loss, `Scaled` penalties and
+general penalty compositions are unsupported for these problems. `CDSolver` on a
+`SparseIterate` is deferred: its gate refuses these penalties before any copy of the
+coefficients or RNG draw. These refusals precede writes. No intercept is fitted.
 
-The proximal operator enforces feasibility during iterations; its update is
+For PGD the proximal operator enforces feasibility during iterations; its update is
 specified in [PGD-01](@ref). A proposed stop uses the constrained stationarity
 check in [STOP-16](@ref), with the working-precision guards in [STOP-04](@ref).
 The result and failure rules are those of PGD in [RES-01](@ref) and [RES-03](@ref).
+For `CDSolver` the coordinate step is the least-squares step of [CD-01](@ref), with the
+penalty's proximal operator and the exceptional step of [CD-04](@ref); `converged` is
+CD's change test and not a certificate of the constrained KKT conditions
+([RES-01](@ref), [CD-03](@ref)): assess the returned point with an independent constrained KKT
+score. The cached residual and the reported minimum are those of [CD-05](@ref) and [CD-09](@ref).
+A returned point is nonnegative and finite after a completed run.
 The [NNLS tutorial](../examples/problems/nonnegative_least_squares.md) compares
 the constraint alone with a positive penalty. The [nonnegative sparse-regression tutorial](../examples/problems/nonnegative_lasso.md)
 checks feasibility, the objective and a separately computed constrained KKT residual.
 
-**Applies to.** Dense-vector PGD with least squares and `IndNonnegative()` or unweighted `NormL1Nonneg`.
+**Applies to.** Dense-vector PGD and CD with least squares and `IndNonnegative()` or unweighted `NormL1Nonneg`.
 
-**Code.** `src/solve.jl`: `_check_penalty` with `kind = :pgd`, `_check_problem`; `src/solvers/proximal_gradient_descent.jl`: the PGD `solve!` gate; `src/utils.jl`: `_converted_penalty` and the dedicated stationarity dispatch.
+**Code.** `src/solve.jl`: `_check_penalty` with `kind = :pgd` or `:cd`, `_check_problem`, `_check_owner_problem` (the `SparseIterate` refusal); `src/solvers/proximal_gradient_descent.jl`: the PGD `solve!` gate; `src/utils.jl`: `_converted_penalty` and the dedicated stationarity dispatch; `src/cd/models.jl`: `_coordinate_minimizer`; `src/cd/leastsquares.jl`: `_exceptional_step`.
 
-**Tests.** `test/nonnegative_lasso.jl` covers Float32 and Float64 identity-design references, zero and positive feasible starts, native/Float64/zero levels, objective and minimizer identity, a correlated design, and unchanged inputs after invalid levels, negative starts, weighted penalties and unsupported methods/storage/losses. `examples/problems/nonnegative_lasso.jl` independently checks its fitted example and both-precision exact controls. `test/nonnegative_least_squares.jl` checks direct indicator support with both precisions, scaled and unscaled loss, zero and positive starts, and refusals before writes for invalid data, aliasing, unsupported owners, losses and solvers.
+**Tests.** `test/cd_nonnegative.jl` covers CD in both precisions: the testsets "closed forms", "single coordinates", "correlated and p > n designs against a BigFloat reference and PGD" (an independent BigFloat constrained KKT score and objective), "the default tolerance reaches the external score bound", "NormL1Nonneg(0) is IndNonnegative()", "starts", "flat columns", "orders", "refusals before any write or RNG draw" (negative and negative subnormal starts, weighted penalties, invalid levels, `SparseIterate`, `BlockIterate`, `Matrix`, square-root loss, `Scaled` penalties, mixed types and aliasing), "X and y are not modified", "rollback" and the allocation comparison with `NormL1`. `test/nonnegative_lasso.jl` covers Float32 and Float64 identity-design references, zero and positive feasible starts, native/Float64/zero levels, objective and minimizer identity, a correlated design, and unchanged inputs after invalid levels, negative starts, weighted penalties and unsupported methods/storage/losses. `examples/problems/nonnegative_lasso.jl` independently checks its fitted example and both-precision exact controls. `test/nonnegative_least_squares.jl` checks direct indicator support with both precisions, scaled and unscaled loss, zero and positive starts, and refusals before writes for invalid data, aliasing, unsupported owners, losses and solvers.
 
 **Sources.** Added after the frozen documentation inventory by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8): [input and refusal gates](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/solve.jl), [the support statement](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/docs/src/support.md#nonnegative-lasso-with-proximal-gradient-descent), and [regression coverage](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/test/nonnegative_lasso.jl).
 

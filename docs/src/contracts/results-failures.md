@@ -13,7 +13,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 
 | Solver | A stop is proposed by | Vetoed by | `converged = true` means | Kind of evidence |
 | --- | --- | --- | --- | --- |
-| `CDSolver`, least squares with `NormL1` or `ElasticNet` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
+| `CDSolver`, least squares with `NormL1`, `ElasticNet`, `IndNonnegative()` or unweighted `NormL1Nonneg` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
 | `ProximalGradientDescent`, `AccProxGradDescent` | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed `‖G‖∞` is below `max(gradtol, 64 eps(T)) * max(λ, λmax)`, with `λ` the ℓ1 level (for `NormL1(λ, w)`, the largest coefficient `maxⱼ cⱼ` with `cⱼ = T(λ) wⱼ`; each entry of `G` is scored with its own `cⱼ`, and when `maxⱼ cⱼ > λmax` each entry must also be below `max(gradtol, 64 eps(T)) * max(cⱼ, λmax)`, see [STOP-03](@ref); for `GroupNormL2`, the group residual and the group scale `Λ`, with each group below `max(gradtol, 64 eps(T)) * max(cₖ, Λ)` when `maxₖ cₖ > Λ`, see [STOP-05](@ref); guards in [STOP-04](@ref)) | a residual formed in working precision |
 | `ProximalGradientDescent`, `AccProxGradDescent`, `NormL2` | the same | the stationarity check | a test proposed a stop and the computed Euclidean residual `‖G‖₂` is below `max(gradtol, 64 eps(T)) * max(λ, ‖∇f(0)‖₂)`, with `λ = T(λ0)` (see [the Euclidean-norm check](@ref STOP-17)) | a residual formed in working precision |
@@ -36,7 +36,9 @@ tolerance, nor does it certify coefficient accuracy.
 In the CD rows, `h_k` is the change of coordinate (or group) `k` in the pass and `s` the loss scale.
 In the first two rows the changes are computed from the solver's cached residual, and the flag does not
 say that this cache is close to `y − Xx` at the returned point (see
-[The cached residual](@ref CD-05)).
+[The cached residual](@ref CD-05)). In the scalar least-squares row, the comparison of a scaled change
+with the threshold is made between the computed values, in working precision, of [CD-03](@ref), so a
+case whose exact values are equal can pass; "below" is that computed comparison.
 
 Of the problems audited, only the square-root lasso carries a certificate, and that
 certificate has the assumptions stated in [The certificate](@ref CDQ-03) and
@@ -70,7 +72,10 @@ For nonnegative least squares and nonnegative lasso, dense PGD uses
 the constrained residual in [STOP-16](@ref), subject to the same computed-threshold
 guards in [STOP-04](@ref). A kept stop is a working-precision stationarity check;
 it does not supply an exact-arithmetic certificate or a calculated duality gap.
-The supported inputs and feasibility refusals are in [IN-07](@ref).
+The supported inputs and feasibility refusals are in [IN-07](@ref). With `CDSolver` on a dense
+`Vector`, these penalties use the change-test row of the table above: `converged` does not
+check the constrained KKT conditions, and the reported minimum is the objective from the
+cached residual ([CD-09](@ref)).
 
 Uncentered `SqrNormL2` ridge was also added after the table's baseline. Its
 scalar least-squares CD run uses the same full-pass change criterion as the
@@ -93,7 +98,7 @@ rollback boundary in [PGD-07](@ref).
 
 **Code.** `src/cd/solver.jl`: completed passes and CD results; `src/solve.jl`: gradient iteration/stationarity decisions; `src/types.jl`: result fields; `src/solvers/logistic_proxnewton.jl`: the `ProxNewton` result.
 
-**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/logistic_proxnewton.jl` checks the `ProxNewton` result fields and stop reasons against an independent objective and KKT score. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl` and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/logistic_proxnewton.jl` checks the `ProxNewton` result fields and stop reasons against an independent objective and KKT score. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl` (the nonnegative CD fits, judged by an independent constrained KKT score) and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
 
 **Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`. The later nonnegative-lasso result interpretation follows [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The square-root fallback qualification is from [f573224f](https://github.com/mlakolar/ProximalSolvers.jl/commit/f573224f70058be24b81378ab2d6e1c752eb93e8), as retained in [the integrated result guidance at ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/blob/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7/docs/src/stopping-limits.md#L35-L45).
 

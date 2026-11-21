@@ -4,9 +4,11 @@
                gaptol=0, gapsafe=false)
 
 Coordinate descent for dense Float32/Float64 least-squares lasso (including
-weights), elastic net, ridge, group lasso and square-root lasso. Use a dense vector
+weights), elastic net, ridge, nonnegative least squares and nonnegative lasso (on a
+dense vector), group lasso and square-root lasso. Use a dense vector
 or one-dimensional `SparseIterate` for scalar problems, a `BlockIterate` for
-groups, or matrix coefficients for row-group multi-response regression.
+groups, or matrix coefficients for row-group multi-response regression. The
+nonnegative problems are for a dense vector only.
 `solve!` updates the supplied coefficients. For deterministic scalar examples,
 choose `order=:cyclic, momentum=false`.
 
@@ -44,7 +46,14 @@ The data arrays share one `Float32` or `Float64` element type. With least square
 use `NormL1(lambda)`, `NormL1(lambda, w)`, an unweighted `ElasticNet` or an
 uncentered `SqrNormL2(lambda)` for scalar coefficients. Ridge via `SqrNormL2`
 is supported only by CD, for dense vectors or one-dimensional `SparseIterate`;
-a centered penalty is refused, even with an all-zero center. Weights must be a
+a centered penalty is refused, even with an all-zero center. `IndNonnegative()` and an
+unweighted `NormL1Nonneg(lambda)` target the least-squares objective over `x >= 0`
+(with `lambda * sum(x)` added for the latter) and are supported for a dense vector
+only, not for a `SparseIterate`; the starting vector must be nonnegative, and a
+negative entry is refused rather than projected. `converged` is a change test, so assess the returned point with an independent constrained
+KKT score. The cached residual and the reported minimum are specified in
+[CD-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-scalar/#CD-05) and
+[CD-09](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-scalar/#CD-09). Weights must be a
 matching `Vector{T}` satisfying the validated
 coefficient-range rules; a zero weight leaves its coordinate unpenalized.
 Group penalties require matching partitions; matrix-response groups are the rows
@@ -123,8 +132,8 @@ sentinel. `gap` is `NaN` except after a certified square-root lasso run (see [`C
 where `converged = true` and `gap` is the certified upper bound on `(P - P*)/P*`. For the square-root
 lasso, `passes` includes the passes of the fallback after an uncertified stop, and is at most `maxpasses`.
 For the
-least-squares lasso, elastic net, ridge and group lasso, `converged` reports the change test and
-`gap` is `NaN`.
+least-squares lasso, elastic net, ridge, nonnegative least squares, nonnegative lasso and group lasso,
+`converged` reports the change test and `gap` is `NaN`.
 """
 struct CDResults{X, T}
   minimizer::X

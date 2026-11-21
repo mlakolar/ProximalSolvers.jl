@@ -39,10 +39,12 @@ function nnls_diagnostics(X, y, beta, lambda)
      relative_error=norm(residual) / norm(b))
 end
 
-function checked_fit(X::Matrix{T}, y, penalty, lambda, options, tolerance) where T
+function checked_fit(X::Matrix{T}, y, penalty, lambda, options, tolerance;
+                     solver=ProximalGradientDescent()) where T
   beta = zeros(T, size(X, 2))
   f = (one(T) / T(length(y))) * LeastSquaresLoss(y, X)
-  result = solve!(beta, f, penalty, ProximalGradientDescent(), options)
+  result = solver isa CDSolver ? solve!(beta, f, penalty, solver) :
+           solve!(beta, f, penalty, solver, options)
   check = nnls_diagnostics(X, y, beta, lambda)
   @assert result.minimizer === beta
   @assert minimum(beta) >= 0
@@ -101,6 +103,21 @@ options = ProximalOptions(maxiter=10_000, ftol=eps(Float64), xtol=1e-12,
   gradtol=1e-9, allow_f_increases=true)
 nnls = checked_fit(X, y, IndNonnegative(), 0.0, options, 1e-7)
 sparse = checked_fit(X, y, NormL1Nonneg(lambda), lambda, options, 1e-7)
+
+# `CDSolver` on a dense vector targets the same two objectives. Its `converged` flag is a
+# change test, not a certificate, so we apply the same checks computed from the data, and
+# compare the objective with the one of the PGD fit. The tolerance `tol=1e-10` is tighter
+# than the default; the KKT assertions inside `checked_fit` show it was tight enough here.
+cd_solver = CDSolver(order=:cyclic, momentum=false, tol=1e-10)
+cd_nnls = checked_fit(X, y, IndNonnegative(), 0.0, options, 1e-7; solver=cd_solver)
+cd_sparse = checked_fit(X, y, NormL1Nonneg(lambda), lambda, options, 1e-7; solver=cd_solver)
+for (cd_fit, pgd_fit) in ((cd_nnls, nnls), (cd_sparse, sparse))
+  @assert isapprox(cd_fit.check.objective, pgd_fit.check.objective; rtol=1e-8)
+end
+@printf("Coordinate descent | NNLS objective %.6f, penalized objective %.6f | KKT %.2e, %.2e\n",
+  cd_nnls.check.objective, cd_sparse.check.objective,
+  max(cd_nnls.check.positive_score, cd_nnls.check.boundary_score),
+  max(cd_sparse.check.positive_score, cd_sparse.check.boundary_score))
 
 # Count amplitudes greater than `1e-6` for reporting. The KKT calculation uses
 # exact zeros to decide which condition to check. Neither check infers which

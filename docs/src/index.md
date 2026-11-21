@@ -27,7 +27,7 @@ statistical applications and solver comparisons. The original entry points remai
 [square-root lasso](examples/problems/square_root_lasso.md) and
 [solvers at equal accuracy](examples/comparisons/lasso_solvers.md).
 For coefficients constrained to be nonnegative, see
-[nonnegative sparse regression](examples/problems/nonnegative_lasso.md), supported by PGD.
+[nonnegative sparse regression](examples/problems/nonnegative_lasso.md), supported by PGD and by CD on a dense vector.
 For a centered quadratic with an ℓ₁ penalty, see
 [sparse signal denoising with ADMM](examples/problems/sparse_signal_denoising.md).
 For a sparse precision matrix, see [the graphical lasso](examples/problems/graphical_lasso.md).
