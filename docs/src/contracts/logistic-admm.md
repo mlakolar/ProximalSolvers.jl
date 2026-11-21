@@ -225,8 +225,8 @@ starts at `0`. Each pass of the loop, in this order:
    `(lo, hi)`, and returns the better end as in step 4 when that midpoint is not strictly inside;
 8. moves `s` to the point and adds `1` to `steps`.
 
-A root therefore fails only in a pass that reaches step 5 with `steps ≥ cap`, after the tests of steps 1 and 4 at that
-pass. A midpoint of step 7 is not tested in the pass that forms it; the next pass tests it at step 1. Examples, each
+With a finite `v`, a root therefore fails only in a pass that reaches step 5 with `steps ≥ cap`, after the tests of
+steps 1 and 4 at that pass. A midpoint of step 7 is not tested in the pass that forms it; the next pass tests it at step 1. Examples, each
 in the tests:
 
 - For `y = 0`, `v = 0` and `ρ = 1` (the bracket `[-1, 0]`), the first pass leaves the width at `1` and sets
