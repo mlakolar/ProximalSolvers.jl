@@ -508,11 +508,12 @@ end
     @test value(r) >= frob(X) && value(r) <= frob(X) * (1 + 1e-12) + 1e-320
   end
   @test iszero(PS._frobenius_upper(Float64, zeros(2, 2)).s)
-  # a design with a tiny nonzero entry, y = 0 and λ = 0: the start is the solution, but both
-  # λ and λmax are 0, so no stopping test can be verified and the solve ends at maxiter
+  # a design with a tiny nonzero entry, y = 0 and λ = 0: the start is the solution. At x = 0 with y = 0 every scale
+  # of the coordinatewise check is zero and the score 0 is at most 0, so the first proposal is kept (case B of
+  # STOP-21)
   x = [0.0]
   r = solve!(x, LeastSquaresLoss([0.0], fill(1e-310, 1, 1)), NormL1(0.0), AccProxGradDescent())
-  @test x == [0.0] && !r.converged && r.iteration_converged
+  @test x == [0.0] && r.converged && r.iterations == 1
 end
 
 @testset "the fresh-product reference (Option B) on fixtures" begin
@@ -537,11 +538,24 @@ end
   # xtol is compared with max(‖x‖, 1) and ftol is added to |F| in the objective test, so
   # solutions of size 1e-160 and objectives of size 1e-30 need both far below that
   long = ProximalOptions(maxiter = 500, ftol = 1e-300, xtol = 1e-300, gradtol = 0)
-  # weighted curvature 1e-8 with a loss scale of 1e38: no uphill step, solution y/X = 1e13
+  # weighted curvature 1e-8 with a loss scale of 1e38: no uphill step, solution y/X = 1e13. The data fit exactly
+  # (F* = 0), which the coordinatewise check does not certify (STOP-21), so the solve does not stop at a proposal.
+  # It continues until L, multiplied by α = 1f-30 at the start of each iteration, underflows to zero; the line search
+  # then raises its error, and the engine restores the last accepted point (seen on Julia 1.13.4 at iteration 12).
+  # Either that error or a return without convergence is accepted, at an accurate point.
   X, y = reshape(Float32[1f-23], 1, 1), Float32[1f-10]
   x = zeros(Float32, 1)
-  r = solve!(x, 1f38 * LeastSquaresLoss(y, X), NormL1(0f0), AccProxGradDescent(α = 1f-30))
-  @test !r.f_increased && F(nothing, X, y, 1f38, x) <= F(nothing, X, y, 1f38, zeros(Float32, 1))
+  outcome = try
+    solve!(x, 1f38 * LeastSquaresLoss(y, X), NormL1(0f0), AccProxGradDescent(α = 1f-30))
+  catch err
+    err
+  end
+  if outcome isa Exception
+    @test outcome isa ErrorException && occursin("curvature estimate cannot increase finitely", outcome.msg)
+  else
+    @test !outcome.converged && !outcome.f_increased
+  end
+  @test all(isfinite, x) && F(nothing, X, y, 1f38, x) <= F(nothing, X, y, 1f38, zeros(Float32, 1))
   @test abs(Float64(x[1]) - 1e13) <= 1e-3 * 1e13
   # curvatures near floatmax: X = 1f20 with a Float64 scale 1e-20, X = 1e160 with 1e-20,
   # raw X = 1f19·I: each reaches its solution y/X

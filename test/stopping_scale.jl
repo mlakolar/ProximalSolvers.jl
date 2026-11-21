@@ -1,7 +1,8 @@
 module StoppingScaleTests
 # The stopping tests of ProximalGradientDescent and AccProxGradDescent under a change of the scale
 # of the loss and of the design columns (#296). A solve that reports converged = true must end at a
-# point whose KKT residual is small relative to max(λ, λmax), λmax = α‖Xᵀy‖∞. The residual is
+# point where each coordinate's KKT score is small relative to the coordinatewise scale
+# sᵢ = α‖Xᵢ‖‖Xx - y‖ of the check (STOP-21, #487). The scores and scales are
 # computed here in 256-bit BigFloat from the raw X, y, the loss scale α and the penalty λ, never
 # with the solver's gradient or caches. Only the converged flag is compared with that residual:
 # the solvers need not converge, and the tests do not require it, except where a case says so.
@@ -26,29 +27,32 @@ function data(name)
   X, X * β + 0.3 * randn(rng, 30)
 end
 
-# The exact minimal-norm KKT residual ‖G‖∞ of ∇f(x) + λ ∂‖x‖₁, f(x) = α/2 ‖y - X x‖², and
-# S = max(λ, λmax), from the T data as given, in BigFloat (precision is scoped). Returns
-#   (‖G‖∞ - eG - τ (1 + 4 eps(T)) (S + eS)) / S,   Inf for S = 0,
-# which is at most 0 when the exact residual is within the threshold τ S of the solver's check
-# plus the first-order rounding error of what the solver computes. The solver compares its
-# computed residual Ĝ with τ Ŝ, where Ŝ uses a computed λmax. With u = eps(T) (twice the unit
-# roundoff, as slack), standard dot-product bounds for a computed d̂ = fl(X x) - y and gradient
-# ĝ = α fl(Xᵀ d̂) give, from the raw products and the exact residual d = X x - y,
-#   eG = max over coordinates i of α Σⱼ |Xⱼᵢ| (e_j + (n+1) u (|d_j| + e_j)) + u (|gᵢ| + λ),
-#   e_j = (p+1) u (Σₖ |Xⱼₖ||xₖ| + |y_j|),     eS = α (n+1) u max over i of Σⱼ |Xⱼᵢ||y_j|,
-# with eG covering |Ĝ - G| and eS covering |λ̂max - λmax|. These are estimates under that error
-# model, not guarantees for every BLAS kernel, and they do not make the computed residual an
-# exact one.
+# The exact clipped KKT score Gᵢ of each coordinate (max(|gᵢ| - λ, 0) where xᵢ = 0, |gᵢ + λ sign xᵢ| elsewhere,
+# g = ∇f(x), f(x) = α/2 ‖y - X x‖²) and the coordinatewise scale sᵢ = α‖Xᵢ‖‖Xx - y‖, from the T data as given,
+# in BigFloat (precision is scoped). Returns the largest over the coordinates of
+#   (Gᵢ - eGᵢ) / (τ (1 + 4 eps(T)) (sᵢ + esᵢ)) - 1   where sᵢ > 0,   and -1 or Inf where sᵢ = 0 (Gᵢ ≤ eGᵢ or not),
+# which is at most 0 when each exact score is within the threshold τ sᵢ of the solver's check plus the
+# first-order rounding error of what the solver computes. The solver compares its computed score with
+# T(τ ŝᵢ), where ŝᵢ uses the computed loss value. With u = eps(T) (twice the unit roundoff, as slack), standard
+# dot-product bounds for a computed d̂ = fl(X x) - y and gradient ĝ = α fl(Xᵀ d̂) give, from the raw products and
+# the exact residual d = X x - y,
+#   eGᵢ = α Σⱼ |Xⱼᵢ| (e_j + (n+1) u (|d_j| + e_j)) + u (|gᵢ| + λ),    e_j = (p+1) u (Σₖ |Xⱼₖ||xₖ| + |y_j|),
+#   esᵢ = α ‖Xᵢ‖ ‖e‖ + (n + p + 4) u sᵢ,
+# with eGᵢ covering the error of the computed score and esᵢ that of ŝᵢ (|‖d̂‖ - ‖d‖| ≤ ‖e‖, and the roundings of the
+# loss value, of the column norm and of the square roots). These are estimates under that error model, not
+# guarantees for every BLAS kernel, and they do not make the computed residual an exact one.
 function kkt_excess(X, y, α, λ, x, τ, ::Type{T}) where T
-  G, S, eG, eS, u = kkt_parts(X, y, α, λ, x, T)
-  iszero(S) && return Inf
+  G, eG, sc, es, u = kkt_parts(X, y, α, λ, x, T)
   setprecision(BigFloat, 256) do
-    Float64((G - eG - BigFloat(τ) * (1 + 4u) * (S + eS)) / S)
+    maximum(eachindex(G)) do i
+      iszero(sc[i]) ? (G[i] <= eG[i] ? -1.0 : Inf) :
+        Float64((G[i] - eG[i]) / (BigFloat(τ) * (1 + 4u) * (sc[i] + es[i])) - 1)
+    end
   end
 end
 
-# The reference residual G = ‖G‖∞, evaluated in 256-bit BigFloat, S, and the rounding estimates eG, eS and u of kkt_excess
-# (the values keep the 256-bit precision they were formed in)
+# The reference scores Gᵢ, evaluated in 256-bit BigFloat, the scales sᵢ, and the rounding estimates eGᵢ, esᵢ and u
+# of kkt_excess (the values keep the 256-bit precision they were formed in)
 function kkt_parts(X, y, α, λ, x, ::Type{T}) where T
   setprecision(BigFloat, 256) do
     Xb, yb, xb, a, l = BigFloat.(X), BigFloat.(y), BigFloat.(x), BigFloat(α), BigFloat(λ)
@@ -56,13 +60,14 @@ function kkt_parts(X, y, α, λ, x, ::Type{T}) where T
     u = BigFloat(eps(T))
     d = Xb * xb - yb
     g = a .* (Xb' * d)
-    G = maximum(j -> iszero(xb[j]) ? max(abs(g[j]) - l, zero(l)) : abs(g[j] + l * sign(xb[j])), eachindex(xb))
-    S = max(l, maximum(abs, a .* (Xb' * yb)))
+    G = [iszero(xb[j]) ? max(abs(g[j]) - l, zero(l)) : abs(g[j] + l * sign(xb[j])) for j in 1:p]
     absX = abs.(Xb)
     e = (p + 1) * u .* (absX * abs.(xb) + abs.(yb))
-    eG = maximum(a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ l))
-    eS = a * (n + 1) * u * maximum(absX' * abs.(yb))
-    G, S, eG, eS, u
+    eG = a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ l)
+    norms = [sqrt(sum(abs2, Xb[:, j])) for j in 1:p]
+    sc = a .* norms .* sqrt(sum(abs2, d))
+    es = a .* norms .* sqrt(sum(abs2, e)) .+ (n + p + 4) * u .* sc
+    G, eG, sc, es, u
   end
 end
 
@@ -89,10 +94,10 @@ function solve_case(method, y, X, α, λ, x0, options)
   end
 end
 
-# The invariant, checked for each result below that has converged = true: the exact residual ‖G‖∞
-# is within τ S of the solver's check, τ = max(gradtol, 64 eps(T)), up to the first-order rounding
-# estimates of kkt_excess, which come from the raw products of the data and the returned x.
-# The solver's contract is on its computed residual; this does not claim an exact-residual bound.
+# The invariant, checked for each result below that has converged = true: each exact score Gᵢ is within
+# τ sᵢ of the solver's check, τ = max(gradtol, 64 eps(T)), up to the first-order rounding estimates of
+# kkt_excess, which come from the raw products of the data and the returned x.
+# The solver's contract is on its computed scores; this does not claim an exact-residual bound.
 function invariant(label, r, X, y, α, λ, options, ::Type{T}) where T
   r === nothing && return
   r.converged || return
@@ -176,12 +181,14 @@ end
   end
 end
 
-@testset "y = 0: λ = 0 never converges, λ > 0 stops at x = 0 (#296)" begin
+@testset "y = 0: λ = 0 and λ > 0 stop at x = 0 (#296, #487)" begin
+  # at x = 0 and y = 0 every coordinate's scale is zero and its score is at most 0, which the check accepts (STOP-21)
   for T in (Float64, Float32), method in METHODS
     X = T[1 1 .2; 2 1 .3; -1 0 .5; .1 1 1; .4 .3 -.8]
     y = zeros(T, 5)
-    r = solve!(zeros(T, 3), LeastSquaresLoss(y, X), NormL1(zero(T)), method, ProximalOptions(maxiter = 20))
-    @test !r.converged && !r.x_converged && !r.f_converged && !r.grad_converged && r.iteration_converged
+    x = zeros(T, 3)
+    r = solve!(x, LeastSquaresLoss(y, X), NormL1(zero(T)), method, ProximalOptions(maxiter = 20))
+    @test r.converged && r.iterations == 1 && all(iszero, x) && !r.iteration_converged
     x = zeros(T, 3)
     r = solve!(x, LeastSquaresLoss(y, X), NormL1(T(.1)), method)
     @test r.converged && r.iterations == 1 && all(iszero, x)
@@ -259,9 +266,9 @@ end
 end
 
 # One check of a stop: (kept, state) for the point x of the problem with λ and the solver method.
-# For PGD the gradient at x is set to -λ sign(x) + G (G the residual of the entry), the response y = λmax
+# For PGD the gradient at x is set to -λ sign(x) + G (G the residual of the entry), the response y = λmax / α
 # with the design [1]. For APG the response is chosen so that the gradient that the kernel forms at x is
-# x - y = -λ sign(x) + G.
+# x - y = -λ sign(x) + G. The design has one row, so the coordinatewise threshold is τ α |x - y| (STOP-21).
 function check(method, T, x, λ, G, options; λmax = 1, α = one(T))
   g = NormL1(T(λ))
   if method isa ProximalGradientDescent
@@ -277,35 +284,37 @@ function check(method, T, x, λ, G, options; λmax = 1, α = one(T))
 end
 
 @testset "the stationarity check of a stop: thresholds, the zero exit, a zero scale and underflow (#296)" begin
-  # Float64, λ = 0.1, λmax = 1, gradtol = 1e-5: threshold 1e-5
+  # Float64, λ = 0.1, y = λmax = 1, x = 0.5, gradtol = 1e-5: threshold τ |x - y| = 5e-6
   o = ProximalOptions(gradtol = 1e-5)
   @test check(ProximalGradientDescent(), Float64, 0.5, .1, 3e-6, o)[1]
   @test !check(ProximalGradientDescent(), Float64, 0.5, .1, 2e-5, o)[1]
-  @test check(ProximalGradientDescent(), Float64, 0.5, .1, 3e-6, o)[2].λmax == 1
-  # the accelerated method forms the gradient at x from the cached image; S = max(λ, ‖y‖) with y = x + λ - G
-  for (G, expected) in ((3e-6, true), (2e-5, false))
+  # the coordinatewise check does not compute λmax (STOP-21)
+  @test check(ProximalGradientDescent(), Float64, 0.5, .1, 3e-6, o)[2].λmax == -1
+  # the accelerated method forms the gradient at x from the cached image; with y = x + λ - G the threshold is
+  # τ |G - λ|, about 1e-6
+  for (G, expected) in ((3e-7, true), (2e-6, false))
     ok, state = check(AccProxGradDescent(), Float64, 0.5, .1, G, o)
     @test ok == expected
     @test state.grad_calls == 1
-    @test state.λmax ≈ 0.6 atol = 1e-4
+    @test state.λmax == -1
   end
-  # the zero-solution exit: x = 0, λ = 1.2 ≥ λmax = 1, so G = 0
+  # the zero-solution exit: x = 0, λ = 1.2 ≥ λmax = 1, so the signed score is 1 - 1.2 < 0
   @test check(ProximalGradientDescent(), Float64, 0.0, 1.2, 0.0, o)[1]
   @test check(AccProxGradDescent(), Float64, 0.0, 1.2, 0.0, o, λmax = 1)[1]
-  # y = 0 and λ = 0: S = 0, no convergence
-  @test !check(ProximalGradientDescent(), Float64, 0.5, 0.0, 0.0, o, λmax = 0)[1]
-  # Float32 strict (gradtol = 1e-11): τ = 64 eps(Float32) = 7.63e-6
+  # y = 0, λ = 0 and x = 0: the scale is zero and the score 0 is at most 0, so the stop is kept (case B of STOP-21)
+  @test check(ProximalGradientDescent(), Float64, 0.0, 0.0, 0.0, o, λmax = 0)[1]
+  # Float32 strict (gradtol = 1e-11): τ = 64 eps(Float32) = 7.63e-6, threshold τ |x - y| = 3.8e-6
   o32 = ProximalOptions(gradtol = 1e-11)
-  @test check(ProximalGradientDescent(), Float32, 0.5, .1, 5e-6, o32)[1]
+  @test check(ProximalGradientDescent(), Float32, 0.5, .1, 3e-6, o32)[1]
   @test !check(ProximalGradientDescent(), Float32, 0.5, .1, 1e-5, o32)[1]
-  # Float64 with gradtol = 0: τ = 64 eps = 1.42e-14
+  # Float64 with gradtol = 0: τ = 64 eps = 1.42e-14, threshold 7.1e-15
   o0 = ProximalOptions(gradtol = 0)
-  @test check(ProximalGradientDescent(), Float64, 0.5, .1, 1e-14, o0)[1]
+  @test check(ProximalGradientDescent(), Float64, 0.5, .1, 5e-15, o0)[1]
   @test !check(ProximalGradientDescent(), Float64, 0.5, .1, 2e-14, o0)[1]
-  # Float32, α = 1e-39: λmax = 5e-38, τ λmax = 3.8e-43 < floatmin(Float32): underflow decides nothing
+  # Float32, α = 1e-39, y = 50, x = 0.5: the threshold τ α |x - y| = 3.8e-43 is below floatmin(Float32), which refuses
   ok, state = check(ProximalGradientDescent(), Float32, 0.5, 0.0, 0.0, o32, λmax = 50f-39, α = 1f-39)
   @test !ok
-  @test state.λmax ≈ 5f-38 rtol = 1e-3
+  @test state.λmax == -1
   # a gradient that is not finite
   @test !check(ProximalGradientDescent(), Float64, 0.5, .1, NaN, o)[1]
 end
@@ -384,9 +393,10 @@ end
 
 
 # The decision of _stationary! for a penalty level λ0 whose conversion to T depends on how it is
-# rounded. The one-column problem has λmax = 1 and x = 1; the gradient is -λ + δ, with the
+# rounded. The one-entry problem has X = [1], y = 2 and x = 1, so the residual is -1 and the coordinatewise
+# threshold is τ (√α ‖X₁‖ = 1 and √(2f) = 1, STOP-21); the gradient is -λ + δ, with the
 # coefficient λ = T(λ0) and a perturbation δ that is searched among a few values so that the
-# independent residual with the coefficient T(λ0) is below the threshold τ S (τ = 64 eps(T),
+# independent residual with the coefficient T(λ0) is below the threshold τ (τ = 64 eps(T),
 # gradtol = 0) and the residual with the coefficient `other`, a different rounding of λ0, is not.
 # The solver must keep the stop: it uses the coefficient T(λ0).
 function level_decision(T, λ0, other; setup = f -> f())
@@ -394,8 +404,7 @@ function level_decision(T, λ0, other; setup = f -> f())
   τ = T(64 * Float64(eps(T)))
   λ = T(λ0)
   @test λ != T(other)
-  S = max(λ, one(T))
-  threshold = τ * S
+  threshold = τ
   x = T[1]
   found = false
   for k in 2:24, s in (1, -1)
@@ -405,7 +414,7 @@ function level_decision(T, λ0, other; setup = f -> f())
     if r_true < threshold <= r_other
       found = true
       ok = setup() do
-        f = LeastSquaresLoss(T[1], T[1;;])
+        f = LeastSquaresLoss(T[2], T[1;;])
         g = NormL1(λ0)
         state = PS.initial_state(ProximalGradientDescent(), o, f, g, copy(x))
         state.grad_f_x .= grad
@@ -471,17 +480,17 @@ end
   invariant("strict 1e-200", r, X, y, α, λ, STRICT, Float64)
   # The reference is the least-squares solution x* of the rounded data, in 256-bit BigFloat. With
   # λ = 0, G = α XᵀX (x - x*), so ‖x - x*‖₂ ≤ ‖G‖₂ / (α σmin²) ≤ √p ‖G‖∞ / (α σmin²). The invariant above
-  # bounds ‖G‖∞ by U = eG + τ (1 + 4u)(S + eS) (the stopping threshold τ S plus the rounding
+  # bounds ‖G‖∞ by U = maxᵢ (eGᵢ + τ (1 + 4u)(sᵢ + esᵢ)) (the stopping thresholds τ sᵢ plus the rounding
   # estimates of kkt_excess). σlo is a candidate lower bound on σmin: the computed least singular
   # value of X less p eps σmax. It is not claimed from the backward stability of the SVD; it is
   # certified below by a Cholesky factorization of XᵀX - σlo² I in 256-bit BigFloat (for this fixture's values, XᵀX is exact at 256 bits). Success certifies λmin(XᵀX) > σlo², up to
   # the 256-bit rounding of the factorization, which for this fixture is far below the margin.
   τ = max(STRICT.gradtol, 64 * eps())
-  _, S, eG, eS, u = kkt_parts(X, y, α, λ, x, Float64)
+  _, eG, sc, es, u = kkt_parts(X, y, α, λ, x, Float64)
   setprecision(BigFloat, 256) do
     Xb, yb = BigFloat.(X), BigFloat.(y)
     xstar = (Xb' * Xb) \ (Xb' * yb)
-    U = eG + BigFloat(τ) * (1 + 4u) * (S + eS)
+    U = maximum(eG .+ BigFloat(τ) * (1 + 4u) .* (sc .+ es))
     σ = svdvals(X)
     σlo = BigFloat(last(σ)) - size(X, 2) * BigFloat(eps()) * BigFloat(first(σ))
     @test σlo > 0

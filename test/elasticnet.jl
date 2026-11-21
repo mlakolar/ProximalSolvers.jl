@@ -8,8 +8,8 @@ module ElasticNetTests
 # tight Float64 solve of AccProxGradDescent, and the BigFloat solve is accepted as the minimizer only
 # if its signs agree and the off-support condition holds (the second value of `reference`). `converged` is a stopping flag, not an accuracy
 # certificate: accuracy comes from the references, and each `converged = true` of the solves routed
-# through `run` is checked against the independent residual with an allowance for the rounding of the
-# computed gradient (`kkt_excess`). Refusals of penalties and of iterates are in test/core_contracts.jl and
+# through `run` is checked against the coordinatewise rule of the check (STOP-21) on the independent scores,
+# with allowances for the rounding of the computed gradient and of the computed scale (`coord_excess`). Refusals of penalties and of iterates are in test/core_contracts.jl and
 # test/accelerated_pgd.jl.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
@@ -53,12 +53,43 @@ function kktparts(X, y, α, λ1, λ2, x, ::Type{T}) where T
   end
 end
 
-# (G - eG - τ (1 + 4u) (S + eS)) / S, at most 0 when the independent residual is within the solver's
-# threshold τ S plus the allowances; Inf for S = 0
-function kkt_excess(X, y, α, λ1, λ2, x, τ, ::Type{T}) where T
-  G, S, eG, eS = kktparts(X, y, α, λ1, λ2, x, T)
-  iszero(S) && return Inf
-  (G - eG - τ * (1 + 4 * Float64(eps(T))) * (S + eS)) / S
+# The coordinatewise rule of the check (STOP-21) on the independent scores: the largest over the coordinates of
+#   (Gᵢ - eGᵢ) / (τ (1 + 4u) (sᵢ + esᵢ)) - 1,
+# at most 0 when every exact score Gᵢ (as in kktparts, entry by entry) is within its threshold τ sᵢ plus the
+# allowances; sᵢ = √(α‖Xᵢ‖² + λ2) √(α‖Xx - y‖² + λ2‖x‖²), eGᵢ the terms of eG in kktparts, and
+# esᵢ = √(α‖Xᵢ‖² + λ2) √α ‖e‖ + (n + p + 4) u sᵢ for the computed residual (|‖d̂‖ - ‖d‖| ≤ ‖e‖) and the roundings of
+# the loss value, the column norm and the square roots. Every column is nonzero in the designs of this file.
+function coord_excess(X, y, α, λ1, λ2, x, τ, ::Type{T}) where T
+  setprecision(BigFloat, 256) do
+    Xb, yb, xb, a, l1, l2 = big.(X), big.(y), big.(x), big(α), big(λ1), big(λ2)
+    n, p = size(Xb)
+    u = big(eps(T))
+    d = Xb * xb - yb
+    g = a .* (Xb' * d)
+    absX = abs.(Xb)
+    e = (p + 1) * u .* (absX * abs.(xb) + abs.(yb))
+    eG = a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ l1 .+ l2 .* abs.(xb))
+    ρ = sqrt(a * sum(abs2, d) + l2 * sum(abs2, xb))
+    Float64(maximum(1:p) do j
+      G = iszero(xb[j]) ? max(abs(g[j]) - l1, zero(l1)) : abs(g[j] + l2 * xb[j] + l1 * sign(xb[j]))
+      h = sqrt(a * sum(abs2, Xb[:, j]) + l2)
+      sj = h * ρ
+      (G - eG[j]) / (big(τ) * (1 + 4u) * (sj + h * sqrt(a) * sqrt(sum(abs2, e)) + (n + p + 4) * u * sj)) - 1
+    end)
+  end
+end
+
+# The largest ratio Gᵢ / sᵢ of the exact scores to the coordinatewise scales of coord_excess
+function coord_ratio(X, y, α, λ1, λ2, x)
+  setprecision(BigFloat, 256) do
+    Xb, yb, xb, a, l1, l2 = big.(X), big.(y), big.(x), big(α), big(λ1), big(λ2)
+    g = a .* (Xb' * (Xb * xb - yb))
+    ρ = sqrt(a * sum(abs2, Xb * xb - yb) + l2 * sum(abs2, xb))
+    Float64(maximum(eachindex(xb)) do j
+      G = iszero(xb[j]) ? max(abs(g[j]) - l1, zero(l1)) : abs(g[j] + l2 * xb[j] + l1 * sign(xb[j]))
+      G / (sqrt(a * sum(abs2, Xb[:, j]) + l2) * ρ)
+    end)
+  end
 end
 
 # G / S, the independent normalized residual
@@ -72,7 +103,8 @@ const NRUN = Ref(0)
 const NCONV = Ref(0)
 
 # The solve of x0 with the penalty g. The levels of the reference are the T values the solver uses.
-# A converged = true is checked against the independent residual (kkt_excess). Returns (x, result).
+# A converged = true is checked against the coordinatewise rule on the independent scores (coord_excess).
+# Returns (x, result).
 function run(method, X, y, α, g, x0, options)
   T = eltype(X)
   x = copy(x0)
@@ -81,7 +113,7 @@ function run(method, X, y, α, g, x0, options)
   if r.converged
     NCONV[] += 1
     τ = max(options.gradtol, 64 * Float64(eps(T)))
-    @test kkt_excess(X, y, α, T(g.λ1), T(g.λ2), x, τ, T) <= 0
+    @test coord_excess(X, y, α, T(g.λ1), T(g.λ2), x, τ, T) <= 0
   end
   x, r
 end
@@ -365,8 +397,9 @@ end
   # trial is accepted), the soft-threshold part of the step leaves
   # the warm start unchanged up to rounding, and the ridge weight 1/(1 + λ2/L) scales it, so the iterate
   # moves by a relative 1e-4, below xtol, and a test proposes a stop. At that iterate the residual of
-  # NormL1(λ1) is of the order of 1e-6, below τ S = 1e-5 (S = λmax = a), while the elastic-net residual
-  # is of the order of λ2 x2 = 8e-3, so the stop is refused when the residual includes λ2 x.
+  # NormL1(λ1) is of the order of 1e-6, below the coordinatewise threshold of x2 (STOP-21),
+  # τ √(a² + λ2) √(‖Xx - y‖² + λ2‖x‖²) ≈ 1e-3 × 0.0141 × 0.825 ≈ 1.2e-5 at the warm start, while the elastic-net
+  # residual is of the order of λ2 x2 = 8e-3, so the stop is refused when the residual includes λ2 x.
   for T in (Float32, Float64), method in METHODS
     X, y = T[1 0; 0 0.01], T[0, 1]
     α = one(T)
@@ -376,29 +409,30 @@ end
     options = ProximalOptions(xtol = 1e-1, ftol = 1e-1, gradtol = 1e-3)
     x, r = run(method, X, y, α, ElasticNet(λ1, λ2), lasso, options)
     τ = max(options.gradtol, 64 * Float64(eps(T)))
-    G, S, eG, eS = kktparts(X, y, α, λ1, λ2, x, T)
     moved = x != lasso
-    # either the solve did not stop, or it stopped at a point whose independent residual is within τ S
-    @test (T, typeof(method), !r.converged || (moved && G < τ * S + eG + τ * eS)) == (T, typeof(method), true)
-    # the lasso minimizer itself is not stationary for the elastic net, by a margin of 100 τ S
-    G0, S0, _, _ = kktparts(X, y, α, λ1, λ2, lasso, T)
-    @test G0 > 100 * τ * S0
+    # either the solve did not stop, or it stopped at a point where every independent score is within its threshold
+    @test (T, typeof(method), !r.converged || (moved && coord_excess(X, y, α, λ1, λ2, x, τ, T) <= 0)) ==
+          (T, typeof(method), true)
+    # the lasso minimizer itself is not stationary for the elastic net, by a margin of 100 τ in the coordinatewise ratio
+    @test coord_ratio(X, y, α, λ1, λ2, lasso) > 100 * τ
   end
 end
 
-@testset "ridge solutions at x = 0: a computed S = 0 refuses every stop" begin
+@testset "ridge solutions at x = 0: the first proposal is kept (#487)" begin
   for T in (Float32, Float64), method in METHODS
-    # y = 0, so the minimizer of ElasticNet(0, 1) from x0 = 0 is x0, and the computed λmax is 0
+    # y = 0, so the minimizer of ElasticNet(0, 1) from x0 = 0 is x0: every scale is zero and every score is at most 0,
+    # which the coordinatewise check accepts (case B of STOP-21)
     X = randn(Xoshiro(3), T, 10, 3)
     x = zeros(T, 3)
     options = ProximalOptions(maxiter = 40)
     r = solve!(x, LeastSquaresLoss(zeros(T, 10), X), ElasticNet(zero(T), one(T)), method, options)
-    @test all(iszero, x) && !r.converged && r.iterations == 40 && r.iteration_converged
-    # y ≠ 0 with a computed Xᵀy of exactly 0 (1 - 1: the products and the sum are exact)
+    @test all(iszero, x) && r.converged && r.iterations == 1
+    # y ≠ 0 with a computed Xᵀy of exactly 0 (1 - 1: the products and the sum are exact): x = 0 is the minimizer,
+    # its score is 0 and its threshold τ √(‖X‖² + λ2) √(‖y‖²) = τ √3 √2 is positive
     X1 = reshape(T[1, 1], 2, 1)
     x = zeros(T, 1)
     r = solve!(x, LeastSquaresLoss(T[1, -1], X1), ElasticNet(zero(T), one(T)), method, options)
-    @test all(iszero, x) && !r.converged && r.iterations == 40
+    @test all(iszero, x) && r.converged && r.iterations == 1
   end
 end
 

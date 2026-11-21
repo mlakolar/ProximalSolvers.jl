@@ -1,9 +1,11 @@
 module EntryThresholds
-# Per-entry stopping thresholds of PGD and APG for weighted penalties (#464, STOP-03, STOP-05). A proposed stop
-# with NormL1(λ0, w) is kept only if every entry score sᵢ is below τ max(cᵢ, λmax), cᵢ = T(λ0) wᵢ, and with
-# GroupNormL2 only if every group score is below τ max(cₖ, Λ); before #464 every entry was compared with the single
+# Per-entry stopping thresholds of PGD and APG for weighted penalties (#464, STOP-03, STOP-05, STOP-21). A proposed
+# stop with GroupNormL2, and with a logistic loss and NormL1(λ0, w), is kept only if every group (entry) score is below
+# τ max(cₖ, Λ) (τ max(cᵢ, λmax), cᵢ = T(λ0) wᵢ); before #464 every entry was compared with the single
 # threshold τ max(maxᵢ cᵢ, λmax), so one large coefficient raised the threshold of entry i, in exact arithmetic, by
-# the factor maxⱼ cⱼ / max(cᵢ, λmax) where that scale is positive.
+# the factor maxⱼ cⱼ / max(cᵢ, λmax) where that scale is positive. For least squares with NormL1(λ0, w) the
+# coordinatewise check of STOP-21 replaced these entry thresholds (#487): entry i is held to τ √α‖Xᵢ‖ √(2f(x)), with
+# exact zero scales decided by the sign of the score. The least-squares fixtures below are checked against that rule.
 #
 # Independent references, computed here in 256-bit BigFloat from the stored data and the returned coefficients,
 # without ProximalBase's kkt_violation or the solvers' helpers: the gradient, the per-entry (per-group) minimal-norm
@@ -11,8 +13,8 @@ module EntryThresholds
 # converged = true is checked against every entry's own bound, with a first-order allowance for the rounding of the
 # computed gradient (`check_entries`); the fixtures from #464 also check accuracy against analytic minimizers.
 # The stop rule itself is checked at fixed points against a rule formed here from ProximalBase's per-entry scores
-# (`verdicts`), and ordinary controls check that the earlier single threshold still decides whenever no
-# coefficient exceeds λmax.
+# (`verdicts`), and, for the groups, ordinary controls check that the earlier single threshold still decides whenever
+# no coefficient exceeds Λ.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 const PGD = ProximalGradientDescent
@@ -49,8 +51,12 @@ function allowance(loss, α, X, y, x, ::Type{T}) where T
   abs(big(α)) * γ * (A' * r)
 end
 
-# Every entry (group) of a converged solve satisfies its own bound τ max(cⱼ, λmax)(1 + 4 eps) + allowance (+ the
-# rounding of λmax): the stop rule of #464 recomputed in BigFloat. Returns the largest ratio of a score to its bound.
+# Every entry (group) of a converged solve satisfies its own bound, recomputed in BigFloat. Returns the largest ratio
+# of a score to its bound. Least squares with ℓ1 coefficients: the coordinatewise bound of STOP-21,
+# τ √α‖Xⱼ‖ ρ (1 + 4 eps) + allowance + eps(|gⱼ| + cⱼ), with ρ = √α (‖Xx - y‖ + ‖e_r‖)(1 + (n + p + 4) eps) for the
+# rounding e_r of the computed residual, e_r,i = (p+1) eps (Σₖ |Xᵢₖ||xₖ| + |yᵢ|); a zero column has the bound
+# allowance + eps cⱼ, against its score 0. Otherwise (logistic, groups) the bound τ max(cⱼ, λmax)(1 + 4 eps) +
+# allowance (+ the rounding of λmax) of #464.
 function check_entries(loss, α, X, y, λ0, w, x, ::Type{T}; groups = nothing, o = ProximalOptions()) where T
   big256() do
     b = big.(x)
@@ -60,7 +66,17 @@ function check_entries(loss, α, X, y, λ0, w, x, ::Type{T}; groups = nothing, o
     e = allowance(loss, α, X, y, x, T)
     e0 = allowance(loss, α, X, y, zero(x), T)
     τ = big(τof(T, o))
-    if groups === nothing
+    if loss === :ls && groups === nothing
+      n, p = size(X)
+      u = big(eps(T))
+      d = big.(X) * b - big.(y)
+      er = (p + 1) * u .* (abs.(big.(X)) * abs.(b) .+ abs.(big.(y)))
+      ρ = sqrt(big(α)) * (norm(d) + norm(er)) * (1 + (n + p + 4) * u)
+      h = [sqrt(big(α)) * norm(big.(X[:, j])) for j in eachindex(b)]
+      bound = τ .* h .* ρ .* (1 + 4u) .+ e .+ u .* (abs.(g) .+ c)
+      s = l1scores(g, c, b)
+      return Float64(maximum(j -> iszero(s[j]) ? big(0) : s[j] / bound[j], eachindex(s)))
+    elseif groups === nothing
       λmax = maximum(abs, g0)
       bound = τ .* max.(c, λmax + maximum(e0)) .* (1 + 4 * big(eps(T))) .+ e .+ big(eps(T)) .* (abs.(g) .+ c)
       s = l1scores(g, c, b)
@@ -80,7 +96,12 @@ objective_excess(loss, α, X, y, c, x, xstar) = big256() do
   Float64((F(big.(x)) - Fs) / abs(Fs))
 end
 
-# The rule formed here from ProximalBase's per-entry scores at a fixed point, and the solver's verdict there.
+# The rule formed here from ProximalBase's per-entry scores at a fixed point, and the solver's verdict there. For
+# GroupNormL2 it is the group rule of #464 (STOP-05). For least squares with NormL1 it is the coordinatewise rule of
+# STOP-21: entry i passes when its score is finite and below T((τ (√α ‖Xᵢ‖)) ρ), ρ = √2 √f(x) from the stored loss
+# value, a threshold that is finite and at least floatmin(T); a zero column, and every entry at x = 0 with y = 0,
+# passes when its score is finite and at most 0. `single` is the single threshold τ max(maxᵢ cᵢ, λmax) of the scale
+# before #464, and λmax is computed here for it.
 function verdicts(method, f, g, x, ::Type{T}, o = ProximalOptions()) where T
   state = PS.initial_state(method, o, f, g, copy(x))
   λmax = PS._lambda_max!(state, PS._scale_norm(g))
@@ -90,12 +111,24 @@ function verdicts(method, f, g, x, ::Type{T}, o = ProximalOptions()) where T
   if g isa GroupNormL2
     c = [g.λ0 * g.w[k] for k in eachindex(g.groups)]
     s = [kkt_violation(g, grad, state.x, first(Gk)) for Gk in g.groups]
+    rule = isfinite(λmax) && all(i -> (t = τ * max(c[i], λmax); t >= floatmin(T) && isfinite(s[i]) && s[i] < t), eachindex(c))
   else
     c = g.w === nothing ? fill(T(g.λ0), length(x)) : T(g.λ0) .* g.w
     gT = g.w === nothing ? NormL1(T(g.λ0)) : NormL1(T(g.λ0), g.w)
     s = [kkt_violation(gT, grad, state.x, i) for i in eachindex(x)]
+    X, ra = state.model.X, sqrt(Float64(state.model.α))
+    ρ = sqrt(2.0) * sqrt(Float64(state.f_x))
+    trivial = iszero(ρ) && all(iszero, state.model.Y) && all(iszero, state.x)
+    rule = all(eachindex(x)) do i
+      nrm = sqrt(sum(v -> abs2(Float64(v)), X[:, i]))
+      if trivial || iszero(nrm)
+        isfinite(s[i]) && s[i] <= 0
+      else
+        t = T((Float64(τ) * (ra * nrm)) * ρ)
+        isfinite(t) && t >= floatmin(T) && isfinite(s[i]) && s[i] < t
+      end
+    end
   end
-  rule = isfinite(λmax) && all(i -> (t = τ * max(c[i], λmax); t >= floatmin(T) && isfinite(s[i]) && s[i] < t), eachindex(c))
   single = (S = max(maximum(c), λmax); t = τ * S; isfinite(S) && t >= floatmin(T) && isfinite(maximum(s)) &&
             max(maximum(s), zero(T)) < t)
   (; verdict, rule, single, λmax, cmax = maximum(c))
@@ -200,8 +233,9 @@ end
 @testset "an active coordinate with a coefficient far above λmax" begin
   # X = [2.5 1e6; 0 1], y = [1, -1e6], NormL1(999999.27, [0, 1]): ∇f(0) = (-2.5, 0), so λmax = 2.5, and the
   # minimizer has x₂ = c₂ - 1e6 = -0.73 active and x₁ = (1 - 1e6 x₂)/2.5 = 292000.4. At a near-optimal point the
-  # score of x₂ is a cancellation at the scale 1e6 that rounds to a few units; it is judged against τ c₂ ≈ 10, not
-  # against τ λmax = 2.5e-5, while the free x₁ is held to τ λmax.
+  # score of x₂ is a cancellation at the scale 1e6 that rounds to a few units. The residual there is about
+  # (0, 999999.27), so the coordinatewise thresholds (STOP-21) are about τ ‖X₂‖ ‖r‖ ≈ 1e7 for x₂ and
+  # τ ‖X₁‖ ‖r‖ ≈ 25 for the free x₁; the #464 thresholds were τ c₂ ≈ 10 and τ λmax = 2.5e-5.
   X, y, λ0, w = [2.5 1e6; 0.0 1.0], [1.0, -1e6], 999999.27, [0.0, 1.0]
   f, g = LeastSquaresLoss(y, X), NormL1(λ0, w)
   xstar = big256() do
@@ -214,7 +248,7 @@ end
   for method in METHODS
     v = verdicts(method, f, g, xa, Float64)
     @test v.verdict == v.rule
-    @test v.verdict                               # held to τ max(c₂, λmax), not to τ λmax
+    @test v.verdict
     @test v.cmax > v.λmax
   end
   @test objective_excess(:ls, 1, X, y, c, xa, xstar) <= 1e-20
@@ -223,10 +257,12 @@ end
     x = copy(x0)
     r = solve!(x, f, g, method, ProximalOptions(maxiter = 2000))
     @test !r.converged || check_entries(:ls, 1, X, y, λ0, w, x, Float64) <= 1
-    # near the minimizer the solves stop at a near-optimal point
+    # near the minimizer the solves stop at a near-optimal point. The coordinatewise check bounds the decrease that one
+    # coordinate can give by τ² Φ = 1e-10 Φ, with Φ = ½‖Xx - y‖² ≈ 5e11 close to F; the ill-conditioning of XᵀX makes
+    # that no bound on the excess, which was measured at 1.3e-13 on Julia 1.13.4
     if !iszero(x0)
       @test r.converged
-      @test objective_excess(:ls, 1, X, y, c, x, xstar) <= 1e-15
+      @test objective_excess(:ls, 1, X, y, c, x, xstar) <= 1e-10
     end
   end
 end
@@ -254,15 +290,15 @@ end
     r = solve!(x, LeastSquaresLoss(yo, X), NormL1(λ, w), method)
     @test !r.converged || check_entries(:ls, 1, X, yo, λ, w, x, T) <= 1
     T === Float64 && @test r.converged
-    # y = 0 with a zero weight: λmax = 0, so a zero-weight entry has a zero threshold and no stop is kept (as for
-    # all-zero weights, STOP-04), although x = 0 is the minimizer
+    # y = 0 with a zero weight: x = 0 is the minimizer and every score there is at most 0, which the coordinatewise
+    # check keeps (case B of STOP-21); with the #464 entry thresholds λmax = 0 gave the zero-weight entry a zero
+    # threshold, and no stop was kept
     x = zeros(T, 5)
     r = solve!(x, LeastSquaresLoss(zeros(T, 30), X), NormL1(λ, T[0, 1, 1, 1, 1]), method, ProximalOptions(maxiter = 20))
-    @test !r.converged
-    @test r.iteration_converged
+    @test r.converged && r.iterations == 1
     @test all(iszero, x)
     v = verdicts(method, LeastSquaresLoss(zeros(T, 30), X), NormL1(λ, T[0, 1, 1, 1, 1]), zeros(T, 5), T)
-    @test !v.verdict && !v.rule && v.single     # the single threshold τ maxᵢ cᵢ kept it before #464
+    @test v.verdict && v.rule && v.single
     # all weights positive with y = 0: every threshold is positive and x = 0 stops
     x = zeros(T, 5)
     r = solve!(x, LeastSquaresLoss(zeros(T, 30), X), NormL1(λ, T[1, 1, 1, 1, 1e6]), method)
@@ -271,7 +307,7 @@ end
   end
 end
 
-@testset "ordinary weights: the single threshold decides, and the rule matches its definition" begin
+@testset "ordinary weights: the rule matches its definition" begin
   for T in (Float64, Float32), method in METHODS
     X, y = design(T, 40, 8; seed = 3)
     lm = norm(Float64.(X)' * Float64.(y), Inf)
@@ -283,15 +319,13 @@ end
       for x in pts
         v = verdicts(method, f, g, x, T)
         @test v.verdict == v.rule
-        v.cmax <= v.λmax && @test v.verdict == v.single
-        v.verdict && @test v.single              # never kept where the single threshold refuses
       end
       x = zeros(T, 8)
       r = solve!(x, f, g, method)
       @test !r.converged || check_entries(:ls, 1, X, y, T(λfac * lm), w, x, T) <= 1
     end
-    # an accepting fixed point on the fast path: unit weights and the level equal to the computed λmax, at x = 0, where
-    # every score is |∇fᵢ(0)| - λmax ≤ 0 and every threshold is τ λmax
+    # an accepting fixed point: unit weights and the level equal to the computed λmax, at x = 0, where every score is
+    # |∇fᵢ(0)| - λmax ≤ 0, below every positive threshold
     lmT = verdicts(method, f, NormL1(one(T), ones(T, 8)), zeros(T, 8), T).λmax
     v = verdicts(method, f, NormL1(lmT, ones(T, 8)), zeros(T, 8), T)
     @test v.cmax == v.λmax
