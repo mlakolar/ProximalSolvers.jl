@@ -12,14 +12,8 @@ solver, its models, budgets, search, result and failure boundary.
 
 `ProxNewton(; inner, maxiter = 100, tol = 1e-7)` is passed to `solve!` with ProximalBase's raw
 `LogisticLoss(y, X)`, a `NormL1(lambda)` or `NormL1(lambda, w)` penalty and a dense
-`Vector{Float64}` start. It minimizes the objective of [IN-09](@ref),
-
-```math
-F(b)=\sum_{i=1}^n \{\log(1+e^{\eta_i})-y_i\eta_i\}+\sum_{j=1}^{p} c_j|b_j|,\qquad \eta=Xb,\quad c_j=\lambda w_j,
-```
-
-starting at the supplied coefficients, with the intercept convention of [IN-09](@ref) (a
-column of ones with penalty weight zero). The level `lambda` is converted to `Float64` once,
+`Vector{Float64}` start. It minimizes the summed logistic objective and penalty in [IN-09](@ref),
+starting at the supplied coefficients. A column of ones with penalty weight zero supplies an unpenalized intercept. The level `lambda` is converted to `Float64` once,
 and the penalty weights are used as supplied; ProximalBase's `kkt_violation` receives
 that converted penalty.
 
@@ -94,17 +88,25 @@ saturated row on the side of its label keeps its small root even where the squar
 gradient at `b` is `Xᵀd` and its Hessian is `XᵀX/4`, which bounds that of the loss, so that
 `f(b + Δ) ≤ f(b) + ∇f(b)ᵀΔ + ‖XΔ‖²/8` for every `Δ`.
 
-A model whose design or response has a nonfinite entry is unavailable for that iteration. The weighted model keeps
-one `n × p` design in addition to vectors of length `n` and `p`; the fixed model does not copy `X`. The residual and
-curvature caches of a model are refreshed from its current data at the start of every inner solve
-([PN-03](@ref)). The fixed model is used only after the weighted model gives no accepted step, within the remaining
-pass budget of the iteration. Neither model forms or factorizes a coefficient Hessian.
+A model whose design or response has a nonfinite entry is unavailable for that iteration. The adaptive
+model is also unavailable when a nonzero column has every squared entry round to zero in Float64.
+The construction checks the square of the largest magnitude in the column. Since rounded
+nonnegative squares are monotone, a zero result for a positive maximum means every square
+rounded to zero, which [CD-04](@ref) would refuse. For example, an adaptive column with one
+entry `exp(-400)` and all other entries zero triggers this fallback. An all-zero column remains
+eligible under the flat-column step in [CD-01](@ref).
+
+The weighted model keeps one `n × p` design with vectors of length `n` and `p`. The fixed model
+borrows `X`. The inner solver refreshes the residual and curvature caches before its first run
+for a model and carries that state through refinements ([PN-03](@ref)). The fixed model follows
+an unavailable weighted model or one that gives no accepted step, within the remaining pass
+budget. Both forms use coordinate operations on the model's design columns.
 
 **Applies to.** `ProxNewton`.
 
 **Code.** `src/solvers/logistic_proxnewton.jl`: `_pn_adaptive_model!`, `_pn_fixed_response!`.
 
-**Tests.** `test/logistic_proxnewton.jl`: the gradient and Hessian identities of both models and the majorization inequality against BigFloat references from the raw data; rows at `η = 800`, `-150`, `-800` and `-2000` and at both labels (the guarded ratio, the fixed row and the zero row); a start with logits `0, ±400, 800`; the seeded problems solved with both models.
+**Tests.** `test/logistic_proxnewton.jl`: the gradient and Hessian identities of both models and the majorization inequality against BigFloat references from the raw data; rows at `η = 800`, `-150`, `-800` and `-2000` and at both labels (the guarded ratio, the fixed row and the zero row); a start with logits `0, ±400, 800`; an adaptive column with zero squared entries taking the fixed fallback; the seeded problems solved with both models.
 
 **Sources.** [Issue #447](https://github.com/mlakolar/ProximalSolvers.jl/issues/447) and [pull request #496](https://github.com/mlakolar/ProximalSolvers.jl/pull/496).
 
@@ -167,12 +169,12 @@ direction whose slope is not finite and negative is not searched.
 The search tries the steps `t = 1, 1/2, …, 2⁻³⁹` (at most 40 trials) at `b + t (u - b)`. A trial whose predictor, objective, gradient
 or score is not finite is ineligible. With `actual` the difference of the two computed finite objectives and
 `required = 10⁻⁴ t · slope`, a trial is accepted when `actual < -8 eps(F)` and `actual ≤ required`, `F` being the
-objective at the accepted point; or when `|actual| ≤ 8 eps(F)` and `|required| ≤ 8 eps(F)`, the rounding of `F`, and the
+objective at the accepted point; or when `|actual| ≤ 8 eps(F)` and `|required| ≤ 8 eps(F)`, the near-tie band, and the
 trial's ProximalBase KKT score of the original problem is strictly smaller than that of the accepted point. The second
-rule is for ties that the objective cannot decide: with `F = 100`, changes of order `-10⁻¹⁵` and scores `4·10⁻⁸` at the
+rule uses the KKT score to decide near ties in the computed objective: with `F = 100`, changes of order `-10⁻¹⁵` and scores `4·10⁻⁸` at the
 accepted point and `2·10⁻⁸` at the trial, the trial is accepted; with equal scores it is rejected. A step that
 rounds to no displacement is not a success and ends the search, and so does the last trial. The first accepted
-trial becomes the accepted point with its own objective, gradient and score, computed at that point.
+trial becomes the accepted point with its own objective, gradient and score, computed at that point. The near-tie rule can accept an increase of at most `8 eps(F)` in the computed objective.
 
 If the weighted model gives no accepted step, the fixed model is tried within the remaining budget
 ([PN-03](@ref)); if it gives none either, the solve is `:stalled`.
@@ -200,10 +202,10 @@ score can fall below `tol` at a finite point and `converged = true` can be repor
 The solve computes on private buffers and writes the caller's coefficients once, with the accepted point, at a normal return
 (converged, `:maxiter` or `:stalled`). An exception from the inner solve or the logistic oracle propagates and leaves the
 caller's coefficients unchanged; so does a refusal. The borrowed `X`, `y`, the penalty weights and the scratch of the
-loss are never written. Errors that the coordinate step of [CD-04](@ref) raises for the range of a model, for
-example a curvature that underflows because every row of a column is saturated on the side of its label, or one that
-overflows, are not handled or retried: they propagate as `ArgumentError`s. A numerical
-failure inside a trial of the search (a nonfinite quantity) makes that trial ineligible and is not an exception.
+loss are never written. The adaptive column check and fallback are specified in [PN-02](@ref).
+An error from [CD-04](@ref) that reaches the caller, such as a curvature that underflows
+in the fixed model or overflows in a coordinate step, propagates as an `ArgumentError`.
+A trial with a nonfinite quantity is ineligible under [PN-04](@ref).
 
 **Applies to.** `ProxNewton`; the result and mutation rules of [RES-01](@ref) and [RES-03](@ref) refer here for it.
 

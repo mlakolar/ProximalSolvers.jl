@@ -220,7 +220,7 @@ end
   # of any displacement is exactly zero, as each term has the factor G + c = 0; a difference of the two penalty
   # totals would carry their rounding of order 1e-10 here
   p = 200
-  b = 1000.0 .+ (1:p)
+  b = collect(1000.0 .+ (1:p))
   cand = b .+ 1e-9 .* cospi.((1:p) ./ 7)
   @test PS._pn_slope(fill(-0.5, p), b, cand, fill(0.5, p)) == 0
 end
@@ -457,7 +457,7 @@ end
   b = [0.0]
   r = solve!(b, LogisticLoss(y, X), NormL1(0.0), ProxNewton(maxiter = 0))
   @test r.converged && r.stop_reason === :converged && r.iterations == 0 && r.passes == 0
-  @test r.kkt == 0 && r.minimum ≈ 4 * log(2) rtol = 1e-14 && b == [0.0]
+  @test r.kkt == 0 && isapprox(r.minimum, 4 * log(2); rtol = 1e-14) && b == [0.0]
   # a start that is not stationary is returned unchanged, with the budget reason
   X, y, λ, wts, b0 = problem(80, 4; seed = 17)
   b = copy(b0)
@@ -625,11 +625,30 @@ end
   end
 end
 
+@testset "underflowing adaptive column takes the fixed model" begin
+  X = [1.0 1.0; 1.0 0.0; 1.0 0.0]
+  y = [1.0, 1.0, 0.0]
+  b = [0.0, 800.0]
+  f, g = LogisticLoss(y, X), NormL1(0.1)
+  method = ProxNewton(maxiter = 1)
+  w = PS._pn_workspace(b, f, g, method)
+  @test !PS._pn_adaptive_model!(w.A, w.resp, w.rows, w.X, w.eta, w.d)
+  @test 0 < w.A[1, 2] && iszero(abs2(w.A[1, 2]))
+  start = independent(X, y, b, g.λ0)
+  r = solve!(b, f, g, method)
+  ref = independent(X, y, b, g.λ0)
+  @test r.iterations == 1 && r.passes > 0
+  @test r.stop_reason === :maxiter && !r.converged
+  @test ref.objective < start.objective
+  @test r.minimum ≈ ref.objective
+  @test r.kkt ≈ ref.score
+end
+
 @testset "numerical exceptions restore the caller's coefficients and leave the inputs alone" begin
-  # every row saturated on the side of its label: the weighted columns have zero curvature squares (underflow)
-  X, y = ones(5, 1), ones(5)
+  # This design's column underflows in both the adaptive and fixed models.
+  X, y = fill(1e-170, 5, 1), ones(5)
   Xc, yc = copy(X), copy(y)
-  x = [800.0]
+  x = [1.0]
   err = try
     solve!(x, LogisticLoss(y, X), NormL1(1.0), ProxNewton())
     nothing
@@ -637,7 +656,7 @@ end
     e
   end
   @test err isa ArgumentError && occursin("curvature", sprint(showerror, err))
-  @test x == [800.0] && X == Xc && y == yc
+  @test x == [1.0] && X == Xc && y == yc
   # a coordinate curvature that overflows
   X = [1e200 1.0; 1e200 -1.0; 1e200 2.0]
   y = [0.0, 1.0, 1.0]

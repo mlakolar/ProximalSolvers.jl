@@ -142,7 +142,9 @@ const _PN_RATIO = 2.0^26
 # A row whose |d_i| exceeds s 2^26 (the comparison is made on the product, which cannot overflow, and not on the
 # ratio d/s) has the fixed row root 1/2 in place of s: it keeps the tangent (resp[i] = eta_i/2 - 2 d_i) and gives the
 # row the curvature 1/4 of the global bound. A saturated row on the side of its label keeps its small root. A row whose
-# root and derivative are both zero is a zero row. Returns whether A and resp are finite.
+# root and derivative are both zero is a zero row. The adaptive model is unusable when a nonzero column
+# has every entry square to zero in Float64. Testing the largest magnitude is sufficient because the
+# rounded square is monotone on nonnegative inputs. The fixed model can still supply a direction.
 function _pn_adaptive_model!(A::Matrix{Float64}, resp::Vector{Float64}, rows::Vector{Float64},
                              X::Matrix{Float64}, eta::Vector{Float64}, d::Vector{Float64})
   @inbounds for i in eachindex(eta)
@@ -154,11 +156,15 @@ function _pn_adaptive_model!(A::Matrix{Float64}, resp::Vector{Float64}, rows::Ve
   end
   n, p = size(X)
   @inbounds for j in 1:p
+    largest = 0.0
     @simd for i in 1:n
-      A[i, j] = rows[i] * X[i, j]
+      entry = rows[i] * X[i, j]
+      A[i, j] = entry
+      largest = max(largest, abs(entry))
     end
+    isfinite(largest) && (iszero(largest) || !iszero(abs2(largest))) || return false
   end
-  _allfinite(resp) && _allfinite(A)
+  _allfinite(resp)
 end
 
 # The response of the fixed model, used with the borrowed X and the loss scale 1/4 of an LSModel: eta - 4d, so that
@@ -192,9 +198,9 @@ end
 
 # The acceptance rule of one trial of the search, for the actual change `actual` of the objective, the Armijo
 # requirement `required` (at most zero), the objective F at the accepted point and the original KKT scores rho at the
-# accepted point and rho_trial at the trial. Where both changes are within the rounding of F (8 eps(F)) the objective
-# cannot tell progress from noise, and the trial is accepted only if its score is strictly smaller. Otherwise the
-# trial must lower the objective by more than that rounding and by at least the required amount.
+# accepted point and rho_trial at the trial. When both changes are within the near-tie band of 8 eps(F), the
+# trial must improve the score. Otherwise the trial must decrease the objective by more than the band
+# and by at least the required amount.
 function _pn_accepts(actual::Float64, required::Float64, F::Float64, rho::Float64, rho_trial::Float64)
   slack = 8 * eps(F)
   if abs(actual) <= slack && abs(required) <= slack
