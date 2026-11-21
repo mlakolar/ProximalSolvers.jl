@@ -1,7 +1,8 @@
 # The accelerated proximal gradient method of Parikh and Boyd, Proximal Algorithms,
 # section 4.3, with adaptive restart on an objective increase (O'Donoghue and Candès,
 # Adaptive restart for accelerated gradient schemes, 2015), for the dense
-# least-squares lasso of the minimal core.
+# least-squares lasso of the minimal core and, with the curvature factor ¼ in its line search, the raw logistic loss
+# of IN-09 (APG-08).
 
 """
     AccProxGradDescent(; β = 0.5, α = 0.9, preconditioner = :none)
@@ -9,9 +10,10 @@
 Accelerated proximal gradient descent for dense Float32/Float64 least squares
 with `NormL1` or `ElasticNet` (each with optional weights), `NormLinf`, `NormL2` or
 `GroupNormL2`. A dense matrix response with dense same-type coefficients uses
-unweighted `NormL1` on its entries. APG extrapolates
-from previous accepted iterates, takes a backtracked proximal step, and restarts
-momentum on an objective increase. Pass [`ProximalOptions`](@ref) as the fifth
+unweighted `NormL1` on its entries. A raw `LogisticLoss(y, X)` with `NormL1` on a
+`Vector{Float64}` is also supported (see below). APG extrapolates
+from previous accepted iterates, takes a backtracked proximal step, and restarts the step
+without momentum when it used momentum and the objective increased. Pass [`ProximalOptions`](@ref) as the fifth
 argument to [`solve!`](@ref); the result and stopping interface are shared with PGD.
 
 ```julia
@@ -39,21 +41,32 @@ counting from the start or last restart; this is not the textbook FISTA recurren
 A restart repeats the step without momentum. An error in backtracking restores
 the last accepted coefficients and is rethrown.
 
-The supported penalties are `NormL1` and `ElasticNet`, each with optional weights
+For least squares, the supported penalties are `NormL1` and `ElasticNet`, each with optional weights
 ([IN-03](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-03)),
 `NormLinf`, `NormL2` ([IN-11](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-11)) and a matching `GroupNormL2{T}` on dense coefficients.
 Box constraints use `IndBox` or `IndBallLinf`. Euclidean-ball constraints use
 `IndBallL2` with four coefficients and a radius of the same type. These
 indicators require a feasible starting vector.
 Use [`ProximalGradientDescent`](@ref), or [`CDSolver`](@ref) on a dense `Vector`,
-for unweighted `NormL1Nonneg`; APG does not support that constrained penalty.
+for `IndNonnegative()` and unweighted `NormL1Nonneg`; APG does not support those constrained penalties.
+
+Sparse logistic regression takes a raw `LogisticLoss(y, X)` (dense `Matrix{Float64}` design, binary
+`Vector{Float64}` response, no observation weights or offset) with `NormL1`, with or without penalty weights, on a
+`Vector{Float64}`; a zero penalty weight leaves an intercept column unpenalized. The loss, coefficient and penalty
+rules are those of the gate of [`ProximalGradientDescent`](@ref), and the dimension limits above also apply. The factor
+`1/4` of the logistic Hessian bound takes the place of the loss scale in the certified line-search test: a nonzero trial
+from the extrapolated point can be accepted only if the image bound is certified, after the guards in APG-08. The test does not use the local curvature, so a step can be shorter than a test on
+the loss value would allow. See
+[the logistic input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09) and
+[APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
+
 A proposed stop is checked at the accepted point. The iteration's reported
 gradient-mapping residual is measured from the extrapolated point, so use the
 stopping documentation when interpreting it. The extra gradient for a proposed
 stop is included in `grad_calls`.
 
-- [Extrapolation, restarts and dimension limits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01).
-- [Certified local bound test and assumptions](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01).
+- [Extrapolation and restarts](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01) and [dimension limits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-02).
+- [Certified local bound test and assumptions](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-06).
 - [Shared stopping and exceptional exits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-01).
 """
 struct AccProxGradDescent{T<:AbstractFloat} <: ProximalSolver
@@ -106,9 +119,11 @@ mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z}
     z_x::Z
     z_previous::Z
     z_y::Z
-    dz::Z             # residual A y - response (before the loss scale); buffer of the fresh A d
+    dz::Z             # observation derivative at the cached image z_y (z_y minus the response before the loss scale for
+                      # least squares, σ(z_y) minus the response for a logistic loss), written by the value and gradient
+                      # oracle when it runs (a logistic oracle is skipped for a nonfinite image); buffer of the fresh A d
     bound::_BoundConstants{T}  # constants of the bound test (dimensions, ‖A‖_F)
-    rootα::_SE{T}     # √ of the loss scale as given (see _root_scale)
+    rootα::_SE{T}     # √ of the loss scale as given (see _root_scale); ½ = √¼ for a logistic loss
     image_error_y::_SE{T}  # bound on the error of z_y as an image of y
     normx::_SE{T}     # ‖x‖ of the accepted iterate
     normx_previous::_SE{T}  # ‖x_previous‖
@@ -216,9 +231,13 @@ function update_state!(
     state
 end
 
-# x = prox_{g/L}(y - ∇f(y)/L), increasing L until _bound_certified! certifies
-# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + L/2 ‖x - y‖² (with legacy's slack 8eps on L), or until
-# x == y entrywise.
+# x = prox_{g/L}(y - ∇f(y)/L). Both exits require that the smooth value of the trial and the computed norms of x and of
+# the rounded displacement x - y are finite. Then x == y entrywise is accepted, and a nonzero displacement is accepted when
+# _bound_certified! certifies the image inequality √α ‖X (x - y)‖ ≤ (1 + 4eps) √L ‖x - y‖. Any other trial raises L through
+# next_curvature, a finite increase or else an error. The gradient ∇f(y) comes from the cached image z_y, which can differ
+# from the product X y, and the derivative buffer state.dz receives the observation derivative at z_y when the oracle runs.
+# In exact arithmetic the image inequality is, for least squares, equivalent to
+# f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + (1 + 4eps)² L/2 ‖x - y‖²; for a logistic loss (α = ¼) it implies that inequality (APG-08).
 function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
     f_y = _value_and_gradient!(state.grad_f_y, state.y, f, state.z_y, state.dz)
     state.f_calls += 1
@@ -321,14 +340,26 @@ accelerated proximal gradient descent, overwriting dense `Vector{T}` coefficient
 with `T = Float32` or `Float64`. A dense matrix response uses same-type dense
 matrix coefficients and unweighted `NormL1` under
 [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
-The inputs, the options and their validation are those
-of `ProximalGradientDescent`, including a `GroupNormL2` penalty with its group stopping check (see `ProximalGradientDescent` and
-[`ProximalOptions`](@ref)); in addition `β` and `α` must satisfy their bounds after
-conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
+
+# Extended help
+
+For least squares, the options and their validation are those of
+`ProximalGradientDescent` (see [`ProximalOptions`](@ref)), and the penalties are those listed for
+[`AccProxGradDescent`](@ref); `IndNonnegative()` and unweighted `NormL1Nonneg` on dense vector coefficients are accepted by `ProximalGradientDescent` and
+`CDSolver` only. The listed penalties, a weighted `ElasticNet` and a `GroupNormL2` included, apply to dense vector
+coefficients with least squares, and the group stopping check is described under `ProximalGradientDescent`. In addition `β`
+and `α` must satisfy their bounds after conversion to `T`, and the dimensions must satisfy `max(n, p) + 4 < 1/(4 eps(T))` and
 `n p + 3 < 1/(4 eps(Float64))` (for Float32, `max(n, p) < 2,097,148`), which the
 rounding-error bounds of the line search need for one response. For `K` response
 columns, the first bound uses `max(nK, pK)`. See
 [APG-07](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-07).
+
+A raw `LogisticLoss(y, X)` with `NormL1` on a `Vector{Float64}` is solved for the summed logistic objective of
+[IN-09](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09), which gives the input rules and the
+order of refusals shared with PGD. The factors `β` and `α` and the dimension limits for one response above also apply, and the
+line search is that of
+[APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
+
 Every refusal of an input, option or
 method setting happens before `x` is modified. A step error
 restores the last accepted `x` and rethrows, without a transaction guarantee for
