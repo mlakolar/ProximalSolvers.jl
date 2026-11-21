@@ -268,21 +268,32 @@ end
   @test PS._la_scalar(-746.0, -746.0, false, 1.0) == (0.0, 0.0)
   @test PS._la_root(-746.0, false, 1.0) == (-746.0, 0, true)
   @test bigresidual(big(-746.0), false) > 0
-  # the working bracket: its far end is rounded, so it can be wider than 1/ρ (2^34 at v = 2^86, y = 1, ρ = 1e-10)
+  # the working bracket: γ = inv(ρ) is rounded, then v ± γ. Its far end can make it wider than 1/ρ (2^34 at v = 2^86,
+  # y = 1, ρ = 1e-10), and it can differ from the rounded exact end: at ρ = 3, v = inv(3.0), y = 0 the lower end is 0,
+  # and the root lies in [0, v]
   @test (2.0^86 + inv(1e-10)) - 2.0^86 == 2.0^34 && 2.0^34 > 1e10
-  # the loop of LA-03: at v = 0, y = 0, ρ = 1 the first step is the Newton point -0.4; the second pass leaves the width
-  # 0.6 > 1/2, so window = 2 and the midpoint of [-1, -0.4] replaces its Newton point as the second step (a budget of
-  # one or two steps stops the root after it, at step 5 of the next pass)
+  @test inv(3.0) - inv(3.0) == 0.0 && Float64(big(inv(3.0)) - 1 / big(3)) != 0.0
+  s3, _, ok3 = PS._la_root(inv(3.0), false, 3.0)
+  @test ok3 && 0.0 <= s3 <= inv(3.0)
+  # the loop described at _la_root: at v = 0, y = 0, ρ = 1 the first step is the Newton point -0.4; the second pass
+  # leaves the width 0.6 > 1/2, so window = 2 and the midpoint of [-1, -0.4] replaces its Newton point as the second
+  # step. With budgets of one and two steps the root fails after them, at the budget test of the next pass
   s1, k1, ok1 = PS._la_root(0.0, false, 1.0, 1)
   s2, k2, ok2 = PS._la_root(0.0, false, 1.0, 2)
   @test (s1, k1, ok1) == (-0.4, 1, false)
   @test s2 == -1.0 / 2 + s1 / 2 && isapprox(s2, -0.7; atol = 1e-15) && (k2, ok2) == (2, false)
   # the threshold test of a pass comes before its budget test: the plateau root succeeds with a budget of one step
   @test PS._la_root(500.0, false, 0.001, 1) == (0.0, 1, true)
-  # the rounded dual update need not lie in [-1, 1]: y = 0, v = 2^55 + 8, ρ = 1/4 gives w = 2
+  # the ends tie: y = 0, v = 2^55 + 8, ρ = 1/4. No Float64 lies strictly inside the working bracket, the computed |h| is
+  # 1 at both ends, and lo is returned with no step. There h = r - w = -1 for the dual update w = ρ(v - s) = 2, which
+  # lies outside [-1, 1]
   v = 2.0^55 + 8
   s, k, ok = PS._la_root(v, false, 0.25)
-  @test ok && 0.25 * (v - s) == 2.0
+  lo = v - inv(0.25)
+  @test ok && k == 0 && s == lo < v && nextfloat(lo) == v
+  @test first(PS._la_scalar(lo, v, false, 0.25)) == -1.0 && first(PS._la_scalar(v, v, false, 0.25)) == 1.0
+  w = 0.25 * (v - s)
+  @test w == 2.0 && first(PS._la_scalar(s, v, false, 0.25)) == PS._la_residual(s, false) - w
   # the side of v: below it for y = 0, above it for y = 1, within 1/ρ
   for v in (-3.0, 0.5, 7.0), ρ in (0.1, 2.0)
     s0, _, _ = PS._la_root(v, false, ρ)
@@ -305,8 +316,10 @@ end
       ρ in (1e-10, 1e-3, 0.25, 1.0, 1e3, 1e10)
     t, k, ok = PS._la_root(v, one, ρ)
     @test (v, one, ρ, ok) == (v, one, ρ, true)
-    # in the closed bracket, and the backward error within the bound of LA-03
-    lo, hi = one ? (v, v + 1 / ρ) : (v - 1 / ρ, v)
+    # in the working bracket as computed (γ = inv(ρ), then the rounded and clamped far end), and the backward error
+    # within the bound of LA-03
+    γ = inv(ρ)
+    lo, hi = one ? (v, min(v + γ, floatmax(Float64))) : (max(v - γ, -floatmax(Float64)), v)
     @test lo <= t <= hi
     b = backward(t, v, one, ρ)
     @test (v, one, ρ, b <= BACKWARD) == (v, one, ρ, true)
@@ -678,18 +691,32 @@ end
   r = solve!([0.0], LogisticLoss([0.0], ones(1, 1)), NormL1(0.0), LogisticADMM(ρ = 1e10, maxiter = 0); t = [-735.0])
   w0 = PS._la_residual(-735.0, false)
   @test r.u == [0.0] && w0 > 0 && r.dual_kkt == 0 && r.predictor_residual == w0
-  # the scaled dual ŵ = ρ u is formed before the product with X. With ρ = 1e-10, X = 1e155 and u = 1e154 the product
-  # X u overflows, while X ŵ = 1e299 is finite: dual_kkt is that value, against a BigFloat evaluation
+  # the scaled dual ŵ = ρ u is formed before the product with Xᵀ. With ρ = 1e-10, X = 1e155 and u = 1e154 the product
+  # Xᵀu overflows, while Xᵀŵ = 1e299 is finite: dual_kkt is that value, against a BigFloat evaluation
   r = solve!([0.0], LogisticLoss([0.0], fill(1e155, 1, 1)), NormL1(0.0), LogisticADMM(ρ = 1e-10, maxiter = 0);
              t = [0.0], u = [1e154])
   @test isinf(1e155 * 1e154) && r.dual_kkt == 1e155 * (1e-10 * 1e154)
   @test isapprox(r.dual_kkt, Float64(big(1e155) * big(1e-10) * big(1e154)); rtol = 4 * eps())
-  # with ρ = 1e10, X = 1e-165 and u = 1e-165 the product X u underflows to 0, while X ŵ is the subnormal 1e-320
+  # with ρ = 1e10, X = 1e-165 and u = 1e-165 the product Xᵀu underflows to 0, while Xᵀŵ is the subnormal 1e-320
   r = solve!([0.0], LogisticLoss([0.0], fill(1e-165, 1, 1)), NormL1(0.0), LogisticADMM(ρ = 1e10, maxiter = 0);
              t = [0.0], u = [1e-165])
   @test 1e10 * (1e-165 * 1e-165) == 0 && r.dual_kkt == 1e-165 * (1e10 * 1e-165) > 0
-  # a supplied u with maxiter = 0 is reported as it is, and X ŵ can overflow: dual_kkt is Inf, without an error, while
-  # the score of the original problem is finite
+  # the documented range limits of the Float64 evaluation (LA-01). A term of Xᵀŵ can overflow although the exact sum
+  # is 0: with ρ = 16, X = (2^520, 2^520) and u = (2^500, -2^500) the terms are ±2^1024, and dual_kkt is Inf
+  X = fill(2.0^520, 2, 1)
+  r = solve!([0.0], LogisticLoss([0.0, 1.0], X), NormL1(0.0), LogisticADMM(ρ = 16.0, maxiter = 0); t = [0.0, 0.0],
+             u = [2.0^500, -2.0^500])
+  @test r.dual_kkt == Inf && isinf(2.0^520 * (16.0 * 2.0^500))
+  @test sum(big.(vec(X)) .* (big(16.0) .* big.([2.0^500, -2.0^500]))) == 0
+  @test isfinite(r.kkt)
+  # and an entry ρ u[i] can underflow and lose its contribution: with ρ = 1e-10, X = 2^520 and u = nextfloat(0.0),
+  # ρ u rounds to 0 and dual_kkt is 0, while the exact score is about 1.7e-177
+  r = solve!([0.0], LogisticLoss([0.0], fill(2.0^520, 1, 1)), NormL1(0.0), LogisticADMM(ρ = 1e-10, maxiter = 0);
+             t = [0.0], u = [nextfloat(0.0)])
+  @test r.dual_kkt == 0 && 1e-10 * nextfloat(0.0) == 0
+  @test 1.6e-177 < Float64(big(2.0^520) * big(1e-10) * big(nextfloat(0.0))) < 1.8e-177
+  # a supplied u with maxiter = 0 is reported as it is, and Xᵀŵ can overflow where the exact sum is out of range too:
+  # dual_kkt is Inf, without an error, while the score of the original problem is finite
   X = reshape([1e155, -1e155], 2, 1)
   u0 = [1e154, -1e154]
   r = solve!([0.0], LogisticLoss([0.0, 0.0], X), NormL1(0.0), LogisticADMM(maxiter = 0); t = [0.0, 0.0], u = u0)

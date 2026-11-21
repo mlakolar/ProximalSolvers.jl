@@ -158,9 +158,10 @@ The diagnostics and work counters are:
   completed;
 - `inner_kkt`, `inner_met`: the KKT score of the coefficient step of the last completed iteration, formed from a fresh
   product at its coefficients, and whether it met its forcing target (`NaN` and `false` when no iteration completed);
-- `dual_kkt`: the largest ProximalBase KKT score of `0 ∈ ∂g(b) + ρ X' u` at the returned `b` and `u`, from the fresh
-  product `X' * (ρ .* u)` (the scaled dual is formed first); it is `Inf`, without an error, where that product
-  overflows in `Float64`;
+- `dual_kkt`: the largest ProximalBase KKT score of `0 ∈ ∂g(b) + ρ X' u` at the returned `b` and `u`, evaluated in
+  `Float64` from the fresh product `X' * (ρ .* u)` (the scaled dual is formed first). It is `Inf`, without an error,
+  when a term or a partial sum of that product overflows, also where the exact sum is representable or zero, and an
+  entry `ρ * u[i]` that underflows loses its contribution, down to zero;
 - `predictor_residual`: the largest entry of `abs.(σ.(t) .- y .- ρ .* u)` at the returned `t` and `u`; these two are
   formed from the returned values, while the residuals, thresholds and inner score are those of the last completed
   iteration;
@@ -248,18 +249,20 @@ function _la_endpoint(lo, hlo, hi, hhi, v, one_label, ρ)
 end
 
 # The root of h(s) = σ(s) - y + ρ(s - v) for a binary y (`one_label` is y == 1) and ρ in [1e-10, 1e10], LA-03.
-# Returns (s, steps, ok). In exact arithmetic the root lies in [v - 1/ρ, v] for y = 0 and in [v, v + 1/ρ] for y = 1
-# (h is increasing and |σ - y| < 1); the working bracket [lo, hi] is that interval with the far end rounded and clamped
-# to ±floatmax. A nonfinite v returns ok = false. Otherwise s starts at v, `steps` counts the points that become s after
-# it (Newton points and midpoints), and `window` counts loop passes since its last reset. Each pass, in this order:
-# returns (s, steps, true) when |h| ≤ the threshold of `_la_scalar` at s; sets lo = s when h < 0 and hi = s otherwise;
-# resets `window` to 0 and `ref` to the width when the width is at most ref/2 (`ref` starts at the initial width), and
-# otherwise adds 1 to `window`; returns the end with the smaller |h| (evaluated there if it was not) when no Float64
-# lies strictly inside (lo, hi); returns (s, steps, false) when steps ≥ cap; forms the Newton point
-# s - h/(σ(1 - σ) + ρ) and returns (s, steps, true) when it equals s; replaces it by lo/2 + hi/2 when window ≥ 2 or it
-# is not strictly inside (lo, hi), and returns the better end as above when that midpoint is not strictly inside; then
-# moves s to the point and adds 1 to `steps`. A replacement midpoint is not tested in the pass that forms it. A cap
-# below `_LA_ROOT_CAP` is for tests.
+# Returns (s, steps, ok). A nonfinite v returns (v, 0, false). Otherwise γ = inv(ρ) is rounded first, then the far end
+# v - γ (y = 0) or v + γ (y = 1) is rounded and clamped to ±floatmax, giving the working bracket [lo, hi] with v as the
+# other end (in exact arithmetic the root lies in [v - 1/ρ, v] or [v, v + 1/ρ]). s starts at v and h and its threshold B
+# (`_la_scalar`) are evaluated there; `steps` counts the points that become s after v, `window` counts loop passes
+# since its last reset, and `ref` starts at the initial width. Each pass, in this order: returns (s, steps, true) when
+# |h| ≤ B; sets lo = s when h < 0 and hi = s otherwise; resets `window` to 0 and `ref` to the width when the width is at
+# most ref/2, and otherwise adds 1 to `window`; when no Float64 lies strictly inside (lo, hi), returns the end with the
+# smaller computed |h|, lo on a tie (h is evaluated at an end where it was not), and no further pass follows; returns
+# (s, steps, false) when steps ≥ cap; forms the Newton point s - h/(σ(1 - σ) + ρ) and returns (s, steps, true) when it
+# equals s; replaces it by lo/2 + hi/2 when window ≥ 2 or it is not strictly inside (lo, hi), and, when that midpoint
+# is not strictly inside, returns the end chosen as above; otherwise moves s to the point, adds 1 to `steps` and
+# evaluates h and B at the new s, which the next pass compares. At the returned s the caller forms w = ρ(v - s), and
+# the computed h there equals the computed σ(s) - y - w up to the sign of zero (ρ(s - v) = -ρ(v - s) exactly), which
+# need not be small (|h| = 1 for y = 0, v = 2^55 + 8, ρ = 1/4). A cap below `_LA_ROOT_CAP` is for tests.
 function _la_root(v::Float64, one_label::Bool, ρ::Float64, cap::Int = _LA_ROOT_CAP)
   isfinite(v) || return v, 0, false
   γ = inv(ρ)
@@ -527,10 +530,10 @@ function _solve_logistic_admm!(x::Vector{Float64}, f, g::NormL1, method::Logisti
   end
   # The reported dual: with no completed iteration a supplied u keeps its entries; otherwise u = w/ρ, formed in a private
   # vector. dual_kkt and predictor_residual are those of the reported b, t and u, formed before any write to the
-  # caller's arrays, from the scaled dual ŵ = ρ .* u (in w.diff, free at this point): dual_kkt is the score of Xᵀŵ and
-  # predictor_residual the largest |σ(t) - y - ŵ|. ŵ is formed first so that the product with X is of the scaled
-  # dual. For a kept supplied u, ŵ is the product ρ .* u that the start checked to be finite. For u = w/ρ, ŵ is w up
-  # to the two roundings of w/ρ and ρ .* (w/ρ). Xᵀŵ can still overflow to Inf, which is reported, not refused.
+  # caller's arrays, from the scaled dual ŵ = ρ .* u (in w.diff, free at this point): dual_kkt is the Float64 score of
+  # Xᵀŵ and predictor_residual the largest |σ(t) - y - ŵ|. These are Float64 evaluations with range limits (LA-01):
+  # dual_kkt is Inf when a term X[i, j] ŵ[i] or a partial sum of Xᵀŵ overflows, also where the exact sum is
+  # representable or 0, and an entry ρ u[i] that underflows loses its contribution, down to 0. Neither is refused.
   kept = iterations == 0 && u0 !== nothing
   uout = kept ? u0 : w.w ./ ρ
   ŵ = w.diff

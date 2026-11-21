@@ -416,9 +416,10 @@ The coordinate-descent solver and coefficient storage other than a dense
 
 `ProximalGradientDescent` and `AccProxGradDescent` accept ProximalBase's raw `LogisticLoss(y, X)` with
 `NormL1(lambda)` or `NormL1(lambda, w)` on a dense `Vector{Float64}` and minimize
-(`ProxNewton` and `LogisticADMM` accept the same inputs through the same gate and minimize the same
-objective; their solvers and results are specified in [PN-01](@ref) to [PN-05](@ref) and in [LA-01](@ref) to
-[LA-05](@ref))
+(`ProxNewton` and `LogisticADMM` minimize the same objective, and the four solvers share the core checks of the gate
+below; `LogisticADMM` adds checks on memory ranges and on the start ([LA-01](@ref)), and `AccProxGradDescent` has the
+limits of [APG-08](@ref); the solvers and results are specified in [PN-01](@ref) to [PN-05](@ref), [APG-08](@ref) and
+[LA-01](@ref) to [LA-05](@ref))
 
 ```math
 F(b)=\sum_{i=1}^n \{\log(1+e^{\eta_i})-y_i\eta_i\}+\lambda\sum_{j=1}^{p} w_j|b_j|,\qquad \eta=Xb,
