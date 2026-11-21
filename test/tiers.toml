@@ -42,6 +42,7 @@ standard = [
   "entry_thresholds",
   "logdet_kkt_scale",
   "logistic_proxnewton",
+  "logistic_admm",
 ]
 full = [
   "examples",

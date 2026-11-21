@@ -22,7 +22,8 @@ The inputs and the order of refusals are those of [IN-09](@ref), with `ProxNewto
 raw `LogisticLoss` or one `Scaled` wrapper of it is refused with an `ArgumentError` that names `ProxNewton`
 and the least-squares solvers. A `Scaled(LogisticLoss)` is refused as in [IN-09](@ref). The refusal of a
 nonbinary response names `ProxNewton`. `CDSolver`, in a call that reaches its logistic refusal, refuses the
-logistic loss with an `ArgumentError` that names `ProximalGradientDescent`, `AccProxGradDescent` and `ProxNewton`;
+logistic loss with an `ArgumentError` that names `ProximalGradientDescent`, `AccProxGradDescent`, `ProxNewton` and
+`LogisticADMM`;
 the precedence of the owner gate is listed in [IN-09](@ref). Keywords of `solve!` and positional
 options after the solver are refused as for the other solvers. All refusals precede any write to the
 coefficients.

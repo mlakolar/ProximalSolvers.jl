@@ -838,7 +838,7 @@ end
     (copy(start), mutated((Xc, yc) -> (yc[3] = 2.0)), g, pn, ArgumentError, "LogisticLoss with ProxNewton needs a binary response"),
     (copy(start), LogisticLoss(fill(0.25, n), X), g, pn, ArgumentError, "LogisticLoss with ProxNewton needs a binary response"),
     # CDSolver names ProxNewton among the solvers of the loss
-    (copy(start), f, g, CDSolver(), ArgumentError, "AccProxGradDescent and ProxNewton"),
+    (copy(start), f, g, CDSolver(), ArgumentError, "AccProxGradDescent, ProxNewton and LogisticADMM"),
   ]
   for (i, (x, loss, penalty, method, E, message)) in enumerate(cases)
     err, unchanged = refusal(x, loss, penalty, method)

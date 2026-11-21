@@ -289,7 +289,15 @@ the summed loss and the scaling of the level. See [IN-09](@ref) for input rules.
 cyclic coordinate descent; it follows the curvature of the loss row by row and reports the KKT score of
 the returned point, the accepted iterations, the coordinate passes and a stop reason. Its
 tolerance is a bound on that score. See [Sparse logistic regression with proximal Newton](@ref) and
-[PN-01](@ref).
+[PN-01](@ref). `LogisticADMM` solves it by ADMM on the split `t = X b`: a warm-started coordinate-descent
+lasso step, one scalar logistic proximal root per observation and a dual update. It stops on its primal and dual
+residuals together with the KKT score of the returned point. It is useful for studying the splitting. With its
+default dual, an exact minimizer of the same objective and its predictor are a fixed point of the ideal iteration. A
+warm start from another solver's solution can move, or can coincide with such a fixed point, and the number of
+iterations it takes depends on the fit; in the tests a start at a `ProxNewton` solution converges in one iteration,
+an observation on those fixtures. It is not presumed to be faster: its iteration count depends on `ρ`.
+See [Sparse logistic regression with ADMM](@ref), [LA-01](@ref) and the
+[logistic solver comparison](examples/comparisons/logistic_solvers.md).
 
 CD solves group lasso on a `BlockIterate` with `GroupNormL2`, as in the
 [group example above](#Group-lasso-with-block-coordinate-descent).
