@@ -467,9 +467,9 @@ and `Matrix` coefficients) refuse a `LogisticLoss` or a `Scaled` one with an
 coefficients or a draw from the RNG; for a `BlockIterate` this refusal comes before the
 momentum check. `ADMMSolver` refuses it on a `Vector` or a `Matrix` with an `ArgumentError`
 that names `LogisticADMM`, after its keyword and option checks and before a write to `z`
-or to a supplied `u` ([LA-01](@ref)). `ProximalGradientDescent`
-on a `Matrix` coefficient has a method only for a `LogDetLoss` ([PGD-06](@ref)); a
-logistic loss there reaches the gate described above and is refused. `Scaled(LogisticLoss(y, X), a)` is refused because ProximalBase
+or to a supplied `u` ([LA-01](@ref)). `ProximalGradientDescent` refuses a logistic loss with a
+`Matrix` coefficient through the gate described above; its matrix routes are the
+matrix-response lasso of [IN-10](@ref) and the graphical lasso of [PGD-06](@ref). `Scaled(LogisticLoss(y, X), a)` is refused because ProximalBase
 provides no predictor oracles for it. For a positive finite `a`, the raw loss with the
 level `lambda / a` has the same minimizers in exact arithmetic, and is accepted when
 the penalty with that level passes [IN-02](@ref) and, with weights, all of

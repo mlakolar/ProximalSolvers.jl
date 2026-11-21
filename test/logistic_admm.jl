@@ -93,28 +93,49 @@ function reference(X, y, λ, w)
   b, r.minimum
 end
 
-# The checks of a result against the independent objective and scores; returns them. A converged result also
-# passes its residual tests, and its dual and predictor diagnostics are within the bounds of LA-04.
-function check_result(r, x, X, y, λ, w = nothing; converged = true)
+# The two diagnostics of the returned b, t and u in BigFloat from the data: the KKT score of 0 ∈ ∂g(b) + ρ Xᵀu, and
+# the largest |σ(tᵢ) - yᵢ - ρ uᵢ|
+function diagnostics(X, y, b, t, u, ρ, λ, w = nothing)
+  G = big(ρ) .* (big.(X)' * big.(u))
+  (; dual = Float64(maximum(scores(G, b, λ, w))),
+     predictor = Float64(maximum(abs(sigmoid(big(t[i])) - big(y[i]) - big(ρ) * big(u[i])) for i in eachindex(t))))
+end
+
+# The checks of a result against the independent objective, scores and diagnostics; returns the objective and score.
+# A converged result also passes its residual tests, recomputed here from the returned b, t and u with the solver's
+# tolerances, and its diagnostics satisfy the two-sided bound of LA-04.
+function check_result(r, x, X, y, λ, w = nothing; converged = true, abstol = 1e-8, reltol = 1e-6, abstol_dual = abstol)
   ind = independent(X, y, x, λ, w)
   slack = 10 * rounding_bound(X, x) + 1e-12
-  n = size(X, 1)
+  n, p = size(X)
   @test r isa LogisticADMMResults
   @test r.minimizer === x
   @test r.minimum ≈ ind.objective rtol = 1e-12
   @test abs(r.kkt - ind.score) <= slack
   @test length(r.t) == n && length(r.u) == n && all(isfinite, r.t) && all(isfinite, r.u)
+  # the diagnostics of the returned b, t and u, against BigFloat evaluations, within the rounding of ρ Xᵀu and of σ
+  dg = diagnostics(X, y, x, r.t, r.u, r.ρ, λ, w)
+  ρu = r.ρ * norm(r.u, Inf)
+  cmax = Float64(λ) * (w === nothing ? 1.0 : maximum(w))
+  @test abs(r.dual_kkt - dg.dual) <= 4 * n * eps() * maximum(abs, X) * ρu + 4 * eps() * cmax + 1e-300
+  @test abs(r.predictor_residual - dg.predictor) <= 8 * eps() * (1 + ρu)
   if converged
     @test r.converged && r.stop_reason === :converged
     @test r.kkt <= r.tolerance
     @test ind.score <= r.tolerance + slack
     @test r.r_norm <= r.eps_pri && r.s_norm <= r.eps_dual
+    # the primal residual and both thresholds recomputed from the returned b, t and u
+    Xb = X * x
+    @test abs(r.r_norm - norm(Xb - r.t)) <= 100 * eps() * (norm(Xb) + norm(r.t))
+    @test r.eps_pri ≈ sqrt(n) * abstol + reltol * max(norm(Xb), norm(r.t)) rtol = 1e-12
+    @test abs(r.eps_dual - (sqrt(p) * abstol_dual + reltol * norm(X' * (r.ρ .* r.u)))) <=
+          1e-12 * r.eps_dual + 4 * n * eps() * reltol * maximum(abs, X) * ρu * sqrt(p)
     # criterion 3: |σ(t) - y - ρu| within a few eps of the scale of the terms of the scalar residual, with v = t + u
     @test r.predictor_residual <= 16 * eps() * (1 + r.ρ * (norm(r.t, Inf) + norm(r.u, Inf)))
     # the score is 1-Lipschitz in the gradient (∞-norm), and |Xᵀ(ρu - d)|∞ ≤ maxⱼ‖Xⱼ‖ ‖ρu - d‖ with d = σ(X b) - y,
-    # ‖ρu - d‖ ≤ √n predictor_residual + r_norm / 4
-    gap = maximum(norm, eachcol(X)) * (sqrt(n) * r.predictor_residual + r.r_norm / 4)
-    @test r.dual_kkt <= r.kkt + gap + slack
+    # ‖ρu - d‖ ≤ √n predictor_residual + ‖X b - t‖ / 4: both sides of the bound of LA-04
+    gap = maximum(norm, eachcol(X)) * (sqrt(n) * r.predictor_residual + norm(Xb - r.t) / 4)
+    @test abs(r.dual_kkt - r.kkt) <= gap + slack
   end
   ind
 end
@@ -143,6 +164,15 @@ end
   @test_throws ArgumentError LogisticADMM(inner = CDSolver())                     # the default order is random
   @test_throws ArgumentError LogisticADMM(inner = CDSolver(order = :random, momentum = false))
   @test_throws ArgumentError LogisticADMM(inner = CDSolver(order = :cyclic, maxpasses = 0))
+  # a keyword inner that is not a CDSolver is refused with an ArgumentError; other keyword types fail the signature
+  # (TypeError), and the positional constructor has no method for them (MethodError)
+  for bad in (1, nothing, ProxNewton(), "cyclic")
+    @test_throws ArgumentError LogisticADMM(inner = bad)
+  end
+  @test_throws TypeError LogisticADMM(ρ = "0.25")
+  @test_throws TypeError LogisticADMM(maxiter = 1.5)
+  @test_throws TypeError LogisticADMM(tol = :small)
+  @test_throws MethodError LogisticADMM(0.5, 10, 1e-7, 1e-8, 1e-6, 1e-8, 1)
   @test LogisticADMM(inner = CDSolver(order = :cyclic, maxpasses = 1)).inner.maxpasses == 1
   # tolerances: finite, nonnegative and not a positive value that rounds to zero
   for name in (:tol, :abstol, :reltol, :abstol_dual)
@@ -217,9 +247,11 @@ end
   @test ok && t == 40.0
   @test 4.1e-18 < Float64(bigroot(40.0, true, 1.0) - 40) < 4.3e-18
   # the plateau: y = 0, v = 500, ρ = 0.001. The root is about 4.15e-17, and the computed h is exactly 0 at 0, 1e-17
-  # and 1e-16, so the test is the backward error, not the distance in ulps
+  # and 1e-16, so the test is the backward error, not the distance in ulps. The first Newton point rounds to the end
+  # lo = -500 and is replaced by the midpoint 0, which the threshold test of the next pass returns (one step)
   t, k, ok = PS._la_root(500.0, false, 0.001)
-  @test ok && abs(t) < 1e-15
+  @test ok && t == 0.0 && k == 1
+  @test 500.0 - first(PS._la_scalar(500.0, 500.0, false, 0.001)) / (PS._la_curvature(500.0) + 0.001) == -500.0
   @test 4.1e-17 < Float64(bigroot(500.0, false, 0.001)) < 4.2e-17
   for s in (0.0, 1e-17, 1e-16)
     @test first(PS._la_scalar(s, 500.0, false, 0.001)) == 0.0
@@ -230,6 +262,19 @@ end
     t, k, ok = PS._la_root(v, one, 1e-10)
     @test ok && t == v && backward(t, v, one, 1e-10) <= BACKWARD
   end
+  # the threshold is formed from the computed terms: at v = -746 with y = 0, exp(-746) underflows, so h and the
+  # threshold are 0 at v, the exact h(v) is positive, and v is returned without a step
+  @test PS._la_scalar(-746.0, -746.0, false, 1.0) == (0.0, 0.0)
+  @test PS._la_root(-746.0, false, 1.0) == (-746.0, 0, true)
+  @test bigresidual(big(-746.0), false) > 0
+  # the working bracket: its far end is rounded, so it can be wider than 1/ρ (2^34 at v = 2^86, y = 1, ρ = 1e-10)
+  @test (2.0^86 + inv(1e-10)) - 2.0^86 == 2.0^34 && 2.0^34 > 1e10
+  # a rounded midpoint can keep more than half the width: between 1 and nextfloat(1, 3) it is nextfloat(1, 2)
+  @test 1.0 / 2 + nextfloat(1.0, 3) / 2 == nextfloat(1.0, 2)
+  # the rounded dual update need not lie in [-1, 1]: y = 0, v = 2^55 + 8, ρ = 1/4 gives w = 2
+  v = 2.0^55 + 8
+  s, k, ok = PS._la_root(v, false, 0.25)
+  @test ok && 0.25 * (v - s) == 2.0
   # the side of v: below it for y = 0, above it for y = 1, within 1/ρ
   for v in (-3.0, 0.5, 7.0), ρ in (0.1, 2.0)
     s0, _, _ = PS._la_root(v, false, ρ)
@@ -351,7 +396,9 @@ end
   @test isnan(r.r_norm) && isnan(r.s_norm) && isnan(r.eps_pri) && isnan(r.eps_dual)
   @test isnan(r.inner_kkt) && !r.inner_met && r.passes > 0
   check_result(r, b, X, y, λ, w; converged = false)
-  # a failure after completed iterations returns the last completed one
+  # a failure after completed iterations returns the last completed one: the private iteration keeps its state, and
+  # a whole solve whose roots get a budget of one step in the fourth iteration returns the third iteration, with its
+  # diagnostics, and counts the work of the discarded iteration (its coordinate passes and its root steps)
   ref = zeros(k)
   rr = solve!(ref, f, g, LogisticADMM(maxiter = 3))
   b = zeros(k)
@@ -362,6 +409,15 @@ end
   ws.cap = 0
   @test PS._la_iterate!(ws, m) === :prox_failed
   @test ws.b == ref && ws.t == rr.t && ws.w ≈ m.ρ .* rr.u
+  b, t0, u0 = zeros(k), X * zeros(k), [PS._la_residual(0.0, y[i] == 1) / m.ρ for i in 1:n]
+  r = PS._solve_logistic_admm!(b, f, g, m, t0, u0; cap = it -> it <= 3 ? PS._LA_ROOT_CAP : 1)
+  @test r.stop_reason === :prox_failed && !r.converged && r.iterations == 3
+  @test b == ref && r.t === t0 && t0 == rr.t && r.u === u0 && u0 == rr.u
+  @test (r.minimum, r.kkt, r.r_norm, r.s_norm, r.eps_pri, r.eps_dual, r.inner_kkt, r.inner_met) ==
+        (rr.minimum, rr.kkt, rr.r_norm, rr.s_norm, rr.eps_pri, rr.eps_dual, rr.inner_kkt, rr.inner_met)
+  @test (r.dual_kkt, r.predictor_residual) == (rr.dual_kkt, rr.predictor_residual)
+  @test r.passes > rr.passes && r.root_iterations > rr.root_iterations
+  check_result(r, b, X, y, λ, w; converged = false)
 end
 
 # ---- results against independent references --------------------------------------------------------------------
@@ -483,6 +539,10 @@ end
   r2 = solve!(b, f, g, LogisticADMM(); t = r.t, u = r.u)
   check_result(r2, b, X, y, λ, w)
   @test r2.iterations <= 3
+  # a restart at another ρ with the dual rescaled by ρ_old / ρ_new also takes few iterations
+  r3 = solve!(b, f, g, LogisticADMM(ρ = 0.5); t = copy(r2.t), u = r2.u .* (r2.ρ / 0.5))
+  check_result(r3, b, X, y, λ, w)
+  @test r3.ρ == 0.5 && r3.iterations <= 3
   # the default dual makes a minimizer with its own predictor a fixed point: one iteration from the ProxNewton
   # solution, with the coefficients essentially unchanged
   b = copy(bpn)
@@ -552,7 +612,7 @@ end
   # loose residual tolerances with a tight tol: the first residual pass does not stop the solve
   b = zeros(k)
   tight = solve!(b, f, g, LogisticADMM(abstol = 1e-2, reltol = 1e-2, tol = 1e-9))
-  check_result(tight, b, X, y, λ, w)
+  check_result(tight, b, X, y, λ, w; abstol = 1e-2, reltol = 1e-2)
   @test tight.kkt <= 1e-9
   # the same residual tolerances with tol = 1e10, far above the scores of these iterates, stop at the first residual
   # pass, with a larger score
@@ -564,24 +624,64 @@ end
   early = solve!(b, f, g, LogisticADMM(abstol = 1e-12, reltol = 0, tol = 1e10, maxiter = 1))
   @test early.kkt <= early.tolerance && (early.r_norm > early.eps_pri || early.s_norm > early.eps_dual)
   @test early.stop_reason === :maxiter && !early.converged
+  # the dual threshold comes from a direct product: with these supplied t and u the iteration has a dual residual
+  # 2^-32 > 0 while Xᵀw is exactly 0, so the threshold is 0 and the solve does not converge (a threshold formed from
+  # the identity q - ρ Xᵀ(t⁺ - t) equalled the residual here). The residual and the threshold are recomputed.
+  X2, y2 = ones(2, 1), [0.0, 1.0]
+  a, d = 2.0^20, 2.0^-34
+  t0, u0 = [a, -a + 6d], [d, -d]
+  told = copy(t0)
+  m2 = LogisticADMM(ρ = 1.0, reltol = 1.0, abstol = 0.0, tol = 0.0, maxiter = 1)
+  r = solve!([0.0], LogisticLoss(y2, X2), NormL1(1.0), m2; t = t0, u = u0)
+  @test r.stop_reason === :maxiter && !r.converged && r.kkt == 0
+  @test isapprox(r.s_norm, norm(X2' * (r.t - told)); rtol = 1e-14) && r.s_norm > 0
+  @test r.eps_dual == norm(X2' * r.u) == 0
+  @test r.s_norm > r.eps_dual
 end
 
-@testset "a stalled solve: an iteration that changes no bit of b, t and u" begin
-  # X = 0 keeps X b = 0 and the gradient 0; with y = 0 the default dual is w = 1/2 and v = w/ρ = 2. The root of
-  # σ(t) + (t - 2)/4 = 0 is 0, and its computed value t₁ satisfies (2 - t₁)/4 = 1/2 when |t₁| < eps(2)/2, so the second
-  # iteration repeats the first. With zero residual tolerances the primal residual |t₁|√n stops the convergence test
-  # unless t₁ = 0, in which case the first iteration converges.
-  t1 = PS._la_root(2.0, false, 0.25)[1]
-  @test abs(t1) < eps(2.0) / 2
-  X, y = zeros(4, 1), zeros(4)
-  b = [0.0]
-  r = solve!(b, LogisticLoss(y, X), NormL1(1.0), LogisticADMM(tol = 0, abstol = 0, reltol = 0))
-  if iszero(t1)
-    @test r.stop_reason === :converged && r.iterations == 1
-  else
-    @test r.stop_reason === :stalled && !r.converged && r.iterations == 2
-    @test r.t == fill(t1, 4) && r.u == fill(2.0, 4) && b == [0.0] && r.r_norm > r.eps_pri
-  end
+@testset "a stalled solve: an iteration that changes no bit of b, t and the working dual w" begin
+  # y = 0 and b = t = -800 with X = 1: exp(-800) underflows, so the default dual is w = 0, the coefficient step keeps
+  # b (its subproblem gradient is 0), the root of v = -800 is v (h and its threshold are 0 there) and w stays 0. The
+  # residuals are 0, but the score of the original problem is |0 - 1e-20 sign(b)| = 1e-20 > tol = 0, so the first
+  # iteration stalls.
+  f, g = LogisticLoss([0.0], ones(1, 1)), NormL1(1e-20)
+  m = LogisticADMM(tol = 0, abstol = 0, reltol = 0)
+  b = [-800.0]
+  r = solve!(b, f, g, m)
+  @test r.stop_reason === :stalled && !r.converged && r.iterations == 1
+  @test r.kkt == 1e-20 && r.r_norm == 0 && r.s_norm == 0 && r.eps_pri == 0 && r.eps_dual == 0
+  @test b == [-800.0] && r.t == [-800.0] && r.u == [0.0]
+  # the test is on w = ρ u: a subnormal supplied u whose product with ρ rounds to 0 stalls in the same way, and the
+  # reported u = w/ρ = 0 is written into it
+  b, t0, u0 = [-800.0], [-800.0], [nextfloat(0.0)]
+  r = solve!(b, f, g, m; t = t0, u = u0)
+  @test r.stop_reason === :stalled && r.iterations == 1 && r.u === u0 && u0 == [0.0] && t0 == [-800.0]
+end
+
+@testset "the diagnostics describe the reported u" begin
+  # ρ = 1e10 and t = -735 with y = 0: the default w = σ(t) is about 6.2e-320, and w/ρ rounds to 0, so the reported
+  # u is 0; dual_kkt and predictor_residual are those of u = 0 (0 and |σ(t)|), not of w
+  r = solve!([0.0], LogisticLoss([0.0], ones(1, 1)), NormL1(0.0), LogisticADMM(ρ = 1e10, maxiter = 0); t = [-735.0])
+  w0 = PS._la_residual(-735.0, false)
+  @test r.u == [0.0] && w0 > 0 && r.dual_kkt == 0 && r.predictor_residual == w0
+  # a supplied u with maxiter = 0 is reported as it is, and ρ Xᵀu can overflow: dual_kkt is Inf, without an error,
+  # while the score of the original problem is finite
+  X = reshape([1e155, -1e155], 2, 1)
+  u0 = [1e154, -1e154]
+  r = solve!([0.0], LogisticLoss([0.0, 0.0], X), NormL1(0.0), LogisticADMM(maxiter = 0); t = [0.0, 0.0], u = u0)
+  @test r.u === u0 && u0 == [1e154, -1e154] && r.stop_reason === :maxiter
+  @test r.dual_kkt == Inf && isfinite(r.kkt)
+end
+
+@testset "a convergence whose last coefficient step missed its target" begin
+  # one pass per coefficient step and no change test: the inner score stays above max(0.1 tol, 0.1 kkt) while the
+  # outer residual and KKT tests pass, so inner_met does not decide the stop
+  X, y, λ, w = problem(40, 3; seed = 2)
+  m = LogisticADMM(inner = CDSolver(order = :cyclic, momentum = false, relative = false, tol = 0.0, maxpasses = 1))
+  b = zeros(size(X, 2))
+  r = solve!(b, LogisticLoss(y, X), NormL1(λ, w), m)
+  check_result(r, b, X, y, λ, w)
+  @test !r.inner_met && isfinite(r.inner_kkt) && r.passes == r.iterations
 end
 
 @testset "the result type, its accessors and its display" begin
@@ -798,6 +898,31 @@ end
   @test err isa ArgumentError && occursin("ρ * u must be finite", sprint(showerror, err)) && unchanged
   err, unchanged = refusal(copy(start), f, g, la; t = fill(1e308, n), u = fill(-1e308, n))
   @test err isa ArgumentError && occursin("t - u must be finite", sprint(showerror, err)) && unchanged
+  # the supplied t - u is formed directly: t = 1e292 and u = -floatmax overflow, although the working response
+  # t - (ρ u)/ρ with ρ = 0.3 rounds to floatmax
+  @test isinf(1e292 - (-floatmax(Float64))) && isfinite(1e292 - (0.3 * -floatmax(Float64)) / 0.3)
+  err, unchanged = refusal([0.0], LogisticLoss([0.0], ones(1, 1)), NormL1(1.0), LogisticADMM(ρ = 0.3, maxiter = 0);
+                           t = [1e292], u = [-floatmax(Float64)])
+  @test err isa ArgumentError && occursin("t - u must be finite", sprint(showerror, err)) && unchanged
+  # coefficients whose memory range overlaps X, y, the scratch of the loss or the weights at an offset, which
+  # Base.mightalias does not report: refused before any write, with the borrowed arrays unchanged
+  Xw, yw, wbig = ones(4, 2), [0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 1.0, 1.0]
+  fw = LogisticLoss(yw, Xw)
+  fill!(fw.tmp, 0.0)
+  GC.@preserve Xw yw wbig fw begin
+    ww = unsafe_wrap(Vector{Float64}, pointer(wbig, 1), 3; own = false)
+    cases = [(unsafe_wrap(Vector{Float64}, pointer(Xw, 2), 2; own = false), Xw, fw, NormL1(1.0)),
+             (unsafe_wrap(Vector{Float64}, pointer(yw, 2), 2; own = false), yw, fw, NormL1(1.0)),
+             (unsafe_wrap(Vector{Float64}, pointer(fw.tmp, 2), 2; own = false), fw.tmp, fw, NormL1(1.0)),
+             (unsafe_wrap(Vector{Float64}, pointer(wbig, 2), 3; own = false), ww, LogisticLoss(yw, ones(4, 3)), NormL1(1.0, ww))]
+    for (i, (xo, owner, loss, pen)) in enumerate(cases)
+      before = (copy(Xw), copy(yw), copy(wbig))
+      @test (i, Base.mightalias(xo, owner)) == (i, false)
+      err, unchanged = refusal(xo, loss, pen, LogisticADMM(maxiter = 1))
+      @test (i, err isa ArgumentError && occursin("x must not overlap the memory", sprint(showerror, err))) == (i, true)
+      @test (i, unchanged && (Xw, yw, wbig) == before) == (i, true)
+    end
+  end
   # keywords other than t and u, and positional options after the solver, are refused before the gate
   @test_throws ArgumentError("unsupported solve! keywords: foo") solve!(copy(start), f, g, la; foo = 1)
   @test_throws ArgumentError solve!(copy(start), f, g, la, ProximalOptions())

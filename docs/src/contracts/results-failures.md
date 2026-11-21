@@ -166,10 +166,11 @@ transaction guarantee.
 
 `ProxNewton` computes on private buffers and writes the caller's coefficients once, at a normal
 return; an exception from its inner coordinate solve or the logistic oracle leaves them
-unchanged ([PN-05](@ref)). `LogisticADMM` writes the caller's coefficients, and a supplied predictor and
-dual, once, at a normal return, which includes the `:prox_failed` return of the last completed iteration;
-an exception from its coefficient step or a nonfinite objective or KKT score leaves them unchanged
-([LA-05](@ref)).
+unchanged ([PN-05](@ref)). `LogisticADMM` writes the caller's coefficients once, at a normal return, which
+includes the `:prox_failed` return of the last completed iteration; a supplied predictor and dual are written then
+too when an iteration completed, and keep their entries when none did. An exception from its coefficient step, or a
+nonfinite objective or KKT score of the original problem after an iteration, leaves them unchanged. The reported
+`dual_kkt`, formed at the return, can be `Inf` for valid inputs; it raises no exception ([LA-05](@ref)).
 
 PGD and APG numerical step exceptions restore the last accepted coefficient point
 and rethrow. For [IN-10](@ref) this restoration copies the full accepted

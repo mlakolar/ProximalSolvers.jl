@@ -46,10 +46,11 @@ The following remain deferred:
 - ADMM outside the centered quadratic and unweighted ℓ₁ problem in [ADM-01](@ref),
   the least-squares lasso with a tall or square `Float64` design in [ADM-05](@ref),
   the graphical lasso in [ADM-04](@ref) and the predictor split of sparse logistic
-  regression in [LA-01](@ref), including arbitrary function pairs,
-  product spaces, linear constraints, custom norms, scaled or `Float32`
-  least-squares losses, wide designs (`n < p`), and over-relaxation or the
-  adaptive penalty on a matrix;
+  regression in [LA-01](@ref) (which accepts wide designs), including arbitrary
+  function pairs, product spaces, linear constraints, custom norms, scaled or
+  `Float32` least-squares losses, wide designs (`n < p`) for the consensus
+  least-squares ADMM of [ADM-05](@ref), and over-relaxation or the adaptive penalty
+  on a matrix;
 - paths, screening, public workspaces, refitting, reweighting, and certificates
   other than the square-root-lasso CD duality certificate;
 - generic block, metric, certificate and logging frameworks, and extension

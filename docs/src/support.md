@@ -499,8 +499,9 @@ one `n × p` array. The rules are in [PN-01](@ref) to [PN-05](@ref).
 ### Sparse logistic regression with ADMM
 
 `LogisticADMM` minimizes the same objective with the same inputs by ADMM on the split `t = X * b`, with a predictor
-`t` and a scaled dual `u` of length `n`. Each iteration solves a lasso problem in the coefficients by warm-started
-cyclic coordinate descent, one scalar logistic proximal problem per observation for `t`, and updates `u`. The method
+`t` and a scaled dual `u` of length `n`. Each iteration approximately solves a lasso problem in the coefficients by
+warm-started cyclic coordinate descent within a pass budget, solves one scalar logistic proximal problem per
+observation for `t`, and updates `u`. The method
 is useful for teaching: it separates the loss, which acts on the predictor, from the penalty, which acts on the
 coefficients, and the subproblems are a lasso and scalar roots. It is not presumed to be faster than
 `ProximalGradientDescent` or `ProxNewton`; its iteration count depends on the penalty `ρ` of the augmented
@@ -515,8 +516,9 @@ result.converged, result.kkt, result.iterations, result.passes, result.stop_reas
 The solve stops with `converged = true` when the primal residual `‖X b - t‖`, the dual residual
 `ρ ‖Xᵀ(t - t_previous)‖` and the largest KKT score of the original problem at the returned coefficients are within
 their thresholds (`abstol`, `reltol` and `abstol_dual` for the residuals, `tol` for the score). Without `t` and `u`
-the solve starts from `t = X b` and the dual `(σ(t) - y)/ρ`, with which, in exact arithmetic, a minimizer and its
-predictor are a fixed point, so a warm start from another solver's solution does not restart the transient of the dual. `solve!(beta, f, g, LogisticADMM(); t = t, u = u)` restarts from
+the solve starts from `t = X b` and the dual `(σ(t) - y)/ρ`. With this dual an exact minimizer of the same objective
+and its predictor are a fixed point of the ideal iteration; a computed solution of another solver, or a fit for a
+nearby level, is near such a point, not at it, and the iteration can move from it. `solve!(beta, f, g, LogisticADMM(); t = t, u = u)` restarts from
 a returned predictor and dual; with another `ρ`, rescale `u` by `ρ_old / ρ_new`. The `stop_reason` is `:converged`,
 `:maxiter`, `:stalled` or `:prox_failed`. The rules are in [LA-01](@ref) to [LA-05](@ref), and the
 [solver comparison](examples/comparisons/logistic_solvers.md) runs the three logistic solvers on one problem.

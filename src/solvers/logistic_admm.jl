@@ -2,20 +2,22 @@
 # length n, held as w = ρ u. Each iteration runs a warm-started cyclic coordinate descent on the least-squares
 # subproblem in b (the private `_cd!` on a SparseIterate, with `LSModel(t - u, X, ρ)`), a scalar logistic proximal
 # root per observation for t, and the update u⁺ = v - t with v = X b + u. The iterates and the work buffers are
-# private to one solve; the caller's coefficients, and t and u when they are passed, are written once, at a normal
-# return.
+# private to one solve. The caller's coefficients are written once, at a normal return; a supplied t and u are written
+# then too when an iteration completed, and keep their entries otherwise.
 
 # The accepted range of ρ after conversion to Float64 (LA-01)
 const _LA_RHO_MIN = 1e-10
 const _LA_RHO_MAX = 1e10
 # Tenfold tightenings of the coefficient-change threshold of the β step after a missed forcing target
 const _LA_REFINEMENTS = 4
-# The multiple of eps(Float64) in the rounding bound of the computed scalar residual h (LA-03)
+# The multiple of eps(Float64) in the stopping threshold of the computed scalar residual h, a threshold formed from the
+# computed terms of h (LA-03)
 const _LA_ROOT_BOUND = 4
-# The step cap of the scalar root. The bracket starts at most 1/ρ ≤ 1e10 < 2^34 wide, and the smallest spacing of
-# Float64 is 2^-1074, so 34 + 1074 halvings reach a bracket with no Float64 strictly inside; two more allow for the
-# rounding of the last midpoints. The bracket halves at least once in each window of three steps (a bisection is
-# forced on the third step of a window in which it did not halve), so 3 (34 + 1074 + 2) steps bound the iteration.
+# The step budget of the scalar root, a budget and not a proved bound (LA-03). It is sized as three steps for each of
+# 34 + 1074 + 2 halvings: an exact bracket of width 1/ρ ≤ 1e10 < 2^34 halved down to the smallest spacing 2^-1074 of
+# Float64, with two halvings to spare. The working bracket can start up to 2/ρ wide after rounding, and a rounded
+# midpoint can keep more than half of the width, which this sizing does not account for. A root that spends the
+# budget fails, and the solve ends with :prox_failed.
 const _LA_ROOT_CAP = 3 * (34 + 1074 + 2)
 
 # A tolerance of the solver: finite and nonnegative, and not a positive value that rounds to zero in Float64
@@ -47,9 +49,10 @@ result.converged, result.stop_reason
 ```
 
 The method splits the predictor from the coefficients with the constraint `t = X * b` and a scaled dual `u` with one
-entry per observation (not per coefficient, as in the consensus [`ADMMSolver`](@ref)). Each iteration minimizes the
-penalty plus `(ρ/2) * norm(X * b - t + u)^2` over `b` by warm-started cyclic coordinate descent, solves one scalar
-logistic proximal problem per observation for `t`, and updates `u` by `X * b - t`. The solve stops with
+entry per observation (not per coefficient, as in the consensus [`ADMMSolver`](@ref)). Each iteration approximately
+minimizes the penalty plus `(ρ/2) * norm(X * b - t + u)^2` over `b` by warm-started cyclic coordinate descent within a
+pass budget, solves one scalar logistic proximal problem per observation for `t`, and updates `u` by `X * b - t`.
+The solve stops with
 `converged = true` when the primal residual `norm(X * b - t)`, the dual residual `ρ * norm(X' * (t - t_previous))`
 and the largest ProximalBase KKT score of the original problem at the returned coefficients are within their
 thresholds. That is a computed check of the returned point, not a certificate of the minimizer or of the accuracy of
@@ -57,9 +60,10 @@ the coefficients. ADMM is not presumed to be faster than [`ProximalGradientDesce
 this problem; its iteration count depends on `ρ`, a tuning parameter.
 
 `solve!(b, f, g, LogisticADMM(); t = t0, u = u0)` starts from a given predictor and dual (each a `Vector{Float64}` of
-length `n`); without them `t = X * b` and `u = (σ(t) - y) / ρ`, the dual with which, in exact arithmetic, a minimizer
-and its own predictor are a fixed point of the iteration. To restart with a different `ρ`, pass `u * ρ_old / ρ_new`:
-`u` is the scaled dual of the `ρ` it was computed with.
+length `n`); without them `t = X * b` and `u = (σ(t) - y) / ρ`. With this dual, an exact minimizer of the same
+objective and its own predictor are a fixed point of the exact iteration; a computed solution of another solver is
+close to such a point, not at it. To restart with a different `ρ`, pass `u * ρ_old / ρ_new`: `u` is the scaled dual of
+the `ρ` it was computed with.
 
 # Extended help
 
@@ -74,7 +78,7 @@ and its own predictor are a fixed point of the iteration. To restart with a diff
   intercept) a small residual does not prove one does.
 - `abstol = 1e-8`, `reltol = 1e-6`: the primal threshold `sqrt(n) * abstol + reltol * max(norm(X * b), norm(t))`;
   `abstol_dual = abstol` with `reltol`: the dual threshold `sqrt(p) * abstol_dual + reltol * norm(ρ * X' * u)`.
-- `inner`: a `CDSolver` in cyclic order with `maxpasses >= 1`. Its `maxpasses` is the budget of coordinate passes of
+- `inner`: a `CDSolver` in cyclic order with `maxpasses >= 1` (any other value is refused). Its `maxpasses` is the budget of coordinate passes of
   the coefficient step of one iteration and its `tol` the first absolute threshold on the largest coefficient change
   of a pass, lowered tenfold, at most four times, while the step misses its forcing target. Its `relative`,
   `momentum`, `rng` and the other settings are not used.
@@ -113,10 +117,14 @@ struct LogisticADMM{C<:CDSolver} <: ProximalSolver
   end
 end
 
-LogisticADMM(; ρ::Real = 0.25, maxiter::Integer = 10_000, tol::Real = 1e-7, abstol::Real = 1e-8, reltol::Real = 1e-6,
-             abstol_dual::Real = abstol,
-             inner::CDSolver = CDSolver(order = :cyclic, momentum = false, relative = false, tol = 1e-8, maxpasses = 1000)) =
+# `inner` is untyped here so that a value other than a CDSolver is refused with an ArgumentError (LA-01)
+function LogisticADMM(; ρ::Real = 0.25, maxiter::Integer = 10_000, tol::Real = 1e-7, abstol::Real = 1e-8,
+                      reltol::Real = 1e-6, abstol_dual::Real = abstol,
+                      inner = CDSolver(order = :cyclic, momentum = false, relative = false, tol = 1e-8, maxpasses = 1000))
+  inner isa CDSolver ||
+    throw(ArgumentError("LogisticADMM needs inner to be a CDSolver in cyclic order, but it is a $(typeof(inner))."))
   LogisticADMM(ρ, maxiter, tol, abstol, reltol, abstol_dual, inner)
+end
 
 Base.summary(::LogisticADMM) = "Logistic ADMM"
 
@@ -130,13 +138,13 @@ an [`ADMMResults`](@ref): its predictor `t` and dual `u` have one entry per obse
 - `kkt`: the largest ProximalBase KKT score of that problem at the returned coefficients, from a gradient formed there;
 - `tolerance`: the `tol` of the solver;
 - `iterations`: the completed iterations;
-- `t`, `u`: the returned predictor and scaled dual, each the caller's vector when one was passed to `solve!`, and a new
-  vector otherwise; `ρ`: the penalty of the solver;
+- `t`, `u`: the returned predictor and scaled dual, each the caller's vector when one was passed to `solve!` (left with
+  its entries when no iteration completed), and a new vector otherwise; `ρ`: the penalty of the solver;
 - `converged`: whether the last completed iteration passed the primal and dual residual tests and `kkt` is at most
   `tolerance`;
 - `stop_reason`: `:converged`; `:maxiter`, the iteration budget was spent (also for `maxiter = 0`); `:stalled`, an
-  iteration left `b`, `t` and `u` unchanged in every bit without converging; or `:prox_failed`, a scalar root failed
-  (a nonfinite argument or the step cap) and that iteration was discarded.
+  iteration left `b`, `t` and the working dual `w = ρ u` unchanged in every bit without converging; or `:prox_failed`,
+  a scalar root failed (a nonfinite argument or the step budget) and that iteration was discarded.
 
 A small `kkt` is a computed residual, not a certificate of the minimizer or of the accuracy of the coefficients.
 A `converged = false` result returns the last completed iteration. The accessors `minimizer`, `minimum`, `iterations`
@@ -151,7 +159,8 @@ The diagnostics and work counters are:
   completed;
 - `inner_kkt`, `inner_met`: the KKT score of the coefficient step of the last completed iteration, formed from a fresh
   product at its coefficients, and whether it met its forcing target (`NaN` and `false` when no iteration completed);
-- `dual_kkt`: the largest ProximalBase KKT score of `0 ∈ ∂g(b) + ρ X' u` at the returned `b` and `u`;
+- `dual_kkt`: the largest ProximalBase KKT score of `0 ∈ ∂g(b) + ρ X' u` at the returned `b` and `u`, from a fresh
+  product; it can be `Inf` where `ρ X' u` overflows, without an error;
 - `predictor_residual`: the largest entry of `abs.(σ.(t) .- y .- ρ .* u)` at the returned `t` and `u`;
 - `passes`: all coordinate passes of the coefficient steps, including those of an iteration discarded by
   `:prox_failed`; `root_iterations`: all steps of the scalar roots, counted in the same way.
@@ -205,8 +214,9 @@ end
 # ---- the scalar logistic proximal root ---------------------------------------------------------------------------
 # σ(s) - y for a binary y (`one_label` is y == 1), formed from e = exp(-|s|), which does not overflow: for y = 0,
 # 1/(1 + e) at s ≥ 0 and e/(1 + e) at s < 0; for y = 1, -e/(1 + e) at s ≥ 0 and -1/(1 + e) at s < 0. For y = 0 and
-# s < 0 the value e/(1 + e) is positive wherever exp(-|s|) is (down to s ≈ -745), and subnormal rather than 0 below
-# s ≈ -708; 1/(1 + exp(-s)) would give 0 below s ≈ -709.78.
+# s < 0 the value e/(1 + e) is positive while exp(-|s|) is positive (s above about -745.13), and subnormal for s
+# below about -708.40 until exp(-|s|) underflows to 0. There 1/(1 + exp(-s)) gives 0 once exp(-s) overflows, for s
+# below -log(floatmax(Float64)) ≈ -709.78.
 @inline function _la_residual(s::Float64, one_label::Bool)
   e = exp(-abs(s))
   if one_label
@@ -219,8 +229,10 @@ end
 # σ(s)(1 - σ(s)) = e/(1 + e)² with e = exp(-|s|)
 @inline _la_curvature(s::Float64) = (e = exp(-abs(s)); e / (1 + e)^2)
 
-# The computed h(s) = (σ(s) - y) + ρ(s - v) and its rounding bound `_LA_ROOT_BOUND * eps * (|σ(s) - y| + |ρ(s - v)|)`,
-# both from the two computed terms
+# The computed h(s) = (σ(s) - y) + ρ(s - v) and the stopping threshold `_LA_ROOT_BOUND * eps * (|σ(s) - y| + |ρ(s - v)|)`,
+# both from the two computed terms. The threshold scales with the computed terms; it is not a bound on the error of the
+# computed h against the exact one (where exp(-|s|) underflows, both the computed σ(s) - y and the threshold can be 0
+# while the exact h is not).
 @inline function _la_scalar(s::Float64, v::Float64, one_label::Bool, ρ::Float64)
   r = _la_residual(s, one_label)
   q = ρ * (s - v)
@@ -235,14 +247,17 @@ function _la_endpoint(lo, hlo, hi, hhi, v, one_label, ρ)
 end
 
 # The root of h(s) = σ(s) - y + ρ(s - v) for a binary y (`one_label` is y == 1) and ρ in [1e-10, 1e10], LA-03.
-# Returns (s, steps, ok). h is increasing (h' = σ(1 - σ) + ρ > 0) and |σ - y| < 1, so the root lies in [v - 1/ρ, v]
-# for y = 0 and in [v, v + 1/ρ] for y = 1 (each end clamped to ±floatmax). The iteration starts at the end v. Each
-# step updates the bracket from the sign of h at the current point s, then forms the Newton point
-# s - h/(σ(1 - σ) + ρ). It returns s when the computed h is 0 or within its rounding bound (`_la_scalar`), or when the
-# Newton point rounds to s; it returns the endpoint with the smaller |h| when no Float64 lies strictly inside the
-# bracket. A Newton point outside the open bracket, or the third step of a window of steps in which the bracket did not
-# halve, is replaced by the midpoint lo/2 + hi/2. A nonfinite v, or `cap` steps without a stop, gives ok = false; a
-# cap below `_LA_ROOT_CAP` is for tests.
+# Returns (s, steps, ok). h is increasing (h' = σ(1 - σ) + ρ > 0) and |σ - y| < 1, so in exact arithmetic the root lies
+# in [v - 1/ρ, v] for y = 0 and in [v, v + 1/ρ] for y = 1. The working bracket has these ends rounded and clamped to
+# ±floatmax, so it can be up to 2/ρ wide and need not enclose the exact root near ±floatmax. The iteration starts at
+# the end v. In each pass of the loop, in this order: s is returned when |h| at s is within the threshold of
+# `_la_scalar` (which includes h = 0); the bracket is updated from the sign of h; the end with the smaller |h| is
+# returned when no Float64 lies strictly inside the bracket; ok = false is returned after `cap` steps; s is returned
+# when the Newton point s - h/(σ(1 - σ) + ρ) rounds to s; and the Newton point, or the midpoint lo/2 + hi/2 in its
+# place when it is outside the open bracket or on the third step of a window in which the bracket did not halve,
+# becomes the next s (one step). The stagnation stop compares the Newton point with s before any replacement, so a
+# midpoint that replaces a Newton point is not returned in the pass that forms it; it is returned only if a test of a
+# later pass, at that midpoint, stops there. A nonfinite v gives ok = false; a cap below `_LA_ROOT_CAP` is for tests.
 function _la_root(v::Float64, one_label::Bool, ρ::Float64, cap::Int = _LA_ROOT_CAP)
   isfinite(v) || return v, 0, false
   γ = inv(ρ)
@@ -296,7 +311,8 @@ mutable struct _LAWork{L, P<:NormL1, M, S, D}
   resp::Vector{Float64}      # t - u, the response of the β step (the `y` of `model`)
   diff::Vector{Float64}      # a scratch vector of length n
   q::Vector{Float64}         # ρ Xᵀ(X b_new - resp), the gradient of the β step's loss at b_new
-  sv::Vector{Float64}        # Xᵀ(t_new - t), then Xᵀ w_new
+  sv::Vector{Float64}        # Xᵀ(t_new - t)
+  xw::Vector{Float64}        # Xᵀ w_new, a fresh product for the dual threshold
   G::Vector{Float64}         # the gradient of the loss at b_new
   d::Vector{Float64}         # the observation derivative at b_new
   F::Float64                 # the objective at b
@@ -312,7 +328,7 @@ mutable struct _LAWork{L, P<:NormL1, M, S, D}
   eps_dual::Float64
   inner_kkt::Float64
   inner_met::Bool
-  cap::Int                   # the step cap of each scalar root: `_LA_ROOT_CAP`, or less in tests
+  cap::Int                   # the step budget of each scalar root: `_LA_ROOT_CAP`, or less in tests
 end
 
 # The checks of a supplied t or u (`name`), before any write: a Vector{Float64} of length n that does not overlap x, X,
@@ -328,14 +344,20 @@ function _check_la_vector(v, name::String, n::Int, x, f, g, other)
 end
 
 # The private state at the supplied coefficients, with the objective, gradient and score there, the predictor t0 (X b
-# when t0 is nothing) and the dual w = ρ u0 (σ(t) - y when u0 is nothing). A start with a nonfinite predictor X b,
-# objective, gradient or score is refused, then a supplied t0 or u0 (`_check_la_vector`), then a supplied u0 whose
-# product ρ u0, or a response t - u that is not finite. Every refusal is before any write to the caller's arrays.
-# `cap` is the step cap of each scalar root; a smaller one is for tests.
+# when t0 is nothing) and the dual w = ρ u0 (σ(t) - y when u0 is nothing). In this order, each with an ArgumentError:
+# coefficients x whose memory range overlaps X, y, the scratch of the loss or the penalty weights (a check on byte
+# ranges, which also catches overlaps that Base.mightalias in the shared gate does not report); a start with a
+# nonfinite predictor X b, objective, gradient or score; a supplied t0 or u0 (`_check_la_vector`); with a supplied u0,
+# a product ρ u0 or a difference t - u0, formed directly in Float64, that is not finite; a working response t - w/ρ
+# that is not finite. Every refusal is before any write to the caller's arrays. `cap` is the step budget of each scalar
+# root; a smaller one is for tests.
 function _la_workspace(x::Vector{Float64}, f, g::NormL1, method::LogisticADMM, t0, u0, cap::Int = _LA_ROOT_CAP)
   X, y = f.X, f.y
   n, p = size(X)
   ρ = method.ρ
+  (_admm_mightalias(x, X) || _admm_mightalias(x, y) || _admm_mightalias(x, f.tmp) ||
+   (g.w !== nothing && _admm_mightalias(x, g.w))) &&
+    throw(ArgumentError("x must not overlap the memory of X, y, the scratch of the loss or the penalty weights"))
   gT = _converted_penalty(g, Float64)
   b = copy(x)
   eta = X * b
@@ -357,6 +379,9 @@ function _la_workspace(x::Vector{Float64}, f, g::NormL1, method::LogisticADMM, t
   else
     @. w = ρ * u0
     _allfinite(w) || throw(ArgumentError("ρ * u must be finite"))
+    @inbounds for i in eachindex(t)
+      isfinite(t[i] - u0[i]) || throw(ArgumentError("t - u must be finite"))
+    end
   end
   resp = similar(t)
   @. resp = t - w / ρ
@@ -364,7 +389,7 @@ function _la_workspace(x::Vector{Float64}, f, g::NormL1, method::LogisticADMM, t
   work = _pn_load!(SparseIterate(zeros(p)), b)
   model = LSModel(resp, X, ρ)
   _LAWork(f, gT, X, y, ρ, b, eta, t, w, similar(b), similar(eta), similar(t), similar(w), resp, zeros(n), zeros(p),
-          zeros(p), G, d, F, kkt, model, work, _CDState(Float64, work, method.inner), 0, 0, NaN, NaN, NaN, NaN, NaN,
+          zeros(p), zeros(p), G, d, F, kkt, model, work, _CDState(Float64, work, method.inner), 0, 0, NaN, NaN, NaN, NaN, NaN,
           false, cap)
 end
 
@@ -421,9 +446,10 @@ function _la_predictor_step!(w::_LAWork)
   ok
 end
 
-# The residuals of the iteration from (b, t, w) to (b_new, t_new, w_new) and their thresholds (LA-04). ρ Xᵀu_new is
-# formed as q - ρ Xᵀ(t_new - t), equal to Xᵀ w_new in exact arithmetic, so the iteration forms Xᵀ(t_new - t) and no
-# separate product with w_new.
+# The residuals of the iteration from (b, t, w) to (b_new, t_new, w_new) and their thresholds (LA-04), each from a
+# product formed for it: X b_new (from the β step), Xᵀ(t_new - t) for the dual residual and Xᵀ w_new for the dual
+# threshold. (q - ρ Xᵀ(t_new - t) equals Xᵀ w_new in exact arithmetic, but the rounding of its two terms can leave a
+# value where the direct product is 0, so the threshold does not use it.)
 function _la_residuals!(w::_LAWork, method::LogisticADMM)
   ρ = w.rho
   n, p = size(w.X)
@@ -433,8 +459,8 @@ function _la_residuals!(w::_LAWork, method::LogisticADMM)
   mul!(w.sv, transpose(w.X), w.diff)
   w.s_norm = ρ * norm(w.sv)
   w.eps_pri = sqrt(n) * method.abstol + method.reltol * max(norm(w.eta_new), norm(w.t_new))
-  @. w.sv = w.q - ρ * w.sv
-  w.eps_dual = sqrt(p) * method.abstol_dual + method.reltol * norm(w.sv)
+  mul!(w.xw, transpose(w.X), w.w_new)
+  w.eps_dual = sqrt(p) * method.abstol_dual + method.reltol * norm(w.xw)
   w
 end
 
@@ -445,7 +471,8 @@ _la_converged(w::_LAWork, tol::Float64) =
 
 # One iteration from the last completed one (LA-02 to LA-04). Returns :prox_failed, and leaves the completed state as
 # it was, when a scalar root fails; otherwise the new state replaces the completed one and the result is :stalled when
-# b, t and w are unchanged in every bit, or :continue. A nonfinite objective or KKT score at b_new raises an error.
+# b, t and the working dual w are unchanged in every bit (isequal), or :continue. A nonfinite objective or KKT score of
+# the original problem at b_new raises an error.
 function _la_iterate!(w::_LAWork, method::LogisticADMM)
   w.inner_kkt, w.inner_met = _la_beta_step!(w, method)
   _la_predictor_step!(w) || return :prox_failed
@@ -463,16 +490,21 @@ function _la_iterate!(w::_LAWork, method::LogisticADMM)
   unchanged ? :stalled : :continue
 end
 
-# The solve of `solve!` after its gate. `cap` is the step cap of each scalar root: `solve!` passes the default
-# `_LA_ROOT_CAP`, and the tests pass smaller values to reach `:prox_failed`.
+# The step budget of each scalar root in iteration k: an Int for every iteration, or a function of k (tests)
+_la_cap(cap::Int, k::Int) = cap
+_la_cap(cap, k::Int) = cap(k)::Int
+
+# The solve of `solve!` after its gate. `cap` is the step budget of each scalar root: `solve!` passes the default
+# `_LA_ROOT_CAP`, and the tests pass smaller values, or a function of the iteration number, to reach `:prox_failed`.
 function _solve_logistic_admm!(x::Vector{Float64}, f, g::NormL1, method::LogisticADMM, t0, u0;
-                               cap::Int = _LA_ROOT_CAP)
-  w = _la_workspace(x, f, g, method, t0, u0, cap)
+                               cap = _LA_ROOT_CAP)
+  w = _la_workspace(x, f, g, method, t0, u0, _la_cap(cap, 1))
   ρ = w.rho
   iterations = 0
   reason = :maxiter
   saved = (NaN, NaN, NaN, NaN, NaN, false)
   while iterations < method.maxiter
+    w.cap = _la_cap(cap, iterations + 1)
     status = _la_iterate!(w, method)
     if status === :prox_failed
       # the residuals and the inner score of the discarded iteration are not reported
@@ -490,17 +522,22 @@ function _solve_logistic_admm!(x::Vector{Float64}, f, g::NormL1, method::Logisti
       break
     end
   end
-  # the diagnostics of the returned state, before any write to the caller's arrays
-  mul!(w.sv, transpose(w.X), w.w)
+  # The reported dual: with no completed iteration a supplied u keeps its entries; otherwise u = w/ρ, formed in a private
+  # vector. The diagnostics are those of the reported b, t and u, formed before any write to the caller's arrays:
+  # ρ Xᵀu from a fresh product (it can overflow to Inf, which is reported, not refused) and σ(t) - y - ρ u.
+  kept = iterations == 0 && u0 !== nothing
+  uout = kept ? u0 : w.w ./ ρ
+  mul!(w.sv, transpose(w.X), uout)
+  w.sv .*= ρ
   dual_kkt = kkt_violation(w.g, w.sv, w.b)
   residual = 0.0
   @inbounds for i in eachindex(w.t)
-    residual = max(residual, abs(_la_residual(w.t[i], isone(w.y[i])) - w.w[i]))
+    residual = max(residual, abs(_la_residual(w.t[i], isone(w.y[i])) - ρ * uout[i]))
   end
   copyto!(x, w.b)
-  t = t0 === nothing ? copy(w.t) : copyto!(t0, w.t)
-  # with no completed iteration a supplied u keeps its entries; otherwise u = w/ρ
-  u = u0 === nothing ? w.w ./ ρ : (iterations == 0 ? u0 : (u0 .= w.w ./ ρ))
+  # with no completed iteration a supplied t keeps its entries (the predictor of the start is that t)
+  t = t0 === nothing ? copy(w.t) : (iterations == 0 ? t0 : copyto!(t0, w.t))
+  u = u0 === nothing || kept ? uout : copyto!(u0, uout)
   LogisticADMMResults(x, w.F, w.kkt, method.tol, iterations, w.passes, w.roots, w.r_norm, w.s_norm, w.eps_pri,
                       w.eps_dual, w.inner_kkt, w.inner_met, dual_kkt, residual, t, u, ρ, reason === :converged, reason)
 end
