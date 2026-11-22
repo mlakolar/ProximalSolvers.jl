@@ -6,13 +6,15 @@ See the [current section](@ref evidence-stopping-352).
 
 ## The criterion and a certificate
 
-See the [current section](@ref RES-01). For PGD and APG on least squares with
-`NormL1` or `ElasticNet`, a kept stop records that each coordinate's computed score
+See the [current section](@ref RES-01). For PGD and APG on least squares with a
+dense vector response and `NormL1` or `ElasticNet`, a kept stop records that each coordinate's computed score
 passed the rule: below its computed threshold, or at most `0` at an exact zero scale,
 where no threshold is formed. In exact arithmetic the same comparison would bound
-the decrease available from each coordinate, under the conditions of
-[STOP-21](@ref); neither bounds the error of the objective or the coefficients in
-general, and an exact or near-exact fit can return `converged = false`. For square-root lasso, a bounded
+the decrease available from each coordinate of the model that the check scores,
+under the conditions of [STOP-21](@ref) (that model is the objective of the solve
+when their coefficients agree); neither bounds the error of the objective or the coefficients in
+general, and an exact or near-exact fit can return `converged = false`. The matrix-response
+lasso of [IN-10](@ref) keeps the `λmax`-based check of [STOP-03](@ref). For square-root lasso, a bounded
 fallback can certify an uncertified stopped point or return a point with a
 proved lower objective; recovery at exact fits is not guaranteed. See the
 [bounded recovery rule](@ref CDQ-05).

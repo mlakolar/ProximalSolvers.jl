@@ -135,7 +135,7 @@ const _CoordinatewiseState{T<:Union{Float32, Float64}} = Union{
 _stored_zero(v::Base.IEEEFloat) = (reinterpret(Unsigned, v) << 1) == 0
 
 # √a and 2a for an _SE a = s·2^e: for √a an odd e is lowered by one with s doubled (s in [2, 4)), so that √a = √s·2^(e/2)
-# with one Float64 rounding of √s
+# with one rounding of √s in T (Float64 for the callers of STOP-21)
 function _se_sqrt(a::_SE{T}) where {T}
   iszero(a.s) && return a
   s, e = a.s, a.e
@@ -149,16 +149,17 @@ end
 _se_twice(a::_SE{T}) where {T} = iszero(a.s) ? a : _SE{T}(a.s, a.e + 1)
 
 # h = λ‖·‖₁ for NormL1(λ), h = Σⱼ λ wⱼ |bⱼ| for NormL1(λ, w), h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2), and
-# h = Σⱼ λ1 wⱼ |bⱼ| + (λ2/2)‖·‖² for ElasticNet(λ1, λ2, w). The working penalty gT has its levels in T
+# h = Σⱼ λ1 wⱼ |bⱼ| + (λ2/2)‖·‖² for ElasticNet(λ1, λ2, w). The penalty gT of the check has its levels in T
 # (_converted_penalty) and the coefficients cᵢ = λ wᵢ (λ1 wᵢ) rounded in T. The score of coordinate i is ProximalBase's
 # signed kkt_violation(gT, ∇f(x), x, i): |∇fᵢ| - cᵢ where xᵢ = 0, and |∇fᵢ + λ2 xᵢ + cᵢ sign xᵢ| otherwise (λ2 = 0 for
 # NormL1). A zero weight gives cᵢ = 0, so its score is |∇fᵢ + λ2 xᵢ| at a nonzero xᵢ.
 #
-# In exact arithmetic t ↦ F(x + t eᵢ) is convex with curvature μᵢ = α‖Xᵢ‖² + λ2, and the magnitude of its least-norm
-# subgradient at t = 0 is g⁺ᵢ = max(Gᵢ, 0) for the signed score Gᵢ. When μᵢ > 0 the decrease of F that coordinate i
-# alone can give is at most (g⁺ᵢ)²/(2μᵢ); with the smooth part Φ = ½α‖Xx - y‖² + (λ2/2)‖x‖² and sᵢ = √(2μᵢΦ), a score
-# Gᵢ < τ sᵢ makes that decrease less than τ²Φ. The check keeps a proposed stop when every coordinate passes, in one
-# pass that ends at the first failure:
+# F is the model that the check scores, the loss plus gT; the statements in exact arithmetic below are for F, and apply
+# to the objective of the solve when its coefficients agree with those of gT. In exact arithmetic t ↦ F(x + t eᵢ) is
+# convex with curvature μᵢ = α‖Xᵢ‖² + λ2, and the magnitude of its least-norm subgradient at t = 0 is g⁺ᵢ = max(Gᵢ, 0)
+# for the signed score Gᵢ. When μᵢ > 0 the decrease of F that coordinate i alone can give is at most (g⁺ᵢ)²/(2μᵢ); with
+# the smooth part Φ = ½α‖Xx - y‖² + (λ2/2)‖x‖² and sᵢ = √(2μᵢΦ), a score Gᵢ < τ sᵢ makes that decrease less than τ²Φ.
+# The check keeps a proposed stop when every coordinate passes, in one pass that ends at the first failure:
 # - when λ2 is a stored ±0, a coordinate whose column has only stored ±0 entries (μᵢ = 0; the computed ∇fᵢ is ±0 for
 #   a finite residual) passes when its computed score is finite and at most 0 (case A);
 # - when every stored entry of x and of y is ±0 (F(0) = 0 is the minimum), every coordinate passes when its computed
@@ -168,8 +169,8 @@ _se_twice(a::_SE{T}) where {T} = iszero(a.s) ? a : _SE{T}(a.s, a.e + 1)
 #   nᵢ = ‖Xᵢ‖, ρ = √(2Φ), and tᵢ is the product τ ρ hᵢ formed from factors carried as a Float64 significand times a
 #   power of two (_SE{Float64}), where finite nonnegative factors do not overflow or underflow, and converted to T once;
 #   the conversion and the earlier operations round. Such a coordinate refuses when its converted threshold is not
-#   finite (NaN for the _REFUSED marker) or is below floatmin(T) (which includes a computed ρ = 0), and when τ or the
-#   loss value is not finite or, with a ridge term, an entry of x is not finite.
+#   finite (NaN for the _REFUSED marker) or is below floatmin(T), and when τ or the loss value is not finite or, with
+#   a ridge term, an entry of x is not finite.
 # The case predicates read stored bits, not computed values, and the column class is stored by the column pass; with
 # subnormals flushed on the solving thread the decisions are unspecified (see _stored_zero).
 # Φ is formed from state.f_x, the loss value that ProximalBase computed at the accepted x, and (λ2/2)‖x‖²; the scale
@@ -192,8 +193,8 @@ end
 
 # The coordinates of the check above. With `trivial` (case B), and where hᵢ is _CASE_A, the score must be finite and at
 # most 0; elsewhere it must be finite and below the threshold _coordinate_threshold(T, c, hᵢ), which must be finite and
-# at least floatmin(T). c = nothing (an infinite τ, or a nonfinite loss value or ‖x‖) refuses those coordinates, and so
-# does the NaN threshold of a _REFUSED column.
+# at least floatmin(T). c = nothing (a nonfinite τ or stored loss, or a nonfinite entry of x in the ridge branch)
+# refuses those coordinates, and so does the NaN threshold of a _REFUSED column.
 function _coordinates_pass(gT, grad::Vector{T}, x::Vector{T}, h::Vector{_SE{Float64}}, c, trivial::Bool) where T
   for i in eachindex(x, grad, h)
     G = kkt_violation(gT, grad, x, i)
@@ -211,7 +212,8 @@ end
 
 # The threshold of coordinate i from c = τ ρ and hᵢ, both _SE{Float64}, converted to T; the caller refuses a converted
 # threshold that is not finite or is below floatmin(T). The conversion rounds (also at the boundary of the normal
-# range), so the result can differ from the exact product by rounding. A zero c gives 0 and a NaN hᵢ gives NaN.
+# range), so the result can differ from the exact product by rounding. A zero c with a finite hᵢ gives 0, and a NaN hᵢ
+# gives NaN.
 _coordinate_threshold(::Type{T}, c::_SE{Float64}, hᵢ::_SE{Float64}) where T = T(ldexp(c.s * hᵢ.s, c.e + hᵢ.e))
 
 # λ2 of the working penalty, of type T; nothing for NormL1

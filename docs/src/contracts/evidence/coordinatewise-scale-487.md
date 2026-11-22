@@ -33,8 +33,9 @@ The validation of the implementation ran production code at the base `a9fb96c8` 
   PGD and APG, with the default options and with `gradtol = 1e-8`, on Julia 1.10.13 and 1.13.4 as separate draws (each
   version on one node), with 256-bit BigFloat references on the stored inputs: 1640 in-scope rows per side and 96 rows of
   the problems that keep the `λmax`-based checks. A row is accurate when its objective excess is at most `1e-6` (also
-  reported at `1e-4` for Float32) relative to `|F*|`; for the consistent fixtures, relative to the progress `F0 - F*`
-  from the start when that is positive, and otherwise the excess must be exactly zero. Measured outcomes:
+  reported at `1e-4` for Float32): relative to `F*` when `F*` is positive and the row is not one of the consistent
+  fixtures; otherwise relative to the progress `F0 - F*` from the start when that is positive, and otherwise the excess
+  must be exactly zero. Measured outcomes:
   - converged and inaccurate: at the base 108 Float64 rows (PGD 48, APG 60) and 87 Float32 rows (37, 50; 55 at `1e-4`);
     at the head 2 Float64 rows, APG on the nearly collinear free columns of RD1 with the default options in both draws
     (relative excess `6.3e-2`; also converged and inaccurate at the base), and 0 Float32 rows (0 at `1e-4`). No row is
@@ -44,7 +45,7 @@ The validation of the implementation ran production code at the base `a9fb96c8` 
     (exact-fit) fixtures and 25 others. Of the 25, 23 are at `gradtol = 1e-8` (the offset fixtures O1 and O2, the
     rescalings RS, the duplicated free column RD2, and N2 with APG); they ended by an objective increase or at
     `maxiter` with relative excess at most `7.2e-12`. The other 2 are N2 (100×200, `0.01 λmax`, unweighted) with PGD and
-    the default options, certified at the base after 154 and 146 iterations, and at `maxiter = 200` at the head with
+    the default options, certified at the base after 154 and 146 iterations, and ended at `maxiter = 200` at the head with
     relative excess `3.7e-9` and `4.1e-9`. In Float32, 67 rows (99 at `1e-4`).
   - Not certified at the base and certified and accurate at the head: 96 rows, among them the zero-response and `X = 0`
     fixtures.
@@ -85,8 +86,10 @@ with the same values):
   - `X = diag(1, 1e-6)`, `y = (0, 1e-156)`, raw loss, `maxiter = 20_000` (PGD).
 - In the Learn chapter on floating point, the underflow example (case 2) now returns `converged = false` from PGD and
   APG at the coefficient `0` (`converged = true` at the base); the other Learn examples keep their flags.
-- Benchmark campaign baselines of [STOP-20](@ref), whose Float64 options use `gradtol = 1e-11`, are not comparable
-  across this change: the threshold of a least-squares lasso stop changed.
+- Benchmark campaign baselines of [STOP-20](@ref) (`gradtol = 1e-11` in the ordinary and #320 settings, `1e-10` in
+  the Float64 `acc-` settings) were measured under the earlier threshold of a least-squares lasso stop; a comparison
+  across this change compares two stopping rules and is reported with accuracy and work, as in the paired benchmarks
+  of pull request #521.
 
 **Applies to.** PGD and APG on least squares with `NormL1` or `ElasticNet` on a dense vector.
 
