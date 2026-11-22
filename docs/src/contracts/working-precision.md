@@ -196,7 +196,8 @@ Overflow of a trial's squared step norm and its scaled handling are specified in
 On the route of [IN-12](@ref) the coefficients, the trials and ProximalBase's projection stay in `T`.
 The decision, the budgets, and the full check's witness, residual, gradient, support gap, noise terms
 and comparisons below are formed in `Float64`; the full check's mapping point, its division by the
-curvature and its projection are formed in `T`, and only the reduction of the mapping is in `Float64`.
+curvature and its projection are formed in `T`, and the differences from the projection, their maximum
+and its scaling by the curvature are formed in `Float64`.
 Write
 `ρ = Float64(r)` for the radius, `a = Float64(s)` for the loss scale as supplied (`1.0` for a raw
 loss), `u = eps(Float64)/2` and `γ(k) = k u / (1 - k u)`. The norm `‖v‖₂` of an array is computed as
