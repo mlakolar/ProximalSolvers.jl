@@ -28,6 +28,7 @@ standard = [
   "admm_leastsquares",
   "initial_curvature",
   "stopping_scale",
+  "stopping_coordinatewise",
   "elasticnet",
   "cd_elasticnet",
   "cd_nonnegative",

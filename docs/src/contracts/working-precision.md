@@ -15,6 +15,11 @@ A tolerance tighter than the working precision does not guarantee corresponding
 coefficient accuracy. `BigFloat` is useful for independent test references, not a
 supported solver working type. The loss-scale type refusals are in [IN-02](@ref).
 
+With subnormal numbers flushed to zero on the solving thread (`set_zero_subnormals(true)`),
+the stopping decisions of PGD and APG are unspecified, the exact zero cases of [STOP-21](@ref)
+included: the solver's arithmetic and its compiled comparisons can treat a stored subnormal
+value as zero.
+
 Finite input entries do not guarantee finite intermediate arithmetic. ProximalBase's
 least-squares kernels selectively recover some overflow/underflow cases with
 representable results. ProximalSolvers adds its own matrix products, curvature
@@ -28,8 +33,11 @@ computation uses it. PGD/APG use `value_from_predictor` and
 `value_and_gradient_from_predictor!`; CD uses `value_from_residual`, which returns
 only a value. ProximalSolvers does not repeat those oracle computations. It owns the
 image `X*x` and CD residual/curvature caches, CD coordinate correlations and updates,
-the stationarity check's `lambda_max` product, steps and line searches, APG's
-certified bound, stopping rules and rollback. Exact oracle accuracy and range
+the `lambda_max` product of the `λmax`-based stationarity checks, the column norms of the
+coordinatewise check ([STOP-21](@ref)), steps and line searches, APG's
+certified bound, stopping rules and rollback. The coordinatewise check reads
+ProximalBase's least-squares value at the accepted point for its scale and does not
+recompute `‖Xx - y‖`. Exact oracle accuracy and range
 statements belong to the section “Least squares at a predictor or residual that the
 caller holds” in the pinned
 [ProximalBase smooth-function guide](https://github.com/mlakolar/ProximalBase.jl/blob/7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e/docs/src/smooth.md).
@@ -60,7 +68,7 @@ accounts for feasible directions at a zero coefficient.
 
 **Code.** `src/solvers/image_models.jl`; `src/cd/leastsquares.jl`; `src/solve.jl`; ProximalBase least-squares oracles at the dependency pin.
 
-**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/logistic_proxnewton.jl` (the `ProxNewton` row roots at extreme logits, against analytic references, and the returned point of the public saturated-start fit, against a `BigFloat` oracle), `test/logistic_admm.jl` (the scalar root of `LogisticADMM` against a 256-bit `BigFloat` bisection, with a subnormal residual and extreme arguments) and the solver-specific numerical tests.
+**Tests.** The statement on flushed subnormals has no decision test (the decisions are unspecified): in `test/stopping_coordinatewise.jl` a helper enables flushing, calls the check on three fixtures, which must finish without throwing, and restores the previous setting, which the test asserts. `test/core_contracts.jl`, `test/core_regressions.jl`, `test/cd_numerics.jl`, `test/initial_curvature.jl`, `test/logistic_proxnewton.jl` (the `ProxNewton` row roots at extreme logits, against analytic references, and the returned point of the public saturated-start fit, against a `BigFloat` oracle), `test/logistic_admm.jl` (the scalar root of `LogisticADMM` against a 256-bit `BigFloat` bisection, with a subnormal residual and extreme arguments) and the solver-specific numerical tests.
 
 **Sources.** `docs/src/numerics.md:L791`, `docs/src/numerics.md:L800`, `docs/src/numerics.md:L909`, `docs/src/developer/implementation-notes.md:L151`, `docs/src/developer/implementation-notes.md:L169`, `docs/src/getting-started.md:L119`. The constrained-residual application is added by [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8).
 
@@ -125,8 +133,16 @@ cancels before scaling, the solvers do not recover it, even if the exact scaled
 gradient would lie in range.
 
 A stopping test that reads the same rounded product can be met at a nonminimizer.
-The PGD/APG stationarity check can read a computed zero gradient and a computed zero
-`lambda_max` even where the exact products are nonzero. In CD, a zero computed
+The `λmax`-based PGD/APG stationarity checks can read a computed zero gradient and a computed zero
+`lambda_max` even where the exact products are nonzero. The coordinatewise check of
+[STOP-21](@ref) can read a computed zero gradient entry where the exact product is not
+zero; its score is then `-cᵢ` at a zero coefficient and `|λ2 xᵢ + cᵢ sign xᵢ|`, which can be
+positive, elsewhere. Its threshold is formed from `Φ`, the stored loss value plus the ridge
+contribution `(λ2/2)‖x‖²`: a computed `Φ = 0` refuses each coordinate outside its exact zero
+scales (a column of stored `±0` entries with no ridge term, and `x = y = 0`), while a positive
+ridge contribution can give a normal threshold at a zero stored loss, and a design whose
+columns are all of the first kind can pass at a nontrivial point of zero loss when every
+computed score is at most `0`. In CD, a zero computed
 correlation can make a full pass change nothing and satisfy the change test.
 [ORACLE-03](@ref) preserves executable underflow and cancellation examples, their
 high-precision residuals and their objective errors. Keep data and scales in a range
@@ -140,9 +156,9 @@ products, not a general promise of convergence at small scales.
 
 **Applies to.** CD coordinate correlations and PGD/APG gradients and stationarity products.
 
-**Code.** `src/cd/leastsquares.jl`: column correlations; `src/solvers/image_models.jl`: gradient model; `src/utils.jl`: `_lambda_max!`; `src/line_searches.jl`: displacement products.
+**Code.** `src/cd/leastsquares.jl`: column correlations; `src/solvers/image_models.jl`: gradient model; `src/utils.jl`: `_lambda_max!`, `_filled_scales!`; `src/line_searches.jl`: displacement products.
 
-**Tests.** `test/cd_numerics.jl`, `test/stopping_scale.jl`, `test/core_regressions.jl`; executable historical examples are retained in [ORACLE-03](@ref).
+**Tests.** `test/cd_numerics.jl`, `test/stopping_scale.jl`, `test/stopping_coordinatewise.jl`, `test/core_regressions.jl`; executable historical examples are retained in [ORACLE-03](@ref).
 
 **Sources.** `docs/src/numerics.md:L865`, `docs/src/numerics.md:L897`, `docs/src/stopping-limits.md:L99`, `docs/src/stopping-limits.md:L101`, `docs/src/stopping-limits.md:L164`, `docs/src/stopping-limits.md:L167`.
 

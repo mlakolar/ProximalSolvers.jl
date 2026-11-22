@@ -31,8 +31,11 @@ function reference_at(X, y, s, coefficients, ridge, x)
         abs(gradient[j] + r * b[j] + c[j] * sign(b[j]))
     end
     λmax = norm(α * (A' * d), Inf)
+    # the scales of the coordinatewise check of PGD and APG (STOP-21): √(α‖Xᵢ‖² + λ2) √(α‖Xx - y‖² + λ2‖x‖²)
+    smooth = sqrt(α * sum(abs2, residual) + r * sum(abs2, b))
+    coordinate_scales = [sqrt(α * sum(abs2, A[:, j]) + r) * smooth for j in eachindex(b)]
     (; objective, gradient, scores, kkt = maximum(scores), scale = max(maximum(c), λmax),
-      entry_scales = max.(c, λmax))
+      entry_scales = max.(c, λmax), coordinate_scales)
   end
 end
 
@@ -42,7 +45,10 @@ function exact_coefficients(a, w)
   end
 end
 
-function fit_and_check(X::Matrix{T}, y, s, a, b, w, x0, expected, method, sparse) where T
+# `exact_fit`: the minimizer fits y exactly (F* = 0). For the fixture that passes it (X = I, ElasticNet(0, 0, w), from the
+# endpoint testset, options(T)) the coordinatewise check of PGD and APG refuses every proposal (STOP-21), and their
+# solves are checked for accuracy with converged = false.
+function fit_and_check(X::Matrix{T}, y, s, a, b, w, x0, expected, method, sparse; exact_fit = false) where T
   opts = options(T)
   x = start(x0, sparse)
   loss = s * LeastSquaresLoss(y, X)
@@ -50,7 +56,8 @@ function fit_and_check(X::Matrix{T}, y, s, a, b, w, x0, expected, method, sparse
   result = run!(x, loss, ElasticNet(a, b, w), method, opts)
   @test result.minimizer === x
   @test w == saved_weights
-  @test result.converged
+  pg_exact = exact_fit && !(method isa CDSolver)
+  @test result.converged == !pg_exact
   v = collect(x)
   reference = reference_at(X, y, s, exact_coefficients(a, w), b, v)
   @test result.minimum ≈ Float64(reference.objective) rtol=32eps(T) atol=8eps(T)
@@ -60,10 +67,10 @@ function fit_and_check(X::Matrix{T}, y, s, a, b, w, x0, expected, method, sparse
     @test result.maxchange < result.tolerance
     @test result.kkt_checks == 0
     @test reference.kkt < 32eps(T) * max(reference.scale, 1) + 1e-8
-  else
+  elseif !pg_exact
     @test result.x_converged || result.f_converged || result.grad_converged
     # A small allowance covers the difference between the native and independent products.
-    @test all(reference.scores .< max(opts.gradtol, 64eps(T)) .* reference.entry_scales .+ 32eps(T))
+    @test all(reference.scores .< max(opts.gradtol, 64eps(T)) .* reference.coordinate_scales .* (1 + 64eps(T)) .+ 32eps(T))
   end
   v
 end
@@ -118,7 +125,7 @@ end
       @test collect(x) ≈ collect(z) rtol=64eps(T) atol=64eps(T)
       @test r.minimum ≈ q.minimum rtol=64eps(T) atol=64eps(T)
     end
-    fit_and_check(X, y, one(T), zero(T), zero(T), w, x0, y, method, sparse)
+    fit_and_check(X, y, one(T), zero(T), zero(T), w, x0, y, method, sparse; exact_fit = true)
     x, z = start(x0, sparse), start(x0, sparse)
     r = run!(x, f, mixed, method, options(T))
     q = run!(z, f, native, method, options(T))
@@ -131,13 +138,18 @@ end
   end
 end
 
-@testset "The PG stop uses per-coordinate ElasticNet thresholds ($T)" for
+@testset "The PG stop uses the coordinatewise ElasticNet rule ($T)" for
     T in (Float32, Float64), method in PG_METHODS
+  # X = I₂: coordinate i passes when its score (|∇fᵢ| - cᵢ at xᵢ = 0, |∇fᵢ + λ2 xᵢ + cᵢ sign xᵢ| elsewhere, with
+  # ∇f = x - y) is below gradtol √(1 + λ2) √(‖x - y‖² + λ2‖x‖²) (STOP-21). Two cases decide differently from the
+  # #464 entry thresholds gradtol max(cᵢ, λmax): the second point passes the #464 threshold of x₂, 0.95 max(1000, 100)
+  # = 950, and fails the coordinatewise one (score 900.3 against 105.9); the third point fails the #464 threshold of
+  # the zero-weight x₁, 0.5 λmax = 0.5, and passes the coordinatewise one (score 0.5 against 0.559).
   X = Matrix{T}(I, 2, 2)
   for (y, x, a, b, w, gradtol, expected) in (
       (T[0.9, 0], T[0.5, 0], one(T), T(0.25), T[1, 1000], 0.01, false),
-      (T[0, 100], T[0, 0.25], T(2), T(0.25), T[0.5, 500], 0.95, true),
-      (T[1, 0], T[0.25, 0], one(T), one(T), T[0, 1000], 0.5, false),
+      (T[0, 100], T[0, 0.25], T(2), T(0.25), T[0.5, 500], 0.95, false),
+      (T[1, 0], T[0.25, 0], one(T), one(T), T[0, 1000], 0.5, true),
       (T[1, 0], T[0, 0], T(0.5), T(0.25), T[0, 1], 0.6, false),
       (T[1, 0], T[0.5, 0], T(0.5), T(0.25), T[0, 1], 0.2, false),
       (T[1, 0], T[0.8, 0], T(0.5), T(0.25), T[0, 1], 0.2, true))
@@ -145,26 +157,21 @@ end
     opts = ProximalOptions(; gradtol)
     state = PS.initial_state(method, opts, f, g, copy(x))
     ref = reference_at(X, y, one(T), exact_coefficients(a, w), b, x)
-    @test all(ref.scores .< gradtol .* ref.entry_scales) == expected
+    @test all(ref.scores .< gradtol .* ref.coordinate_scales) == expected
     @test PS._stationary!(state, f, g, opts) == expected
-    @test state.λmax == maximum(abs, y)
-    @test PS._l1_level(g) == a * maximum(w)
-    if maximum(w) > 1
-      @test ref.kkt < gradtol * ref.scale
-      @test ref.kkt >= gradtol * maximum(abs, y)
-    else
-      unweighted = reference_at(X, y, one(T), fill(a, 2), b, x)
-      @test (unweighted.kkt < gradtol * unweighted.scale) != expected
-    end
+    @test state.λmax == -1
   end
 
+  # y = 0 at x = 0: every scale is zero and every score is at most 0, which the check accepts (case B of STOP-21)
   f = LeastSquaresLoss(zeros(T, 2), X)
   opts = ProximalOptions()
   for w in (T[0, 0], T[0, 1000])
     g = ElasticNet(one(T), T(0.5), w)
     state = PS.initial_state(method, opts, f, g, zeros(T, 2))
-    @test !PS._stationary!(state, f, g, opts)
+    @test PS._stationary!(state, f, g, opts)
   end
+  # the entry-threshold helper of the λmax-based check, which a state without the column data of the coordinatewise
+  # check reaches
   g = ElasticNet(one(T), T(0.5), T[0, 1])
   grad, x = zeros(T, 2), zeros(T, 2)
   @test !PS._entry_thresholds_hold(g, grad, x, T(0.5), floatmin(T))
@@ -189,12 +196,13 @@ end
     fit_and_check(X, y, one(T), one(T), one(T), w, zeros(T, 2), expected, method, false)
   end
 
+  # y = 0 from x = 0: the first proposal is kept at x = 0 (case B of STOP-21)
   fill!(x, zero(T))
   zero_loss = LeastSquaresLoss(zeros(T, 2), X)
   result = solve!(x, zero_loss, ElasticNet(one(T), one(T), zeros(T, 2)), method,
                   ProximalOptions(maxiter = 2, gradtol = 0.01, ftol = 100))
-  @test iszero(x) && result.iteration_converged && !result.converged
-  @test !(result.x_converged || result.f_converged || result.grad_converged)
+  @test iszero(x) && result.converged && result.iterations == 1
+  @test result.x_converged || result.f_converged || result.grad_converged
 end
 
 @testset "CD exceptional band uses the checked L1 coefficient ($T)" for T in (Float32, Float64)

@@ -99,8 +99,9 @@ product that was already rounded away.
 ## Case 3: cancellation can hide a correlation
 
 The exact sum `1 + d - 1` is `d`. A sequential floating-point evaluation can
-lose `d` when it is added to one. Here that small correlation is also the scale
-against which stationarity is judged. Different reduction implementations can
+lose `d` when it is added to one. Here that small correlation is all that makes
+the minimizer nonzero, and the KKT residual below is measured relative to it.
+Different reduction implementations can
 change the observed last bits, so the block reports what the running platform
 does rather than asserting a particular reduction order.
 

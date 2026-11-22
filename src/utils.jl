@@ -101,30 +101,202 @@ end
 
 # ---- the stationarity check of a proposed stop -------------------------------------------------
 #
-# The check is for the least-squares problem ½α‖Xb - y‖² + h(b) (α = 1 for a raw LeastSquaresLoss),
-# whose gradient ∇f the solver forms, with h = λ‖·‖₁ for NormL1(λ), h = Σⱼ λ wⱼ |bⱼ| for NormL1(λ, w),
-# h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2), or h = Σⱼ λ1 wⱼ |bⱼ| + (λ2/2)‖·‖² for ElasticNet(λ1, λ2, w).
-# G is the element of ∇f(x) + ∂h(x) of least norm:
-# for NormL1, |∇fᵢ| - cᵢ clipped at 0 where xᵢ = 0 and |∇fᵢ + cᵢ sign xᵢ| otherwise, with cᵢ = λ (cᵢ = λ wᵢ
-# with weights); for ElasticNet, the same with cᵢ = λ1 (cᵢ = λ1 wᵢ with weights) and the term λ2 xᵢ added to ∇fᵢ
-# where xᵢ ≠ 0. A zero weight gives cᵢ = 0, so its score is |∇fᵢ| for NormL1 and |∇fᵢ + λ2 xᵢ| for
-# ElasticNet. The full-point check requires ‖G‖∞ < τ S, with S = max(maxᵢ cᵢ, λmax), λmax = α‖Xᵀy‖∞ = ‖∇f(0)‖∞,
-# and τ = max(gradtol, 64 eps(T)). S does not depend on λ2. In exact arithmetic the ElasticNet objective is
-# a lasso with the same L1 coefficients on the data [√α X; √λ2 I], [√α y; 0], whose
-# gradient is ∇f(x) + λ2 x and whose λmax is the λmax above. The threshold is relative to S, which a
+# Least squares ½α‖Xb - y‖² (α = 1 for a raw LeastSquaresLoss) with NormL1 or ElasticNet, each with or without weights,
+# on a dense Vector{Float32} or Vector{Float64}: the state carries a _CoordinateScales (see _coordinate_scales) and
+# the coordinatewise check below decides (STOP-21).
+#
+# The column data of the coordinatewise check, filled at the first check of a solve for the λ2 of that check (the
+# penalty is fixed in a solve); `filled` is false until then. h[j] is hⱼ = √(a nⱼ² + λ2) as an _SE{Float64}
+# (significand × 2^exponent, see src/solvers/image_models.jl), or one of two markers: _CASE_A (significand -1) for a
+# column whose stored entries are all ±0 when λ2 is a stored ±0, and _REFUSED (significand NaN) for a nonzero column
+# whose norm, computed with scaling, is 0 or not finite. y_zero says that every stored entry of y is ±0.
+mutable struct _CoordinateScales
+  h::Vector{_SE{Float64}}
+  y_zero::Bool
+  filled::Bool
+end
+const _CASE_A = _SE{Float64}(-1.0, 0)
+const _REFUSED = _SE{Float64}(NaN, 0)
+
+# The column data for the problems of the coordinatewise check, allocated (length p) and not filled; nothing for
+# the other problems, which keep the λmax-based or the generic check.
+_coordinate_scales(model, g, x) = nothing
+_coordinate_scales(::_LSImage, ::Union{NormL1, ElasticNet}, x::Vector{T}) where {T<:Union{Float32, Float64}} =
+  _CoordinateScales(Vector{_SE{Float64}}(undef, length(x)), false, false)
+
+# The states that carry the column data
+const _CoordinatewiseState{T<:Union{Float32, Float64}} = Union{
+  ProximalGradientDescentState{T, Vector{T}, Vector{T}, <:_LSImage, <:Any, _CoordinateScales},
+  AccProxGradDescentState{T, Vector{T}, <:_LSImage, <:Any, _CoordinateScales}}
+
+# Whether the stored value is +0.0 or -0.0, from its bits: under gradual underflow a subnormal is not zero here. With
+# subnormals flushed to zero on the solving thread the stopping decisions are unspecified (STOP-21): the compiled
+# comparisons and the arithmetic can treat a stored subnormal as zero.
+_stored_zero(v::Base.IEEEFloat) = (reinterpret(Unsigned, v) << 1) == 0
+
+# √a and 2a for an _SE a = s·2^e: for √a an odd e is lowered by one with s doubled (s in [2, 4)), so that √a = √s·2^(e/2)
+# with one rounding of √s in T (Float64 for the callers of STOP-21)
+function _se_sqrt(a::_SE{T}) where {T}
+  iszero(a.s) && return a
+  s, e = a.s, a.e
+  if isodd(e)
+    s *= 2
+    e -= 1
+  end
+  r = _SE{T}(sqrt(s))
+  _SE{T}(r.s, r.e + e ÷ 2)
+end
+_se_twice(a::_SE{T}) where {T} = iszero(a.s) ? a : _SE{T}(a.s, a.e + 1)
+
+# h = λ‖·‖₁ for NormL1(λ), h = Σⱼ λ wⱼ |bⱼ| for NormL1(λ, w), h = λ1‖·‖₁ + (λ2/2)‖·‖² for ElasticNet(λ1, λ2), and
+# h = Σⱼ λ1 wⱼ |bⱼ| + (λ2/2)‖·‖² for ElasticNet(λ1, λ2, w). The penalty gT of the check has its levels in T
+# (_converted_penalty) and the coefficients cᵢ = λ wᵢ (λ1 wᵢ) rounded in T. The score of coordinate i is ProximalBase's
+# signed kkt_violation(gT, ∇f(x), x, i): |∇fᵢ| - cᵢ where xᵢ = 0, and |∇fᵢ + λ2 xᵢ + cᵢ sign xᵢ| otherwise (λ2 = 0 for
+# NormL1). A zero weight gives cᵢ = 0, so its score is |∇fᵢ + λ2 xᵢ| at a nonzero xᵢ.
+#
+# F is the model that the check scores, the loss plus gT; the statements in exact arithmetic below are for F, and apply
+# to the objective of the solve when its coefficients agree with those of gT. In exact arithmetic t ↦ F(x + t eᵢ) is
+# convex with curvature μᵢ = α‖Xᵢ‖² + λ2, and the magnitude of its least-norm subgradient at t = 0 is g⁺ᵢ = max(Gᵢ, 0)
+# for the signed score Gᵢ. When μᵢ > 0 the decrease of F that coordinate i alone can give is at most (g⁺ᵢ)²/(2μᵢ); with
+# the smooth part Φ = ½α‖Xx - y‖² + (λ2/2)‖x‖² and sᵢ = √(2μᵢΦ), a score Gᵢ < τ sᵢ makes that decrease less than τ²Φ.
+# The check keeps a proposed stop when every coordinate passes, in one pass that ends at the first failure:
+# - when λ2 is a stored ±0, a coordinate whose column has only stored ±0 entries (μᵢ = 0; the computed ∇fᵢ is ±0 for
+#   a finite residual) passes when its computed score is finite and at most 0 (case A);
+# - when every stored entry of x and of y is ±0 (F(0) = 0 is the minimum), every coordinate passes when its computed
+#   score is finite and at most 0 (case B, which also covers a _REFUSED column); x is scanned only when y is zero;
+# - every other coordinate passes when its score is finite and below the threshold tᵢ, which must be finite and at
+#   least floatmin(T). Here τ = T(max(gradtol, 64 eps(T))), hᵢ = √(a nᵢ² + λ2) from the column data, a = Float64(α),
+#   nᵢ = ‖Xᵢ‖, ρ = √(2Φ), and tᵢ is the product τ ρ hᵢ formed from factors carried as a Float64 significand times a
+#   power of two (_SE{Float64}), where finite nonnegative factors do not overflow or underflow, and converted to T once;
+#   the conversion and the earlier operations round. Such a coordinate refuses when its converted threshold is not
+#   finite (NaN for the _REFUSED marker) or is below floatmin(T), and when τ or the loss value is not finite or, with
+#   a ridge term, an entry of x is not finite.
+# The case predicates read stored bits, not computed values, and the column class is stored by the column pass; with
+# subnormals flushed on the solving thread the decisions are unspecified (see _stored_zero).
+# Φ is formed from state.f_x, the loss value that ProximalBase computed at the accepted x, and (λ2/2)‖x‖²; the scale
+# does not form Xx - y (APG's gradient at x, see _gradient_at_x!, forms the residual from the cached image). After the
+# column pass of the first check, a check adds O(p) work to that gradient: the pass over the coordinates, ‖x‖ when
+# λ2 > 0, the zero test of x when y = 0 and, for a weighted NormL1, the scan of the weights in the constructor of the
+# converted penalty. It does not compute λmax.
+# The decision compares computed scores with computed thresholds; it is not a certificate in exact arithmetic.
+function _stationary!(state::_CoordinatewiseState{T}, f, g::Union{NormL1, ElasticNet},
+                      options::ProximalOptions) where {T<:Union{Float32, Float64}}
+  grad = _gradient_at_x!(state, f)
+  gT = _converted_penalty(g, T)
+  λ2 = _ridge_level(gT)
+  scales = _filled_scales!(state.scales, state.model, λ2)
+  τ = T(max(options.gradtol, 64 * Float64(eps(T))))
+  trivial = scales.y_zero && all(_stored_zero, state.x)
+  c = _threshold_factor(τ, state.f_x, λ2, state.x)
+  _coordinates_pass(gT, grad, state.x, scales.h, c, trivial)
+end
+
+# The coordinates of the check above. With `trivial` (case B), and where hᵢ is _CASE_A, the score must be finite and at
+# most 0; elsewhere it must be finite and below the threshold _coordinate_threshold(T, c, hᵢ), which must be finite and
+# at least floatmin(T). c = nothing (a nonfinite τ or stored loss, or a nonfinite entry of x in the ridge branch)
+# refuses those coordinates, and so does the NaN threshold of a _REFUSED column.
+function _coordinates_pass(gT, grad::Vector{T}, x::Vector{T}, h::Vector{_SE{Float64}}, c, trivial::Bool) where T
+  for i in eachindex(x, grad, h)
+    G = kkt_violation(gT, grad, x, i)
+    hᵢ = @inbounds h[i]
+    if trivial || hᵢ.s < 0
+      (isfinite(G) && G <= 0) || return false
+    else
+      c === nothing && return false
+      t = _coordinate_threshold(T, c, hᵢ)
+      (isfinite(t) && t >= floatmin(T) && isfinite(G) && G < t) || return false
+    end
+  end
+  true
+end
+
+# The threshold of coordinate i from c = τ ρ and hᵢ, both _SE{Float64}, converted to T; the caller refuses a converted
+# threshold that is not finite or is below floatmin(T). The conversion rounds (also at the boundary of the normal
+# range), so the result can differ from the exact product by rounding. A zero c with a finite hᵢ gives 0, and a NaN hᵢ
+# gives NaN.
+_coordinate_threshold(::Type{T}, c::_SE{Float64}, hᵢ::_SE{Float64}) where T = T(ldexp(c.s * hᵢ.s, c.e + hᵢ.e))
+
+# λ2 of the working penalty, of type T; nothing for NormL1
+_ridge_level(g::NormL1) = nothing
+_ridge_level(g::ElasticNet) = g.λ2
+
+# c = τ ρ as an _SE{Float64}, ρ = √(2 f_x + λ2 ‖x‖²): the stored f_x is lifted to an _SE and doubled, and, when λ2 is not a
+# stored ±0, λ2 ‖x‖² is formed and added as _SE values, with ‖x‖ from a Float64 sum of squares or, when that sum is not finite or below 4 p floatmin(Float64), the
+# scaled form of _se_norm (a norm beyond floatmax(Float64) stays finite as an _SE). nothing when τ or f_x is not finite,
+# or when an entry of x is not finite in the ridge branch; a nothing refuses before any threshold is formed. f_x is the
+# stored least-squares value, which is not negative.
+function _threshold_factor(τ, f_x, λ2, x)
+  isfinite(τ) && isfinite(f_x) || return nothing
+  ρ2 = _se_twice(_SE{Float64}(Float64(f_x)))
+  if !(λ2 === nothing || _stored_zero(λ2))
+    nx = _se_norm_onepass(Float64, _sumsq64(x), x)
+    nx === nothing && return nothing
+    ρ2 = _se_add(ρ2, _se_mul(_SE{Float64}(Float64(λ2)), _se_mul(nx, nx)))
+  end
+  _se_mul(_SE{Float64}(Float64(τ)), _se_sqrt(ρ2))
+end
+
+# One pass over the columns of X, at the first check of a solve. sⱼ = Σᵢ Float64(Xᵢⱼ)² (exact squares for Float32
+# entries under gradual underflow, rounded sum). nⱼ = √sⱼ when sⱼ is finite and at least floatmin(Float64); otherwise
+# the column is read again: a column whose stored entries are all ±0 is a zero column, and any other column has nⱼ
+# from _se_norm of the column (one read for its largest magnitude and one for the scaled squares). hⱼ = √a nⱼ, or √(a nⱼ² + λ2) when λ2 is not a stored ±0, formed with _SE values; a zero column has _CASE_A
+# when λ2 is a stored ±0 and √λ2 otherwise; a nonzero column whose nⱼ is 0 or not finite has _REFUSED. The stored
+# entries of y are tested for ±0 once.
+function _filled_scales!(c::_CoordinateScales, m::_LSImage, λ2)
+  c.filled && return c
+  X = m.X
+  ra = _root_scale(Float64, m.α)
+  ridge = !(λ2 === nothing || _stored_zero(λ2))
+  l2 = ridge ? _SE{Float64}(Float64(λ2)) : _se_zero(Float64)
+  for (k, j) in enumerate(axes(X, 2))
+    s = 0.0
+    @inbounds @simd for i in axes(X, 1)
+      s += abs2(Float64(X[i, j]))
+    end
+    c.h[k] = if isfinite(s) && s >= floatmin(Float64)
+      _column_scale(ra, _SE{Float64}(sqrt(s)), l2, ridge)
+    elseif all(_stored_zero, view(X, :, j))
+      ridge ? _se_sqrt(l2) : _CASE_A
+    else
+      n = _se_norm(Float64, view(X, :, j))
+      n === nothing || iszero(n.s) || !isfinite(n.s) ? _REFUSED : _column_scale(ra, n, l2, ridge)
+    end
+  end
+  c.y_zero = all(_stored_zero, m.Y)
+  c.filled = true
+  c
+end
+
+# √(a n² + λ2) from √a and n, as _SE values; √a n without a ridge term
+function _column_scale(ra::_SE{Float64}, n::_SE{Float64}, l2::_SE{Float64}, ridge::Bool)
+  u = _se_mul(ra, n)
+  ridge ? _se_sqrt(_se_add(_se_mul(u, u), l2)) : u
+end
+
+# The λmax-based check, for the other problems with a dedicated penalty: a logistic loss with NormL1 (PGD and APG,
+# IN-09, APG-08), a matrix response with NormL1 (IN-10), NormL1Nonneg and IndNonnegative (PGD), GroupNormL2 and NormL2.
+# Its signature contains NormL1 and ElasticNet, so the coordinatewise method above, whose state and penalty types are
+# subtypes of these, is the more specific one where both apply. solve! builds the column data for each ElasticNet
+# problem that it accepts (a least-squares vector response, IN-03), so ElasticNet reaches this method only from a
+# state built without them; the ElasticNet comments below describe that case.
+#
+# For NormL1, G is the element of ∇f(x) + ∂h(x) of least norm: |∇fᵢ| - cᵢ clipped at 0 where xᵢ = 0 and
+# |∇fᵢ + cᵢ sign xᵢ| otherwise, with cᵢ = λ (cᵢ = λ wᵢ with weights). A zero weight gives cᵢ = 0, so its score is |∇fᵢ|.
+# The full-point check requires ‖G‖∞ < τ S, with S = max(maxᵢ cᵢ, λmax), λmax = ‖∇f(0)‖∞ (α‖XᵀY‖∞ for a least-squares
+# matrix response), and τ = max(gradtol, 64 eps(T)). The threshold is relative to S, which a
 # common positive factor on the loss and the penalty levels scales alike (within the range of T), and
 # 64 eps(T) is a floor of a few dozen units of roundoff, chosen without a bound on the error of the
 # computed gradient. It is not kept when S is not finite, when τ S is below floatmin(T) (a threshold
-# that may have underflowed; a computed S = 0, as for λ1 = 0 and y = 0, is one) or when ‖G‖∞ is not finite.
-# ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)), NormL1(T(λ0), w),
-# ElasticNet(T(λ1), T(λ2)) or ElasticNet(T(λ1), T(λ2), w). The same native penalty gives both S and the residual.
+# that may have underflowed; a computed S = 0 is one) or when ‖G‖∞ is not finite.
+# ‖G‖∞ is ProximalBase's full-point kkt_violation(h, ∇f(x), x) for NormL1(T(λ0)) or NormL1(T(λ0), w). For ElasticNet the
+# scores add λ2 xᵢ to ∇fᵢ where xᵢ ≠ 0, with S = max(maxᵢ cᵢ, λmax) independent of λ2, and the weighted form has the
+# entry thresholds below. The same native penalty gives both S and the residual.
 # For NormL1(λ0, w), solve! requires w to be a Vector{T}, so ProximalBase's coefficient of entry i is the product
 # T(λ0) wᵢ rounded in T: the cᵢ that solve! checked (finite and, where both factors are positive, a normal number of T).
 # Rounding is monotone, so T(λ0) maximum(w) is maxᵢ cᵢ. The weights are not converted or copied. A proposed
 # stop adds to the O(p) pass of kkt_violation one O(p) scan of w for `maximum` and one in the constructor of
 # the NormL1 that holds the converted level; for w ≡ 1 the coefficients and S are those of NormL1(λ0).
-# Weighted ElasticNet reuses the already-native working penalty for scoring (IN-03, STOP-06).
-# For weighted NormL1 and ElasticNet, each entry is also held to its own scale: the signed score sᵢ (ProximalBase's
+# For weighted NormL1, each entry is also held to its own scale: the signed score sᵢ (ProximalBase's
 # kkt_violation(h, ∇f(x), x, i), negative at a zero entry with |∇fᵢ| < cᵢ) must be below τ max(cᵢ, λmax). That
 # threshold is at most τ S, so the comparison with τ S above is necessary; when maxᵢ cᵢ ≤ λmax every entry threshold
 # equals τ S and nothing more is done. Otherwise, after that comparison has passed, _entry_thresholds_hold compares each score with its threshold, which
@@ -135,7 +307,7 @@ end
 # An infinite entry of x gives a non-finite residual (Inf, or NaN when a NaN is read), so such a stop is
 # not kept.
 # It is a computed residual, not a certificate in exact arithmetic.
-# For a logistic loss with NormL1 (PGD and APG, IN-09, APG-08) the check is the same with the logistic gradient ∇f and
+# For a logistic loss with NormL1 (PGD and APG, IN-09, APG-08) ∇f is the logistic gradient and
 # λmax = ‖Xᵀ(½ - y)‖∞ = ‖∇f(0)‖∞ (see _zero_gradient!).
 #
 # GroupNormL2(λ0, groups, w) (ProximalGradientDescent and AccProxGradDescent; solve! requires a GroupNormL2{T} whose groups partition 1:p

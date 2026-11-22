@@ -3,12 +3,15 @@ module InitialCurvatureTests
 # for the loss f(x) = (α/2)‖y - X x‖² (α = 1 for a raw LeastSquaresLoss): min(1, α‖X‖_F²), with ‖X‖_F the
 # solvers' upper bound, which is 1 when that product is at least 1 or X = 0 (#321). The start is read
 # through `ProximalSolvers.initial_state`. Each testset that runs a solve states what it checks. In the R5-type
-# cases and the Float32 R5-like cases the first steps of PGD have a squared norm that overflows (#364), and both
-# solvers must report `converged`. The
-# R5-type cases, the moderate-scale case and the Float32 R5-like cases compare, for each solver that reports
-# `converged = true`, the exact KKT residual of the returned point, computed here in 256-bit BigFloat from
-# the raw data, with the solver's bound max(gradtol, 64 eps(T)) max(λ, λmax) plus the allowance of `bound` below for the rounding of the
-# residual. The X = 0 case checks the
+# cases and the Float32 R5-like cases the first steps of PGD have a squared norm that overflows (#364). In the R5 case
+# with λ = 0.1 λmax both solvers must report `converged`. The R5 case with λ = 0, the #327 case and the Float32 R5-like
+# cases are exact fits (y = X c, F* = 0) whose computed residual is parallel to the column or zero at each iterate, so
+# the coordinatewise check (STOP-21) refuses each proposal with the default options; those solves must return accurate
+# coefficients with converged = false at maxiter or an objective increase. The
+# R5-type cases, the moderate-scale case and the ElasticNet case compare, for each solver that reports
+# `converged = true`, the exact coordinatewise ratio of the returned point (kkt_ratio below), computed here in
+# 256-bit BigFloat from the raw data, with the solver's bound max(gradtol, 64 eps(T)) plus the allowance of `bound`
+# below. The X = 0 case checks the
 # analytic result, the underflow cases finiteness, the recovered ElasticNet case the distance to its
 # minimizer, and the allocation cases bytes. The bits of a trajectory are not asserted; an iteration count
 # appears as the loose limit that a case states. `converged` is a stopping flag, which a case asserts where
@@ -36,22 +39,43 @@ function penalty(::Type{T}, X, y, α, frac) where T
   max(T(frac * λmax(X, y, α)), nextfloat(zero(T)))
 end
 
-# The exact residual of the KKT conditions 0 ∈ α Xᵀ(X x - y) + λ2 x + λ1 ∂‖x‖₁ relative to
-# S = max(λ1, λmax): the ℓ∞ norm of the minimal-norm element, divided by S. Float64 data.
+# An independent estimate, with explicit rounding allowances, of the coordinatewise ratio of the check (STOP-21) at
+# x: the largest over the coordinates of
+#   (Gᵢ - eGᵢ) / (sᵢ (1 + (n + p + 4) u) + √(α‖Xᵢ‖² + λ2) √α ‖e‖),
+# with Gᵢ the clipped score of the KKT conditions 0 ∈ α Xᵀ(X x - y) + λ2 x + λ1 ∂‖x‖₁ (max(|gᵢ| - λ1, 0) where
+# xᵢ = 0, |gᵢ + λ1 sign xᵢ| elsewhere), sᵢ = √(α‖Xᵢ‖² + λ2) √(α‖Xx - y‖² + λ2‖x‖²), and u = eps(T) for the data
+# type T. eGᵢ and e are the first-order rounding estimates of the computed score and of the computed residual
+# fl(X x) - y (as in test/stopping_scale.jl): e_j = (p+1) u (Σₖ |Xⱼₖ||xₖ| + |y_j|) and
+# eGᵢ = α Σⱼ |Xⱼᵢ| (e_j + (n+1) u (|d_j| + e_j)) + u (|gᵢ| + λ1). Every column is nonzero here.
 function kkt_ratio(X, y, α, λ1, λ2, x)
   setprecision(BigFloat, 256) do
-    Xb, yb, xb, a = BigFloat.(X), BigFloat.(y), BigFloat.(x), BigFloat(α)
-    g = a .* (Xb' * (Xb * xb - yb)) .+ BigFloat(λ2) .* xb
-    l = BigFloat(λ1)
-    G = maximum(j -> iszero(xb[j]) ? max(abs(g[j]) - l, zero(l)) : abs(g[j] + l * sign(xb[j])), eachindex(xb))
-    S = max(l, maximum(abs, a .* (Xb' * yb)))
-    Float64(G / S)
+    Xb, yb, xb, a, l, l2 = BigFloat.(X), BigFloat.(y), BigFloat.(x), BigFloat(α), BigFloat(λ1), BigFloat(λ2)
+    n, p = size(Xb)
+    u = BigFloat(eps(eltype(X)))
+    d = Xb * xb - yb
+    g = a .* (Xb' * d) .+ l2 .* xb
+    absX = abs.(Xb)
+    e = (p + 1) * u .* (absX * abs.(xb) + abs.(yb))
+    eG = a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ l)
+    ρ = sqrt(a * sum(abs2, d) + l2 * sum(abs2, xb))
+    Float64(maximum(eachindex(xb)) do j
+      G = iszero(xb[j]) ? max(abs(g[j]) - l, zero(l)) : abs(g[j] + l * sign(xb[j]))
+      h = sqrt(a * sum(abs2, Xb[:, j]) + l2)
+      (G - eG[j]) / (h * ρ * (1 + (n + p + 4) * u) + h * sqrt(a) * sqrt(sum(abs2, e)))
+    end)
   end
 end
 
 # the solver's bound on that ratio, with an allowance of 1e-6 relative and of 16 eps(T) for the rounding of
-# the solver's own residual
+# the solver's own threshold
 bound(options, ::Type{T}) where T = max(options.gradtol, 64 * Float64(eps(T))) * (1 + 1e-6) + 16 * Float64(eps(T))
+
+# The relative distance |x - x*| / x* of a one-coordinate exact fit X x* = y (X a column of ones, y constant), in
+# BigFloat: the returned point of a solve that the check does not certify (STOP-21) is checked by its accuracy
+fit_error(X, y, x) = setprecision(BigFloat, 256) do
+  xstar = sum(BigFloat.(y)) / sum(BigFloat.(X))
+  Float64(abs(BigFloat(x[1]) - xstar) / abs(xstar))
+end
 
 # A seeded design with unit-variance, zero-mean columns, and a response from a sparse coefficient vector
 # plus noise.
@@ -65,8 +89,10 @@ function standardized(::Type{T}, n, p; seed = 321) where T
   T.(X), T.(y)
 end
 
-@testset "R5 and the #327 case: the start is the curvature, and APG and PGD converge" begin
+@testset "R5 and the #327 case: the start is the curvature, and APG and PGD converge where the fit is not exact" begin
   R5 = (ones(5, 1), fill(1e160, 5), 1e-100)
+  # R5 with λ = 0 and #327 are exact fits (y = X 1e160): with the default options the coordinatewise check refuses
+  # each proposal of their solves (STOP-21)
   cases = (("R5, λ = 0", R5..., 0.0),
            ("R5, λ = 0.1 λmax", R5..., 0.1),
            ("#327", [1.0;;], [1e160], 5e-100, 0.0))
@@ -83,8 +109,13 @@ end
 
       x = zeros(1)
       r = solve!(x, f, g, AccProxGradDescent(), DEFAULT)
-      @test r.converged && r.iterations <= 12
-      @test kkt_ratio(X, y, α, λ, 0, x) <= bound(DEFAULT, Float64)
+      if iszero(frac)
+        @test !r.converged && (r.iteration_converged || r.f_increased)
+        @test fit_error(X, y, x) <= 1e-5
+      else
+        @test r.converged && r.iterations <= 12
+        @test kkt_ratio(X, y, α, λ, 0, x) <= bound(DEFAULT, Float64)
+      end
       # the first trial of the first APG iteration, at 0.9 L0, is rejected: the iteration makes at least two
       # trials and ends with an L above 0.9 L0
       st = PS.initial_state(AccProxGradDescent(), DEFAULT, f, g, zeros(1))
@@ -95,14 +126,19 @@ end
       # PGD's backtracking test forms the squared step norm, which overflows for a step beyond about
       # 1.3e154 (#364), and decides such a trial on the step scaled by a power of two. The first iteration makes
       # at least two trials, and the step it leaves in delta_x is unscaled and has an overflowing squared norm.
-      # PGD converges.
+      # PGD converges at the positive level.
       st = PS.initial_state(ProximalGradientDescent(), DEFAULT, f, g, zeros(1))
       PS.update_state!(f, g, st, ProximalGradientDescent())
       @test st.backtrack_steps >= 2 && isinf(PS._norm(st.delta_x)^2) && all(isfinite, st.delta_x)
       x = zeros(1)
       r = solve!(x, f, g, ProximalGradientDescent(), DEFAULT)
-      @test r.converged && r.iterations <= 20
-      @test kkt_ratio(X, y, α, λ, 0, x) <= bound(DEFAULT, Float64)
+      if iszero(frac)
+        @test !r.converged && (r.iteration_converged || r.f_increased)
+        @test fit_error(X, y, x) <= 1e-5
+      else
+        @test r.converged && r.iterations <= 20
+        @test kkt_ratio(X, y, α, λ, 0, x) <= bound(DEFAULT, Float64)
+      end
     end
   end
 end
@@ -223,8 +259,10 @@ end
 @testset "ElasticNet(0, 1) from a start whose penalty overflows: the scale-aware start solves it" begin
   # f(x0) = 0 is finite and the ridge value (λ2/2) x0² = 5e39 is above floatmax(Float32). The loss curvature
   # α‖X‖_F² = 1e-40 gives a start of floatmin(Float32), so the first step is large and the ridge shrinks it
-  # to a point with a finite objective. Both methods return the minimizer 1e-20 / (1 + 1e-40) of
-  # (1/2)(1e-20 x - 1)² + x²/2 without an error.
+  # to a point with a finite objective. Both methods approach the minimizer x* = 1e-20 / (1 + 1e-40) of
+  # F(x) = (1/2)(1e-20 x - 1)² + x²/2 without an error. In exact arithmetic, with the approximate scale Φ ≈ ½, the
+  # coordinatewise test (STOP-21) holds where |∇F(x)| = |(1 + 1e-40)(x - x*)| is below τ √(1 + 1e-40) √(2Φ), that is
+  # |x - x*| below about τ = 1e-5; it does not ask for relative accuracy of the tiny x*.
   T = Float32
   X, y, x0 = reshape(T[1e-20], 1, 1), T[1], T[1e20]
   g = ElasticNet(zero(T), one(T))
@@ -236,7 +274,12 @@ end
     x = copy(x0)
     r = solve!(x, LeastSquaresLoss(y, X), g, method)
     @test isfinite(r.minimum) && all(isfinite, x)
-    @test abs(x[1] - xstar) <= 1e-3 * xstar
+    @test abs(x[1] - xstar) <= 2e-5
+    excess = setprecision(BigFloat, 256) do
+      F(z) = (BigFloat(1e-20) * BigFloat(z) - 1)^2 / 2 + BigFloat(z)^2 / 2
+      Float64((F(x[1]) - F(xstar)) / F(xstar))
+    end
+    @test excess <= 1e-9
   end
 end
 
@@ -284,7 +327,10 @@ alloc_solve(f, g, x0, method) = (x = copy(x0); @allocated solve!(x, f, g, method
   end
 end
 
-@testset "Float32 R5-like data: PGD and APG converge from the scale-aware start (T = Float32, Float64 scale α)" begin
+@testset "Float32 R5-like data: PGD and APG reach the exact fit from the scale-aware start (T = Float32, Float64 scale α)" begin
+  # y = X 1f20 is an exact fit: with the default options the computed residual is parallel to the column or zero at
+  # each iterate, the coordinatewise check (STOP-21) refuses each proposal, and the solves return accurate
+  # coefficients with converged = false at maxiter or an objective increase
   X, y = ones(Float32, 5, 1), fill(1f20, 5)
   for α in (1e-10, 1e-30)
     @test PS._check_loss_scale(α, Float32) === nothing
@@ -295,13 +341,15 @@ end
       @test c <= L0 <= 1.0001 * c
       x = zeros(Float32, 1)
       r = solve!(x, f, g, method, DEFAULT)
-      @test r.converged
-      @test kkt_ratio(X, y, α, 0f0, 0, x) <= bound(DEFAULT, Float32)
+      @test !r.converged && (r.iteration_converged || r.f_increased)
+      @test fit_error(X, y, x) <= 1e-5
     end
   end
 end
 
-@testset "Float32 R5-like data with a squared step norm beyond floatmax(Float32): PGD and APG converge (#364)" begin
+@testset "Float32 R5-like data with a squared step norm beyond floatmax(Float32): PGD and APG reach the exact fit (#364)" begin
+  # exact fits of the same form, as above: accurate coefficients with converged = false at maxiter or an objective
+  # increase
   for (Y, α) in ((1f25, 1f-20), (1f30, 1f-30))
     X, y = ones(Float32, 5, 1), fill(Y, 5)
     f, g = lossof(α, y, X), NormL1(0f0)
@@ -310,8 +358,8 @@ end
       @test c <= start(method, f, g, zeros(Float32, 1)) <= 1.0001 * c
       x = zeros(Float32, 1)
       r = solve!(x, f, g, method, DEFAULT)
-      @test r.converged && r.iterations <= 20
-      @test kkt_ratio(X, y, α, 0f0, 0, x) <= bound(DEFAULT, Float32)
+      @test !r.converged && (r.iteration_converged || r.f_increased)
+      @test fit_error(X, y, x) <= 1e-5
     end
     # the first PGD iteration makes at least two trials, and its step has an overflowing squared norm
     st = PS.initial_state(ProximalGradientDescent(), DEFAULT, f, g, zeros(Float32, 1))

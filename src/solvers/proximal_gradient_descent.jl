@@ -102,7 +102,7 @@ function ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized:
 end
 
 # Native dense iterates/gradients with retained LS image buffers.
-mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M, Z}
+mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M, Z, C}
     x::X
     f_x::T
     g_x::T
@@ -115,8 +115,10 @@ mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M
     delta_x::X
     L::T
     max_residual::T
-    λmax::T         # ‖∇f(0)‖ for the stationarity check: the ∞-norm for NormL1, ElasticNet and NormLinf, the
-                    # largest group 2-norm for GroupNormL2 (_scale_norm); -1 until it is computed
+    λmax::T         # ‖∇f(0)‖ for the stationarity check: the ∞-norm for NormL1 (logistic loss, matrix response),
+                    # NormL1Nonneg and NormLinf, the largest group 2-norm for GroupNormL2, the 2-norm for NormL2
+                    # (_scale_norm); -1 until it is computed. The coordinatewise check (scales below) does not
+                    # compute it, so it stays -1 in those solves.
     backtrack_simple::Bool  # line search uses function values, not gradients
     backtrack_steps::Int
     f_calls::Int
@@ -131,6 +133,9 @@ mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M
     # min(Lexact, max(c, L/β)) for the rejected trial's L, which need not equal c); set by
     # backtrack!, cleared at the start of update_state!
     verified_rejection::Bool
+    # the column data of the coordinatewise check (_CoordinateScales, STOP-21) for least squares with NormL1 or
+    # ElasticNet on a Vector{Float32} or Vector{Float64}, filled at the first check; nothing for the other problems
+    scales::C
 end
 
 
@@ -173,7 +178,8 @@ function initial_state(
                          z_x,
                          dz,
                          0,
-                         false
+                         false,
+                         _coordinate_scales(model, g, x0)
                          )
 end
 
