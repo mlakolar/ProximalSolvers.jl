@@ -1,0 +1,8 @@
+cpu	Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz
+node	d18-12
+other_jobs_start	0
+1.10.13-forward	other_jobs	0
+1.10.13-reverse	other_jobs	0
+1.13.4-forward	other_jobs	0
+1.13.4-reverse	other_jobs	0
+other_jobs_end	0
