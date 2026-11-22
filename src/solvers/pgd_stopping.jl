@@ -37,9 +37,9 @@ coefficient vector. `minimum` holds the computed objective or `missing` when
 the iteration budget was zero. Use [`termination`](@ref) to inspect the reason
 and the observations at the returned point.
 """
-struct PGDPolicyResult{M,T,X,D}
+struct PGDPolicyResult{M,T,D}
     method::M
-    minimizer::X
+    minimizer::Vector{T}
     minimum::Union{Missing,T}
     iterations::Int
     converged::Bool
@@ -97,7 +97,7 @@ function _pgd_policy_result(method, x, objective, increased, trace, monitor, rea
     g_calls = ismissing(objective) ? 0 : prox_calls + 1
     counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials=prox_calls-k)
     decision = Stopping.report(monitor, reason, k, counts)
-    PGDPolicyResult{typeof(method),eltype(x),typeof(x),typeof(decision)}(
+    PGDPolicyResult(
         method, x, objective, k, false, decision.limit_reached, increased, reason === :stalled,
         trace, backtrack_steps, f_calls, grad_calls, prox_calls, decision)
 end
