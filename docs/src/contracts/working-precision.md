@@ -311,9 +311,10 @@ mapping's trial point in `T` and the computed mapping `m`:
    `min(p η, ‖w‖₁) δ`.
 5. The mapping `L (v - P(v - g/L))` at `v = T(w)`. The projection onto the ℓ1 ball is
    `P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0)`, with the level `τ(z) ≥ 0` (zero inside the ball) the root of
-   `Σᵢ max(|zᵢ| - τ, 0) = r` outside it. If every `|zᵢ|` moves by at most `ε = ‖Δz‖∞`, that sum moves by at
-   most `ε` per active term at a fixed level, so the level moves by at most `ε`; each output then moves by
-   at most `|Δzᵢ| + |Δτ| ≤ 2ε`. The projection is therefore 2-Lipschitz in the ∞-norm, not nonexpansive:
+   `Σᵢ max(|zᵢ| - τ, 0) = r` outside it. If `ε = ‖z' - z‖∞`, then
+   `max(|z'ᵢ| - (τ + ε), 0) ≤ max(|zᵢ| - τ, 0) ≤ max(|z'ᵢ| - (τ - ε), 0)` for every `i`, and the sum is
+   nonincreasing in the level, so the level of `z'` lies within `ε` of `τ(z)` (with `τ = 0` at an interior
+   point the same comparison applies); each output then moves by at most `|Δzᵢ| + |Δτ| ≤ 2ε`. The projection is therefore 2-Lipschitz in the ∞-norm, not nonexpansive:
    for `r = 3`, `z = [3, 3, 3]` and `z' = [3.125, 2.875, 2.875]`, `‖P(z) - P(z')‖∞ / ‖z - z'‖∞ = 4/3`. An
    error of the projection input therefore enters the mapping with the factor 2. The gradient error enters
    `t` as `E_g / L` and adds `2 E_g`. For `Float32` data, the conversion of `w` to `T` enters both `v` and
