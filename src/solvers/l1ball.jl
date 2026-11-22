@@ -44,6 +44,8 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   col::Float64            # maxⱼ ‖Xⱼ‖
   frob::Float64           # ‖X‖_F
   ynorm::Float64          # ‖y‖
+  objective_rtol::Float64 # the resolved tolerances of B1's progress proposals (STOP-22)
+  mapping_rtol::Float64
   decision::_L1Decision
   witness::Vector{Float64}
   residual::Vector{Float64}
@@ -66,10 +68,11 @@ end
 # does not evaluate it. The trials set g_x = 0 too.
 (g::_NumericalL1Ball{T})(x) where T = zero(T)
 
-function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha::Float64, b, decision::_L1Decision,
-                          maxiter::Int) where T
+function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha::Float64, b, tolerances,
+                          decision::_L1Decision, maxiter::Int) where T
   n, p = size(X)
-  _NumericalL1Ball{T}(ball, X, y, alpha, b.cap, b.gap, b.mapping, b.curvature, b.col, b.frob, b.ynorm, decision,
+  _NumericalL1Ball{T}(ball, X, y, alpha, b.cap, b.gap, b.mapping, b.curvature, b.col, b.frob, b.ynorm,
+                      Float64(tolerances.objective_rtol), Float64(tolerances.mapping_rtol), decision,
                       zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p), NaN, NaN, NaN, NaN, 0, false, 0,
                       maxiter, 0)
 end
@@ -174,6 +177,46 @@ function _l1_support_gap(w, grad, r::Float64, dual)
   s
 end
 
+# ---- the absolute underflow allowance of the full check (FP-06) ----------------------------------------------------------
+
+const _ETA64 = nextfloat(0.0)
+
+# An upper bound of the exact product of two nonnegative upper bounds a and b under the model fl(a b) = a b (1 + δ) + ε,
+# |δ| ≤ u, |ε| ≤ nextfloat(0.0): 0 when a factor is 0 (the product is then exact), otherwise fl(a b) (1 + 4 eps) + η,
+# which covers a product that rounds to a subnormal number or to zero. Inf when the product overflows.
+_mulup(a::Float64, b::Float64) = (iszero(a) || iszero(b)) ? 0.0 : (c = a * b; c + 4 * eps(Float64) * c + _ETA64)
+
+# The absolute allowances (gap, mapping) that FP-06 adds to the support-gap and mapping noise of the full check, from
+# computed magnitudes: n × p the design, α the loss scale, ρ the radius, C the largest column norm, rnorm = ‖X w - y‖₂,
+# sw = ‖w‖₁ and winf = ‖w‖∞ of the witness, dual = ‖g‖∞ of the scaled gradient, L the inverse step as Float64, tinf
+# the largest magnitude of the mapping's trial point in T and the computed mapping. Each term is min(k η, a product of
+# magnitudes), so a term is 0 when its products are exact zeros. Both are Inf (the check fails) when the growth factor
+# 2 of the argument does not hold, (n + p + 2) eps(Float64) > 1.
+function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, alpha::Float64, ρ::Float64, C::Float64, rnorm::Float64,
+                                 sw::Float64, winf::Float64, dual::Float64, L::Float64, tinf::Float64,
+                                 mapping::Float64) where T
+  η, ηT = _ETA64, Float64(nextfloat(zero(T)))
+  (n + p + 2) * eps(Float64) <= 1 || return Inf, Inf
+  # the residual X w - y: one product (or fused multiply-add) per entry of X; the subtraction of y adds no absolute
+  # error under gradual underflow. ‖Δr‖₂ ≤ ‖Δr‖₁ ≤ Σᵢⱼ min(η, |Xᵢⱼ wⱼ|) ≤ min(n p η, √n C ‖w‖₁)
+  A_r = min(Float64(n) * Float64(p) * η, _mulup(_mulup(sqrt(Float64(n)), C), sw))
+  # Xᵀ r, per coordinate: Σᵢ min(η, |Xᵢⱼ rᵢ|) ≤ min(n η, C ‖r‖₂), plus the residual error carried through, ‖Xⱼ‖₂ ‖Δr‖₂ ≤ C A_r
+  A_s = min(Float64(n) * η, _mulup(C, rnorm))
+  # the multiplication by α scales both and adds one product error, at most min(η, α |Xⱼᵀ r|) ≤ min(η, 2 α C ‖r‖₂)
+  E_g = _mulup(alpha, _mulup(C, A_r) + A_s) + min(η, _mulup(2alpha, _mulup(C, rnorm)))
+  # the support gap: the gradient error through δ and the sum, 2 max(ρ, ‖w‖₁) E_g; the p + 1 products of its Float64
+  # sum, min((p + 1) η, δ (ρ + 2 ‖w‖₁)); the witness entries' product errors through the ρ δ term, min(p η, ‖w‖₁) δ
+  gap_abs = _mulup(2 * max(ρ, sw), E_g) + min(Float64(p + 1) * η, _mulup(dual, ρ + 2sw)) + _mulup(min(Float64(p) * η, sw), dual)
+  # the mapping L (v - P(v - g/L)) at v = T(w): the gradient error through the nonexpansive projection, E_g; for
+  # Float32, the conversions of w (the map is 2L-Lipschitz in v) and of g; the division by L; the projection in T; the
+  # final product by L in Float64
+  conv = T === Float64 ? 0.0 : _mulup(2L, min(ηT, winf)) + min(ηT, dual)
+  map_abs = E_g + conv + _mulup(L, min(ηT, dual / L)) + _mulup(L, min(Float64(p) * ηT, tinf)) + min(η, mapping)
+  # the factor 4: 2 for the growth (1 + u)^k ≤ 2 of an absolute error through the later roundings, k ≤ n + p + 2, and
+  # 2 for the computed magnitudes in place of the exact ones
+  4 * gap_abs, 4 * map_abs
+end
+
 # ---- the hooks ----------------------------------------------------------------------------------------------------------
 
 # PGD-09: a search from one base point starts with no trials.
@@ -218,8 +261,10 @@ _check_accepted_gradient(state::ProximalGradientDescentState, ::_NumericalL1Ball
   (_allfinite(state.grad_f_x) || _l1_gradient_error(); nothing)
 
 # STOP-22: the engine's three proposals, computed by the method of the other penalties (through _PROPOSALS, whose
-# check passes), and B1's two structural proposals: the last iteration (maxiter) and an accepted iterate equal to the
-# previous one elementwise, also with ftol = 0. A proposal runs the full check. When it passes at a point classified
+# check passes), B1's two structural proposals (the last iteration, maxiter, and an accepted iterate equal to the
+# previous one elementwise, also with ftol = 0) and B1's two progress proposals (‖x - x_previous‖∞ at most
+# √mapping_rtol ‖x‖∞, or the relative change of the smooth loss at most objective_rtol). Any proposal runs the full
+# check once. When it passes at a point classified
 # :inside, converged = true and the proposal flags are kept; otherwise they are cleared and converged = false, and a
 # passing check at a point classified :outside or :unknown stops the solve as an approximate solution
 # (_approximate_solution below).
@@ -227,8 +272,12 @@ function convergence_assessment(state::Union{ProximalGradientDescentState, AccPr
                                 f, g::_NumericalL1Ball, options::ProximalOptions)
   x_converged, f_converged, grad_converged, _, f_increased = convergence_assessment(state, f, _PROPOSALS, options)
   g.iteration += 1
+  # B1's progress proposals, as projected_policy forms them, with the resolved tolerances
+  residual = f_residual(state.f_x, state.f_x_previous, g.objective_rtol)
+  dx = maximum(abs, state.delta_x)
+  progress = dx <= sqrt(g.mapping_rtol) * maximum(abs, state.x) || residual <= g.objective_rtol
   proposed = x_converged || f_converged || grad_converged || g.iteration == g.maxiter ||
-             _unchanged(state.x, state.x_previous)
+             _unchanged(state.x, state.x_previous) || progress
   passed = proposed && _stationary!(state, f, g, options)
   inside = g.decision.membership === :inside
   g.approximate = passed && !inside
@@ -266,6 +315,11 @@ function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions
   prox!(projected, g.ball, trial, one(T)/L)
   mapping = Float64(L) * maximum(j -> abs(Float64(T(w[j])) - Float64(projected[j])), eachindex(w))
   map_noise = g.col * score_noise + Float64(eps(T)) * (Float64(L) * maximum(abs, w) + maximum(abs, grad))
+  # FP-06: the absolute allowance for gradual underflow, added after B1's noise terms
+  gap_abs, map_abs = _l1_underflow_allowance(T, n, p, alpha, r, g.col, _norm2_64(res), _l1_mass64(w),
+                                             maximum(abs, w), dual, Float64(L), Float64(maximum(abs, trial)), mapping)
+  gap_noise = gap_noise + gap_abs
+  map_noise = map_noise + map_abs
   finite = all(isfinite, (gap, gap_noise, mapping, map_noise))
   pass = finite && gap + gap_noise <= g.gap_budget && mapping + map_noise <= g.mapping_budget
   state.grad_calls += 1
@@ -301,8 +355,8 @@ function _run_numerical_l1!(x::Vector{T}, f, ball::IndBallL1{T}, checked, method
   d = checked.data
   # a private ball with the same radius: the projection of a ball can use a buffer stored in the object, which solves
   # that share the caller's ball would share
-  route = _NumericalL1Ball(IndBallL1{T}(ball.r), d.X, d.Y, checked.alpha, checked.budgets, checked.decision,
-                           Int(options.maxiter))
+  route = _NumericalL1Ball(IndBallL1{T}(ball.r), d.X, d.Y, checked.alpha, checked.budgets, checked.tolerances,
+                           checked.decision, Int(options.maxiter))
   state = initial_state(method, options, f, route, x)
   _solve_gradient!(state, f, route, method, options, t0)
 end

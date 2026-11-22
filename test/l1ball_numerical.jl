@@ -541,7 +541,8 @@ end
   @test res.iterations == 1 && res.f_increased && !res.converged
   @test !PS._stop_on_gradient_increase(nothing, PS._NumericalL1Ball(g, Matrix{T}(I, 2, 2), copy(x0), 1.0,
                                        (; cap = 0.0, gap = 0.0, mapping = 0.0, curvature = 1.0, col = 1.0, frob = 1.0, ynorm = 1.0),
-                                       PS._l1_decision(x0, g, 1e-6), 10), ProximalOptions())
+                                       (; objective_rtol = 1e-9, mapping_rtol = 1e-8), PS._l1_decision(x0, g, 1e-6), 10),
+                                       ProximalOptions())
   @test PS._stop_on_gradient_increase(nothing, NormL1(one(T)), ProximalOptions())
 end
 
