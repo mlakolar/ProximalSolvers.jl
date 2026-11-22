@@ -152,6 +152,24 @@ function review_cases(io)
                                          16.0, [0.0], 1.0), Accuracy(1e-5, 0.0, 0.3372675092849525, 1.0), 1),
         ("review_underflow", Fixture("review_underflow", :l1, :dense, Float32[0.75 0.75], [-3eta], 4eta,
                                      [-2eta, -2eta], 1f0), nothing, 3))
+    # Review round 2 (comment 7072380127): Float64 case whose unscaled ||x||^2 underflows;
+    # B0 rejects the proposal, and the screen's bound must hold as well (`bound_holds` below).
+    X3 = zeros(2, 32); X3[1, :] .= 0x1p500
+    x3 = [0x1p-540; fill(0x1p-594, 30); -0x1p-540]
+    a3 = Accuracy(1e-10, 0.0, 8.326672684688671e-16, 1e-8)
+    d3 = Fixture("review_norm_underflow", :l1, :dense, X3, [30 * 0x1p-94, 0.0], 0x1p-538, x3, 1.0)
+    b3 = B2.budgets(d3, a3)
+    G3 = zeros(32); z3 = zeros(2); dz3 = zeros(2)
+    PS._image!(z3, PS._image_model(loss(d3)), x3)
+    f3 = PS._value_and_gradient!(G3, x3, loss(d3), z3, dz3)
+    dec3 = B2.norm_decision(x3, ball(d3), b3.cap)
+    ref3 = reference_data(d3)
+    exact_gap = independent(d3, x3, ball(d3), b3, ref3, zeros(BigFloat, 32)).witness_gap
+    screened = B2.prescreen_rejects(G3, x3, dec3, d3, ball(d3), b3, f3)
+    table(io, (; case="review_norm_underflow", T=Float64, method="screen", arm=:B2, status=screened ? :screened : :full_check,
+               iterations=0, gap_target=b3.gap, estimated_gap=exact_gap,
+               same_status_as_B0=true, same_bits_as_B0=true,
+               output=string("bound_holds=", !screened || exact_gap > b3.gap)))
     for (label, d, acc, maxiter) in cases
         f, g = loss(d), ball(d)
         a = acc === nothing ? accuracy(d, :ordinary) : acc

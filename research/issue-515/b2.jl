@@ -214,12 +214,15 @@ function prescreen_rejects(G, x::AbstractVector{T}, dec::Decision, d, g, b, f_x)
     @inbounds for j in eachindex(G)
         dual = max(dual, abs(Float64(G[j])))
     end
-    acc, x2 = 0.0, 0.0
+    acc = 0.0
     @inbounds for j in eachindex(x, G)
         xj, gj = Float64(x[j]), Float64(G[j])
         acc += abs(xj) * (dual + (signbit(xj) ? -gj : gj))
-        x2 += xj * xj
     end
+    # ||x||_2 <= ||x||_1 = s (the cached widened norm, a sum of magnitudes with no squares
+    # that could underflow), inflated for its own rounding. Review round 2: an unscaled
+    # sum of squares underflowed to zero and dropped the ||X||_F ||x|| term.
+    xnorm = s * (1 + gamma64(p + 2))
     # Working gap, B0's estimate_gap formula at x; equal to r||G|| + <x,G> when s <= r.
     gapw = max(0.0, r - s) * dual + acc
     # Error of the working gradient per coordinate: B0's stop noise model with T's unit
@@ -230,7 +233,7 @@ function prescreen_rejects(G, x::AbstractVector{T}, dec::Decision, d, g, b, f_x)
     # with ||d|| read from the working loss value (the guard above bounds the loss
     # rounding lost to underflow by 2^-20 relative).
     dnorm = sqrt(2 * Float64(f_x) / alpha) * (1 + gammaT(T, n + 4) + 0x1p-18)
-    work_noise = b.col * alpha * (gammaT(T, p + 2) * (b.frob * sqrt(x2) + b.ynorm) +
+    work_noise = b.col * alpha * (gammaT(T, p + 2) * (b.frob * xnorm + b.ynorm) +
                                   sqrt(n) * 2p * eta + gammaT(T, n + 3) * dnorm) +
                  alpha * (2n + 1) * eta + eta + gammaT(T, 1) * dual
     # Displacement to B0's witness w = factor x (rounded): ||x - w||_1 <= delta, and the
