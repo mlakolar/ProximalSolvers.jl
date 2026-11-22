@@ -382,10 +382,11 @@ approximate solution only when a full check of a support gap and a fixed-step ma
 `Float64`, meets budgets set by the tolerances of `NumericalFeasibility`; the limits and the callback
 end a solve as for the other penalties. Read `converged`, `approximate_solution` and
 `feasibility.membership` together: at a solution on the boundary, the returned point can be within
-the rounding allowance of the radius, and the result then reports an approximate solution. See
-[IN-12](@ref) for the inputs and tolerances, [FP-05](@ref) for the arithmetic, [STOP-22](@ref) for the
-stop, [RES-04](@ref) for the result and the
-[constrained least-squares tutorial](examples/problems/constrained_least_squares.md) for an example.
+the rounding allowance of the radius, and the result then reports an approximate solution.
+
+The rules are [IN-12](@ref) (inputs and tolerances), [FP-05](@ref) (arithmetic), [STOP-22](@ref)
+(stop) and [RES-04](@ref) (result); the
+[constrained least-squares tutorial](examples/problems/constrained_least_squares.md) has an example.
 
 ### Multi-response entrywise lasso with gradient methods
 
