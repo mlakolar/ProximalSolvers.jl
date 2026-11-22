@@ -94,25 +94,29 @@ struct Proposal{Arm,Role,K,T,D,F,G,N0,N1,N2}
     b0::N0
     b1::N1
     b2::N2
+    dec1::B1.Decision   # formed by the accepted trial, outside the timed stop path
+    dec2::B2.Decision
     w0::StopWorkspace{T}
     w1::B1.StopWorkspace{T}
     w2::B2.StopWorkspace{T}
 end
 
-# B0: decision at the stop and the full check (B0 always reaches stop_scores! here).
+# B0: decision at the stop (used, as in B0's stop path) and the full check.
 function proposal(w::Proposal{:B0})
     dec = norm_decision(w.pt.x, w.g, w.b0.cap)
+    dec.code === :pass || return false
     stop_scores!(w.w0, w.pt.x, w.d, w.g, w.b0, nothing).pass
 end
 # B1: the accepted trial's decision is cached by the solver; the full check reuses it.
 function proposal(w::Proposal{:B1})
-    dec = B1.norm_decision(w.pt.x, w.g, w.b1.cap)   # formed by the trial, not at the stop
-    B1.stop_scores!(w.w1, w.pt.x, dec, w.d, w.g, w.b1, nothing).pass
+    w.dec1.code === :pass || return false
+    B1.stop_scores!(w.w1, w.pt.x, w.dec1, w.d, w.g, w.b1, nothing).pass
 end
 # B2: pre-screen with the working gradient (PGD: the solver's own; APG: one product from
 # the cached image), then the full check only when the screen cannot reject.
 function proposal(w::Proposal{:B2,R,K}) where {R,K}
-    dec = B2.norm_decision(w.pt.x, w.g, w.b2.cap)
+    dec = w.dec2
+    dec.code === :pass || return false
     G = if K === :APG
         PS._value_and_gradient!(w.w2.gw, w.pt.x, w.f, w.pt.z, w.w2.dw)
         w.w2.gw
@@ -148,7 +152,8 @@ end
     p = w.prop
     for _ in 1:n
         b = Arm === :B0 ? budgets(p.d, accuracy(p.d, :ordinary)) :
-            Arm === :B1 ? B1.budgets(p.d, accuracy(p.d, :ordinary)) : B2.budgets(p.d, accuracy(p.d, :ordinary))
+            Arm === :B1 ? B1.budgets(p.d, accuracy(p.d, :ordinary)) :
+            Arm === :B2 ? B2.budgets(p.d, accuracy(p.d, :ordinary)) : B2.budgets_onepass(p.d, accuracy(p.d, :ordinary))
         sink += b.cap
     end
     sink
@@ -160,7 +165,8 @@ function make_fixed(op, arm, role, kind, d, f, g, pt)
     m = kind === :APG ? PS.AccProxGradDescent() : PS.ProximalGradientDescent()
     b0, b1, b2 = budgets(d, a), B1.budgets(d, a), B2.budgets(d, a)
     prop = Proposal{arm,role,kind,T,typeof(d),typeof(f),typeof(g),typeof(b0),typeof(b1),typeof(b2)}(d, f, g, pt,
-             b0, b1, b2, StopWorkspace(d), B1.StopWorkspace(d), B2.StopWorkspace(d, m))
+             b0, b1, b2, B1.norm_decision(pt.x, g, b1.cap), B2.norm_decision(pt.x, g, b2.cap),
+             StopWorkspace(d), B1.StopWorkspace(d), B2.StopWorkspace(d, m))
     Fixed{op,arm,role,typeof(prop)}(prop)
 end
 
@@ -269,7 +275,7 @@ function fixed_work(io, T)
                        b2_screen_rejects=screened, a_arm=:B0, b_arm=:B1),
                    mk(:decision, :B0, :left), mk(:decision, :B1, :right), mk(:decision, :B0, :aa0), mk(:decision, :B0, :aa1))
             if kind === :PGD
-                for (la, ra) in ((:B0, :B1), (:B0, :B2))
+                for (la, ra) in ((:B0, :B1), (:B0, :B2), (:B0, :onepass))
                     paired(io, (; T, p, design, method=:any, op=:setup, point=:none, check_passes=pass0,
                                b2_screen_rejects=screened, a_arm=la, b_arm=ra),
                            mk(:setup, la, :left), mk(:setup, ra, :right), mk(:setup, la, :aa0), mk(:setup, la, :aa1))

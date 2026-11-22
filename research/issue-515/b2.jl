@@ -36,12 +36,15 @@
 #       so B0's check would fail as well. A skipped proposal is never a success; the full,
 #       unchanged B0/B1 check decides every stop. Proposals at maxiter or with an
 #       unchanged iterate always get the full check.
-#   (b) One-pass design norms. budgets needs the largest column norm and the Frobenius
-#       norm of X. B0 used four scaled passes with a division per entry. B2 forms the
-#       column sums of squares in Float64 in one pass and uses the scaled B0 formula for a
-#       column (and the Frobenius norm) only when the unscaled sum could have overflowed or
-#       lost accuracy to underflow. The quantities are the same; their last bits can
-#       differ from B0, so the budget scalars are compared, not assumed equal.
+#       Revision after the independent review (#515): the screen runs only with gradual
+#       underflow (not when the thread flushes subnormals) and when the working loss is far
+#       above the underflow range; the allowance includes the absolute underflow error of
+#       the native products. A screened proposal reports its gap and mapping diagnostics as
+#       unavailable (NaN) instead of keeping those of an older full check.
+#   (b) Withdrawn after the review: budgets are B0's (bit-identical thresholds). The
+#       one-pass design norms remain below as `budgets_onepass`, unused by the policy, for
+#       a separate maintainer decision: they compute the same norms with different
+#       rounding, which can move a stop threshold by an ulp.
 #
 module B2
 
@@ -68,9 +71,21 @@ function budgets(d, a)
     alpha = Float64(d.alpha)
     ynorm = norm2_64(d.y)
     yscaled = sqrt(alpha) * ynorm
-    col, frob = design_norms(d.X)     # B2 (b)
+    col = maximum(norm2_64, eachcol(d.X))
+    frob = norm2_64(d.X)
+    budget_scalars(alpha, ynorm, col, frob, Float64(d.r), a)
+end
+
+# Not used by the B2 policy (see (b) in the header): B0's budgets with one-pass norms.
+function budgets_onepass(d, a)
+    alpha = Float64(d.alpha)
+    col, frob = design_norms(d.X)
+    budget_scalars(alpha, norm2_64(d.y), col, frob, Float64(d.r), a)
+end
+
+function budget_scalars(alpha, ynorm, col, frob, r, a)
+    yscaled = sqrt(alpha) * ynorm
     M = sqrt(alpha) * col
-    r = Float64(d.r)
     cost = M * yscaled + 1.5 * M^2 * r
     scale = max(yscaled, sqrt(alpha) * col * r)^2 / 2
     gap = a.objective_relative * scale / 2
@@ -80,7 +95,7 @@ function budgets(d, a)
     (; cap, gap, mapping, curvature, col, frob, objective_scale=scale, ynorm)
 end
 
-# B2 (b): largest column norm and Frobenius norm of X from one pass of Float64 column
+# (b), unused by the policy: largest column norm and Frobenius norm of X from one pass of Float64 column
 # sums of squares. A column whose sum is not finite or is below 2^-968 (where squares may
 # have underflowed) uses B0's scaled norm2_64, and then so does the Frobenius norm. For
 # Float32 data every nonzero square is a normal Float64, so only zero columns fall back.
@@ -197,6 +212,12 @@ gammaT(::Type{T}, k) where T = (c = k * (Float64(eps(T)) / 2); c < 1 ? c / (1 - 
 function prescreen_rejects(G, x::AbstractVector{T}, dec::Decision, d, g, b, f_x) where T
     n, p = size(d.X)
     r, alpha, s = Float64(g.r), Float64(d.alpha), dec.s
+    # Range guard: the model below assumes gradual underflow, and ||d|| is read from the
+    # working loss only where that loss is far above the underflow range. Otherwise the
+    # full check decides.
+    get_zero_subnormals() && return false
+    eta = Float64(nextfloat(zero(T)))
+    Float64(f_x) >= 0x1p20 * (n + 4) * Float64(floatmin(T)) * max(1.0, alpha) || return false
     dual = 0.0
     @inbounds for j in eachindex(G)
         dual = max(dual, abs(Float64(G[j])))
@@ -209,13 +230,17 @@ function prescreen_rejects(G, x::AbstractVector{T}, dec::Decision, d, g, b, f_x)
     end
     # Working gap, B0's estimate_gap formula at x; equal to r||G|| + <x,G> when s <= r.
     gapw = max(0.0, r - s) * dual + acc
-    # Error of the working gradient per coordinate (B0's stop noise model with T's unit
-    # roundoff, plus the final scaling):
-    #   C alpha (gamma(p+2)(||X||_F ||x|| + ||y||) + gamma(n+3)||d||),
-    # with ||d|| = sqrt(2 f(x)/alpha) from the working loss value.
-    dnorm = sqrt(2 * max(Float64(f_x), 0.0) / alpha) * (1 + gammaT(T, n + 4))
+    # Error of the working gradient per coordinate: B0's stop noise model with T's unit
+    # roundoff, plus the absolute error of underflowing products and sums (at most eta,
+    # the least positive T, per operation), plus the final scaling:
+    #   C alpha (gamma(p+2)(||X||_F ||x|| + ||y||) + sqrt(n) 2p eta + gamma(n+3)||d||)
+    #   + alpha (2n + 1) eta + eta + u ||G||,
+    # with ||d|| read from the working loss value (the guard above bounds the loss
+    # rounding lost to underflow by 2^-20 relative).
+    dnorm = sqrt(2 * Float64(f_x) / alpha) * (1 + gammaT(T, n + 4) + 0x1p-18)
     work_noise = b.col * alpha * (gammaT(T, p + 2) * (b.frob * sqrt(x2) + b.ynorm) +
-                                  gammaT(T, n + 3) * dnorm)
+                                  sqrt(n) * 2p * eta + gammaT(T, n + 3) * dnorm) +
+                 alpha * (2n + 1) * eta + eta + gammaT(T, 1) * dual
     # Displacement to B0's witness w = factor x (rounded): ||x - w||_1 <= delta, and the
     # exact gradient moves by at most alpha C^2 delta in the max norm.
     factor = s + dec.noise < r ? 1.0 : min(1.0, (r - dec.noise) / s)
@@ -224,7 +249,7 @@ function prescreen_rejects(G, x::AbstractVector{T}, dec::Decision, d, g, b, f_x)
     # gap(w) = r||g*|| + <w,g*>; the terms bound r and <x,.> times the gradient error, the
     # displacement, the clipped max(0, r - s) when s > r, and the Float64 accumulation.
     allowance = (r + s) * Delta + delta * (dual + Delta) + max(0.0, s - r) * dual +
-                gamma64(2p + 12) * 2 * (r + s) * dual
+                gamma64(2p + 12) * 2 * (r + s) * dual + (4p + 24) * nextfloat(0.0)
     allowance *= 1 + 1e-6
     isfinite(gapw) && isfinite(allowance) && gapw - allowance > b.gap
 end
@@ -438,7 +463,9 @@ function projected_policy(d, f, g, method, b, a::Accuracy, audit=nothing;
                     c.prescreen_rejects += screened
                 end
                 if screened
+                    # The full check did not run at this proposal: its diagnostics are unavailable.
                     success = false
+                    gap = gap_noise = mapping = map_noise = NaN
                 elseif check.code === :pass
                     scores = stop_scores!(work, x, check, d, g, b, audit)
                     c.mappings += 1

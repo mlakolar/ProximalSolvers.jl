@@ -9,11 +9,11 @@ source, test, documentation, dependency pin or ProximalBase code changes.
 | --- | --- | --- |
 | B0 | `../issue-514/{feasibility,stationarity,policies}.jl` | #514 prototype, baseline |
 | B1 | `b1.jl` | Mechanical, bit-identical: concrete `norm2_64` maximum (Julia 1.10 inference), concrete result struct (no boxed `Union{Missing,Float64}` tuple), reuse of the accepted trial's cap decision and widened norm at the stop, `‖y‖` computed once |
-| B2 | `b2.jl` | B1 plus (a) a stop-proposal pre-screen with the working-precision gradient at the stored iterate and a rounding/displacement allowance under B0's own dot-product model, and (b) one-pass Float64 design norms with B0's scaled formula as fallback |
+| B2 | `b2.jl` | B1 plus a stop-proposal pre-screen with the working-precision gradient at the stored iterate and a rounding/underflow/displacement allowance under B0's own dot-product model (range-guarded; screened proposals report diagnostics as unavailable). Revised after the independent review: the one-pass design norms were withdrawn from the policy (they move rounded thresholds) and remain as `budgets_onepass` for a separate decision |
 
 B2 changes no feasibility test, stopping threshold, witness, fresh Float64 refresh, fixed-step
 mapping, projection or status rule. A pre-screened proposal is never a success; every success
-passes the unchanged B0/B1 check.
+passes the unchanged B0/B1 check. `parity.jl` also replays the two counterexamples from the review (`review_cases.tsv`).
 
 ## Run
 

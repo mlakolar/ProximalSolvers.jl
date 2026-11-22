@@ -96,6 +96,7 @@ function collect_case(io, d)
                        violation=q === nothing ? NaN : q.violation, witness_gap=q === nothing ? NaN : q.witness_gap,
                        independent_mapping=q === nothing ? NaN : q.mapping,
                        witness_loss_change=q === nothing ? NaN : q.witness_loss_change,
+                       kkt=q === nothing ? NaN : q.kkt, complementarity=q === nothing ? NaN : q.complementarity,
                        cap=b.cap, gap_target=b.gap, mapping_target=b.mapping,
                        cap_bits_equal=b.cap === b0.cap && b.gap === b0.gap && b.mapping === b0.mapping &&
                                       b.curvature === b0.curvature,
@@ -141,7 +142,43 @@ function rollback(io, T)
     end
 end
 
+# Regression rows from the independent #515 review (comment 7071291648): a one-ulp gap
+# threshold case and a gradual-underflow case. Every candidate must reproduce B0's status
+# and output bits; `onepass` records the withdrawn one-pass budgets on the first case.
+function review_cases(io)
+    eta = nextfloat(0f0)
+    cases = (
+        ("review_threshold_ulp", Fixture("review_threshold_ulp", :l1, :dense, reshape([0.25, 0.1], 2, 1), [1.0, 0.0],
+                                         16.0, [0.0], 1.0), Accuracy(1e-5, 0.0, 0.3372675092849525, 1.0), 1),
+        ("review_underflow", Fixture("review_underflow", :l1, :dense, Float32[0.75 0.75], [-3eta], 4eta,
+                                     [-2eta, -2eta], 1f0), nothing, 3))
+    for (label, d, acc, maxiter) in cases
+        f, g = loss(d), ball(d)
+        a = acc === nothing ? accuracy(d, :ordinary) : acc
+        for m in methods(d)
+            b0 = budgets(d, a)
+            r0 = projected_policy(Val(:B), d, f, g, m, b0, a; maxiter)
+            arms = Any[(:B0, r0, b0)]
+            for (lab, mod) in CANDIDATES
+                b = mod.budgets(d, a)
+                push!(arms, (lab, mod.as_namedtuple(mod.projected_policy(d, f, g, m, b, a; maxiter)), b))
+            end
+            bo = B2.budgets_onepass(d, a)
+            push!(arms, (:B2_onepass_budgets, B2.as_namedtuple(B2.projected_policy(d, f, g, m, bo, a; maxiter)), bo))
+            for (lab, r, b) in arms
+                table(io, (; case=label, T=eltype(d.start), method=name(m), arm=lab, status=r.status,
+                           iterations=r.iterations, gap_target=b.gap, estimated_gap=r.gap,
+                           same_status_as_B0=r.status === r0.status, same_bits_as_B0=same_bits(r.x, r0.x),
+                           output=bytes2hex(reinterpret(UInt8, r.x))))
+            end
+        end
+    end
+end
+
 setprecision(BigFloat, 2304) do
+    open(joinpath(out, "review_cases.tsv"), "w") do io
+        review_cases(io)
+    end
     open(joinpath(out, "parity.tsv"), "w") do io
         open(joinpath(out, "rollback.tsv"), "w") do rio
             for T in (Float32, Float64)
