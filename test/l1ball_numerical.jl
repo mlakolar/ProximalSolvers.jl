@@ -564,6 +564,15 @@ end
   @test successes > 0
 end
 
+# FP-06: the ℓ1-ball projection is 2-Lipschitz in the ∞-norm, not nonexpansive; this pair expands by 4/3
+@testset "the ℓ1-ball projection expands an ∞-norm difference by at most 2 ($T)" for T in (Float32, Float64)
+  ball = IndBallL1(T(3))
+  z, z2 = T[3, 3, 3], T[3.125, 2.875, 2.875]
+  ratio = Float64(maximum(abs, ProximalBase.prox(ball, z) - ProximalBase.prox(ball, z2))) / Float64(maximum(abs, z - z2))
+  @test 1 < ratio <= 2
+  @test isapprox(ratio, 4 / 3; rtol = 64eps(T))
+end
+
 @testset "underflow allowance: B1's noise bits in the normal range ($T)" for T in (Float32, Float64)
   # the full check's noise equals B1's formulas, recomputed from the check's own witness, residual and gradient, at
   # the start and at the returned point of an ordinary solve

@@ -309,12 +309,23 @@ mapping's trial point in `T` and the computed mapping `m`:
    its `Float64` sum add `min((p + 1) η, δ (ρ + 2 ‖w‖₁))`; the products that form the witness
    entries move `‖w‖₁` by at most `min(p η, ‖w‖₁)`, which changes the `ρ δ` part of the bound by at most
    `min(p η, ‖w‖₁) δ`.
-5. The mapping `L (v - P(v - g/L))` at `v = T(w)`: the gradient error enters `t` as `E_g / L` and passes the
-   projection, which is nonexpansive, so it adds `E_g`. For `Float32` data, the conversion of `w` to `T`
-   adds `2L min(η_T, ‖w‖∞)` (the map is `2L`-Lipschitz in `v`) and that of `g` adds `min(η_T, δ)`; for
-   `Float64` both conversions are exact. The division by `L` in `T` adds `L min(η_T, δ / L)`. The
-   projection in `T` adds `L min(p η_T, ‖t‖∞)` (the assumption below). The final product by `L` in
-   `Float64` adds `min(η, m)`; the subtractions add none.
+5. The mapping `L (v - P(v - g/L))` at `v = T(w)`. The projection onto the ℓ1 ball is
+   `P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0)`, with the level `τ(z) ≥ 0` (zero inside the ball) the root of
+   `Σᵢ max(|zᵢ| - τ, 0) = r` outside it. If every `|zᵢ|` moves by at most `ε = ‖Δz‖∞`, that sum moves by at
+   most `ε` per active term at a fixed level, so the level moves by at most `ε`; each output then moves by
+   at most `|Δzᵢ| + |Δτ| ≤ 2ε`. The projection is therefore 2-Lipschitz in the ∞-norm, not nonexpansive:
+   for `r = 3`, `z = [3, 3, 3]` and `z' = [3.125, 2.875, 2.875]`, `‖P(z) - P(z')‖∞ / ‖z - z'‖∞ = 4/3`. An
+   error of the projection input therefore enters the mapping with the factor 2. The gradient error enters
+   `t` as `E_g / L` and adds `2 E_g`. For `Float32` data, the conversion of `w` to `T` enters both `v` and
+   the projection input, adding `3L min(η_T, ‖w‖∞)`, and that of `g` adds `2 min(η_T, δ)`; for `Float64`
+   both conversions are exact. The division by `L` in `T` adds `2L min(η_T, δ / L)`. Errors made after
+   the projection keep the factor 1: the projection in `T` adds `L min(p η_T, ‖t‖∞)` (the assumption
+   below), and the final product by `L` in `Float64` adds `min(η, m)`; the subtractions add none.
+
+   B1's own relative mapping noise, `C ζ + eps(T) (L ‖w‖∞ + δ)` of [FP-05](@ref), is kept unchanged for parity
+   with B1. It carries the gradient's relative error into the mapping with the factor 1, as a
+   nonexpansive projection would; it is B1's model estimate, and the argument of this clause does not
+   cover it. This clause bounds only the absolute underflow terms that it adds.
 
 *Assumption about the projection.* ProximalBase's ℓ1 projection at the pinned revision `bc9e888d`
 (`src/functions/indballl1.jl`: `_ball_l1_threshold`, `_ball_l1_shrink!`, with the level from the shared
@@ -351,7 +362,9 @@ search ([PGD-09](@ref), [LS-02](@ref)); B1's relative model itself, which remain
 neither success flag with either method, and its returned point misses the budgets in an independent
 256-bit evaluation; a sweep over loss scales (`1e-300` to `1e300` for `Float64` data, `1e-30` to `1e30`
 for `Float32` data), design scales and zero or fitted responses, in which every reported success passes
-that evaluation; and a normal-range control in which the stored noise equals B1's formulas bit for bit.
+that evaluation; a normal-range control in which the stored noise equals B1's formulas bit for bit; and the expansion
+example above, computed with ProximalBase's projection in both precisions, whose ratio is above 1 and at
+most 2.
 A validation probe recorded with the pull request compares the check with B1 over radius, design,
 response and loss scales in both precisions: the scores agree bitwise in every case, and the noise
 differs only in cases where some product of the check, or some magnitude of its `T` arithmetic, is

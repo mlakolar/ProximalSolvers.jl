@@ -207,11 +207,13 @@ function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, alpha::Float64, ρ::
   # the support gap: the gradient error through δ and the sum, 2 max(ρ, ‖w‖₁) E_g; the p + 1 products of its Float64
   # sum, min((p + 1) η, δ (ρ + 2 ‖w‖₁)); the witness entries' product errors through the ρ δ term, min(p η, ‖w‖₁) δ
   gap_abs = _mulup(2 * max(ρ, sw), E_g) + min(Float64(p + 1) * η, _mulup(dual, ρ + 2sw)) + _mulup(min(Float64(p) * η, sw), dual)
-  # the mapping L (v - P(v - g/L)) at v = T(w): the gradient error through the nonexpansive projection, E_g; for
-  # Float32, the conversions of w (the map is 2L-Lipschitz in v) and of g; the division by L; the projection in T; the
-  # final product by L in Float64
-  conv = T === Float64 ? 0.0 : _mulup(2L, min(ηT, winf)) + min(ηT, dual)
-  map_abs = E_g + conv + _mulup(L, min(ηT, dual / L)) + _mulup(L, min(Float64(p) * ηT, tinf)) + min(η, mapping)
+  # the mapping L (v - P(v - g/L)) at v = T(w). The projection P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0) moves each output by
+  # at most |Δzᵢ| + |Δτ| ≤ 2 ‖Δz‖∞ (the level τ moves by at most ‖Δz‖∞), so an error of the projection input enters
+  # the mapping with the factor 2: the gradient error, 2 E_g; for Float32, the conversion of w, which also enters
+  # directly (3L), and that of g (2); the division by L (2L). The projection's own underflow in T and the final
+  # product by L in Float64 enter after the projection, with the factor 1.
+  conv = T === Float64 ? 0.0 : _mulup(3L, min(ηT, winf)) + 2 * min(ηT, dual)
+  map_abs = 2 * E_g + conv + _mulup(2L, min(ηT, dual / L)) + _mulup(L, min(Float64(p) * ηT, tinf)) + min(η, mapping)
   # the factor 4: 2 for the growth (1 + u)^k ≤ 2 of an absolute error through the later roundings, k ≤ n + p + 2, and
   # 2 for the computed magnitudes in place of the exact ones
   4 * gap_abs, 4 * map_abs
