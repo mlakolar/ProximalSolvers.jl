@@ -712,12 +712,14 @@ in both gradient methods.
 solve!(x, f, IndBallL1(r), method, options; feasibility = NumericalFeasibility())
 ```
 
-The route minimizes `(s/2) * sum(abs2, y - X*x)` over `norm(x, 1) <= r` with numerical
-feasibility: a trial is accepted only when the decision of [FP-05](@ref) passes the cap, so an
-accepted iterate can lie outside the ball ([PGD-09](@ref)). The coefficients are a dense
-`Vector{T}`, `T` being `Float32` or `Float64`. The loss is `LeastSquaresLoss(y, X)` or one positive
-`Scaled` of it under [IN-02](@ref), with a dense `Matrix{T}` design and a `Vector{T}` response;
-shapes, finiteness and aliasing follow [IN-01](@ref) and [IN-05](@ref).
+The route addresses the problem of minimizing `(s/2) * sum(abs2, y - X*x)` over `norm(x, 1) <= r`
+with numerical feasibility; a return carries the flags of [RES-04](@ref), not a guarantee that it
+solved the problem. A trial is accepted only if its computed decision of [FP-05](@ref) passes the
+cap, so an accepted iterate can lie outside the ball by up to the cap ([PGD-09](@ref)). The
+coefficients are a dense `Vector{T}`, `T` being `Float32` or `Float64`. The loss is
+`LeastSquaresLoss(y, X)` or one positive `Scaled` of it under [IN-02](@ref), with a dense `Matrix{T}`
+design and a `Vector{T}` response; shapes, finiteness and aliasing follow [IN-01](@ref) and
+[IN-05](@ref).
 
 `NumericalFeasibility(; coefficient_rtol = nothing, coefficient_atol = 0, objective_rtol = nothing,
 mapping_rtol = nothing)` stores the four values as given. At the call of `solve!`, a `nothing`
@@ -732,51 +734,76 @@ takes the default for `T`:
 
 The values enter the budgets of [FP-05](@ref) as `Float64` (a `-0.0` as `0.0`). With the loss
 scale `s` as supplied (`Float64(s)`, `1.0` for a raw loss), a `Float64` scale of a `Float32` solve
-keeps its `Float64` value in the budgets and the full check.
+keeps its `Float64` value in the budgets and the full check. The cap is at most the radius; it is not
+small for every choice of tolerances.
 
-After the keyword check of `solve!`, which refuses every other keyword, these refusals happen before
-any write to `x`, in this order, each an `ArgumentError` unless noted:
+`solve!` makes these checks before any write to `x`, in this order, each refusal an `ArgumentError`
+unless noted:
 
-1. With `feasibility` other than `nothing`: a penalty other than `IndBallL1`, with a message that
+1. The keyword check of `solve!`, which refuses every keyword other than `feasibility`.
+2. With `feasibility` other than `nothing`: a penalty other than `IndBallL1`, with a message that
    names `IndBallL1`; then a `feasibility` that is not a `NumericalFeasibility`.
-2. With `feasibility = nothing` (the default), `IndBallL1` takes the gate of the other penalties. For
-   vector least-squares data its penalty check refuses `IndBallL1` with a message that names the
-   opt-in; a matrix coefficient, a logistic loss or a square-root loss is refused earlier by that
-   gate with its own message. The strict default refusal of `IndBallL1` is unchanged.
-3. On the route: a `LogisticLoss`, raw or scaled; coefficients that are not a dense
-   `Vector{Float32}` or `Vector{Float64}`, a matrix included; then the data checks of the other
-   least-squares penalties, run with the placeholder penalty `NormL1(zero(T))`, which refuse a
-   square-root loss, a matrix response, mixed array types, inconsistent shapes (`DimensionMismatch`),
-   an unsupported loss scale ([IN-02](@ref)), aliasing ([IN-05](@ref)) and nonfinite entries; for
-   APG, the method factors and dimension limits of [APG-02](@ref).
-4. A radius that is not of type `T`, not finite or not positive.
-5. A tolerance that is neither `nothing` nor a real number; a coefficient tolerance that, as given
+3. With `feasibility = nothing` (the default), `IndBallL1` takes the gate of the other penalties,
+   whose earlier checks (the loss, the coefficient storage, the data types and shapes) can refuse
+   first with their own messages, a matrix coefficient, a logistic loss or a square-root loss
+   included; for dense vector least-squares data that passes them, the penalty check refuses
+   `IndBallL1` with a message that names the opt-in. The strict default refusal of `IndBallL1` is
+   unchanged.
+4. On the route: a `LogisticLoss`, raw or scaled; coefficients that are not a dense
+   `Vector{Float32}` or `Vector{Float64}`, a matrix included.
+5. The data checks of the other least-squares penalties, run with the placeholder penalty
+   `NormL1(zero(T))`, in their order: a square-root loss; a loss other than `LeastSquaresLoss` or one
+   `Scaled` of it; the loss scale of a `Scaled` loss ([IN-02](@ref)); the types of `X` and `y` (a
+   matrix response and mixed array types included); the shapes (`DimensionMismatch`); aliasing
+   ([IN-05](@ref)); nonfinite entries of `x`, `X` or `y`.
+6. For APG, the method factors in `T` and the dimension limits of [APG-02](@ref).
+7. A radius that is not of type `T`, not finite or not positive.
+8. A tolerance that is neither `nothing` nor a real number; a coefficient tolerance that, as given
    or converted to `Float64`, is not finite or is negative; an objective or mapping tolerance that,
    as given or converted, is not finite or is not positive. Zero coefficient tolerances are accepted;
    with both zero the cap is `0`, and a trial passes only inside the ball by more than the rounding
    allowance of [FP-05](@ref).
-6. A cap, gap budget, mapping budget or curvature of [FP-05](@ref) that is not finite in `Float64`,
+9. A cap, gap budget, mapping budget or curvature of [FP-05](@ref) that is not finite in `Float64`,
    or a curvature whose conversion to `T` is not finite and positive.
-7. A starting point whose decision ([FP-05](@ref)) is `:over` (an infeasible start) or
-   `:unresolved`. A start that passes may lie outside the ball within the cap.
+10. For a design with a nonzero column (`C > 0` in [FP-05](@ref)): a curvature in `Float64`, a
+    curvature converted to `T`, a gap budget or a mapping budget that is not a normal positive number
+    (it is zero or subnormal). Under gradual underflow such a value can let the full check pass at a
+    point that is not stationary. A design whose columns are all zero keeps the curvature `1.0` and
+    is admitted.
+11. A starting point whose decision ([FP-05](@ref)) is `:over` (an infeasible start) or
+    `:unresolved`. A start that passes may lie outside the ball within the cap.
+12. After the route's object is built, the state's start check refuses a start whose loss is not
+    finite in `T`, for example a loss that overflows; this also happens before any write to `x`.
 
 `CDSolver`, `ADMMSolver`, `ProxNewton`, `LogisticADMM` and graphical-lasso PGD refuse the keyword
-through their own keyword checks. ProximalBase's projection and indicator are used unchanged; the
-four-coefficient rule of `IndBallL2` ([IN-08](@ref)) concerns that indicator only. The trials are
-[PGD-09](@ref) and [APG-09](@ref), the stop [STOP-22](@ref) and the result [RES-04](@ref).
+through their own keyword checks. ProximalBase's projection is used unchanged, through a private
+`IndBallL1` with the radius of the caller's ball that each solve builds; the route does not evaluate
+the indicator's value. The four-coefficient rule of `IndBallL2` ([IN-08](@ref)) concerns that
+indicator only. The trials are [PGD-09](@ref) and [APG-09](@ref), the stop [STOP-22](@ref) and the
+result [RES-04](@ref).
 
 **Applies to.** `ProximalGradientDescent` and `AccProxGradDescent` with `IndBallL1` and
 `feasibility = NumericalFeasibility(...)`, on dense `Vector{Float32}` or `Vector{Float64}` least squares.
 
 **Code.** `src/solve.jl`: `_check_penalty` (the refusal without the opt-in), `_numerical_route`,
-`_feasibility_tolerances`, `_feasibility_tolerance`, `_check_numerical_l1`; `src/solvers/l1ball.jl`:
-`_solve_numerical_l1!`; `src/solvers/proximal_gradient_descent.jl` and
-`src/solvers/accelerated_proximal_gradient_descent.jl`: `solve!`; `src/types.jl`: `NumericalFeasibility`.
+`_feasibility_tolerances`, `_feasibility_tolerance`, `_normal_positive`, `_check_numerical_l1`;
+`src/solvers/l1ball.jl`: `_solve_numerical_l1!`, `_run_numerical_l1!`;
+`src/solvers/proximal_gradient_descent.jl` and `src/solvers/accelerated_proximal_gradient_descent.jl`:
+`solve!`; `src/types.jl`: `NumericalFeasibility`.
 
-**Tests.** `test/l1ball_numerical.jl`, the “gate” testsets: each refusal above in both precisions and
-both methods with `x` unchanged (the strict default message names the opt-in), the keyword refusals of
-`CDSolver`, `ADMMSolver` and graphical-lasso PGD, zero coefficient tolerances, and integer and
-`Float64` loss scales with `Float32` data, whose budgets use `Float64(s)`.
+**Tests.** `test/l1ball_numerical.jl`, the “gate” testsets, with `x` unchanged after each refusal: the
+strict default refusal (its message names the opt-in), the opt-in with four other penalties, a
+non-`NumericalFeasibility` value, an unknown keyword, square-root loss, a matrix coefficient, a shape
+mismatch, the radius cases, each tolerance with `NaN`, `Inf`, a negative value and a string, zero and
+underflowing objective and mapping tolerances, an infeasible and an unresolved start, an overflowing
+curvature, the logistic loss and an unrepresentable integer scale, in both precisions (the logistic case
+in `Float64`) and with both methods; refusal order with conflicting faults (keyword, penalty and value
+type; logistic before storage; storage, shapes, a matrix response, mixed types, aliasing and nonfinite
+data before the radius; radius, tolerances and budgets before the start; APG factors before the radius)
+and the start-loss check; underflowed curvatures and budgets in both precisions, with admitted cases near
+the thresholds and a zero design; the keyword refusals of `CDSolver`, `ADMMSolver`, `ProxNewton`,
+`LogisticADMM` and graphical-lasso PGD; zero coefficient tolerances; and integer and `Float64` loss
+scales with `Float32` data, whose budgets use `Float64(s)`.
 
 **Sources.** [Issue #457, Phase B](https://github.com/mlakolar/ProximalSolvers.jl/issues/457);
 [the approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919)

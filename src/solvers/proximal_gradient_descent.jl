@@ -71,11 +71,12 @@ Use `IndBox` or `IndBallLinf` for box constraints and `IndBallL2` for a
 four-coefficient Euclidean ball with a same-type radius. These indicators
 require a feasible start and use the generic proximal-gradient check, as does
 `NormLinf`. The ℓ1 ball `IndBallL1(r)`, with a radius of the data's type, is
-accepted only on an opt-in numerical route, selected by the keyword
+accepted for dense `Vector{Float32}` or `Vector{Float64}` least squares only on an
+opt-in numerical route, selected by the keyword
 `feasibility = NumericalFeasibility()` of [`solve!`](@ref): an accepted iterate
-can lie outside the ball within a numerical cap, a stop requires a full
-numerical check, and `converged` (the check passed at a point classified inside
-the ball) is distinguished from `approximate_solution`; see
+can lie outside the ball within a numerical cap, either success flag requires a
+passing full numerical check, and `converged` (the check passed at a point
+classified inside the ball) is distinguished from `approximate_solution`; see
 [`NumericalFeasibility`](@ref) and [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12). Assess fits with an
 independent diagnostic, particularly for Float32 or ill-conditioned designs.
 An error in an iteration restores the last accepted coefficients and
@@ -241,6 +242,7 @@ function update_state!(
         state.f_calls += 1
         state.grad_calls += 1
     end
+    _check_accepted_gradient(state, g)
     state
 end
 
@@ -394,8 +396,10 @@ Square-root lasso is available only with CD, an unscaled loss and an unweighted
 positive L1 level; its successful stopping flag requires a certificate.
 
 The keyword `feasibility` is accepted by the regression methods of PGD and APG;
-graphical-lasso PGD and the other solvers refuse it. `feasibility = NumericalFeasibility(...)`
-selects the opt-in numerical route for `IndBallL1(r)` on dense `Vector{T}` least squares; it is
+graphical-lasso PGD and the other solvers refuse it. With `ProximalGradientDescent` or
+`AccProxGradDescent`, `feasibility = NumericalFeasibility(...)` selects the opt-in numerical route
+for `IndBallL1(r)` on dense `Vector{Float32}` or `Vector{Float64}` least squares with a same-type
+dense design, response and radius ([IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12)); it is
 refused with any other penalty, and `IndBallL1` without it is refused. On the route, read
 `converged`, `approximate_solution` and the `feasibility` report of the result; its `minimum`
 can be `Inf` or `NaN`. See [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12) and

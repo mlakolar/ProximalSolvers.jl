@@ -47,7 +47,8 @@ For least squares, the supported penalties are `NormL1` and `ElasticNet`, each w
 Box constraints use `IndBox` or `IndBallLinf`. Euclidean-ball constraints use
 `IndBallL2` with four coefficients and a radius of the same type. These
 indicators require a feasible starting vector. The ℓ1 ball `IndBallL1(r)` is
-accepted only with the keyword `feasibility = NumericalFeasibility()` of
+accepted for dense `Vector{Float32}` or `Vector{Float64}` least squares with a
+same-type radius only with the keyword `feasibility = NumericalFeasibility()` of
 [`solve!`](@ref), on the numerical route of
 [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12) and [APG-09](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-09).
 Use [`ProximalGradientDescent`](@ref), or [`CDSolver`](@ref) on a dense `Vector`,
@@ -367,9 +368,10 @@ order of refusals shared with PGD. The factors `β` and `α` and the dimension l
 line search is that of
 [APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
 
-With `feasibility = NumericalFeasibility(...)` and `IndBallL1(r)`, APG solves the
-ℓ1-ball-constrained least-squares problem on the opt-in numerical route of
-[IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12), as described for `ProximalGradientDescent`.
+With `feasibility = NumericalFeasibility(...)` and `IndBallL1(r)` on dense `Vector{Float32}` or
+`Vector{Float64}` least squares, APG addresses the ℓ1-ball-constrained least-squares problem on the
+opt-in numerical route of [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12), as described for
+`ProximalGradientDescent`; read the success flags of the result, which can both be false.
 
 Every refusal of an input, option or
 method setting happens before `x` is modified. A step error

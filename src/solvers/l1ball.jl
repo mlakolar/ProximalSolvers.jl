@@ -8,11 +8,12 @@
 # decision, the budgets and the full check is that of research/issue-515/b1.jl at d58b9099 and of the B0 helpers it
 # imports (research/issue-514), with the same reductions, loops and Float64 conversions in the same order (FP-05).
 #
-# Ownership (PGD-09): within an iteration only trials write state.x; each trial that projects into state.x stores the
-# decision of that vector in `decision` right after the projection, and a trial with a nonfinite xhat writes neither,
-# so `decision` describes state.x after every trial. The full check (_stationary! below) writes this object's
-# workspace and the two counters, not state.x. After a failed step the engine copies x_previous into x and rethrows,
-# so no result is built from a rolled-back state, whose `decision` can describe a rejected trial.
+# Ownership (PGD-09): within a completed step only trials write state.x; each trial that projects into state.x stores
+# the decision of that vector in `decision` right after the projection, and a trial with a nonfinite xhat writes
+# neither, so `decision` describes state.x after every completed trial. The full check (_stationary! below) writes this
+# object's workspace and the two counters, not state.x. A projection that throws can write x before the cache update;
+# after a failed step the engine copies x_previous into x and rethrows, so no result is built from such a state. The
+# solver does not detect a change of x by a callback; these statements assume that callbacks leave x unchanged.
 
 # The trials from one base point after which the next trial raises the line-search error (B1's 64, maintainer's I4)
 const _L1_TRIAL_LIMIT = 64
@@ -60,8 +61,9 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   iteration::Int
 end
 
-# The penalty value that initial_state reads (g_x = T(g(x0))); a start that passes the cap can lie outside PB's ball,
-# whose indicator would then be Inf. The trials set g_x = 0 too.
+# The penalty value that initial_state reads (g_x = T(g(x0))). A start that passes the cap can lie outside the ball,
+# where the mathematical indicator is Inf (PB's indicator compares a rounded sum and can be 0 or Inf there); the route
+# does not evaluate it. The trials set g_x = 0 too.
 (g::_NumericalL1Ball{T})(x) where T = zero(T)
 
 function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha::Float64, b, decision::_L1Decision,
@@ -180,7 +182,9 @@ _begin_trials!(g::_NumericalL1Ball) = (g.trials = 0; nothing)
 @noinline _l1_trial_limit_error() =
   error("line search failed: $_L1_TRIAL_LIMIT trials from one base point were not accepted (IndBallL1 numerical route, PGD-09)")
 
-# PGD-09: B1's trial_value!, after the trial limit. With a nonfinite xhat, f_x = Inf without a projection or a count.
+# PGD-09: B1's trial_value!, after the trial limit. Each call counts as one of the 64 trials. With a nonfinite xhat,
+# f_x = Inf without a projection and without prox or f counts (the line search still counts the trial in its
+# backtrack_steps).
 # Otherwise PB's projection of xhat into x (one prox call), the decision of x, stored in g.decision, and for :pass the
 # image and loss value of x (one f call) with g_x = 0; for :over and :unresolved, f_x = Inf without a loss value, so
 # that backtrack! takes its nonfinite branch and APG raises L.
@@ -205,6 +209,14 @@ function _trial!(state, f, g::_NumericalL1Ball{T}) where T
   nothing
 end
 
+# PGD-09: B1's check of the gradient at the accepted trial (the end of its PGD `step!`). A nonfinite entry raises an
+# error inside the step, so the engine copies x_previous into x and rethrows before the assessment, the trace and the
+# callback.
+@noinline _l1_gradient_error() =
+  error("the gradient at the accepted trial has a nonfinite entry (IndBallL1 numerical route, PGD-09)")
+_check_accepted_gradient(state::ProximalGradientDescentState, ::_NumericalL1Ball) =
+  (_allfinite(state.grad_f_x) || _l1_gradient_error(); nothing)
+
 # STOP-22: the engine's three proposals, computed by the method of the other penalties (through _PROPOSALS, whose
 # check passes), and B1's two structural proposals: the last iteration (maxiter) and an accepted iterate equal to the
 # previous one elementwise, also with ftol = 0. A proposal runs the full check. When it passes at a point classified
@@ -225,8 +237,8 @@ function convergence_assessment(state::Union{ProximalGradientDescentState, AccPr
   return x_converged, f_converged, grad_converged, converged, f_increased
 end
 
-# STOP-22: B1's stop_scores! at state.x with the cached decision g.decision (which describes state.x after an accepted
-# step, PGD-09). A decision other than :pass runs no check and returns false, as in B1. Otherwise: the radial witness
+# STOP-22: B1's stop_scores! at state.x with the cached decision g.decision (which describes state.x after a completed
+# step when callbacks leave x unchanged, PGD-09). A decision other than :pass runs no check and returns false, as in B1. Otherwise: the radial witness
 # from the cached s and noise; the residual and gradient at the witness in Float64, times α; the support gap and the
 # fixed-step mapping at the inverse step T(curvature) through PB's projection, each with its noise; the check passes
 # when the four values are finite, gap + gap noise ≤ gap budget and mapping + map noise ≤ mapping budget. It counts one
@@ -267,7 +279,7 @@ end
 _stop_on_gradient_increase(state, ::_NumericalL1Ball, options) = false
 
 # RES-04: the result hooks of _solve_gradient!. The membership is that of g.decision, the vector last projected into
-# state.x, which on a normal return is the returned point.
+# state.x, which on a normal return is the returned point when callbacks leave x unchanged.
 _approximate_solution(g::_NumericalL1Ball) = g.approximate
 function _composite_minimum(state, g::_NumericalL1Ball)
   membership = g.decision.membership
@@ -287,7 +299,10 @@ end
 
 function _run_numerical_l1!(x::Vector{T}, f, ball::IndBallL1{T}, checked, method, options, t0) where T
   d = checked.data
-  route = _NumericalL1Ball(ball, d.X, d.Y, checked.alpha, checked.budgets, checked.decision, Int(options.maxiter))
+  # a private ball with the same radius: the projection of a ball can use a buffer stored in the object, which solves
+  # that share the caller's ball would share
+  route = _NumericalL1Ball(IndBallL1{T}(ball.r), d.X, d.Y, checked.alpha, checked.budgets, checked.decision,
+                           Int(options.maxiter))
   state = initial_state(method, options, f, route, x)
   _solve_gradient!(state, f, route, method, options, t0)
 end

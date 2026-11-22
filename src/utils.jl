@@ -98,6 +98,10 @@ end
 # _prox_grad_step!); the IndBallL1 route resets its trial count here (PGD-09).
 _begin_trials!(g) = nothing
 
+# Called by PGD's update_state! after the gradient at the accepted trial is available; the IndBallL1 route raises an
+# error there when that gradient has a nonfinite entry (PGD-09).
+_check_accepted_gradient(state, g) = nothing
+
 function gradient_converged!(state::ProximalGradientDescentState{T}, options::ProximalOptions) where T
   residual = g_residual(state)
   state.max_residual = max(state.max_residual, residual)

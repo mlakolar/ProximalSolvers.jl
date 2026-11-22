@@ -6,8 +6,9 @@ module L1BallNumericalTest
 
 using Test, LinearAlgebra, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
+const PB = ProximalBase
 
-setprecision(BigFloat, 256)
+# The MPFR computations below run inside setprecision(BigFloat, 256) blocks, which restore the worker's precision.
 
 const METHODS = (ProximalGradientDescent(), AccProxGradDescent())
 const OPTIONS = ProximalOptions(maxiter = 320)
@@ -107,21 +108,23 @@ end
 # violation max(0, ‖x‖₁ - r), the support gap and the fixed-step mapping (at the inverse step T(curvature)) at the
 # witness, and the change of the loss between x and the witness.
 function independent(X::Matrix{T}, y, alpha, r, x, curvature) where T
-  A, Y, s, R = bigdesign(X), BigFloat.(y), BigFloat(alpha), BigFloat(r)
-  z = BigFloat.(x)
-  signed = sum(abs, z) - R
-  w = exact_witness(z, R)
-  @test sum(abs, w) <= R
-  grad = s .* bigtmul(A, bigmul(A, w) - Y)
-  gap = max(zero(R), R * maximum(abs, grad) + dot(grad, w))
-  L = BigFloat(T(curvature))
-  mapping = L * maximum(abs, w - exact_project_l1(w .- grad ./ L, R))
-  objective(v) = s / 2 * sum(abs2, bigmul(A, v) - Y)
-  (; signed, violation = max(zero(R), signed), gap, mapping, change = abs(objective(z) - objective(w)))
+  setprecision(BigFloat, 256) do
+    A, Y, s, R = bigdesign(X), BigFloat.(y), BigFloat(alpha), BigFloat(r)
+    z = BigFloat.(x)
+    signed = sum(abs, z) - R
+    w = exact_witness(z, R)
+    @test sum(abs, w) <= R
+    grad = s .* bigtmul(A, bigmul(A, w) - Y)
+    gap = max(zero(R), R * maximum(abs, grad) + dot(grad, w))
+    L = BigFloat(T(curvature))
+    mapping = L * maximum(abs, w - exact_project_l1(w .- grad ./ L, R))
+    objective(v) = s / 2 * sum(abs2, bigmul(A, v) - Y)
+    (; signed, violation = max(zero(R), signed), gap, mapping, change = abs(objective(z) - objective(w)))
+  end
 end
 
-# The budgets of B1 recomputed in the test with unscaled Float64 norms (the route scales them), so they agree with the
-# route's to rounding: (cap, gap, mapping, curvature).
+# The budgets of B1 recomputed in the test with LinearAlgebra's `norm` of the Float64 columns and response (the route
+# uses its own scaled two-pass norm), so they agree with the route's to rounding: (cap, gap, mapping, curvature).
 function test_budgets(X, y, alpha::Float64, r::Float64; crel, cabs, orel, mrel)
   col = maximum(norm(Float64.(c)) for c in eachcol(X))
   yscaled = sqrt(alpha) * norm(Float64.(y))
@@ -299,15 +302,190 @@ end
   end
 end
 
+@testset "gate: refusal order with conflicting faults and other inputs ($(mname(method)))" for method in METHODS
+  X, y = CORRELATED_X, CORRELATED_Y
+  f = LeastSquaresLoss(y, X)
+  ok = NumericalFeasibility()
+  function msg_of(x, ff, g, m = method; kw...)
+    x0 = copy(x)
+    msg = refusal_message(() -> solve!(x, ff, g, m; kw...))
+    @test !isempty(msg) && x == x0
+    msg
+  end
+  x0 = [0.125, -0.0625, 0.0, 0.03125]
+  # the keyword check, then the penalty, then the type of the keyword value
+  @test occursin("unsupported solve! keywords", msg_of(copy(x0), f, NormL1(0.1); feasibility = 1, other = 2))
+  @test occursin("applies only to IndBallL1", msg_of(copy(x0), f, NormL1(0.1); feasibility = 1))
+  # a logistic loss (raw or scaled) before the coefficient storage; the storage before the radius
+  yb = [1.0, 0.0, 1.0, 0.0]
+  @test occursin("LogisticLoss", msg_of(zeros(4, 1), LogisticLoss(yb, X), IndBallL1(0.6); feasibility = ok))
+  @test occursin("LogisticLoss", msg_of(copy(x0), 2.0 * LogisticLoss(yb, X), IndBallL1(0.6); feasibility = ok))
+  @test occursin("dense Vector", msg_of(zeros(4, 1), LeastSquaresLoss(reshape(y, 4, 1), X), IndBallL1(0.0); feasibility = ok))
+  @test occursin("dense Vector", msg_of(PB.SparseIterate(4), f, IndBallL1(0.6); feasibility = ok))
+  # the data checks before the radius: shapes, a matrix response with a vector x, mixed types, aliasing, nonfinite data
+  @test occursin("dimensions", msg_of(zeros(3), f, IndBallL1(0.0); feasibility = ok))
+  @test occursin("Vector{Float64}", msg_of(copy(x0), LeastSquaresLoss([y y], X), IndBallL1(0.6); feasibility = ok))
+  @test occursin("Matrix{Float32}", msg_of(Float32.(x0), f, IndBallL1(0.6f0); feasibility = ok))
+  let yy = copy(y)
+    @test occursin("alias", msg_of(yy, LeastSquaresLoss(yy, X), IndBallL1(0.6); feasibility = ok))
+  end
+  let Xn = copy(X)
+    Xn[2, 3] = NaN
+    @test occursin("finite", msg_of(copy(x0), LeastSquaresLoss(y, Xn), IndBallL1(0.0); feasibility = ok))
+  end
+  # the radius before the tolerances, the tolerances before the budgets, the budgets before the start
+  @test occursin("radius", msg_of(copy(x0), f, IndBallL1(0.0); feasibility = NumericalFeasibility(mapping_rtol = NaN)))
+  @test occursin("mapping_rtol", msg_of(fill(10.0, 4), f, IndBallL1(0.6); feasibility = NumericalFeasibility(mapping_rtol = NaN)))
+  let Xh = copy(X)
+    Xh[1, 1] = 1e200
+    @test occursin("curvature", msg_of(fill(10.0, 4), LeastSquaresLoss(y, Xh), IndBallL1(0.6); feasibility = ok))
+  end
+  # APG: the factors in the working type before the radius
+  if method isa AccProxGradDescent
+    m32 = AccProxGradDescent(β = prevfloat(1.0))
+    @test occursin("after conversion", msg_of(zeros(Float32, 4), LeastSquaresLoss(Float32.(y), Float32.(X)),
+                                             IndBallL1(0.0f0), m32; feasibility = ok))
+  end
+  # after the gate, a start whose loss overflows in T is refused by the state's start check, also before any write
+  let T = Float32
+    msg = msg_of(zeros(T, 2), LeastSquaresLoss(fill(T(1e20), 2), Matrix{T}(I, 2, 2)), IndBallL1(one(T)); feasibility = ok)
+    @test occursin("finite", msg)
+  end
+end
+
+@testset "gate: ProxNewton and LogisticADMM refuse the keyword" begin
+  X = [1.0 0.5; -0.25 1.0; 0.5 0.5; 1.0 -1.0]
+  yb = [1.0, 0.0, 1.0, 0.0]
+  for method in (ProxNewton(), LogisticADMM())
+    x = zeros(2)
+    msg = refusal_message(() -> solve!(x, LogisticLoss(yb, X), NormL1(0.1), method; feasibility = NumericalFeasibility()))
+    @test occursin("unsupported solve! keywords: feasibility", msg) && x == zeros(2)
+  end
+end
+
+# A design with a nonzero column needs a normal curvature (in Float64 and in T) and normal budgets (IN-12); a design whose
+# columns are all zero keeps the curvature 1.0 of B1.
+@testset "gate: underflowed curvature or budgets ($(mname(method)))" for method in METHODS
+  ok = NumericalFeasibility()
+  function refused_underflow(x0, f, g)
+    x = copy(x0)
+    msg = refusal_message(() -> solve!(x, f, g, method, OPTIONS; feasibility = ok))
+    @test occursin("subnormal", msg)
+    @test reinterpret(UInt8, x) == reinterpret(UInt8, x0)
+  end
+  # the review's case: the curvature 1e-310 is subnormal in Float64 and the gap budget underflows to zero; before the
+  # rule both methods returned converged = true at the unchanged start
+  refused_underflow([1e-15], LeastSquaresLoss([0.0], reshape([1e-155], 1, 1)), IndBallL1(1e-14))
+  # a normal curvature 1e-300 with subnormal budgets
+  refused_underflow([0.0], LeastSquaresLoss([1e-150], reshape([1e-150], 1, 1)), IndBallL1(0.5))
+  # Float32: the curvature 1e-38 is normal in Float64 and subnormal in Float32
+  refused_underflow([0.0f0], LeastSquaresLoss([2f-19], reshape([1f-19], 1, 1)), IndBallL1(1.0f0))
+  # admitted near the thresholds: Float64 curvature 1e-280 with normal budgets, and the Float32 curvature 4e-38
+  let X = reshape([1e-140], 1, 1), y = [2e-140], r = 1.0
+    x = [0.0]
+    res = solve!(x, LeastSquaresLoss(y, X), IndBallL1(r), method, OPTIONS; feasibility = ok)
+    @test res.converged || res.approximate_solution
+    d = Fixture{Float64}("near_threshold", X, y, r, [0.0], 1.0)
+    check_result_fields(d, x, res)
+    check_success(d, x, res)
+  end
+  let x = [0.0f0]
+    res = solve!(x, LeastSquaresLoss([4f-19], reshape([2f-19], 1, 1)), IndBallL1(1.0f0), method, OPTIONS; feasibility = ok)
+    @test res isa PS.OptimizationResults && res.feasibility isa PS.NumericalFeasibilityReport
+  end
+  # a zero design (a flat loss): admitted, and the zero start converges inside the ball
+  for T in (Float32, Float64)
+    x = zeros(T, 2)
+    res = solve!(x, LeastSquaresLoss(T[1, -1], zeros(T, 2, 2)), IndBallL1(one(T)), method, OPTIONS; feasibility = ok)
+    @test res.converged && res.feasibility.membership === :inside && x == zeros(T, 2)
+  end
+end
+
+# PGD-09: a trial accepted at Lexact whose working gradient overflows. Float32 singleton X = 1.8, y = -0.8, loss scale
+# 1e38, start -0.5, radius 0.7: the gradient at the start is about -1.8e37, the projected trial is 0.7, accepted at
+# L = Lexact = 1 with the loss about 2.1e38, and its scaled gradient, about 3.7e38, overflows to Inf.
+@testset "PGD: a nonfinite gradient at the accepted trial raises and restores the start" begin
+  T = Float32
+  x0 = T[-0.5]
+  f = T(1e38) * LeastSquaresLoss(T[-0.8], reshape(T[1.8], 1, 1))
+  method = ProximalGradientDescent(ls = PS.LineSearches.BackTracking(Lexact = 1.0))
+  calls = Ref(0)
+  x = copy(x0)
+  err = try
+    solve!(x, f, IndBallL1(T(0.7)), method, ProximalOptions(callback = _ -> (calls[] += 1; true));
+           feasibility = NumericalFeasibility())
+    nothing
+  catch e
+    e
+  end
+  @test err isa ErrorException && occursin("nonfinite", err.msg) && occursin("gradient", err.msg)
+  @test reinterpret(UInt8, x) == reinterpret(UInt8, x0)
+  @test calls[] == 0
+end
+
+# A structural proposal alone: no engine test can hold (ftol = 0, xtol = 1e-300, gradtol = 0), the iterate changes, and
+# loose budgets let the full check of the last iteration pass, at a point inside the ball.
+@testset "structural proposal at maxiter, with a coinciding callback and call limits ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+  d = only(filter(d -> d.name == "l1_correlated_interior", fixtures(T; big = false)))
+  a = NumericalFeasibility(objective_rtol = 1.0, mapping_rtol = 1.0)
+  opts(; kw...) = ProximalOptions(; maxiter = 2, ftol = 0, xtol = 1e-300, gradtol = 0, kw...)
+  run(o) = (x = copy(d.start); (x, solve!(x, loss(d), IndBallL1(d.r), method, o; feasibility = a)))
+  x, res = run(opts())
+  @test res.iterations == 2 && res.iteration_converged && res.feasibility.checks == 1
+  @test res.converged && !res.x_converged && !res.f_converged && !res.grad_converged
+  @test res.feasibility.membership === :inside
+  # a callback that stops at that iteration: both reported
+  x2, res2 = run(opts(callback = s -> s.iteration == 2))
+  @test res2.converged && res2.iterations == 2 && x2 == x
+  # call limits at the counts that include the one check: the check's gradient and projection reach them
+  g2, p2 = res.grad_calls, res.prox_calls
+  for (lim, count) in ((:grad_calls_limit, g2), (:prox_calls_limit, p2))
+    _, r_at = run(opts(; lim => count))
+    _, r_above = run(opts(; lim => count + 1))
+    @test r_at.call_limit_reached && r_at.converged
+    @test !r_above.call_limit_reached && r_above.converged
+  end
+end
+
 # ---- the #508 fixtures ------------------------------------------------------------------------------------------------
+
+# The success class of each fixture with the default tolerances and maxiter = 320: :converged (C), :approximate_solution
+# (A), or either (E). The pinned classes are those of research B1 (projected_policy, ordinary #514 profile) and of the
+# route on Julia 1.10.13 and 1.13.4 (Discovery), except Float32 stationary_tail_2.0_eps under PGD, where B1's own
+# progress rule proposed at iteration 1 and returned A, while the route's first proposal is at iteration 5 and returns C.
+# E marks the Float32 dense correlated fixtures whose class differs between those Julia versions, for B1 and the route
+# alike (the rounding of the Float32 products differs).
+const CLASSES = Dict(
+  Float32 => Dict(
+    "tie_scale_-20" => "AA", "tie_scale_0" => "AA", "tie_scale_20" => "AA",
+    "stationary_tail_0.25_eps" => "AA", "stationary_tail_2.0_eps" => "CA",
+    "active_transition_1" => "CA", "active_transition_2" => "CA", "active_transition_3" => "CA",
+    "active_transition_4" => "CC", "rounded_zero_predictor" => "CC",
+    "l1_correlated_active" => "CE", "l1_correlated_scaled" => "EE", "l1_correlated_interior" => "CC",
+    "l1_correlated_transition" => "CE",
+    "l1_tied_2048_1" => "CC", "l1_tied_2048_2" => "CA", "l1_tied_2048_3" => "CC", "l1_tied_2048_4" => "CC"),
+  Float64 => Dict(
+    "tie_scale_-20" => "AA", "tie_scale_0" => "AA", "tie_scale_20" => "AA",
+    "stationary_tail_0.25_eps" => "AA", "stationary_tail_2.0_eps" => "AA",
+    "active_transition_1" => "AA", "active_transition_2" => "AA", "active_transition_3" => "AA",
+    "active_transition_4" => "AA", "rounded_zero_predictor" => "CC",
+    "l1_correlated_active" => "AA", "l1_correlated_scaled" => "AA", "l1_correlated_interior" => "CC",
+    "l1_correlated_transition" => "AA",
+    "l1_tied_2048_1" => "AA", "l1_tied_2048_2" => "AA", "l1_tied_2048_3" => "AA", "l1_tied_2048_4" => "AA"))
 
 @testset "#508 fixtures: status class and independent MPFR check ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   for d in fixtures(T)
     @testset "$(d.name)" begin
       x, res = solve_fixture(d, method)
       check_result_fields(d, x, res)
-      # each fixture ends with a passing full check under the default tolerances (the ordinary #514 profile)
-      @test res.converged || res.approximate_solution
+      class = CLASSES[T][d.name][method isa ProximalGradientDescent ? 1 : 2]
+      if class == 'C'
+        @test res.converged
+      elseif class == 'A'
+        @test res.approximate_solution
+      else
+        @test res.converged || res.approximate_solution
+      end
       (res.converged || res.approximate_solution) && check_success(d, x, res)
     end
   end
@@ -393,11 +571,13 @@ end
                  feasibility = NumericalFeasibility())
     @test length(res.trace) == res.iterations == length(seen)
     @test [s.fg_x for s in res.trace] == seen
-    A, Y, s = BigFloat.(d.X), BigFloat.(d.y), BigFloat(d.alpha)
-    for st in res.trace
-      xk = st.metadata["x"]
-      @test isfinite(st.fg_x)
-      @test isapprox(st.fg_x, Float64(s / 2 * sum(abs2, A * BigFloat.(xk) - Y)); rtol = 64eps(T), atol = 64floatmin(T))
+    setprecision(BigFloat, 256) do
+      A, Y, s = BigFloat.(d.X), BigFloat.(d.y), BigFloat(d.alpha)
+      for st in res.trace
+        xk = st.metadata["x"]
+        @test isfinite(st.fg_x)
+        @test isapprox(st.fg_x, Float64(s / 2 * sum(abs2, A * BigFloat.(xk) - Y)); rtol = 64eps(T), atol = 64floatmin(T))
+      end
     end
     @test res.trace[end].fg_x == Float64(res.smooth_minimum)
   end

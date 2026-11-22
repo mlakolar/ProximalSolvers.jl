@@ -193,8 +193,11 @@ Overflow of a trial's squared step norm and its scaled handling are specified in
 
 **Statement.**
 
-On the route of [IN-12](@ref) the coefficients, the trials and ProximalBase's projection stay in `T`,
-and the decision, the budgets and the full stopping check below are formed in `Float64`. Write
+On the route of [IN-12](@ref) the coefficients, the trials and ProximalBase's projection stay in `T`.
+The decision, the budgets, and the full check's witness, residual, gradient, support gap, noise terms
+and comparisons below are formed in `Float64`; the full check's mapping point, its division by the
+curvature and its projection are formed in `T`, and only the reduction of the mapping is in `Float64`.
+Write
 `ρ = Float64(r)` for the radius, `a = Float64(s)` for the loss scale as supplied (`1.0` for a raw
 loss), `u = eps(Float64)/2` and `γ(k) = k u / (1 - k u)`. The norm `‖v‖₂` of an array is computed as
 `m * sqrt(sum(abs2(Float64(vᵢ) / m)))` with `m = maxᵢ |Float64(vᵢ)|`, and is `m` when `m` is zero or
@@ -225,8 +228,8 @@ other than `:pass` runs no check:
    `ζ = a * (γ(p+2) (F ‖w‖₂ + ‖y‖₂) + γ(n+2) ‖e‖₂)`.
 3. The support gap `max(0, ρ - sum(abs, w)) δ + Σⱼ |wⱼ| (δ ± gⱼ)`, with `-gⱼ` where the sign bit of
    `wⱼ` is set and `+gⱼ` otherwise, and its noise `2ρ C ζ + γ(2p+12) (2ρ δ) + γ(p+2) ρ δ`.
-4. With `L = T(κ)`: the trial `T.(w) .- T.(g) ./ L` in `T`, its projection `q` by ProximalBase's
-   `prox!` for the solve's `IndBallL1(r)` at step `one(T)/L`, the mapping
+4. With `L = T(κ)`: the trial `T.(w) .- T.(g) ./ L` in `T`, its projection `q` in `T` by
+   ProximalBase's `prox!` for the solve's private `IndBallL1(r)` at step `one(T)/L`, the mapping
    `Float64(L) * maxⱼ |Float64(T(wⱼ)) - Float64(qⱼ)|` and its noise
    `C ζ + Float64(eps(T)) (Float64(L) maxⱼ |wⱼ| + δ)`.
 5. The check passes when the support gap, the mapping and both noises are finite,
@@ -240,7 +243,11 @@ constrained minimizer. The operations, reductions and conversions, and their ord
 research reference B1 (`norm2_64`, `budgets`, `norm_decision`, `numerical_witness!`,
 `stop_scores!`) and of the B0 helpers it imports (`gamma64`, `residual_score64!`, `estimate_gap`).
 With subnormals flushed to zero on the solving thread, these decisions are unspecified, as in
-[FP-01](@ref).
+[FP-01](@ref). Under gradual underflow a nonzero product or sum can round to a subnormal number or to
+zero, and the computed gap, mapping, noise terms and budgets can then all be zero at a point that is not
+stationary. The gate of [IN-12](@ref) refuses a design with a nonzero column whose curvature (in
+`Float64` and in `T`), gap budget or mapping budget is not a normal positive number; it detects no other
+underflow, such as a score or a noise term that rounds to zero after the start.
 
 **Applies to.** The ℓ1-ball route of [IN-12](@ref), `Float32` and `Float64`.
 
@@ -248,11 +255,13 @@ With subnormals flushed to zero on the solving thread, these decisions are unspe
 `_l1_budgets`, `_l1_witness!`, `_residual_score64!`, `_l1_support_gap`, `_stationary!`.
 
 **Tests.** `test/l1ball_numerical.jl` checks the reported cap and budgets against budgets recomputed
-in the test with unscaled `Float64` norms (relative difference at most `1e-12`), each reported success
-of the #508 fixtures against an independent 256-bit MPFR evaluation of the violation of the ball, the
-support gap at a feasible radial witness, the fixed-step mapping with a sorted-threshold projection and
-the change of the loss, and the membership classes `:inside`, `:outside` and `:unknown` on analytic
-fixtures. The bitwise agreement of the decision, the budgets and the full check with B1 is validation
+in the test from LinearAlgebra's `norm` of the `Float64` columns and response (relative difference at
+most `1e-12`). It scores each reported success of the #508 fixtures with an independent 256-bit MPFR
+evaluation of the violation of the ball, the support gap at a feasible radial witness, the fixed-step
+mapping with a sorted-threshold projection and the change of the loss; the mapping uses the route's
+inverse step `T(κ)`, whose `κ` the test compares with its own recomputation to a relative `1e-12`. It
+also checks the membership classes `:inside`, `:outside` and `:unknown` on analytic fixtures, and the
+underflow refusals and the admitted cases near them. The bitwise agreement of the decision, the budgets and the full check with B1 is validation
 evidence recorded with the pull request, not a test assertion.
 
 **Sources.** [The #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);

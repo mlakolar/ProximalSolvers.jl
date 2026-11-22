@@ -237,10 +237,12 @@ tolerances are accepted.
 # Extended help
 
 A trial is accepted only when its widened `Float64` ℓ1 mass is below `r + cap` by more
-than a rounding allowance, so an accepted iterate can lie outside the ball. `converged = true`
-requires a passing stopping check at a returned point classified inside the ball; a passing check
-at a point classified outside or not classified sets `approximate_solution = true` and
-`converged = false`. The inputs and refusals are [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12),
+than a rounding allowance, so an accepted iterate can lie outside the ball by up to the cap, which
+is at most `r`. `converged = true` requires a passing full stopping check at a returned point
+classified inside the ball; a passing check at a point classified outside or not classified sets
+`approximate_solution = true` and `converged = false`. A limit or callback can end a solve without
+a passing check; then both flags are false. A callback may read the coefficients and must leave them
+and the data unchanged. The inputs and refusals are [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12),
 the decision and budgets [FP-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/working-precision/#FP-05),
 the trials [PGD-09](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-iteration/#PGD-09),
 the stopping check [STOP-22](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-22)
@@ -263,13 +265,16 @@ NumericalFeasibility(; coefficient_rtol = nothing, coefficient_atol = 0, objecti
 The `feasibility` field of an [`OptimizationResults`](@ref ProximalSolvers.OptimizationResults) returned
 with the opt-in `IndBallL1` route of [`NumericalFeasibility`](@ref); the other routes store `nothing`.
 
-- `membership`: `:inside`, `:outside` or `:unknown`, the classification of the returned `x` by its
-  widened `Float64` ℓ1 mass `s` against the radius `r`, with the rounding allowance of
+- `membership`: `:inside`, `:outside` or `:unknown`, the classification of the returned `x` (when
+  callbacks leave `x` unchanged) by its computed widened `Float64` ℓ1 mass `s` against the radius `r`,
+  with the rounding allowance of
   [FP-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/working-precision/#FP-05).
-- `margin`: `s - r`, in `Float64`.
+- `margin`: the computed `s - r`, in `Float64`.
 - `cap`: the numerical feasibility cap of the solve.
 - `gap`, `gap_noise`, `mapping`, `map_noise`: the support gap and fixed-step mapping of the last full
-  stopping check, with their rounding allowances; `NaN` when no full check ran.
+  stopping check, with their rounding allowances. That check can precede the returned iterate after a
+  limit or callback stop; the values are `NaN` when no full check ran, and can be nonfinite when a
+  check ran and failed on them.
 - `gap_budget`, `mapping_budget`: the budgets of the solve, which a full check compares with
   `gap + gap_noise` and `mapping + map_noise`.
 - `checks`: the number of full checks of the solve.
@@ -332,9 +337,11 @@ optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.
   other routes.
 
 On the `IndBallL1` route, `minimum` is the smooth loss when the returned point is classified
-inside the ball, `Inf` when it is classified outside and `NaN` when it is not classified; the
-trace, the callback's objective, `f_residual` and `f_increased` use the smooth loss, and
-`allow_f_increases = false` does not end the solve on an increase. See
+inside the ball, `Inf` when it is classified outside and `NaN` when it is not classified (a
+convention for the loss plus the ball's indicator, which can differ from ProximalBase's rounded
+indicator); the trace's `fg_x` ("Function value"), the callback's objective, `f_residual` and
+`f_increased` use the smooth loss, and `allow_f_increases = false` does not end the solve on an
+increase. See
 [RES-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-04).
 
 For `NormL1`, `ElasticNet` and `GroupNormL2`, the stop check uses the applicable

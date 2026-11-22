@@ -145,16 +145,17 @@ end
 #
 # PGD and APG accept `IndBallL1` only on an opt-in numerical route: pass
 # `feasibility = NumericalFeasibility()` to `solve!`; without it, `solve!`
-# refuses the indicator. A rounded projection can land slightly outside the
-# ball. The route accepts a trial when its ℓ1 norm, summed in `Float64`, is
-# below ``r`` plus a small numerical cap by more than a rounding allowance.
-# It reports success only when a full check of a support gap and of a
-# fixed-step projected-gradient mapping passes: `converged = true` when the
-# returned point is classified inside the ball, and
-# `approximate_solution = true` when it is classified outside or is not
+# refuses the indicator. A rounded projection can land outside the ball.
+# The route accepts a trial only if its ℓ1 norm, summed in `Float64`, is
+# below ``r`` plus a numerical cap by more than a rounding allowance; the cap
+# is set by the tolerances, at most ``r``, and with the default tolerances it
+# is a small fraction of ``r``. A success flag is set only when a full check
+# of a support gap and of a fixed-step projected-gradient mapping passes:
+# `converged = true` when the returned point is classified inside the ball,
+# and `approximate_solution = true` when it is classified outside or is not
 # classified; then `minimum` is `Inf` or `NaN`, and `smooth_minimum` is the
-# loss. The classification, the margin ``\|\beta\|_1 - r`` and the cap are in
-# `fit.feasibility`. See [IN-12](@ref) and [RES-04](@ref).
+# loss. The classification, the computed margin ``\|\beta\|_1 - r`` and the
+# cap are in `fit.feasibility`. See [IN-12](@ref) and [RES-04](@ref).
 #
 # The independent check below projects onto the ball by the sorted-threshold
 # formula in `Float64` and forms the same projected-gradient mapping as for
@@ -203,8 +204,8 @@ end
 
 # When the solution lies on the boundary of the ball, the ℓ1 norm of the
 # returned point can be within the rounding allowance of ``r``. The point is
-# then not classified, and the fit reports `approximate_solution = true`
-# rather than `converged = true`, although the check passed.
+# then not classified, and when the full check passes the fit reports
+# `approximate_solution = true` rather than `converged = true`.
 #
 # For the orthogonal control the constrained minimizer is the projection of
 # `a`, whose ℓ1 norm is 5.25, onto the ball of radius 2.5.
@@ -218,7 +219,10 @@ end
 # and the loss gradient `-[1, -1, -0.5, 0.25]` there. With multiplier one this
 # is the normal-cone condition of the ball: on the support each gradient entry
 # is minus the sign of the coefficient, and off it each has magnitude at most
-# one. Full column rank makes the solution unique.
+# one. Full column rank makes the solution unique. This holds in exact
+# arithmetic for the constructed response; rounding it, and the conversion of
+# the data to `Float32`, perturb the problem slightly, so the assertions check
+# agreement with `l1_ref` to a tolerance.
 l1_ref = [0.6, -0.4, 0.0, 0.0]
 y_l1 = X * l1_ref + 4 * (X' \ [1.0, -1.0, -0.5, 0.25])
 l1_ball_fit("Correlated ℓ1 ball, Float64", X, y_l1, 1.0, l1_ref)

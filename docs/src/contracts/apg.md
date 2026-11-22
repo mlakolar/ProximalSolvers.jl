@@ -100,9 +100,9 @@ Result identity, trace/callback ownership, limit ordering and mutation rules are
 
 ### [APG-09 APG on the ℓ1-ball route](@id APG-09)
 
-**Statement.** On the route of [IN-12](@ref), APG keeps the extrapolation, cached images, certified bound and restart of [APG-01](@ref), [APG-03](@ref) and [APG-06](@ref), with the trials of [PGD-09](@ref). A trial over the cap, unresolved or from a gradient-step point with a nonfinite entry has `f(x) = Inf`: it is not accepted, and `L` rises through `next_curvature`. The restart compares smooth losses, since the penalty value is `0`: a step with momentum whose accepted smooth loss exceeds the previous one, or whose extrapolated point has a nonfinite value or gradient, is repeated once without momentum, and the repeated step counts its own 64 trials. A step without momentum from a point with a nonfinite value or gradient ends with `f(x) = Inf`, and the gradient engine raises its nonfinite-objective error after restoring the last accepted iterate ([APG-03](@ref)).
+**Statement.** On the route of [IN-12](@ref), APG keeps the extrapolation, cached images, certified bound and restart of [APG-01](@ref), [APG-03](@ref) and [APG-06](@ref), with the trials of [PGD-09](@ref). A trial over the cap, unresolved or from a gradient-step point with a nonfinite entry has `f(x) = Inf`: it is not accepted, and the step attempts to raise `L` through `next_curvature`, which raises its line-search error when `L/β` is not a finite increase. After every trial, accepted or not, APG forms the displacement `x - y` in its scratch `xhat`; on a rejected trial that value is unused (B1 forms it only after a finite trial value). The restart compares smooth losses, since the penalty value is `0`: a step with momentum whose accepted smooth loss exceeds the previous one, or whose extrapolated point has a nonfinite value or gradient, is repeated once without momentum, and the repeated step counts its own 64 trials. A step without momentum from a point with a nonfinite value or gradient ends with `f(x) = Inf`, and the gradient engine raises its nonfinite-objective error after restoring the last accepted iterate ([APG-03](@ref)).
 
-Let `N` count the trials from a gradient-step point with a nonfinite entry, `R` the trials projected with a code other than `:pass`, and `C` the full checks of [STOP-22](@ref), each of which adds one gradient and one projection. On a completed solve,
+Let `N` count the trials from a gradient-step point with a nonfinite entry, `R` the trials projected with a code other than `:pass`, and `C` the full checks of [STOP-22](@ref), each of which adds one gradient and one projection. On a solve that returns a result (not on a thrown error, after which the counters are not restored),
 
 ```
 grad_calls = iterations + restarts + C
@@ -110,13 +110,13 @@ prox_calls = backtrack_steps - N + C
 f_calls = 1 + (grad_calls - C) + (backtrack_steps - N - R)
 ```
 
-`backtrack_steps` counts every trial, as in [APG-04](@ref). These counters describe the implementation; errors do not restore them.
+`backtrack_steps` counts every trial, as in [APG-04](@ref). These identities describe the implementation.
 
 **Applies to.** `AccProxGradDescent` on the ℓ1-ball route.
 
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: update_state!, _prox_grad_step!`; `src/solvers/l1ball.jl: _trial!, _begin_trials!, _stationary!`.
 
-**Tests.** `test/l1ball_numerical.jl`, “counter identities”: over the small #508 fixtures in both precisions, `grad_calls - iterations - C` is nonnegative and positive (a restart) for at least one fixture, `prox_calls = backtrack_steps + C` (these fixtures have no gradient-step point with a nonfinite entry), `f_calls ≤ 1 + (grad_calls - C) + backtrack_steps`, with equality on a fixture whose trials pass the cap; the #508 fixtures, the rollback test and the semantics tests run APG in both precisions.
+**Tests.** `test/l1ball_numerical.jl`, “counter identities”, over the small #508 fixtures in both precisions: `grad_calls - iterations - C` is nonnegative, and positive (a restart) for at least one fixture; `prox_calls = backtrack_steps + C`, the case `N = 0` (no fixture has a gradient-step point with a nonfinite entry); `f_calls ≤ 1 + (grad_calls - C) + backtrack_steps`, with equality on a fixture whose trials pass the cap (`N = R = 0`). No test exercises nonzero `N` or `R` in these identities. The #508 fixtures, the rollback test and the semantics tests run APG in both precisions.
 
 **Sources.** [The approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919) and [the maintainer's decisions I4 and I6](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7074272157); `accelerated_trial!` and `step!` of [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).
 
