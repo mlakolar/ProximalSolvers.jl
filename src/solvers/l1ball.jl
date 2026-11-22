@@ -2,17 +2,17 @@
 # Float64 least squares, raw or with one positive scale, on a Vector{T}, selected by
 # solve!(x, f, IndBallL1(r), method, options; feasibility = NumericalFeasibility(...)). The gate is
 # _check_numerical_l1 (src/solve.jl, IN-12). The route runs the engine of the other penalties (_solve_gradient!, PGD's
-# update_state! and backtrack!, APG's update_state!, restart and certified bound) with this file's methods of four hooks:
-# _trial! and _begin_trials! (PGD-09), convergence_assessment with _stationary! (STOP-22), and the result hooks of
-# _solve_gradient! (RES-04). The arithmetic of the decision, the budgets and the full check is that of
-# research/issue-515/b1.jl at d58b9099 and of the B0 helpers it imports (research/issue-514), with the same reductions,
-# loops and Float64 conversions in the same order (FP-05).
+# update_state! and backtrack!, APG's update_state!, restart and certified bound) with this file's methods of the
+# engine's hooks: _trial! and _begin_trials! (PGD-09); convergence_assessment, _stationary! and
+# _stop_on_gradient_increase (STOP-22); and the result hooks of _solve_gradient! (RES-04). The arithmetic of the
+# decision, the budgets and the full check is that of research/issue-515/b1.jl at d58b9099 and of the B0 helpers it
+# imports (research/issue-514), with the same reductions, loops and Float64 conversions in the same order (FP-05).
 #
-# Ownership (PGD-09): only trials write state.x; each trial that projects into state.x stores the decision of that
-# vector in `decision` right after the projection, and a trial with a nonfinite xhat writes neither, so `decision`
-# describes state.x after every trial. The full check (_stationary! below) writes this object's workspace and the two
-# counters, not state.x. After a failed step the engine copies x_previous into x and rethrows, so no result is built
-# from a rolled-back state, whose `decision` can describe a rejected trial.
+# Ownership (PGD-09): within an iteration only trials write state.x; each trial that projects into state.x stores the
+# decision of that vector in `decision` right after the projection, and a trial with a nonfinite xhat writes neither,
+# so `decision` describes state.x after every trial. The full check (_stationary! below) writes this object's
+# workspace and the two counters, not state.x. After a failed step the engine copies x_previous into x and rethrows,
+# so no result is built from a rolled-back state, whose `decision` can describe a rejected trial.
 
 # The trials from one base point after which the next trial raises the line-search error (B1's 64, maintainer's I4)
 const _L1_TRIAL_LIMIT = 64

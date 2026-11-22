@@ -230,7 +230,7 @@ The membership `:inside` says that the widened mass is below the radius by more 
 
 **Code.** `src/types.jl`: `OptimizationResults`, `NumericalFeasibilityReport`, the accessors and `show`; `src/solve.jl`: `_solve_gradient!`, `_approximate_solution`, `_composite_minimum`, `_feasibility_report`; `src/solvers/l1ball.jl`: the route's methods of these three hooks.
 
-**Tests.** `test/l1ball_numerical.jl`: the membership-dependent `minimum` and `smooth_minimum` against ProximalBase's value at every route result; `approximate_solution` against `converged` and the cleared flags; one analytic fixture for each membership class; `show` with and without a report; the three fields of `NormL1` and `IndBox` solves. `test/core_regressions.jl` compares every field of mixed-level and native-level solves, the new ones included.
+**Tests.** `test/l1ball_numerical.jl`: the membership-dependent `minimum` and `smooth_minimum` against ProximalBase's value at the route results of the fixture and loss-scale tests; `approximate_solution` against `converged` and the cleared flags; one analytic fixture for each membership class; `show` with and without a report; the three fields of `NormL1` and `IndBox` solves. `test/core_regressions.jl` compares every field of mixed-level and native-level solves, the new ones included.
 
 **Sources.** [The approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919) and [the maintainer's decision I2](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7074272157); the result of `projected_policy` in [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).
 

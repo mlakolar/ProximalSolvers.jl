@@ -377,9 +377,10 @@ for the one-group comparison.
 ~~~
 
 Pass `feasibility = NumericalFeasibility()` to `solve!` with `IndBallL1(r)` and PGD or APG. The
-route accepts iterates within a small numerical cap outside the ball, and stops only when a full
-check of a support gap and a fixed-step mapping, formed in `Float64`, meets budgets set by the
-tolerances of `NumericalFeasibility`. Read `converged`, `approximate_solution` and
+route accepts iterates within a small numerical cap outside the ball, and reports convergence or an
+approximate solution only when a full check of a support gap and a fixed-step mapping, formed in
+`Float64`, meets budgets set by the tolerances of `NumericalFeasibility`; the limits and the callback
+end a solve as for the other penalties. Read `converged`, `approximate_solution` and
 `feasibility.membership` together: at a solution on the boundary, the returned point can be within
 the rounding allowance of the radius, and the result then reports an approximate solution. See
 [IN-12](@ref) for the inputs and tolerances, [FP-05](@ref) for the arithmetic, [STOP-22](@ref) for the

@@ -147,11 +147,11 @@ end
 # `feasibility = NumericalFeasibility()` to `solve!`; without it, `solve!`
 # refuses the indicator. A rounded projection can land slightly outside the
 # ball. The route accepts a trial when its ℓ1 norm, summed in `Float64`, is
-# below ``r`` plus a small numerical cap by more than a rounding allowance,
-# and it stops only when a full check of a support gap and of a fixed-step
-# projected-gradient mapping passes. A passing check sets `converged = true`
-# when the returned point is classified inside the ball, and
-# `approximate_solution = true` when it is classified outside or cannot be
+# below ``r`` plus a small numerical cap by more than a rounding allowance.
+# It reports success only when a full check of a support gap and of a
+# fixed-step projected-gradient mapping passes: `converged = true` when the
+# returned point is classified inside the ball, and
+# `approximate_solution = true` when it is classified outside or is not
 # classified; then `minimum` is `Inf` or `NaN`, and `smooth_minimum` is the
 # loss. The classification, the margin ``\|\beta\|_1 - r`` and the cap are in
 # `fit.feasibility`. See [IN-12](@ref) and [RES-04](@ref).

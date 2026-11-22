@@ -1,7 +1,7 @@
 module L1BallNumericalTest
 
 # The opt-in numerical IndBallL1 route of PGD and APG (#457 Phase B, policy B1 of #515): the gate (IN-12), the #508
-# fixtures with an independent MPFR check of every reported success (RES-04, STOP-22), the result semantics, the cached
+# fixtures with an independent MPFR check of each of their reported successes (RES-04, STOP-22), the result semantics, the cached
 # decision (PGD-09), rollback, allocations and the unchanged routes of the other penalties.
 
 using Test, LinearAlgebra, ProximalBase, ProximalSolvers
@@ -155,7 +155,7 @@ function check_success(d::Fixture{T}, x, res) where T
   ind
 end
 
-# The result fields that depend on the membership (RES-04), for every result of the route on the data (X, y) of f,
+# The result fields that depend on the membership (RES-04), for a result of the route on the data (X, y) of f,
 # with radius r. The smooth minimum is compared with ProximalBase's value at x, with an absolute allowance for losses
 # at the rounding level of the residual.
 function check_result_fields(x, res, f, X, y, r)
@@ -274,7 +274,7 @@ end
 @testset "gate: accepted tolerances and loss scales (Float32 data, $(mname(method)))" for method in METHODS
   T = Float32
   X, y = T.(CORRELATED_X), T.(CORRELATED_Y)
-  # zero coefficient tolerances: the cap is 0, so only points inside by the rounding allowance pass
+  # zero coefficient tolerances: the cap is 0, so a trial passes only inside the ball by more than the rounding allowance
   x = zeros(T, 4)
   res = solve!(x, LeastSquaresLoss(y, X), IndBallL1(T(4)), method, OPTIONS;
                feasibility = NumericalFeasibility(coefficient_rtol = 0, coefficient_atol = 0))
@@ -306,7 +306,7 @@ end
     @testset "$(d.name)" begin
       x, res = solve_fixture(d, method)
       check_result_fields(d, x, res)
-      # every fixture ends with a passing full check (the ordinary #514 profile admits all of them)
+      # each fixture ends with a passing full check under the default tolerances (the ordinary #514 profile)
       @test res.converged || res.approximate_solution
       (res.converged || res.approximate_solution) && check_success(d, x, res)
     end
@@ -482,7 +482,7 @@ end
                ProximalOptions(maxiter = 320, callback = s -> (s.iteration == 3 && append!(snapshot, x); s.iteration == 3));
                feasibility = NumericalFeasibility())
   @test res.iterations == 3 && reinterpret(UInt8, x) == reinterpret(UInt8, snapshot)
-  # 64 trials from one base point that never pass: with a zero cap, a start inside the ball by just more than the
+  # 64 trials from one base point that do not pass: with a zero cap, a start inside the ball by just more than the
   # rounding allowance and a far response, each trial projects onto the boundary (unresolved) until the step is too
   # short, which needs more than 64 doublings of L; the 65th trial raises the line-search error, and x is restored.
   r = one(T)
@@ -511,7 +511,8 @@ function route_bytes(f, g, x0, method, maxiter, a)
 end
 
 @testset "allocations do not grow with the iterations ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
-  # the correlated active fixture with a mapping tolerance that keeps every full check from passing
+  # the correlated active fixture with a mapping tolerance far below the rounding allowance of the mapping, so that no
+  # full check passes on these data
   X, y = T.(CORRELATED_X), T.(CORRELATED_Y)
   a = NumericalFeasibility(mapping_rtol = 1e-30)
   f, g = LeastSquaresLoss(y, X), IndBallL1(T(0.6))
