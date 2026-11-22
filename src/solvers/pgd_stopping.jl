@@ -9,9 +9,11 @@ function PGDStoppingPoint(state, k)
     PGDStoppingPoint(state, k, state.f_x + state.g_x, state.f_x_previous + state.g_x_previous)
 end
 
-function Stopping.same_iterate(point::PGDStoppingPoint)
-    (; x, x_previous) = point.state
-    all(i -> Stopping.stored_equal(x[i], x_previous[i]), eachindex(x, x_previous))
+function Stopping.same_iterate(point::PGDStoppingPoint{T}) where {T}
+    U = Stopping.bit_type(T)
+    x = reinterpret(U, point.state.x)
+    previous = reinterpret(U, point.state.x_previous)
+    all(i -> Stopping.equal_bits(x[i], previous[i]), eachindex(x, previous))
 end
 
 Stopping.movement_distance(point::PGDStoppingPoint{Float64}) = norm(point.state.delta_x)

@@ -9,14 +9,17 @@ module Stopping
 
 export IterateChange, ObjectiveChange, UserStop, AnyOf, AllOf, MaxIterations, termination
 
-# Compare finite stored values even when the thread flushes subnormal operands.
-# Ignoring the sign for a pair of zeros gives numeric equality for signed zeros.
+# The integer call boundary keeps scalar comparisons valid when the thread
+# flushes subnormals and the compiler recognizes a floating-point zero test.
+bit_type(::Type{Float16}) = UInt16
+bit_type(::Type{Float32}) = UInt32
+bit_type(::Type{Float64}) = UInt64
 equal_bits(a, b) = a == b || iszero((a | b) << 1)
-stored_equal(a::Float32, b::Float32) = equal_bits(reinterpret(UInt32, a), reinterpret(UInt32, b))
-stored_equal(a::Float64, b::Float64) = equal_bits(reinterpret(UInt64, a), reinterpret(UInt64, b))
+@noinline scalar_equal_bits(a, b) = equal_bits(a, b)
+stored_equal(a::T, b::T) where {T} = scalar_equal_bits(reinterpret(bit_type(T), a), reinterpret(bit_type(T), b))
 
 stored_zero(value::Real) = iszero(value)
-stored_zero(value::Union{Float32,Float64}) = stored_equal(value, zero(value))
+stored_zero(value::Union{Float16,Float32,Float64}) = stored_equal(value, zero(value))
 
 function tolerance(value::Real, name)
     converted = Float64(value)
