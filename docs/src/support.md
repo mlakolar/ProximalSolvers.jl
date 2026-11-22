@@ -151,8 +151,8 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
 - **(s)** `IndBallL1(r)` is accepted by PGD and APG only with the keyword
   `feasibility = NumericalFeasibility(...)` of `solve!`, on a dense `Vector{T}` with raw or scaled
   least squares, a finite positive radius of type `T` and a start that passes the numerical cap
-  ([IN-12](@ref)). A trial is accepted only if its computed decision passes the cap, so an accepted
-  iterate can lie outside the ball by up to the cap ([FP-05](@ref)).
+  ([IN-12](@ref)). A trial is accepted only if its computed decision passes the cap, and that decision
+  can pass at a point classified outside the ball ([FP-05](@ref)).
   `converged = true` requires the full check of [STOP-22](@ref) to pass at a point classified inside
   the ball; a passing check elsewhere sets `approximate_solution = true`, with `minimum` `Inf` or `NaN`
   ([RES-04](@ref)). The tests score the successes on tied, rounded, singleton and correlated fixtures
@@ -379,7 +379,8 @@ for the one-group comparison.
 
 Pass `feasibility = NumericalFeasibility()` to `solve!` with `IndBallL1(r)` and PGD or APG. A trial
 is accepted only if its computed decision passes the numerical cap, so an accepted iterate can lie
-outside the ball by up to the cap, which the tolerances set and which is at most `r`. The route reports
+outside the ball: its computed widened ℓ1 norm can exceed `r` by less than the cap, which the tolerances set
+and which is at most `r`; this is a computed comparison, not an exact bound on the violation. The route reports
 convergence or an approximate solution only when a full check of a support gap and a fixed-step
 mapping meets budgets set by the tolerances; the limits and the callback end a solve as for the other
 penalties.

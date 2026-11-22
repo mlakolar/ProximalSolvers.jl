@@ -225,7 +225,8 @@ _begin_trials!(g::_NumericalL1Ball) = (g.trials = 0; nothing)
 @noinline _l1_trial_limit_error() =
   error("line search failed: $_L1_TRIAL_LIMIT trials from one base point were not accepted (IndBallL1 numerical route, PGD-09)")
 
-# PGD-09: B1's trial_value!, after the trial limit. Each call counts as one of the 64 trials. With a nonfinite xhat,
+# PGD-09: B1's trial_value!, after the trial limit. Each call that passes the limit test counts as one of the 64
+# trials (the call that raises the error counts none). With a nonfinite xhat,
 # f_x = Inf without a projection and without prox or f counts (the line search still counts the trial in its
 # backtrack_steps).
 # Otherwise PB's projection of xhat into x (one prox call), the decision of x, stored in g.decision, and for :pass the

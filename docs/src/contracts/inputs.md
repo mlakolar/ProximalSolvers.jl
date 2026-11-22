@@ -715,7 +715,9 @@ solve!(x, f, IndBallL1(r), method, options; feasibility = NumericalFeasibility()
 The route addresses the problem of minimizing `(s/2) * sum(abs2, y - X*x)` over `norm(x, 1) <= r`
 with numerical feasibility; a return carries the flags of [RES-04](@ref), not a guarantee that it
 solved the problem. A trial is accepted only if its computed decision of [FP-05](@ref) passes the
-cap, so an accepted iterate can lie outside the ball by up to the cap ([PGD-09](@ref)). The
+cap; that computed decision can pass at a point classified outside the ball, whose computed widened mass
+then exceeds `r` by less than the cap. This is a computed comparison, not an exact bound on the violation
+([PGD-09](@ref)). The
 coefficients are a dense `Vector{T}`, `T` being `Float32` or `Float64`. The loss is
 `LeastSquaresLoss(y, X)` or one positive `Scaled` of it under [IN-02](@ref), with a dense `Matrix{T}`
 design and a `Vector{T}` response; shapes, finiteness and aliasing follow [IN-01](@ref) and
@@ -769,7 +771,9 @@ unless noted:
     curvature converted to `T`, a gap budget or a mapping budget that is not a normal positive number
     (it is zero or subnormal). Under gradual underflow such a value can let the full check pass at a
     point that is not stationary. A design whose columns are all zero keeps the curvature `1.0` and
-    is admitted.
+    is exempt from this check only; the other checks apply to it, for example the start-loss check
+    of item 12. Underflow inside the full check's products is covered by the allowance of
+    [FP-06](@ref), not by this item.
 11. A starting point whose decision ([FP-05](@ref)) is `:over` (an infeasible start) or
     `:unresolved`. A start that passes may lie outside the ball within the cap.
 12. After the route's object is built, the state's start check refuses a start whose loss is not
@@ -791,19 +795,24 @@ result [RES-04](@ref).
 `src/solvers/proximal_gradient_descent.jl` and `src/solvers/accelerated_proximal_gradient_descent.jl`:
 `solve!`; `src/types.jl`: `NumericalFeasibility`.
 
-**Tests.** `test/l1ball_numerical.jl`, the “gate” testsets, with `x` unchanged after each refusal: the
-strict default refusal (its message names the opt-in), the opt-in with four other penalties, a
-non-`NumericalFeasibility` value, an unknown keyword, square-root loss, a matrix coefficient, a shape
-mismatch, the radius cases, each tolerance with `NaN`, `Inf`, a negative value and a string, zero and
-underflowing objective and mapping tolerances, an infeasible and an unresolved start, an overflowing
-curvature, the logistic loss and an unrepresentable integer scale, in both precisions (the logistic case
-in `Float64`) and with both methods; refusal order with conflicting faults (keyword, penalty and value
-type; logistic before storage; storage, shapes, a matrix response, mixed types, aliasing and nonfinite
-data before the radius; radius, tolerances and budgets before the start; APG factors before the radius)
-and the start-loss check; underflowed curvatures and budgets in both precisions, with admitted cases near
-the thresholds and a zero design; the keyword refusals of `CDSolver`, `ADMMSolver`, `ProxNewton`,
-`LogisticADMM` and graphical-lasso PGD; zero coefficient tolerances; and integer and `Float64` loss
-scales with `Float32` data, whose budgets use `Float64(s)`.
+**Tests.** `test/l1ball_numerical.jl`, the “gate” testsets, with `x` unchanged after each refusal:
+- in both precisions and with both methods: the strict default refusal (its message names the opt-in), the
+  opt-in with four other penalties, a non-`NumericalFeasibility` value, an unknown keyword, square-root
+  loss, a matrix coefficient, a shape mismatch, the radius cases, each tolerance with `NaN`, `Inf`, a
+  negative value and a string, zero and underflowing objective and mapping tolerances, an infeasible and
+  an unresolved start, and an overflowing curvature; the logistic loss in `Float64` only; an
+  unrepresentable integer loss scale in `Float32` only;
+- refusal order with conflicting faults, in `Float64` with both methods: the keyword before the penalty
+  and the value type; a logistic loss before the storage; the storage, the shapes, a matrix response,
+  mixed types, aliasing and nonfinite data, each paired with an invalid radius; the radius before the
+  tolerances; a tolerance before an unrepresentable budget and before an infeasible start; the budgets
+  before the start; for APG, its factors in `Float32` before the radius; and the start-loss check;
+- underflow: in `Float64`, a subnormal curvature and subnormal budgets with a normal curvature; in
+  `Float32`, a curvature that is subnormal only when converted to `Float32`; admitted small-scale cases
+  in both precisions; a zero design with a nonzero and with a zero response (zero budgets), both precisions;
+- the keyword refusals of `CDSolver`, `ADMMSolver`, `ProxNewton`, `LogisticADMM` and graphical-lasso PGD;
+  zero coefficient tolerances; integer and `Float64` loss scales with `Float32` data, whose budgets use
+  `Float64(s)`.
 
 **Sources.** [Issue #457, Phase B](https://github.com/mlakolar/ProximalSolvers.jl/issues/457);
 [the approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919)

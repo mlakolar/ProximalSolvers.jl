@@ -222,7 +222,12 @@ The other fields keep their meanings ([RES-02](@ref)), with these differences on
 - `allow_f_increases` does not govern termination ([STOP-22](@ref)), since the composite objective is `Inf` at an accepted iterate outside the ball;
 - `gap` is `NaN`: no duality gap is computed.
 
-The report holds `membership` and `margin = σ - ρ`, the computed widened mass minus the radius, from the cached decision ([PGD-09](@ref), [FP-05](@ref)); on a normal return that decision describes the returned point, when callbacks leave the coefficients unchanged as [PGD-09](@ref) requires. It also holds the `cap`; the `gap`, `gap_noise`, `mapping` and `map_noise` of the last full check, which can precede the returned iterate after a limit or callback stop, `NaN` when no check ran, and possibly nonfinite when a check ran and failed on nonfinite values; the `gap_budget` and `mapping_budget` of the solve; and `checks`, the number of full checks. `show` prints the route's lines only when `feasibility` is not `nothing`. The accessors `approximate_solution`, `smooth_minimum` and `feasibility` read the fields, like the other accessors of the result.
+The statements about the returned point (its membership, `minimum`, `smooth_minimum` and the success flags)
+assume that callbacks leave the coefficients and the data unchanged ([PGD-09](@ref)); the solver does not
+detect such a change. The margin, the widened mass, the cap, the budgets and the smooth loss are computed
+values.
+
+The report holds `membership` and `margin = σ - ρ`, the computed widened mass minus the radius, from the cached decision ([PGD-09](@ref), [FP-05](@ref)); on a normal return that decision describes the returned point, when callbacks leave the coefficients unchanged as [PGD-09](@ref) requires. It also holds the `cap`; the `gap`, `gap_noise`, `mapping` and `map_noise` of the last full check, which can precede the returned iterate after a limit or callback stop, `NaN` when no check ran, and possibly nonfinite when a check ran and failed on nonfinite values; the computed `gap_budget` and `mapping_budget` of the solve; and `checks`, the number of full checks. `show` prints the route's lines only when `feasibility` is not `nothing`. The accessors `approximate_solution`, `smooth_minimum` and `feasibility` read the fields, like the other accessors of the result.
 
 The membership `:inside` says that the widened mass is below the radius by more than the noise of [FP-05](@ref), or is zero with a positive radius: a computed classification, not an exact-arithmetic certificate. A converged result and an approximate solution both carry the full check's computed comparison and no accuracy guarantee ([STOP-01](@ref)).
 

@@ -148,13 +148,14 @@ end
 # refuses the indicator. A rounded projection can land outside the ball.
 # The route accepts a trial only if its ℓ1 norm, summed in `Float64`, is
 # below ``r`` plus a numerical cap by more than a rounding allowance; the cap
-# is set by the tolerances, at most ``r``, and with the default tolerances it
-# is a small fraction of ``r``. A success flag is set only when a full check
+# is set by the tolerances and is at most ``r``, and with the default
+# tolerances it is at most `1e-5 r` for `Float32` and `1e-10 r` for `Float64`
+# (the coefficient tolerance times ``r``). A success flag is set only when a full check
 # of a support gap and of a fixed-step projected-gradient mapping passes:
 # `converged = true` when the returned point is classified inside the ball,
 # and `approximate_solution = true` when it is classified outside or is not
 # classified; then `minimum` is `Inf` or `NaN`, and `smooth_minimum` is the
-# loss. The classification, the computed margin ``\|\beta\|_1 - r`` and the
+# stored computed loss. The classification, the computed margin ``\|\beta\|_1 - r`` and the
 # cap are in `fit.feasibility`. See [IN-12](@ref) and [RES-04](@ref).
 #
 # The independent check below projects onto the ball by the sorted-threshold
@@ -219,10 +220,10 @@ end
 # and the loss gradient `-[1, -1, -0.5, 0.25]` there. With multiplier one this
 # is the normal-cone condition of the ball: on the support each gradient entry
 # is minus the sign of the coefficient, and off it each has magnitude at most
-# one. Full column rank makes the solution unique. This holds in exact
-# arithmetic for the constructed response; rounding it, and the conversion of
-# the data to `Float32`, perturb the problem slightly, so the assertions check
-# agreement with `l1_ref` to a tolerance.
+# one. Full column rank makes the solution unique. This holds for the ideal,
+# unrounded construction; rounding the response, and converting the data to
+# `Float32`, can perturb the data, so the assertions check agreement with
+# `l1_ref` to a tolerance.
 l1_ref = [0.6, -0.4, 0.0, 0.0]
 y_l1 = X * l1_ref + 4 * (X' \ [1.0, -1.0, -0.5, 0.25])
 l1_ball_fit("Correlated ℓ1 ball, Float64", X, y_l1, 1.0, l1_ref)

@@ -612,8 +612,8 @@ _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point whe
 #
 # Whether the `feasibility` keyword of solve! selects the IndBallL1 route. After the keyword check of solve!, which
 # refuses the other keywords first, a keyword other than `nothing` is refused when g is not an IndBallL1 and then when it
-# is not a NumericalFeasibility. An IndBallL1
-# without the keyword reaches _check_penalty, which refuses it with a message that names the opt-in.
+# is not a NumericalFeasibility. An IndBallL1 without the keyword takes the gate of the other penalties; when its
+# earlier route and data checks pass, _check_penalty refuses it with a message that names the opt-in.
 _numerical_route(g, ::Nothing) = false
 function _numerical_route(g, feasibility)
   g isa IndBallL1 ||
@@ -655,13 +655,14 @@ _normal_positive(v::AbstractFloat) = isfinite(v) && v >= floatmin(v)
 # The checks of the IndBallL1 route, before any write to x, each an ArgumentError (a DimensionMismatch where the data
 # checks raise one), in this order: a logistic loss; coefficients that are not a dense Vector{Float32} or
 # Vector{Float64}; the data checks of _check_problem with the placeholder NormL1(zero(T)) for `kind` (:pgd or
-# :gradient), in their order: a square-root loss, the scale of a Scaled loss, the types of X and y (a matrix response
-# included), the shapes, aliasing, then nonfinite entries; for APG, _check_method and _check_bound_size; the radius (of
-# type T, finite and positive); the tolerances; the budgets (B1's :unrepresentable_budget: cap, gap, mapping and
-# curvature finite, and T(curvature) finite and positive); for a design with a nonzero column, a curvature (in Float64
-# and in T), gap budget and mapping budget that are normal positive numbers; the decision of the start, which must be
-# :pass. After it, initial_state refuses a start whose loss is not finite (_check_start), also before any write. Returns the tolerances, the budgets, the start decision, the loss scale as
-# Float64 and the least-squares data.
+# :gradient), in their order: a square-root loss, a loss other than LeastSquaresLoss or one Scaled of it, the scale of
+# a Scaled loss, the types of X and y (a matrix response included), the shapes, aliasing, then nonfinite entries; for
+# APG, _check_method and _check_bound_size; the radius (of type T, finite and positive); the tolerances; the budgets
+# (B1's :unrepresentable_budget: cap, gap, mapping and curvature finite, and T(curvature) finite and positive); for a
+# design with a nonzero column, a curvature (in Float64 and in T), gap budget and mapping budget that are normal positive
+# numbers; the decision of the start, which must be :pass. After it, initial_state refuses a start whose loss is not
+# finite (_check_start), also before any write. Returns the tolerances, the budgets, the start decision, the loss scale
+# as Float64 and the least-squares data.
 function _check_numerical_l1(x, f, g::IndBallL1, a::NumericalFeasibility, method, kind::Symbol)
   _is_logistic_loss(f) &&
     throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility() needs LeastSquaresLoss or one positive " *
@@ -689,7 +690,7 @@ function _check_numerical_l1(x, f, g::IndBallL1, a::NumericalFeasibility, method
                         "rescale the data, the radius or the tolerances"))
   # A design with a nonzero column needs a normal curvature in Float64 and in T and normal budgets: under gradual
   # underflow a zero or subnormal curvature or budget can let the full check pass at a point that is not stationary.
-  # A design whose columns are all zero (C = 0, curvature 1.0) is admitted.
+  # A design whose columns are all zero (C = 0, curvature 1.0) is exempt from this check only; the others apply to it.
   b.col > 0 && !(_normal_positive(b.curvature) && _normal_positive(T(b.curvature)) && _normal_positive(b.gap) &&
                  _normal_positive(b.mapping)) &&
     throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility(): for a design with a nonzero column, the curvature " *

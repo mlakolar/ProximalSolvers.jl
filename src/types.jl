@@ -237,8 +237,9 @@ tolerances are accepted.
 # Extended help
 
 A trial is accepted only when its widened `Float64` ℓ1 mass is below `r + cap` by more
-than a rounding allowance, so an accepted iterate can lie outside the ball by up to the cap, which
-is at most `r`. `converged = true` requires a passing full stopping check at a returned point
+than a rounding allowance; this computed decision can pass at a point classified outside the
+ball, whose computed widened mass then exceeds `r` by less than the cap (at most `r`), a computed
+comparison rather than an exact bound on the violation. `converged = true` requires a passing full stopping check at a returned point
 classified inside the ball; a passing check at a point classified outside or not classified sets
 `approximate_solution = true` and `converged = false`. A limit or callback can end a solve without
 a passing check; then both flags are false. A callback may read the coefficients and must leave them
@@ -330,8 +331,8 @@ optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.
 - `gap`: `NaN`, because this result type does not compute a certified duality gap.
 - `approximate_solution`: on the `IndBallL1` route, the full stopping check passed at a point
   classified outside the ball or not classified; `false` on the other routes.
-- `smooth_minimum`: the smooth loss at `minimizer` as the solver last computed it; on the other
-  routes `minimum` adds the penalty value to it.
+- `smooth_minimum`: the stored, computed smooth loss of the solver's last loss evaluation at
+  `minimizer`; on the other routes `minimum` adds the computed penalty value to it.
 - `feasibility`: a [`NumericalFeasibilityReport`](@ref) on the `IndBallL1` route, `nothing` on the
   other routes.
 
@@ -340,7 +341,8 @@ inside the ball, `Inf` when it is classified outside and `NaN` when it is not cl
 convention for the loss plus the ball's indicator, which can differ from ProximalBase's rounded
 indicator); the trace's `fg_x` ("Function value"), the callback's objective, `f_residual` and
 `f_increased` use the smooth loss, and `allow_f_increases = false` does not end the solve on an
-increase. See
+increase. These statements about the returned point assume that callbacks leave the coefficients
+unchanged. See
 [RES-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-04).
 
 For `NormL1`, `ElasticNet` and `GroupNormL2`, the stop check uses the applicable
