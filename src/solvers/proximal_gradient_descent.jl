@@ -393,12 +393,12 @@ accept `NormL2(lambda)` for least squares with a dense coefficient vector.
 Square-root lasso is available only with CD, an unscaled loss and an unweighted
 positive L1 level; its successful stopping flag requires a certificate.
 
-The keyword `feasibility` is accepted by the PGD and APG methods only.
-`feasibility = NumericalFeasibility(...)` selects the opt-in numerical route for
-`IndBallL1(r)` on dense `Vector{T}` least squares; it is refused with any other penalty,
-and `IndBallL1` without it is refused. The other solvers refuse the keyword. On the route,
-read `converged`, `approximate_solution` and the `feasibility` report of the result; its
-`minimum` can be `Inf` or `NaN`. See [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12) and
+The keyword `feasibility` is accepted by the regression methods of PGD and APG;
+graphical-lasso PGD and the other solvers refuse it. `feasibility = NumericalFeasibility(...)`
+selects the opt-in numerical route for `IndBallL1(r)` on dense `Vector{T}` least squares; it is
+refused with any other penalty, and `IndBallL1` without it is refused. On the route, read
+`converged`, `approximate_solution` and the `feasibility` report of the result; its `minimum`
+can be `Inf` or `NaN`. See [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12) and
 [RES-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-04).
 
 Use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares and
