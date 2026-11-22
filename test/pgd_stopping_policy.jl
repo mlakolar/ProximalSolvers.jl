@@ -83,7 +83,8 @@ end
 
 @testset "Exact change uses stored values with subnormal flushing" begin
     old = get_zero_subnormals()
-    tiny = nextfloat(0.0)
+    tiny = reinterpret(Float64, 0x0000000000000001)
+    negative_tiny = reinterpret(Float64, 0x8000000000000001)
     try
         if set_zero_subnormals(true)
             f = LeastSquaresLoss([0.0], zeros(1, 1))
@@ -93,7 +94,7 @@ end
             @test reinterpret(UInt64, x[1]) == 0
             point = (iteration=1, objective=tiny, previous_objective=0.0)
             @test PS.Stopping.assess(ObjectiveChange(), point, nothing, false).status == :fail
-            @test_throws ArgumentError ObjectiveChange(atol=-tiny)
+            @test_throws ArgumentError ObjectiveChange(atol=negative_tiny)
         end
     finally
         set_zero_subnormals(old)
