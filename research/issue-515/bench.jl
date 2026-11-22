@@ -112,18 +112,12 @@ function proposal(w::Proposal{:B1})
     w.dec1.code === :pass || return false
     B1.stop_scores!(w.w1, w.pt.x, w.dec1, w.d, w.g, w.b1, nothing).pass
 end
-# B2: pre-screen with the working gradient (PGD: the solver's own; APG: one product from
-# the cached image), then the full check only when the screen cannot reject.
+# B2: PGD pre-screens with its own working gradient, then runs the full check only when the
+# screen cannot reject; APG keeps B1's path.
 function proposal(w::Proposal{:B2,R,K}) where {R,K}
     dec = w.dec2
     dec.code === :pass || return false
-    G = if K === :APG
-        PS._value_and_gradient!(w.w2.gw, w.pt.x, w.f, w.pt.z, w.w2.dw)
-        w.w2.gw
-    else
-        w.pt.G
-    end
-    B2.prescreen_rejects(G, w.pt.x, dec, w.d, w.g, w.b2, w.pt.fx) && return false
+    K === :PGD && B2.prescreen_rejects(w.pt.G, w.pt.x, dec, w.d, w.g, w.b2, w.pt.fx) && return false
     B2.stop_scores!(w.w2, w.pt.x, dec, w.d, w.g, w.b2, nothing).pass
 end
 # Trial-time decision costs (the cached B1 decision is formed here, so time it with the trial).
@@ -166,7 +160,7 @@ function make_fixed(op, arm, role, kind, d, f, g, pt)
     b0, b1, b2 = budgets(d, a), B1.budgets(d, a), B2.budgets(d, a)
     prop = Proposal{arm,role,kind,T,typeof(d),typeof(f),typeof(g),typeof(b0),typeof(b1),typeof(b2)}(d, f, g, pt,
              b0, b1, b2, B1.norm_decision(pt.x, g, b1.cap), B2.norm_decision(pt.x, g, b2.cap),
-             StopWorkspace(d), B1.StopWorkspace(d), B2.StopWorkspace(d, m))
+             StopWorkspace(d), B1.StopWorkspace(d), B2.StopWorkspace(d))
     Fixed{op,arm,role,typeof(prop)}(prop)
 end
 
@@ -264,7 +258,7 @@ function fixed_work(io, T)
             # pt.G is the PB oracle's gradient from fl(X x): PGD's stored gradient and the
             # vector B2 forms for APG are the same computation.
             b2 = B2.budgets(d, a)
-            screened = B2.prescreen_rejects(pt.G, pt.x, B2.norm_decision(pt.x, g, b2.cap), d, g, b2, pt.fx)
+            screened = kind === :PGD && B2.prescreen_rejects(pt.G, pt.x, B2.norm_decision(pt.x, g, b2.cap), d, g, b2, pt.fx)
             for (la, ra) in ((:B0, :B1), (:B0, :B2))
                 paired(io, (; T, p, design, method=kind, op=:proposal, point=label, check_passes=pass0,
                            b2_screen_rejects=screened, a_arm=la, b_arm=ra),

@@ -26,9 +26,11 @@
 #       small and medium correlated fits, and about 95% of the full stop checks fail (Stage 0).
 #       Before a full check, B2 evaluates the support gap r||G||_inf + <x, G> with the
 #       working-precision gradient G at the stored iterate: PGD's own gradient of the
-#       accepted trial (no extra work), or for APG one product X'(z_x - y) from the
-#       accepted trial's cached image z_x = fl(X x). It never uses the gradient at the
-#       extrapolated point y or at a rejected trial. With the same dot-product rounding
+#       accepted trial (no extra work). PGD only: an APG screen needs one extra product
+#       X'(z_x - y) per proposal, which measured as a >5% regression against B0 where the
+#       screen cannot reject (single-proposal solves, Float32 at large p), so APG keeps
+#       B1's stopping path unchanged. The screen never uses a gradient at an
+#       extrapolated point or at a rejected trial. With the same dot-product rounding
 #       model that B0 uses for its stop noise (in the working precision), plus the
 #       displacement to B0's radial witness, it bounds |gap(w) - computed working gap|.
 #       It skips the full check only when the working gap minus that allowance exceeds
@@ -153,14 +155,10 @@ struct StopWorkspace{T}
     gradient::Vector{Float64}
     trial::Vector{T}
     projected::Vector{T}
-    gw::Vector{T}   # B2 (a): APG working gradient at the accepted x (empty for PGD)
-    dw::Vector{T}   # B2 (a): APG observation derivative z_x - y (empty for PGD)
 end
-function StopWorkspace(d::Fixture{T}, method) where T
+function StopWorkspace(d::Fixture{T}) where T
     n, p = size(d.X)
-    apg = method isa PS.AccProxGradDescent
-    StopWorkspace(zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p),
-                  zeros(T, apg ? p : 0), zeros(T, apg ? n : 0))
+    StopWorkspace(zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p))
 end
 
 # B1 (3): s and noise come from the accepted decision on the same x.
@@ -197,13 +195,7 @@ end
 # B2 (a): working-precision gradient at the stored (accepted) iterate.
 # PGD: step! leaves the solver's gradient of the accepted trial in grad_f_x (the line
 # search refreshes it at state.x, or step! does after the search).
-working_gradient!(work, s::PS.ProximalGradientDescentState, f) = (s.grad_f_x, 0)
-# APG: z_x holds fl(X x) written by the accepted trial's _value! (the bound test only reads
-# it); PB's oracle forms d = z_x - y and the gradient into scratch, changing no solver field.
-function working_gradient!(work, s::PS.AccProxGradDescentState, f)
-    PS._value_and_gradient!(work.gw, s.x, f, s.z_x, work.dw)
-    (work.gw, 1)
-end
+working_gradient(s::PS.ProximalGradientDescentState) = s.grad_f_x
 
 gammaT(::Type{T}, k) where T = (c = k * (Float64(eps(T)) / 2); c < 1 ? c / (1 - c) : Inf)
 
@@ -263,9 +255,8 @@ mutable struct Counts
     last::Decision       # B1 (3): decision of the vector last projected into state.x
     prescreens::Int      # B2 (a)
     prescreen_rejects::Int
-    prescreen_gradients::Int
 end
-Counts() = Counts(0, 0, 0, 0, 0, UNRESOLVED, 0, 0, 0)
+Counts() = Counts(0, 0, 0, 0, 0, UNRESOLVED, 0, 0)
 
 function trial_value!(s, f, g, cap, c, audit)
     PS._allfinite(s.xhat) || return eltype(s.x)(Inf)
@@ -398,7 +389,6 @@ struct Result{T}
     trial_writes::Int
     prescreens::Int          # B2 (a)
     prescreen_rejects::Int
-    prescreen_gradients::Int
 end
 
 # Reporting adapter (untimed): B0's NamedTuple shape for the correctness tables.
@@ -430,7 +420,7 @@ function projected_policy(d, f, g, method, b, a::Accuracy, audit=nothing;
         end
         state = PS.initial_state(method, nothing, f, _ -> T(NaN), x)
         smooth = Float64(state.f_x)
-        work = StopWorkspace(d, method)
+        work = StopWorkspace(d)
         for it in 1:maxiter
             try
                 step!(state, f, g, method, b.cap, c, audit)
@@ -454,12 +444,11 @@ function projected_policy(d, f, g, method, b, a::Accuracy, audit=nothing;
                 check = c.last
                 checked_iter = n
                 screened = false
-                if check.code === :pass && n != maxiter && identical == 0
-                    # B2 (a): skip a full check that cannot pass.
-                    G, extra = working_gradient!(work, state, f)
+                if state isa PS.ProximalGradientDescentState && check.code === :pass &&
+                   n != maxiter && identical == 0
+                    # B2 (a), PGD only: skip a full check that cannot pass.
                     c.prescreens += 1
-                    c.prescreen_gradients += extra
-                    screened = prescreen_rejects(G, x, check, d, g, b, state.f_x)
+                    screened = prescreen_rejects(working_gradient(state), x, check, d, g, b, state.f_x)
                     c.prescreen_rejects += screened
                 end
                 if screened
@@ -512,7 +501,7 @@ function projected_policy(d, f, g, method, b, a::Accuracy, audit=nothing;
     line_failed = status in (:trial_limit, :line_search_error, :injected_trial_failure, :nonfinite_gradient, :nonfinite_extrapolation)
     Result{T}(x, status, detail, state !== nothing && !line_failed, success,
               success && decoded === :inside, n,
-              (state === nothing ? 0 : state.grad_calls) + c.mappings + c.prescreen_gradients,
+              (state === nothing ? 0 : state.grad_calls) + c.mappings,
               state === nothing ? 0 : state.f_calls,
               (state === nothing ? 0 : state.prox_calls) + c.mappings,
               c.trials, c.trials - n,
@@ -521,7 +510,7 @@ function projected_policy(d, f, g, method, b, a::Accuracy, audit=nothing;
               gap, gap_noise, mapping, map_noise, final_check.margin, decoded,
               0, 0, c.stop_checks, c.infeasible, c.unresolved,
               smooth, composite, residual, increased, NaN, c.trials,
-              c.prescreens, c.prescreen_rejects, c.prescreen_gradients)
+              c.prescreens, c.prescreen_rejects)
 end
 
 end # module B2

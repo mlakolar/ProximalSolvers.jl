@@ -9,7 +9,7 @@ source, test, documentation, dependency pin or ProximalBase code changes.
 | --- | --- | --- |
 | B0 | `../issue-514/{feasibility,stationarity,policies}.jl` | #514 prototype, baseline |
 | B1 | `b1.jl` | Mechanical, bit-identical: concrete `norm2_64` maximum (Julia 1.10 inference), concrete result struct (no boxed `Union{Missing,Float64}` tuple), reuse of the accepted trial's cap decision and widened norm at the stop, `‖y‖` computed once |
-| B2 | `b2.jl` | B1 plus a stop-proposal pre-screen with the working-precision gradient at the stored iterate and a rounding/underflow/displacement allowance under B0's own dot-product model (range-guarded; screened proposals report diagnostics as unavailable). Revised after the independent review: the one-pass design norms were withdrawn from the policy (they move rounded thresholds) and remain as `budgets_onepass` for a separate decision |
+| B2 | `b2.jl` | B1 plus, for PGD only, a stop-proposal pre-screen with PGD's working-precision gradient at the stored iterate and a rounding/underflow/displacement allowance under B0's own dot-product model (range-guarded; screened proposals report diagnostics as unavailable). Revised after the independent review and the second benchmark: the APG screen was dropped (its extra product regressed single-proposal solves by >5% against B0), and the one-pass design norms were withdrawn from the policy (they move rounded thresholds) and remain as `budgets_onepass` for a separate decision |
 
 B2 changes no feasibility test, stopping threshold, witness, fresh Float64 refresh, fixed-step
 mapping, projection or status rule. A pre-screened proposal is never a success; every success
