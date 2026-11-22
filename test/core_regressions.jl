@@ -842,6 +842,10 @@ end
       @test r.stagnated && !r.converged && r.iterations < maxiter && !r.iteration_converged
       @test !r.x_converged && !r.grad_converged && !r.f_converged && !r.f_increased
       @test r.x_residual == 0 && r.g_residual == 0
+      pilot = solve!(zeros(T, 32), f, g, ProximalGradientDescent();
+                     stopping=UserStop(_ -> false), limits=MaxIterations(maxiter))
+      @test termination(pilot).reason == :stalled && !termination(pilot).satisfied
+      @test pilot.stagnated && !pilot.converged && pilot.minimizer == x
     else
       @test gap <= 1e-9
       @test r.converged && r.grad_converged && !r.x_converged && !r.f_converged

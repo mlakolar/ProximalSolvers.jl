@@ -89,7 +89,7 @@ PGD obtains the same initialization through a column-wise scan, with the Frobeni
 
 ## Stopping
 
-The complete shared policy is [STOP-01](@ref), including the three OR-combined proposals, the independent check of the accepted point and the separate objective-increase and stagnation exits.
+The shared default policy is [STOP-01](@ref), including the three OR-combined proposals, the independent check of the accepted point and the separate objective-increase and stagnation exits. The dense vector least-squares pilot accepts an explicit policy at the accepted-step boundary specified in [STOP-21](@ref).
 
 ## Postconditions
 

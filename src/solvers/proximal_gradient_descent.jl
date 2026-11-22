@@ -326,6 +326,7 @@ end
 """
     solve!(x, f, g, CDSolver())
     solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
+    solve!(x, f, g, ProximalGradientDescent(); stopping=rule, limits=MaxIterations(n))
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
@@ -349,6 +350,8 @@ saved_beta = copy(result.minimizer)
 
 The meaning of `converged` depends on the method and loss; see
 [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
+The dense vector least-squares PGD pilot accepts explicit conditions and an
+independent iteration budget. See [STOP-21](@ref) and [`termination`](@ref).
 
 # Extended help
 
@@ -402,8 +405,11 @@ and [CD's change test](https://mlakolar.github.io/ProximalSolvers.jl/dev/contrac
 - [Group steps and private storage](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-group/#CDG-01).
 """
 function solve!(x, f, g, method::ProximalGradientDescent,
-                options::ProximalOptions = ProximalOptions(); kwargs...)
+                options::ProximalOptions = ProximalOptions(); stopping=nothing, limits=nothing, kwargs...)
   _check_keywords(kwargs)
+  if stopping !== nothing || limits !== nothing
+    return _solve_pgd_policy!(x, f, g, method, options, stopping, limits)
+  end
   _check_gradient_problem(x, f, g, :pgd)
   t0 = time()
   g_work = _working_gradient_penalty(g, eltype(x))
@@ -418,4 +424,8 @@ end
 # The stop it causes is not a convergence or accuracy test.
 _stagnated(state, options) = false
 _stagnated(state::ProximalGradientDescentState{Float32}, options) =
-  iszero(options.ftol) && state.verified_rejection && _unchanged(state.x, state.x_previous)
+  iszero(options.ftol) && _verified_pgd_stall(state)
+
+_verified_pgd_stall(state) = false
+_verified_pgd_stall(state::ProximalGradientDescentState{Float32}) =
+  state.verified_rejection && _unchanged(state.x, state.x_previous)

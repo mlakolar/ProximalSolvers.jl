@@ -513,6 +513,92 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 
 **Sources.** `README.md:L52`, `docs/src/working-with-results.md:L29`, `docstring:src/types.jl:L23`, `docstring:src/solvers/proximal_gradient_descent.jl:L30`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/numerics.md:L86`.
 
+### [STOP-21 Explicit stopping for dense vector least-squares PGD](@id STOP-21)
+
+**Statement.** Pass `stopping=rule`, `limits=MaxIterations(n)`, or both to
+`solve!`. The rule replaces the success predicates and stationarity check of
+[STOP-01](@ref). Supplying a limit alone selects a budget-only policy. A rule
+without a limit uses `ProximalOptions.maxiter` (200 by default). When both
+keywords are omitted or `nothing`, the default policy applies.
+
+The input rules of [PGD-01](@ref) apply within the pilot surface below. Before
+initialization, validate the complete rule tree, the limit and the inputs. A
+nondefault `ftol`, `xtol`, `gradtol`, `allow_f_increases`, oracle call limit,
+`time_limit` or legacy `callback` is refused. A nondefault `maxiter` must agree
+with an explicit `MaxIterations`. The comparison uses the values stored in
+`ProximalOptions`. Trace storage, display and `print_every` remain available.
+`AnyOf` and `AllOf` take at least one condition. Limits are accepted through
+`limits`, and a limit anywhere in the rule tree is refused.
+
+A nonnegative `Int` iteration budget counts accepted PGD updates.
+`MaxIterations(0)` validates the configuration and returns the unchanged start
+before solver oracle initialization or rule evaluation. A positive budget
+initializes the loss, gradient and penalty value and requires a finite starting
+composite objective. The solve checks the initial point and then checks each
+completed update once after acceptance, gradient completion and the finite
+objective check. A rejected trial leaves the policy history at the preceding
+accepted point. A failed update restores that point and rethrows as in
+[RES-03](@ref). A finite increase in the accepted objective is recorded and
+does not of itself cause a stop. If the policy and cap permit continuing, PGD
+checks the Float32 verified-rejection stagnation condition of [STOP-11](@ref)
+independently of the legacy `ftol` setting.
+
+For successive accepted coefficients `p, x`, `IterateChange` compares
+`‖x-p‖₂` with `atol + rtol * max(‖x‖₂, ‖p‖₂)`. `ObjectiveChange` compares
+`abs(F(x)-F(p))` with `atol + rtol * max(abs(F(x)), abs(F(p)))`, where `F`
+is the original composite objective. Both comparisons are inclusive. With
+two zero tolerances, `IterateChange` uses elementwise equality by value, and
+`ObjectiveChange` compares the computed objective values for equality. Both
+progress conditions are unchecked at initialization, where no predecessor
+exists. Step acceptance records the predecessor and the objective independently
+of which leaves are evaluated.
+
+Tolerances must be finite and nonnegative and are stored as `Float64`. A
+positive tolerance that rounds to zero, or a tolerance that converts to a
+nonfinite value, is refused. Each `F` is the native sum of the cached loss and
+penalty values, widened before the change comparison. For Float32 coefficients,
+the differences and squared norms for movement are accumulated in Float64.
+For Float64 coefficients, use the Euclidean norms of the accepted displacement
+and the two coefficients. The threshold is formed with one rounded
+multiply-add in Float64. A nonfinite measurement, scale or threshold is
+invalid and cannot pass. The comparison uses the computed values, including
+any rounding of a threshold to zero. No tolerance floor is applied.
+
+`UserStop(predicate)` receives an immutable named tuple with `iteration` and
+`objective` (native type). Return `true` to request a stop or `false` to continue.
+A predicate must be callable with that tuple. Other return values are errors
+at evaluation, and exceptions in the predicate propagate from the accepted
+checkpoint. A predicate must leave solver inputs alone. Work it performs lies
+outside the solver counts. The solver binds fresh rule state each solve. A
+caller sharing mutable state captured by a predicate owns its synchronization.
+
+Evaluate children left to right, short-circuiting on the first pass in `AnyOf`
+and on the first nonpass in `AllOf`. A pass in an `AllOf` child is valid for
+that checkpoint. Invalid and unchecked leaves cannot pass. Iterate measurements
+of the same kind are shared within a checkpoint, and objective conditions reuse
+the solver's accepted objective values. At a reached cap, the monitor may
+decide a tie using the cached objective and predecessor. It skips movement
+scans and predicates and leaves those conditions unchecked. Display and result
+construction request no extra solver oracle calls. Trace operations run after
+the policy decision and cannot supply evidence for it. [RES-04](@ref) specifies
+the result and accounting.
+
+**Applies to.** `ProximalGradientDescent` on a dense `Vector{Float32}` or
+`Vector{Float64}`, with matching dense vector-response least squares and any
+supported positive loss scale. The pilot covers the supported PGD penalties
+apart from the box and ball indicators whose feasibility preflight evaluates
+the penalty. Other solvers and problem routes reject the opt-in keywords.
+
+**Code.** `src/stopping.jl`, `src/solvers/pgd_stopping.jl` and
+`src/solvers/proximal_gradient_descent.jl`.
+
+**Tests.** `test/pgd_stopping_policy.jl` exercises composition, history,
+caps, preflight, failed-step rollback, progress arithmetic and accepted
+checkpoints after rejected trials in the public solve path.
+`test/core_regressions.jl` covers the explicit-policy Float32 stagnation exit.
+
+**Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
+
 ## Change log
 
 [#320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320), Stage 1: [STOP-18](@ref) classifies returns by their flags, [STOP-19](@ref) states the lasso gap ceiling that holds when the exact residual meets the check's threshold, and [STOP-20](@ref) separates benchmark settings from library contracts. No solver behavior changes. Measurements: [Float32 stopping evidence](evidence/float32-stopping-320.md).

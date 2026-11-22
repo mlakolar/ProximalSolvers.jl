@@ -7,6 +7,7 @@ quick = [
   "tier_selection",
   "minimal_core_characterization",
   "core_contracts",
+  "pgd_stopping_policy",
   "paired_master",
 ]
 standard = [

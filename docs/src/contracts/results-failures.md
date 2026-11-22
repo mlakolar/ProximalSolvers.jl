@@ -194,6 +194,56 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 **Sources.** `docs/src/numerics.md:L921`, `docs/src/numerics.md:L923`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/developer/implementation-notes.md:L205`, `docstring:src/solvers/proximal_gradient_descent.jl:L334`. The later caught-stage refusal follows [the fallback at f573224f](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/sqrtlasso.jl#L602-L665) and its unchanged outer finite-objective commit boundary.
 
+## [RES-04 Explicit-policy PGD result](@id RES-04)
+
+**Statement.** [STOP-21](@ref) returns a `PGDPolicyResult` whose `minimizer`
+aliases the caller's coefficient vector. `minimum` is the objective at the
+returned point, or `missing` if a zero iteration cap prevented initialization.
+`iterations` counts accepted updates. `iteration_converged` reports whether the
+cap was reached. `f_increased` compares the last two accepted objectives and
+is false when no update was accepted. `stagnated` reports a stagnation exit.
+Both `minimum` and the work counters reflect the evaluations already performed.
+
+`termination(result)` has `reason`, `satisfied`, `winning_branch`, `iteration`,
+`limit` (the resolved `MaxIterations`), `limit_reached`, `observations` and
+`counts`. The reason is `:rule` for a satisfied expression whose winning
+leaves include progress evidence, `:user` for a satisfied expression whose
+winning leaves are user predicates, `:limit` for a reached cap with the
+expression unfulfilled, and `:stalled` for numerical stagnation with the
+expression unfulfilled. `satisfied` is true for `:rule` and `:user`. At a tie,
+the reason names the satisfied expression and `limit_reached` is true. Neither
+progress nor user evidence certifies stationarity, so `converged` is false on
+this pilot's explicit-policy results. Fatal solver failures throw as specified
+in [RES-03](@ref).
+
+`observations` records each leaf in tree order, with its one-based child
+`path` from the root (empty for a root leaf), rule type `name`, `evidence`
+(`:progress` or `:user`), `status` (`:pass`, `:fail`, `:not_checked` or
+`:invalid`), `value`, `threshold` and `scale` at the final `iteration`.
+An unchecked leaf has missing measurement fields. Predicates and exact iterate
+equality report a Boolean value with threshold `true` and a missing scale.
+`winning_branch` lists the paths of the passing leaves that settled the
+expression, using the first passing child of each `AnyOf` and the winners of
+each child of `AllOf`. It is `nothing` for an unfulfilled expression.
+
+`counts` reports `f_calls`, `grad_calls`, `prox_calls`, `backtrack_steps` and
+`rejected_trials`. `f_calls` and `grad_calls` count smooth value and gradient
+computations, respectively. A fused computation increments both. `prox_calls`
+counts penalty value/prox trials including rejections, and `rejected_trials`
+is the trial count minus accepted iterations. `backtrack_steps` keeps the
+PGD line-search convention of [RES-02](@ref). Initialization contributes one
+smooth value and gradient and no prox trial. A zero-cap result has zero counts.
+
+**Applies to.** The dense vector least-squares PGD pilot in [STOP-21](@ref).
+
+**Code.** `src/solvers/pgd_stopping.jl` and `src/stopping.jl`.
+
+**Tests.** `test/pgd_stopping_policy.jl` checks the winning paths, observation
+states, limit and satisfaction flags, objective and coefficient identity,
+display and counter totals including rejected trials.
+
+**Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
+
 ## [RES-UNRECONCILED Retired: historical normalized-residual guarantee](@id RES-UNRECONCILED)
 
 **Retired by [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).** The authoritative arithmetic and guards

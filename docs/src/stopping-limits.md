@@ -4,6 +4,33 @@ This page keeps its published links. The full material is now organized in Learn
 
 See the [current section](@ref evidence-stopping-352).
 
+## Select stopping conditions in dense least-squares PGD
+
+Use `stopping` to choose a condition and `limits=MaxIterations(n)` to cap the
+number of accepted updates. `AnyOf` accepts the first passing condition.
+`AllOf` needs its conditions to pass at the same checkpoint. `IterateChange`
+and `ObjectiveChange` measure progress between accepted points. `UserStop`
+accepts a predicate over scalar checkpoint metadata. The [stopping contract](@ref STOP-21)
+specifies the comparison scales, option conflicts and checks available at the cap.
+
+```julia
+using ProximalBase, ProximalSolvers
+
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
+y = [2.0, -2.0, 0.5]
+x = zeros(2)
+rule = AllOf(IterateChange(atol=1e-10, rtol=1e-7),
+             ObjectiveChange(rtol=1e-8))
+r = solve!(x, LeastSquaresLoss(y, X), NormL1(0.1),
+           ProximalGradientDescent(); stopping=rule, limits=MaxIterations(200))
+termination(r)
+```
+
+`termination(r).satisfied` says whether the selected expression passed. A
+progress or user stop leaves `r.converged` false. The [result contract](@ref RES-04)
+describes the stop reason, winning leaves, observations and counts. Omit both
+keywords to use the default PGD stopping policy.
+
 ## The criterion and a certificate
 
 See the [current section](@ref RES-01). For square-root lasso, a bounded
