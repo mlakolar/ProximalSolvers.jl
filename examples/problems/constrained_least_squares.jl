@@ -136,6 +136,89 @@ for radius in (1.0, 3.0)
     project, zeros(4), project(a))
 end
 
+# ## ℓ1-ball-constrained least squares
+#
+# The constraint ``\|\beta\|_1 \leq r`` bounds the sum of the coefficient
+# magnitudes. Projection onto this ball soft-thresholds an exterior point at
+# the level that brings its ℓ1 norm to ``r``, so small coefficients become
+# exactly zero. ProximalBase's `IndBallL1(r)` is the indicator of the ball.
+#
+# PGD and APG accept `IndBallL1` only on an opt-in numerical route: pass
+# `feasibility = NumericalFeasibility()` to `solve!`; without it, `solve!`
+# refuses the indicator. A rounded projection can land slightly outside the
+# ball. The route accepts a trial when its ℓ1 norm, summed in `Float64`, is
+# below ``r`` plus a small numerical cap by more than a rounding allowance,
+# and it stops only when a full check of a support gap and of a fixed-step
+# projected-gradient mapping passes. A passing check sets `converged = true`
+# when the returned point is classified inside the ball, and
+# `approximate_solution = true` when it is classified outside or cannot be
+# classified; then `minimum` is `Inf` or `NaN`, and `smooth_minimum` is the
+# loss. The classification, the margin ``\|\beta\|_1 - r`` and the cap are in
+# `fit.feasibility`. See [IN-12](@ref) and [RES-04](@ref).
+#
+# The independent check below projects onto the ball by the sorted-threshold
+# formula in `Float64` and forms the same projected-gradient mapping as for
+# the other constraints. The ℓ1 norm of the returned point is summed in
+# `BigFloat`.
+
+function l1_projection(v, radius)
+  sum(abs, v) <= radius && return copy(v)
+  m = sort(abs.(v); rev=true)
+  total = zero(eltype(v))
+  for k in eachindex(m)
+    total += m[k]
+    threshold = (total - radius) / k
+    if k == length(m) || threshold >= m[k+1]
+      return sign.(v) .* max.(abs.(v) .- threshold, 0)
+    end
+  end
+end
+
+function l1_ball_fit(label, X::Matrix{T}, y, radius::T, reference) where T
+  A, b = Float64.(X), Float64.(y)
+  n = length(b)
+  t = n / sum(abs2, A)
+  tolerance = T === Float32 ? 1e-3 : 1e-6
+  f = inv(T(n)) * LeastSquaresLoss(y, X)
+  map((ProximalGradientDescent(), AccProxGradDescent())) do method
+    beta = zeros(T, 4)
+    fit = solve!(beta, f, IndBallL1(radius), method, ProximalOptions(maxiter=2000);
+      feasibility=NumericalFeasibility())
+    report = fit.feasibility
+    v = Float64.(beta)
+    gradient = A' * (A * v - b) / n
+    stationarity = norm(v - l1_projection(v - t * gradient, Float64(radius)), Inf) / t
+    excess = sum(abs, big.(beta)) - big(radius)
+    @assert fit.converged || fit.approximate_solution
+    @assert fit.converged == (report.membership === :inside)
+    @assert excess <= report.cap
+    @assert stationarity <= tolerance
+    @assert norm(v - reference, Inf) <= tolerance
+    @printf("%s | %s | converged %s | approximate %s | membership %s | ‖β‖₁ - r %.1e | KKT mapping %.2e\n",
+      label, summary(method), fit.converged, fit.approximate_solution, report.membership,
+      Float64(excess), stationarity)
+    beta
+  end
+end
+
+# For the orthogonal control the constrained minimizer is the projection of
+# `a`, whose ℓ1 norm is 5.25, onto the ball of radius 2.5.
+for T in (Float64, Float32)
+  design, target = T.(X_exact), T.(a)
+  l1_ball_fit("Orthogonal ℓ1 ball, $T", design, design * target, T(2.5),
+    l1_projection(Float64.(target), 2.5))
+end
+
+# For the correlated case, prescribe the solution `l1_ref`, with ℓ1 norm one,
+# and the loss gradient `-[1, -1, -0.5, 0.25]` there. With multiplier one this
+# is the normal-cone condition of the ball: on the support each gradient entry
+# is minus the sign of the coefficient, and off it each has magnitude at most
+# one. Full column rank makes the solution unique.
+l1_ref = [0.6, -0.4, 0.0, 0.0]
+y_l1 = X * l1_ref + 4 * (X' \ [1.0, -1.0, -0.5, 0.25])
+l1_ball_fit("Correlated ℓ1 ball, Float64", X, y_l1, 1.0, l1_ref)
+l1_ball_fit("Correlated ℓ1 ball, Float32", Float32.(X), Float32.(y_l1), 1.0f0, l1_ref)
+
 #!jl using Plots
 #!jl p = bar(1:4, hcat(X \ y_box, clipped, box_beta);
 #!jl   label=["Unrestricted" "Clipped" "Joint box fit"], color=[:gray65 :orange :teal],
