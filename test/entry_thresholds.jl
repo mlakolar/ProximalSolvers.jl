@@ -4,9 +4,10 @@ module EntryThresholds
 # τ max(cₖ, Λ) (τ max(cᵢ, λmax), cᵢ = T(λ0) wᵢ); before #464 every entry was compared with the single
 # threshold τ max(maxᵢ cᵢ, λmax), so one large coefficient raised the threshold of entry i, in exact arithmetic, by
 # the factor max(maxⱼ cⱼ, λmax) / max(cᵢ, λmax) where that scale is positive. For least squares with NormL1(λ0, w) the
-# coordinatewise check of STOP-21 replaced these entry thresholds (#487): entry i is held to τ √α‖Xᵢ‖ √(2f(x)), and at
-# its exact zero scales (a column of stored ±0 entries, or x = y = 0) to a score of at most 0. The least-squares
-# fixtures below are checked against that rule.
+# coordinatewise check of STOP-21 replaced these entry thresholds (#487): in exact arithmetic the threshold of entry i
+# is τ √α‖Xᵢ‖ √(2f(x)) (STOP-21 gives the working score, the stored loss value and the guard), and at its exact zero
+# scales (a column of stored ±0 entries, or x = y = 0) the score must be at most 0. The least-squares fixtures below
+# are checked against that rule.
 #
 # Independent references, computed here in 256-bit BigFloat from the stored data and the returned coefficients,
 # without ProximalBase's kkt_violation or the solvers' helpers: the gradient, the per-entry (per-group) minimal-norm

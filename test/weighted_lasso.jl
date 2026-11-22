@@ -19,9 +19,10 @@ module WeightedLassoTests
 # guarantee for the BLAS kernel in use).
 #
 # Tolerances are stated relative to each solver's own tolerance. For PGD and APG a stop counts only where each
-# coordinate passes the coordinatewise check (STOP-21): its computed score is below τ sᵢ, with τ = max(gradtol,
-# 64 eps(T)) and sᵢ = α‖Xᵢ‖‖Xx - y‖, or at most 0 for a zero column (and at x = 0 with y = 0); the
-# check is Gᵢ - eGᵢ <= τ (1 + 4 eps) (sᵢ + esᵢ) for every coordinate (`coordinate_bound`), where Gᵢ is the entry of G
+# coordinate passes the coordinatewise check (STOP-21): its computed score is below its threshold, whose exact-arithmetic
+# formula is τ sᵢ with τ = max(gradtol, 64 eps(T)) and sᵢ = α‖Xᵢ‖‖Xx - y‖ (STOP-21 gives the working score, the stored
+# loss value and the guard), or at most 0 for a zero column (and at x = 0 with y = 0); the check here is
+# Gᵢ - eGᵢ <= τ (1 + 4 eps) (sᵢ + esᵢ) for every coordinate (`coordinate_bound`), where Gᵢ is the entry of G
 # below and eGᵢ, esᵢ the rounding allowances of the computed score and scale. For CD with the default `relative = true` and y ≠ 0, `converged` means that
 # every coordinate change of the last full pass, scaled, is below tol times the response scale:
 # |Δxₖ| ‖Xₖ‖ < tol ‖y‖. In exact arithmetic each coordinate of that pass was the minimizer in its coordinate when it was
@@ -114,7 +115,7 @@ end
 # for every coordinate, with τ = max(gradtol, 64 eps(T)) and the first-order rounding allowances of coordparts (a zero
 # column has sᵢ = 0 and so needs Gᵢ <= eGᵢ); an estimate under that error model, not a bound that every kept computed
 # stop satisfies. Returns that verdict, maxᵢ (tᵢ + eGᵢ), a bound on the exact ‖G‖∞ where the verdict holds, and the
-# largest ratio of Gᵢ - eGᵢ to tᵢ.
+# largest ratio of max(Gᵢ - eGᵢ, 0) to tᵢ (where tᵢ = 0: Inf when Gᵢ > eGᵢ, 0 otherwise).
 function coordinate_bound(X, y, α, λ0, w, x, gradtol, ::Type{T}) where T
   G, eG, sc, es = coordparts(X, y, α, λ0, w, x, T)
   big256() do

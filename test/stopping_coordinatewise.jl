@@ -1,16 +1,17 @@
 module StoppingCoordinatewiseTests
 # The coordinatewise stationarity check of ProximalGradientDescent and AccProxGradDescent for dense vector least
-# squares with NormL1 or ElasticNet, with or without weights (STOP-21, #487). Coordinate i passes when its signed
-# score Gᵢ = kkt_violation(gT, ∇f(x), x, i) is finite and below tᵢ = T(τ √(a nᵢ² + λ2) √(2Φ)), a threshold that is
-# finite and at least floatmin(T), with τ = T(max(gradtol, 64 eps(T))), a = Float64(α), nᵢ = ‖Xᵢ‖ and
-# Φ = f(x) + (λ2/2)‖x‖² from the stored loss value. Two exact zero scales pass when the score is finite and at most 0:
-# (A) a column of stored ±0 entries when λ2 is a stored ±0, (B) x and y with stored ±0 entries. Every other zero or
-# nonfinite threshold refuses. The tests below check the zero-scale policy (signed zeros and subnormals under gradual
-# underflow; with subnormals flushed, where the decisions are unspecified, only that the setting is restored), the
-# range of the threshold arithmetic against a BigFloat recomputation, the decisions of the rule on
-# fixtures where the λmax-based rule stopped with a large objective excess, the work of a check, and that the other
-# problems keep the λmax-based check. Accuracy is measured from the raw data in 256-bit BigFloat; the active-set
-# reference below takes its starting support from a CD solve and is accepted only after its BigFloat checks.
+# squares with NormL1 or ElasticNet, with or without weights (STOP-21, #487). Coordinate i passes when its computed
+# signed score Gᵢ = kkt_violation(gT, ∇f(x), x, i) is finite and below its computed threshold tᵢ, the working
+# evaluation (STOP-21) of T(τ √(a nᵢ² + λ2) √(2Φ)), with τ = T(max(gradtol, 64 eps(T))), a = Float64(α), nᵢ = ‖Xᵢ‖
+# and Φ = f(x) + (λ2/2)‖x‖² from the stored loss value. Two exact zero scales pass when the score is finite and at
+# most 0: (A) a column of stored ±0 entries when λ2 is a stored ±0, (B) x and y with stored ±0 entries. Outside A and
+# B, a threshold that is not finite or is below floatmin(T) refuses. The tests below check the zero-scale policy (signed
+# zeros and subnormals under gradual underflow; with subnormals flushed, where the decisions are unspecified, only that
+# the fixture calls finish and that the setting is restored), the range of the threshold arithmetic against a BigFloat
+# recomputation, the decisions of the rule on fixtures where the λmax-based rule stopped with a large objective excess,
+# the work of a check, and that the other problems keep the λmax-based check. Accuracy is measured from the raw data in
+# 256-bit BigFloat; the active-set reference below takes its starting support from a CD solve and is accepted only
+# after its BigFloat checks.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
 
@@ -29,7 +30,7 @@ function check_at(method, f, g, x, options = DEFAULT)
   PS._stationary!(state, f, g, options), state
 end
 
-# Each method, T and the decision at x
+# The decisions at x, in the order of METHODS
 decisions(f, g, x, options = DEFAULT) = [check_at(m, f, g, x, options)[1] for m in METHODS]
 
 # The value of an _SE (significand × 2^exponent) as a BigFloat
@@ -441,7 +442,7 @@ function problem(T, rng = Xoshiro(21))
   X, y, x
 end
 
-@testset "counters: PGD adds none, APG adds its gradient at x; no λmax; no allocation after the first check" begin
+@testset "counters: PGD adds none, APG adds its gradient at x; no λmax; no allocation after the first check for these level types" begin
   for T in (Float64, Float32)
     X, y, x = problem(T)
     raw = LeastSquaresLoss(y, X)

@@ -39,7 +39,8 @@ function penalty(::Type{T}, X, y, α, frac) where T
   max(T(frac * λmax(X, y, α)), nextfloat(zero(T)))
 end
 
-# The exact coordinatewise ratio of the check (STOP-21) at x: the largest over the coordinates of
+# An independent estimate, with explicit rounding allowances, of the coordinatewise ratio of the check (STOP-21) at
+# x: the largest over the coordinates of
 #   (Gᵢ - eGᵢ) / (sᵢ (1 + (n + p + 4) u) + √(α‖Xᵢ‖² + λ2) √α ‖e‖),
 # with Gᵢ the clipped score of the KKT conditions 0 ∈ α Xᵀ(X x - y) + λ2 x + λ1 ∂‖x‖₁ (max(|gᵢ| - λ1, 0) where
 # xᵢ = 0, |gᵢ + λ1 sign xᵢ| elsewhere), sᵢ = √(α‖Xᵢ‖² + λ2) √(α‖Xx - y‖² + λ2‖x‖²), and u = eps(T) for the data
@@ -125,7 +126,7 @@ end
       # PGD's backtracking test forms the squared step norm, which overflows for a step beyond about
       # 1.3e154 (#364), and decides such a trial on the step scaled by a power of two. The first iteration makes
       # at least two trials, and the step it leaves in delta_x is unscaled and has an overflowing squared norm.
-      # PGD converges.
+      # PGD converges at the positive level.
       st = PS.initial_state(ProximalGradientDescent(), DEFAULT, f, g, zeros(1))
       PS.update_state!(f, g, st, ProximalGradientDescent())
       @test st.backtrack_steps >= 2 && isinf(PS._norm(st.delta_x)^2) && all(isfinite, st.delta_x)
@@ -259,9 +260,9 @@ end
   # f(x0) = 0 is finite and the ridge value (λ2/2) x0² = 5e39 is above floatmax(Float32). The loss curvature
   # α‖X‖_F² = 1e-40 gives a start of floatmin(Float32), so the first step is large and the ridge shrinks it
   # to a point with a finite objective. Both methods approach the minimizer x* = 1e-20 / (1 + 1e-40) of
-  # F(x) = (1/2)(1e-20 x - 1)² + x²/2 without an error. The coordinatewise check (STOP-21) keeps a stop where
-  # |∇F(x)| = |(1 + 1e-40)(x - x*)| is below τ √(1 + 1e-40) √(2Φ), with Φ ≈ ½, so |x - x*| below about τ = 1e-5:
-  # the objective, not the relative accuracy of the tiny x*, is what the check bounds.
+  # F(x) = (1/2)(1e-20 x - 1)² + x²/2 without an error. In exact arithmetic, with the approximate scale Φ ≈ ½, the
+  # coordinatewise test (STOP-21) holds where |∇F(x)| = |(1 + 1e-40)(x - x*)| is below τ √(1 + 1e-40) √(2Φ), that is
+  # |x - x*| below about τ = 1e-5; it does not ask for relative accuracy of the tiny x*.
   T = Float32
   X, y, x0 = reshape(T[1e-20], 1, 1), T[1], T[1e20]
   g = ElasticNet(zero(T), one(T))
