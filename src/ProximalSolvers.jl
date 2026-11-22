@@ -39,7 +39,7 @@ using LinearAlgebra
 using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, NormL2, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, IndBallL1, ElasticNet, SqrNormL2, NormLinf, NormL2, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   prox!, value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
@@ -48,15 +48,16 @@ include("line_searches.jl")
 using .LineSearches
 export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, LogisticADMM, solve!, ProximalSolver,
        ProximalOptions, ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, LogisticADMMResults, OptimizationState,
-       OptimizationTrace
+       OptimizationTrace, NumericalFeasibility
 @static if VERSION >= v"1.11.0-DEV.469"
-  eval(Expr(:public, :OptimizationResults, :LineSearches))
+  eval(Expr(:public, :OptimizationResults, :LineSearches, :NumericalFeasibilityReport))
 end
 include("types.jl")
 include("solve.jl")
 include("solvers/image_models.jl")
 include("solvers/proximal_gradient_descent.jl")
 include("solvers/accelerated_proximal_gradient_descent.jl")
+include("solvers/l1ball.jl")
 include("solvers/admm.jl")
 include("solvers/logdet_proximal_gradient.jl")
 include("cd/models.jl")

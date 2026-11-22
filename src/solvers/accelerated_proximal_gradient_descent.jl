@@ -245,6 +245,7 @@ end
 # In exact arithmetic the image inequality is, for least squares, equivalent to
 # f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + (1 + 4eps)² L/2 ‖x - y‖²; for a logistic loss (α = ¼) it implies that inequality (APG-08).
 function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
+    _begin_trials!(g)
     f_y = _value_and_gradient!(state.grad_f_y, state.y, f, state.z_y, state.dz)
     state.f_calls += 1
     state.grad_calls += 1
@@ -256,10 +257,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
     end
     while true
       _step!(state.xhat, state.y, state.grad_f_y, state.L)
-      state.g_x = convert(T, value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      state.f_x = _value!(state.x, f, state.model, state.z_x)
-      state.prox_calls += 1
-      state.f_calls += 1
+      _trial!(state, f, g)
 
       _sub!(state.xhat, state.x, state.y)
       state.backtrack_steps += 1
@@ -372,8 +370,9 @@ restores the last accepted `x` and rethrows, without a transaction guarantee for
 internal counters. The result shares `x`.
 """
 function solve!(x, f, g, method::AccProxGradDescent,
-                options::ProximalOptions = ProximalOptions(); kwargs...)
+                options::ProximalOptions = ProximalOptions(); feasibility = nothing, kwargs...)
   _check_keywords(kwargs)
+  _numerical_route(g, feasibility) && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :gradient)
   _check_gradient_problem(x, f, g, :gradient)
   _check_method(method, eltype(x))
   _check_bound_size(f, x)

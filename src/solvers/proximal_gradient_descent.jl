@@ -219,15 +219,13 @@ function update_state!(
     _copyto!(state.grad_f_x_previous, state.grad_f_x)
     state.L *= method.ls.α
     state.verified_rejection = false
+    _begin_trials!(g)
 
     # backtracking loop
     while true
       # find next point
       _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
-      state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      state.f_x = _value!(state.x, f, state.model, state.z_x)
-      state.prox_calls += 1
-      state.f_calls += 1
+      _trial!(state, f, g)
 
       # check if enough progress is done
       backtrack!(state, method.ls, f, g) && break
@@ -408,8 +406,9 @@ and [CD's change test](https://mlakolar.github.io/ProximalSolvers.jl/dev/contrac
 - [Group steps and private storage](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-group/#CDG-01).
 """
 function solve!(x, f, g, method::ProximalGradientDescent,
-                options::ProximalOptions = ProximalOptions(); kwargs...)
+                options::ProximalOptions = ProximalOptions(); feasibility = nothing, kwargs...)
   _check_keywords(kwargs)
+  _numerical_route(g, feasibility) && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :pgd)
   _check_gradient_problem(x, f, g, :pgd)
   t0 = time()
   g_work = _working_gradient_penalty(g, eltype(x))

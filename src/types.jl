@@ -206,6 +206,90 @@ function Base.show(io::IO, tr::OptimizationTrace)
 end
 
 
+"""
+    NumericalFeasibility(; coefficient_rtol = nothing, coefficient_atol = 0,
+                         objective_rtol = nothing, mapping_rtol = nothing)
+
+Opt-in for `IndBallL1(r)` with [`ProximalGradientDescent`](@ref) and
+[`AccProxGradDescent`](@ref), passed as the `feasibility` keyword of [`solve!`](@ref).
+Without it, `solve!` refuses `IndBallL1`.
+
+```julia
+using ProximalBase, ProximalSolvers
+X = [1.0 0.25; 0.25 1.0; 0.5 -0.5]
+y = [1.0, -0.5, 0.25]
+beta = zeros(2)
+result = solve!(beta, LeastSquaresLoss(y, X), IndBallL1(0.5), ProximalGradientDescent();
+                feasibility = NumericalFeasibility())
+result.converged, result.approximate_solution, result.feasibility.membership
+```
+
+The tolerances set the numerical feasibility cap on `‖x‖₁ - r` and the support-gap and
+mapping budgets of the stopping check. A `nothing` takes the default for the coefficient type
+`T` when `solve!` is called: `coefficient_rtol = 1e-5`, `objective_rtol = 1e-5` and
+`mapping_rtol = 1e-4` for `Float32`, and `1e-10`, `1e-9` and `1e-8` for `Float64`; a
+`nothing` for `coefficient_atol` takes its default `0`. Before writing to `x`, `solve!` refuses
+with an `ArgumentError` a tolerance that is not a real number or `nothing`, coefficient
+tolerances that are not finite and nonnegative, and objective or mapping tolerances that are not
+finite and positive, each judged as given and after conversion to `Float64`. Zero coefficient
+tolerances are accepted.
+
+# Extended help
+
+A trial is accepted only when its widened `Float64` ℓ1 mass is below `r + cap` by more
+than a rounding allowance, so an accepted iterate can lie outside the ball. `converged = true`
+requires a passing stopping check at a returned point classified inside the ball; a passing check
+at a point classified outside or not classified sets `approximate_solution = true` and
+`converged = false`. The inputs and refusals are [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12),
+the decision and budgets [FP-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/working-precision/#FP-05),
+the trials [PGD-09](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-iteration/#PGD-09),
+the stopping check [STOP-22](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-22)
+and the result fields [RES-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-04).
+"""
+struct NumericalFeasibility{A, B, C, D}
+  coefficient_rtol::A
+  coefficient_atol::B
+  objective_rtol::C
+  mapping_rtol::D
+end
+
+NumericalFeasibility(; coefficient_rtol = nothing, coefficient_atol = 0, objective_rtol = nothing,
+                     mapping_rtol = nothing) =
+  NumericalFeasibility(coefficient_rtol, coefficient_atol, objective_rtol, mapping_rtol)
+
+"""
+    NumericalFeasibilityReport
+
+The `feasibility` field of an [`OptimizationResults`](@ref ProximalSolvers.OptimizationResults) returned
+with the opt-in `IndBallL1` route of [`NumericalFeasibility`](@ref); the other routes store `nothing`.
+
+- `membership`: `:inside`, `:outside` or `:unknown`, the classification of the returned `x` by its
+  widened `Float64` ℓ1 mass `s` against the radius `r`, with the rounding allowance of
+  [FP-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/working-precision/#FP-05).
+- `margin`: `s - r`, in `Float64`.
+- `cap`: the numerical feasibility cap of the solve.
+- `gap`, `gap_noise`, `mapping`, `map_noise`: the support gap and fixed-step mapping of the last full
+  stopping check, with their rounding allowances; `NaN` when no full check ran.
+- `gap_budget`, `mapping_budget`: the budgets of the solve, which a full check compares with
+  `gap + gap_noise` and `mapping + map_noise`.
+- `checks`: the number of full checks of the solve.
+
+The field definitions are [RES-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-04)
+and [STOP-22](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-stopping/#STOP-22).
+"""
+struct NumericalFeasibilityReport
+  membership::Symbol
+  margin::Float64
+  cap::Float64
+  gap::Float64
+  gap_noise::Float64
+  gap_budget::Float64
+  mapping::Float64
+  map_noise::Float64
+  mapping_budget::Float64
+  checks::Int
+end
+
 
 """
     OptimizationResults
@@ -214,7 +298,9 @@ Result from plain or accelerated proximal gradient descent. `minimizer` aliases
 the caller's coefficient array. `minimum` is the reported objective there.
 `iterations` counts steps. `converged` means that a stopping proposal passed
 the applicable computed stationarity check. Copy `minimizer` before reusing the
-coefficient array for another solve.
+coefficient array for another solve. On the opt-in `IndBallL1` route of
+[`NumericalFeasibility`](@ref), `minimum` can be `Inf` or `NaN`, and
+`approximate_solution`, `smooth_minimum` and `feasibility` report the route's outcome.
 
 `iteration_converged` reports reaching the iteration limit, not successful
 optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
@@ -238,6 +324,18 @@ optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.
 - `stagnated`: the documented Float32 PGD stagnation exit; this is not a
   convergence or accuracy certificate, and other exit flags can also be true.
 - `gap`: `NaN`, because this result type does not compute a certified duality gap.
+- `approximate_solution`: on the `IndBallL1` route, the full stopping check passed at a point
+  classified outside the ball or not classified; `false` on the other routes.
+- `smooth_minimum`: the smooth loss at `minimizer` as the solver last computed it; on the other
+  routes `minimum` adds the penalty value to it.
+- `feasibility`: a [`NumericalFeasibilityReport`](@ref) on the `IndBallL1` route, `nothing` on the
+  other routes.
+
+On the `IndBallL1` route, `minimum` is the smooth loss when the returned point is classified
+inside the ball, `Inf` when it is classified outside and `NaN` when it is not classified; the
+trace, the callback's objective, `f_residual` and `f_increased` use the smooth loss, and
+`allow_f_increases = false` does not end the solve on an increase. See
+[RES-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-04).
 
 For `NormL1`, `ElasticNet` and `GroupNormL2`, the stop check uses the applicable
 computed KKT residual; `NormLinf` uses the generic proximal-gradient check.
@@ -273,6 +371,9 @@ mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{
     call_limit_reached::Bool
     stagnated::Bool
     gap::Float64
+    approximate_solution::Bool
+    smooth_minimum::T
+    feasibility::Union{Nothing, NumericalFeasibilityReport}
 
     OptimizationResults{O, T, N, M, X}(fields...) where {O, T, N, M, X} = new{O, T, N, M, X}(fields...)
 end
@@ -300,6 +401,9 @@ grad_calls(r::OptimizationResults) = r.grad_calls
 prox_calls(r::OptimizationResults) = r.prox_calls
 call_limit_reached(r::OptimizationResults) = r.call_limit_reached
 stagnated(r::OptimizationResults) = r.stagnated
+approximate_solution(r::OptimizationResults) = r.approximate_solution
+smooth_minimum(r::OptimizationResults) = r.smooth_minimum
+feasibility(r::OptimizationResults) = r.feasibility
 
 
 function _show_minimizer(io::IO, x::AbstractArray)
@@ -328,9 +432,22 @@ function Base.show(io::IO, r::OptimizationResults)
     @printf io "   * Reached a limit on the number of calls: %s\n" call_limit_reached(r)
     @printf io "   * Stopped at numerical stagnation: %s\n" stagnated(r)
     isnan(r.gap) || @printf io "   * relative duality gap %.2e\n" r.gap
+    r.feasibility === nothing || _show_feasibility(io, r)
     @printf io " * Backtracking steps: %d\n" backtrack_steps(r)
     @printf io " * f(x) calls: %d\n" f_calls(r)
     @printf io " * ∇f(x) calls: %d\n" grad_calls(r)
     @printf io " * prox calls: %d\n" prox_calls(r)
+    return
+end
+
+# The lines of the IndBallL1 route (RES-04), printed when the result carries a feasibility report
+function _show_feasibility(io::IO, r::OptimizationResults)
+    q = r.feasibility
+    @printf io "   * Approximate solution (check passed, not classified inside the ball): %s\n" approximate_solution(r)
+    @printf io " * Smooth minimum: %e\n" smooth_minimum(r)
+    @printf io " * Numerical feasibility: membership %s, ‖x‖₁ - r = %.2e, cap %.2e\n" q.membership q.margin q.cap
+    @printf io "   * support gap %.2e + noise %.2e, budget %.2e\n" q.gap q.gap_noise q.gap_budget
+    @printf io "   * mapping %.2e + noise %.2e, budget %.2e\n" q.mapping q.map_noise q.mapping_budget
+    @printf io "   * full stopping checks: %d\n" q.checks
     return
 end
