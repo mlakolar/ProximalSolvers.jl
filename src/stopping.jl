@@ -9,12 +9,22 @@ module Stopping
 
 export IterateChange, ObjectiveChange, UserStop, AnyOf, AllOf, MaxIterations, termination
 
+# Compare finite stored values even when the thread flushes subnormal operands.
+# Ignoring the sign for a pair of zeros gives numeric equality for signed zeros.
+equal_bits(a, b) = a == b || iszero((a | b) << 1)
+stored_equal(a::Float32, b::Float32) = equal_bits(reinterpret(UInt32, a), reinterpret(UInt32, b))
+stored_equal(a::Float64, b::Float64) = equal_bits(reinterpret(UInt64, a), reinterpret(UInt64, b))
+
+stored_zero(value::Real) = iszero(value)
+stored_zero(value::Union{Float32,Float64}) = stored_equal(value, zero(value))
+
 function tolerance(value::Real, name)
     converted = Float64(value)
-    isfinite(value) && value >= 0 && isfinite(converted) &&
-        (iszero(value) || converted > 0) ||
+    exact_zero = stored_zero(value)
+    isfinite(value) && (exact_zero || !signbit(value)) && isfinite(converted) &&
+        (exact_zero || !stored_zero(converted)) ||
         throw(ArgumentError("$name must be finite, nonnegative and representable in Float64 without rounding to zero"))
-    iszero(converted) ? 0.0 : converted
+    exact_zero ? 0.0 : converted
 end
 
 """
@@ -121,7 +131,8 @@ bind_rule(rule::AllOf, context) = AllOf(map(child -> bind_rule(child, context), 
 # A checkpoint supplies objective history from the solver. Movement is shared
 # lazily across leaves, and both slots expire before the next decision.
 mutable struct MovementCache
-    norms::Union{Nothing,Tuple{Float64,Float64}}
+    distance::Union{Nothing,Float64}
+    scale::Union{Nothing,Float64}
     unchanged::Union{Nothing,Bool}
 end
 
@@ -134,14 +145,15 @@ end
 user_context(k, objective) = (; iteration=k, objective)
 prepare(rule, limit::MaxIterations, ::Type{T}) where {T} =
     Monitor(rule === nothing ? nothing : bind_rule(rule, user_context(0, zero(T))),
-            limit, MovementCache(nothing, nothing))
+            limit, MovementCache(nothing, nothing, nothing))
 
-function movement_norms end
+function movement_distance end
+function movement_scale end
 function same_iterate end
 
 @inline function atmost(value, atol, rtol, scale)
-    threshold = fma(rtol, scale, atol)
-    status = if !isfinite(value) || !isfinite(threshold) || !isfinite(scale)
+    threshold = stored_zero(rtol) ? atol : fma(rtol, scale, atol)
+    status = if !isfinite(value) || !isfinite(threshold)
         :invalid
     else
         value <= threshold ? :pass : :fail
@@ -153,19 +165,24 @@ boolean_observation(pass::Bool) = Observation(pass ? :pass : :fail, pass, true, 
 
 function assess(rule::IterateChange, point, cache, at_limit)
     (point.iteration == 0 || at_limit) && return unchecked
-    if iszero(rule.atol) && iszero(rule.rtol)
+    if stored_zero(rule.atol) && stored_zero(rule.rtol)
         equal = cache.unchanged
         equal === nothing && (cache.unchanged = equal = same_iterate(point))
         return boolean_observation(equal)
     end
-    norms = cache.norms
-    norms === nothing && (cache.norms = norms = movement_norms(point))
-    value, scale = norms
+    value = cache.distance
+    value === nothing && (cache.distance = value = movement_distance(point))
+    stored_zero(rule.rtol) && return atmost(value, rule.atol, rule.rtol, missing)
+    scale = cache.scale
+    scale === nothing && (cache.scale = scale = movement_scale(point))
     atmost(value, rule.atol, rule.rtol, scale)
 end
 
 function assess(rule::ObjectiveChange, point, cache, at_limit)
     point.iteration == 0 && return unchecked
+    if stored_zero(rule.atol) && stored_zero(rule.rtol)
+        return boolean_observation(stored_equal(point.objective, point.previous_objective))
+    end
     current, previous = Float64(point.objective), Float64(point.previous_objective)
     atmost(abs(current - previous), rule.atol, rule.rtol, max(abs(current), abs(previous)))
 end
@@ -206,7 +223,8 @@ evaluate!(tree::AnyOf, point, cache, at_limit) = any_pass!(tree.rules, point, ca
 evaluate!(tree::AllOf, point, cache, at_limit) = all_pass!(tree.rules, point, cache, at_limit, :user)
 
 function check!(monitor, point)
-    monitor.movement.norms = nothing
+    monitor.movement.distance = nothing
+    monitor.movement.scale = nothing
     monitor.movement.unchanged = nothing
     at_limit = point.iteration == monitor.limit.n
     reason = evaluate!(monitor.root, point, monitor.movement, at_limit)

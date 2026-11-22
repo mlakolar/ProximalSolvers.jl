@@ -548,7 +548,8 @@ For successive accepted coefficients `p, x`, `IterateChange` compares
 `abs(F(x)-F(p))` with `atol + rtol * max(abs(F(x)), abs(F(p)))`, where `F`
 is the original composite objective. Both comparisons are inclusive. With
 two zero tolerances, `IterateChange` uses elementwise equality by value, and
-`ObjectiveChange` compares the computed objective values for equality. Both
+`ObjectiveChange` compares the stored objective values for equality. These
+exact checks compare the stored bits, equating the two signs of zero. Both
 progress conditions are unchecked at initialization, where no predecessor
 exists. Step acceptance records the predecessor and the objective independently
 of which leaves are evaluated.
@@ -558,11 +559,13 @@ positive tolerance that rounds to zero, or a tolerance that converts to a
 nonfinite value, is refused. Each `F` is the native sum of the cached loss and
 penalty values, widened before the change comparison. For Float32 coefficients,
 the differences and squared norms for movement are accumulated in Float64.
-For Float64 coefficients, use the Euclidean norms of the accepted displacement
-and the two coefficients. The threshold is formed with one rounded
-multiply-add in Float64. A nonfinite measurement, scale or threshold is
-invalid and cannot pass. The comparison uses the computed values, including
-any rounding of a threshold to zero. No tolerance floor is applied.
+For Float64 coefficients, use Euclidean norms of the accepted displacement
+and, when the relative term is selected, the two coefficients. A zero
+relative tolerance uses `atol` directly. Otherwise the threshold is formed
+with one rounded multiply-add in Float64. A nonfinite measurement or
+threshold is invalid and cannot pass. A positive-tolerance comparison uses
+the computed values under the thread's floating-point mode, including any
+rounding of a threshold to zero. No tolerance floor is applied.
 
 `UserStop(predicate)` receives an immutable named tuple with `iteration` and
 `objective` (native type). Return `true` to request a stop or `false` to continue.

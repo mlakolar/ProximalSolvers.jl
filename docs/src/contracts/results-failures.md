@@ -220,16 +220,19 @@ in [RES-03](@ref).
 `path` from the root (empty for a root leaf), rule type `name`, `evidence`
 (`:progress` or `:user`), `status` (`:pass`, `:fail`, `:not_checked` or
 `:invalid`), `value`, `threshold` and `scale` at the final `iteration`.
-An unchecked leaf has missing measurement fields. Predicates and exact iterate
-equality report a Boolean value with threshold `true` and a missing scale.
+An unchecked leaf has missing measurement fields. Predicates and exact
+equality checks report a Boolean value with threshold `true` and a missing scale.
+An absolute-only iterate comparison also has a missing scale.
 `winning_branch` lists the paths of the passing leaves that settled the
 expression, using the first passing child of each `AnyOf` and the winners of
 each child of `AllOf`. It is `nothing` for an unfulfilled expression.
 
-`counts` reports `f_calls`, `grad_calls`, `prox_calls`, `backtrack_steps` and
+`counts` reports `f_calls`, `grad_calls`, `g_calls`, `prox_calls`, `backtrack_steps` and
 `rejected_trials`. `f_calls` and `grad_calls` count smooth value and gradient
-computations, respectively. A fused computation increments both. `prox_calls`
-counts penalty value/prox trials including rejections, and `rejected_trials`
+computations, respectively. A fused computation increments both. `g_calls`
+counts penalty values, including the value at initialization. `prox_calls`
+counts penalty value/prox trials including rejections. Each contributes to both
+counters, and `rejected_trials`
 is the trial count minus accepted iterations. `backtrack_steps` keeps the
 PGD line-search convention of [RES-02](@ref). Initialization contributes one
 smooth value and gradient and no prox trial. A zero-cap result has zero counts.

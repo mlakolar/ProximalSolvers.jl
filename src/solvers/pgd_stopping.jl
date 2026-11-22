@@ -9,23 +9,24 @@ function PGDStoppingPoint(state, k)
     PGDStoppingPoint(state, k, state.f_x + state.g_x, state.f_x_previous + state.g_x_previous)
 end
 
-Stopping.same_iterate(point::PGDStoppingPoint) = _unchanged(point.state.x, point.state.x_previous)
-
-function Stopping.movement_norms(point::PGDStoppingPoint{Float64})
-    state = point.state
-    norm(state.delta_x), max(norm(state.x), norm(state.x_previous))
+function Stopping.same_iterate(point::PGDStoppingPoint)
+    (; x, x_previous) = point.state
+    all(i -> Stopping.stored_equal(x[i], x_previous[i]), eachindex(x, x_previous))
 end
 
-function Stopping.movement_norms(point::PGDStoppingPoint{Float32})
+Stopping.movement_distance(point::PGDStoppingPoint{Float64}) = norm(point.state.delta_x)
+_pgd_policy_norm(x::Vector{Float64}) = norm(x)
+_pgd_policy_norm(x::Vector{Float32}) = sqrt(sum(v -> abs2(Float64(v)), x))
+Stopping.movement_scale(point::PGDStoppingPoint) =
+    max(_pgd_policy_norm(point.state.x), _pgd_policy_norm(point.state.x_previous))
+
+function Stopping.movement_distance(point::PGDStoppingPoint{Float32})
     state = point.state
-    dx2, x2, previous2 = 0.0, 0.0, 0.0
+    dx2 = 0.0
     @inbounds @simd for i in eachindex(state.x, state.x_previous)
-        x, previous = Float64(state.x[i]), Float64(state.x_previous[i])
-        dx2 += abs2(x - previous)
-        x2 += abs2(x)
-        previous2 += abs2(previous)
+        dx2 += abs2(Float64(state.x[i]) - Float64(state.x_previous[i]))
     end
-    sqrt(dx2), sqrt(max(x2, previous2))
+    sqrt(dx2)
 end
 
 """
@@ -77,8 +78,10 @@ end
 
 function _pgd_policy_limit(options, limits)
     defaults = ProximalOptions()
+    options.callback === nothing ||
+        throw(ArgumentError("ProximalOptions.callback must be nothing with explicit stopping or limits. Use UserStop for a predicate."))
     for name in (:ftol, :xtol, :gradtol, :allow_f_increases, :f_calls_limit,
-                 :grad_calls_limit, :prox_calls_limit, :time_limit, :callback)
+                 :grad_calls_limit, :prox_calls_limit, :time_limit)
         getproperty(options, name) == getproperty(defaults, name) ||
             throw(ArgumentError("ProximalOptions.$name must have its default value with explicit stopping or limits"))
     end
@@ -91,7 +94,8 @@ end
 
 function _pgd_policy_result(method, x, objective, increased, trace, monitor, reason, k,
                             f_calls, grad_calls, prox_calls, backtrack_steps)
-    counts = (; f_calls, grad_calls, prox_calls, backtrack_steps, rejected_trials=prox_calls-k)
+    g_calls = ismissing(objective) ? 0 : prox_calls + 1
+    counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials=prox_calls-k)
     decision = Stopping.report(monitor, reason, k, counts)
     PGDPolicyResult{typeof(method),eltype(x),typeof(x),typeof(decision)}(
         method, x, objective, k, false, decision.limit_reached, increased, reason === :stalled,

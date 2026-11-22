@@ -19,6 +19,7 @@ unit_step() = ProximalGradientDescent(ls=PS.LineSearches.BackTracking(α=1.0))
     @test map(o -> o.status, t.observations) == (:not_checked, :not_checked, :pass)
     @test calls == [0] && r.minimum === T(0.5) && PS.minimizer(r) === x
     @test (PS.f_calls(r), PS.grad_calls(r), PS.prox_calls(r)) == (1, 1, 0)
+    @test t.counts.g_calls == 1
 
     empty!(calls)
     r = solve!(x, f, g, method; stopping=user, limits=MaxIterations(0))
@@ -67,7 +68,7 @@ end
     for (result, value) in (run_policy(0), run_policy(-1), fetch(first_run), fetch(second_run))
         @test result.iteration == 2 && result.reason == :rule && result.satisfied
         @test result.winning_branch == ((1, 2), (2,))
-        @test result.observations[2].value == 0 && value == T(0.21875)
+        @test result.observations[2].value === true && value == T(0.21875)
     end
 
     x = T[0]
@@ -78,6 +79,25 @@ end
                        UserStop(c -> c.iteration == 1)))
     @test termination(r).reason == :user
     @test termination(r).observations[1].status == :invalid
+end
+
+@testset "Exact change uses stored values with subnormal flushing" begin
+    old = get_zero_subnormals()
+    tiny = nextfloat(0.0)
+    try
+        if set_zero_subnormals(true)
+            f = LeastSquaresLoss([0.0], zeros(1, 1))
+            x = [tiny]
+            r = solve!(x, f, NormL1(1.0), unit_step(); stopping=IterateChange(), limits=MaxIterations(3))
+            @test r.iterations == 2 && termination(r).satisfied
+            @test reinterpret(UInt64, x[1]) == 0
+            point = (iteration=1, objective=tiny, previous_objective=0.0)
+            @test PS.Stopping.assess(ObjectiveChange(), point, nothing, false).status == :fail
+            @test_throws ArgumentError ObjectiveChange(atol=-tiny)
+        end
+    finally
+        set_zero_subnormals(old)
+    end
 end
 
 @testset "Composition and tie at the cap" begin
@@ -123,9 +143,25 @@ end
     t = termination(r)
     @test visited == [(0, 0.5), (1, 0.0)]
     @test t.iteration == 1 && t.reason == :rule && t.satisfied && !r.converged
-    @test t.counts == (f_calls=5, grad_calls=2, prox_calls=3, backtrack_steps=3, rejected_trials=2)
+    @test t.counts == (f_calls=5, grad_calls=2, g_calls=4, prox_calls=3, backtrack_steps=3, rejected_trials=2)
     @test t.observations[2].value == t.observations[2].threshold == 0.5
     @test x == [1.0] && r.minimum == (x[1] - 1)^2 / 2
+end
+
+@testset "Absolute movement requires a finite distance" begin
+    # The two unobserved coefficients stay fixed. Their Euclidean norm
+    # overflows, but the displacement is exactly 1 in the first coordinate.
+    f = LeastSquaresLoss([1.0], [1.0 0.0 0.0])
+    x = [0.0, 1.5e308, 1.5e308]
+    r = solve!(x, f, IndNonnegative(), unit_step();
+               stopping=AnyOf(IterateChange(rtol=1), IterateChange(atol=2)),
+               limits=MaxIterations(2))
+    t = termination(r)
+    @test t.iteration == 1 && t.satisfied && x == [1.0, 1.5e308, 1.5e308]
+    relative, absolute = t.observations
+    @test relative.status == :invalid && isinf(relative.scale)
+    @test absolute.status == :pass && absolute.value == 1 && absolute.threshold == 2
+    @test ismissing(absolute.scale)
 end
 
 @testset "An accepted objective increase leaves the selected policy in charge" begin
@@ -147,7 +183,7 @@ end
     end
     for kw in ((ftol=0.0,), (xtol=1e-4,), (gradtol=1e-4,), (allow_f_increases=true,),
                (f_calls_limit=1,), (grad_calls_limit=1,), (prox_calls_limit=1,), (time_limit=0.5,),
-               (callback=_ -> false,))
+               (callback=_ -> false,), (callback=missing,))
         refuses(f, g, method, ProximalOptions(; kw...); stopping=IterateChange())
     end
     refuses(f, g, method, ProximalOptions(maxiter=4); limits=MaxIterations(3))
