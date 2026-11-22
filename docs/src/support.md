@@ -155,8 +155,8 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
   iterate can lie outside the ball by up to the cap ([FP-05](@ref)).
   `converged = true` requires the full check of [STOP-22](@ref) to pass at a point classified inside
   the ball; a passing check elsewhere sets `approximate_solution = true`, with `minimum` `Inf` or `NaN`
-  ([RES-04](@ref)). The tests check tied, rounded, singleton and correlated fixtures with both methods
-  against an independent 256-bit evaluation of the violation, support gap, mapping and loss change.
+  ([RES-04](@ref)). The tests score the successes on tied, rounded, singleton and correlated fixtures
+  with an independent 256-bit evaluation.
 
 - **(q)** `NormL2(lambda)` is the Euclidean norm of the whole coefficient vector. PGD and APG accept
   it for a dense `Vector{T}`, raw or one positive `Scaled` least squares, and a level that is
@@ -382,9 +382,11 @@ is accepted only if its computed decision passes the numerical cap, so an accept
 outside the ball by up to the cap, which the tolerances set and which is at most `r`. The route reports
 convergence or an approximate solution only when a full check of a support gap and a fixed-step
 mapping meets budgets set by the tolerances; the limits and the callback end a solve as for the other
-penalties. Read `converged`, `approximate_solution` and `feasibility.membership` together: at a
-solution on the boundary, the returned point can be within the rounding allowance of the radius; it is
-then not classified, and a passing check reports an approximate solution.
+penalties.
+
+Read `converged`, `approximate_solution` and `feasibility.membership` together: at a solution on the
+boundary, the returned point can be within the rounding allowance of the radius; it is then not
+classified, and a passing check reports an approximate solution.
 
 The rules are [IN-12](@ref) (inputs and tolerances), [FP-05](@ref) (arithmetic), [STOP-22](@ref)
 (stop) and [RES-04](@ref) (result); the

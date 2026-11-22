@@ -272,9 +272,8 @@ with the opt-in `IndBallL1` route of [`NumericalFeasibility`](@ref); the other r
 - `margin`: the computed `s - r`, in `Float64`.
 - `cap`: the numerical feasibility cap of the solve.
 - `gap`, `gap_noise`, `mapping`, `map_noise`: the support gap and fixed-step mapping of the last full
-  stopping check, with their rounding allowances. That check can precede the returned iterate after a
-  limit or callback stop; the values are `NaN` when no full check ran, and can be nonfinite when a
-  check ran and failed on them.
+  stopping check, with their rounding allowances; that check can precede the returned iterate. `NaN`
+  when no check ran; a failed check can store nonfinite values.
 - `gap_budget`, `mapping_budget`: the budgets of the solve, which a full check compares with
   `gap + gap_noise` and `mapping + map_noise`.
 - `checks`: the number of full checks of the solve.

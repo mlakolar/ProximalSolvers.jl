@@ -454,7 +454,8 @@ end
 # route on Julia 1.10.13 and 1.13.4 (Discovery), except Float32 stationary_tail_2.0_eps under PGD, where B1's own
 # progress rule proposed at iteration 1 and returned A, while the route's first proposal is at iteration 5 and returns C.
 # E marks the Float32 dense correlated fixtures whose class differs between those Julia versions, for B1 and the route
-# alike (the rounding of the Float32 products differs).
+# alike (the rounding of the Float32 products differs), and Float32 l1_tied_2048_2 and _4, whose class differs between
+# runs with and without --check-bounds=yes on Julia 1.10.13 (bounds checks change the vectorized reductions).
 const CLASSES = Dict(
   Float32 => Dict(
     "tie_scale_-20" => "AA", "tie_scale_0" => "AA", "tie_scale_20" => "AA",
@@ -463,7 +464,7 @@ const CLASSES = Dict(
     "active_transition_4" => "CC", "rounded_zero_predictor" => "CC",
     "l1_correlated_active" => "CE", "l1_correlated_scaled" => "EE", "l1_correlated_interior" => "CC",
     "l1_correlated_transition" => "CE",
-    "l1_tied_2048_1" => "CC", "l1_tied_2048_2" => "CA", "l1_tied_2048_3" => "CC", "l1_tied_2048_4" => "CC"),
+    "l1_tied_2048_1" => "CC", "l1_tied_2048_2" => "EE", "l1_tied_2048_3" => "CC", "l1_tied_2048_4" => "EE"),
   Float64 => Dict(
     "tie_scale_-20" => "AA", "tie_scale_0" => "AA", "tie_scale_20" => "AA",
     "stationary_tail_0.25_eps" => "AA", "stationary_tail_2.0_eps" => "AA",
