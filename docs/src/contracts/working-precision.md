@@ -35,7 +35,8 @@ only a value. ProximalSolvers does not repeat those oracle computations. It owns
 image `X*x` and CD residual/curvature caches, CD coordinate correlations and updates,
 the `lambda_max` product of the `λmax`-based stationarity checks, the column norms of the
 coordinatewise check ([STOP-21](@ref)), steps and line searches, APG's
-certified bound, stopping rules and rollback. The coordinatewise check reads
+certified bound, stopping rules and rollback, and on the ℓ1-ball route of [IN-12](@ref) the widened
+`Float64` decision, the budgets and the full check of [FP-05](@ref). The coordinatewise check reads
 ProximalBase's least-squares value at the accepted point for its scale and does not
 recompute `‖Xx - y‖`. Exact oracle accuracy and range
 statements belong to the section “Least squares at a predictor or residual that the
@@ -187,3 +188,74 @@ Overflow of a trial's squared step norm and its scaled handling are specified in
 **Tests.** `test/initial_curvature.jl` and `test/core_regressions.jl`; historical illustrative outcomes are in [ORACLE-01](@ref).
 
 **Sources.** `docs/src/numerics.md:L833`, `docs/src/numerics.md:L857`.
+
+## [FP-05 The widened ℓ1 decision, the budgets and the full check of the ℓ1-ball route](@id FP-05)
+
+**Statement.**
+
+On the route of [IN-12](@ref) the coefficients, the trials and ProximalBase's projection stay in `T`,
+and the decision, the budgets and the full stopping check below are formed in `Float64`. Write
+`ρ = Float64(r)` for the radius, `a = Float64(s)` for the loss scale as supplied (`1.0` for a raw
+loss), `u = eps(Float64)/2` and `γ(k) = k u / (1 - k u)`. The norm `‖v‖₂` of an array is computed as
+`m * sqrt(sum(abs2(Float64(vᵢ) / m)))` with `m = maxᵢ |Float64(vᵢ)|`, and is `m` when `m` is zero or
+not finite.
+
+*Decision.* For `x` with `p` entries and the cap `c`, the widened mass is
+`σ = sum(a -> abs(Float64(a)), x)`, the margin `m = σ - ρ` and the noise `ν = γ(p+2) max(σ, ρ)`. The
+membership is `:outside` when `m > ν`, `:inside` when `m < -ν` or `σ = 0 < ρ`, and `:unknown`
+otherwise. The code is `:pass` when `m - c < -ν`, `:over` when `m - c > ν`, and `:unresolved`
+otherwise. A margin that is not finite gives `:unresolved` and `:unknown`, with noise `NaN`.
+
+*Budgets*, once per solve, from `C = maxⱼ ‖Xⱼ‖₂` over the columns, `F = ‖X‖₂` over all entries,
+`‖y‖₂`, `M = √a C`, `ŷ = √a ‖y‖₂` and the scale `S = max(ŷ, √a C ρ)² / 2`:
+
+- the gap budget `G = objective_rtol * S / 2`;
+- the cap `c = min(ρ, coefficient_atol + coefficient_rtol * ρ, G / (M ŷ + 1.5 M² ρ))`, the last term
+  being `Inf` when its denominator is `0`;
+- the curvature `κ = a C²`, or `1.0` when `C = 0`;
+- the mapping budget `H = mapping_rtol * √a C * max(ŷ, √a C ρ)`.
+
+*Full check* at `x`, with the decision of `x` cached by its trial ([PGD-09](@ref)); a cached code
+other than `:pass` runs no check:
+
+1. The witness `w = φ * Float64.(x)`, with `φ = 1` when `σ + ν < ρ` and `φ = min(1, (ρ - ν) / σ)`
+   otherwise, from the cached `σ` and `ν`.
+2. The residual `e = X w - y` and the gradient `g = a * (Xᵀ e)` in `Float64`: for `Float64` data by
+   BLAS products, for `Float32` data by column loops over `Float64(Xᵢⱼ)`. Let `δ = maxⱼ |gⱼ|` and
+   `ζ = a * (γ(p+2) (F ‖w‖₂ + ‖y‖₂) + γ(n+2) ‖e‖₂)`.
+3. The support gap `max(0, ρ - sum(abs, w)) δ + Σⱼ |wⱼ| (δ ± gⱼ)`, with `-gⱼ` where the sign bit of
+   `wⱼ` is set and `+gⱼ` otherwise, and its noise `2ρ C ζ + γ(2p+12) (2ρ δ) + γ(p+2) ρ δ`.
+4. With `L = T(κ)`: the trial `T.(w) .- T.(g) ./ L` in `T`, its projection `q` by ProximalBase's
+   `prox!` for the solve's `IndBallL1(r)` at step `one(T)/L`, the mapping
+   `Float64(L) * maxⱼ |Float64(T(wⱼ)) - Float64(qⱼ)|` and its noise
+   `C ζ + Float64(eps(T)) (Float64(L) maxⱼ |wⱼ| + δ)`.
+5. The check passes when the support gap, the mapping and both noises are finite,
+   `support gap + its noise ≤ G` and `mapping + its noise ≤ H`.
+
+The noises are model estimates of the rounding of these sums and products, without directed
+rounding; they are not interval enclosures. The decision compares the computed margin with computed
+allowances, and a passing check compares computed quantities with computed budgets: neither is an
+exact-arithmetic certificate, and a margin within the cap does not bound the distance to the exact
+constrained minimizer. The operations, reductions and conversions, and their order, are those of the
+research reference B1 (`norm2_64`, `budgets`, `norm_decision`, `numerical_witness!`,
+`stop_scores!`) and of the B0 helpers it imports (`gamma64`, `residual_score64!`, `estimate_gap`).
+With subnormals flushed to zero on the solving thread, these decisions are unspecified, as in
+[FP-01](@ref).
+
+**Applies to.** The ℓ1-ball route of [IN-12](@ref), `Float32` and `Float64`.
+
+**Code.** `src/solvers/l1ball.jl`: `_norm2_64`, `_l1_mass64`, `_gamma64`, `_l1_noise`, `_l1_decision`,
+`_l1_budgets`, `_l1_witness!`, `_residual_score64!`, `_l1_support_gap`, `_stationary!`.
+
+**Tests.** `test/l1ball_numerical.jl` checks the reported cap and budgets against budgets recomputed
+in the test with unscaled `Float64` norms (relative difference at most `1e-12`), each reported success
+of the #508 fixtures against an independent 256-bit MPFR evaluation of the violation of the ball, the
+support gap at a feasible radial witness, the fixed-step mapping with a sorted-threshold projection and
+the change of the loss, and the membership classes `:inside`, `:outside` and `:unknown` on analytic
+fixtures. The bitwise agreement of the decision, the budgets and the full check with B1 is validation
+evidence recorded with the pull request, not a test assertion.
+
+**Sources.** [The #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);
+[B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl)
+and the [#514 B0 helpers](https://github.com/mlakolar/ProximalSolvers.jl/tree/d58b9099c5837230212496766a721972b98d83f3/research/issue-514);
+[the approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919).

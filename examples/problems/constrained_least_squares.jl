@@ -178,7 +178,7 @@ function l1_ball_fit(label, X::Matrix{T}, y, radius::T, reference) where T
   A, b = Float64.(X), Float64.(y)
   n = length(b)
   t = n / sum(abs2, A)
-  tolerance = T === Float32 ? 1e-3 : 1e-6
+  tolerance = T === Float32 ? 2e-4 : 2e-7
   f = inv(T(n)) * LeastSquaresLoss(y, X)
   map((ProximalGradientDescent(), AccProxGradDescent())) do method
     beta = zeros(T, 4)
@@ -201,6 +201,11 @@ function l1_ball_fit(label, X::Matrix{T}, y, radius::T, reference) where T
   end
 end
 
+# When the solution lies on the boundary of the ball, the ℓ1 norm of the
+# returned point can be within the rounding allowance of ``r``. The point is
+# then not classified, and the fit reports `approximate_solution = true`
+# rather than `converged = true`, although the check passed.
+#
 # For the orthogonal control the constrained minimizer is the projection of
 # `a`, whose ℓ1 norm is 5.25, onto the ball of radius 2.5.
 for T in (Float64, Float32)

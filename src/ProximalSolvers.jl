@@ -32,6 +32,7 @@ weighted least-squares model ([PN-01](https://mlakolar.github.io/ProximalSolvers
 [`ADMMSolver`](@ref) also solves the lasso with a raw `LeastSquaresLoss` and unweighted `NormL1` for `Float64` data with a tall or square design, specified in [ADM-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-05).
 [`ADMMSolver`](@ref) also supports the graphical-lasso combination of `LogDetLoss` and matrix-weighted `NormL1` on a dense `Matrix` specified in [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
 [`ProximalGradientDescent`](@ref) also solves this graphical-lasso problem with bounded SPD backtracking and a KKT check, as specified in [PGD-06](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-06).
+[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) accept the ℓ1-ball constraint `IndBallL1` on a dense `Vector` with least squares only on an opt-in numerical route, selected by the keyword `feasibility = NumericalFeasibility()` of [`solve!`](@ref) ([IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12)).
 Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers

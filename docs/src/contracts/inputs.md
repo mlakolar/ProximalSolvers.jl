@@ -27,6 +27,7 @@ the design requirement.
 | `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1` or `ElasticNet`, each with or without weights ([IN-03](@ref)), `NormLinf`, `NormL2` under [IN-11](@ref), or `GroupNormL2` under [IN-04](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, matrix-response least squares | dense `Matrix{T}` | unweighted `NormL1` under [IN-10](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
+| `ProximalGradientDescent`, `AccProxGradDescent`, ℓ1-ball-constrained least squares (opt-in) | dense `Vector{T}` whose start passes the numerical cap | `IndBallL1` with the keyword `feasibility = NumericalFeasibility(...)` under [IN-12](@ref); refused without it |
 | `ProximalGradientDescent` or `CDSolver`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` (not a `SparseIterate`) | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) and, for APG, [APG-08](@ref) |
 | `ProxNewton`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) and [PN-01](@ref) |
@@ -407,6 +408,9 @@ The coordinate-descent solver and coefficient storage other than a dense
 `Vector{T}` are unsupported for this indicator. Stopping proposals use the
 [generic proximal-gradient check](@ref STOP-07).
 
+The ℓ1 ball `IndBallL1(r)` is not one of these indicators: PGD and APG accept it only on the
+opt-in numerical route of [IN-12](@ref), whose start need not lie inside the ball.
+
 **Applies to.** Dense Float32 and Float64 PGD and APG with a least-squares loss and the concrete indicators above.
 
 **Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`.
@@ -696,3 +700,87 @@ losses, and dense-vector CD, with unchanged coefficients. It also checks rollbac
 in both gradient methods.
 
 **Sources.** [Issue #457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457) and [pull request #494](https://github.com/mlakolar/ProximalSolvers.jl/pull/494).
+
+## [IN-12 The opt-in numerical ℓ1-ball route of PGD and APG](@id IN-12)
+
+**Statement.**
+
+`ProximalGradientDescent` and `AccProxGradDescent` accept ProximalBase's `IndBallL1(r)` only when
+`solve!` receives the keyword `feasibility` with a `NumericalFeasibility`:
+
+```julia
+solve!(x, f, IndBallL1(r), method, options; feasibility = NumericalFeasibility())
+```
+
+The route minimizes `(s/2) * sum(abs2, y - X*x)` over `norm(x, 1) <= r` with numerical
+feasibility: a trial is accepted only when the decision of [FP-05](@ref) passes the cap, so an
+accepted iterate can lie outside the ball ([PGD-09](@ref)). The coefficients are a dense
+`Vector{T}`, `T` being `Float32` or `Float64`. The loss is `LeastSquaresLoss(y, X)` or one positive
+`Scaled` of it under [IN-02](@ref), with a dense `Matrix{T}` design and a `Vector{T}` response;
+shapes, finiteness and aliasing follow [IN-01](@ref) and [IN-05](@ref).
+
+`NumericalFeasibility(; coefficient_rtol = nothing, coefficient_atol = 0, objective_rtol = nothing,
+mapping_rtol = nothing)` stores the four values as given. At the call of `solve!`, a `nothing`
+takes the default for `T`:
+
+| Tolerance | `Float32` | `Float64` |
+| --- | --- | --- |
+| `coefficient_rtol` | `1e-5` | `1e-10` |
+| `coefficient_atol` | `0` | `0` |
+| `objective_rtol` | `1e-5` | `1e-9` |
+| `mapping_rtol` | `1e-4` | `1e-8` |
+
+The values enter the budgets of [FP-05](@ref) as `Float64` (a `-0.0` as `0.0`). With the loss
+scale `s` as supplied (`Float64(s)`, `1.0` for a raw loss), a `Float64` scale of a `Float32` solve
+keeps its `Float64` value in the budgets and the full check.
+
+After the keyword check of `solve!`, which refuses every other keyword, these refusals happen before
+any write to `x`, in this order, each an `ArgumentError` unless noted:
+
+1. With `feasibility` other than `nothing`: a penalty other than `IndBallL1`, with a message that
+   names `IndBallL1`; then a `feasibility` that is not a `NumericalFeasibility`.
+2. With `feasibility = nothing` (the default), `IndBallL1` takes the gate of the other penalties. For
+   vector least-squares data its penalty check refuses `IndBallL1` with a message that names the
+   opt-in; a matrix coefficient, a logistic loss or a square-root loss is refused earlier by that
+   gate with its own message. The strict default refusal of `IndBallL1` is unchanged.
+3. On the route: a `LogisticLoss`, raw or scaled; coefficients that are not a dense
+   `Vector{Float32}` or `Vector{Float64}`, a matrix included; then the data checks of the other
+   least-squares penalties, run with the placeholder penalty `NormL1(zero(T))`, which refuse a
+   square-root loss, a matrix response, mixed array types, inconsistent shapes (`DimensionMismatch`),
+   an unsupported loss scale ([IN-02](@ref)), aliasing ([IN-05](@ref)) and nonfinite entries; for
+   APG, the method factors and dimension limits of [APG-02](@ref).
+4. A radius that is not of type `T`, not finite or not positive.
+5. A tolerance that is neither `nothing` nor a real number; a coefficient tolerance that, as given
+   or converted to `Float64`, is not finite or is negative; an objective or mapping tolerance that,
+   as given or converted, is not finite or is not positive. Zero coefficient tolerances are accepted;
+   with both zero the cap is `0`, and a trial passes only inside the ball by more than the rounding
+   allowance of [FP-05](@ref).
+6. A cap, gap budget, mapping budget or curvature of [FP-05](@ref) that is not finite in `Float64`,
+   or a curvature whose conversion to `T` is not finite and positive.
+7. A starting point whose decision ([FP-05](@ref)) is `:over` (an infeasible start) or
+   `:unresolved`. A start that passes may lie outside the ball within the cap.
+
+`CDSolver`, `ADMMSolver`, `ProxNewton`, `LogisticADMM` and graphical-lasso PGD refuse the keyword
+through their own keyword checks. ProximalBase's projection and indicator are used unchanged; the
+four-coefficient rule of `IndBallL2` ([IN-08](@ref)) concerns that indicator only. The trials are
+[PGD-09](@ref) and [APG-09](@ref), the stop [STOP-22](@ref) and the result [RES-04](@ref).
+
+**Applies to.** `ProximalGradientDescent` and `AccProxGradDescent` with `IndBallL1` and
+`feasibility = NumericalFeasibility(...)`, on dense `Vector{Float32}` or `Vector{Float64}` least squares.
+
+**Code.** `src/solve.jl`: `_check_penalty` (the refusal without the opt-in), `_numerical_route`,
+`_feasibility_tolerances`, `_feasibility_tolerance`, `_check_numerical_l1`; `src/solvers/l1ball.jl`:
+`_solve_numerical_l1!`; `src/solvers/proximal_gradient_descent.jl` and
+`src/solvers/accelerated_proximal_gradient_descent.jl`: `solve!`; `src/types.jl`: `NumericalFeasibility`.
+
+**Tests.** `test/l1ball_numerical.jl`, the “gate” testsets: each refusal above in both precisions and
+both methods with `x` unchanged (the strict default message names the opt-in), the keyword refusals of
+`CDSolver`, `ADMMSolver` and graphical-lasso PGD, zero coefficient tolerances, and integer and
+`Float64` loss scales with `Float32` data, whose budgets use `Float64(s)`.
+
+**Sources.** [Issue #457, Phase B](https://github.com/mlakolar/ProximalSolvers.jl/issues/457);
+[the approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919)
+and [the maintainer's decision I1](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7074272157);
+[the #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);
+the gate `check_ball_problem` and the profiles of the research reference
+[B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).

@@ -20,7 +20,7 @@ Input acceptance is specified by [IN-01](@ref). Option validation and reporting 
 
 ### [STOP-01 A proposed stop is checked at the accepted point](@id STOP-01)
 
-**Statement.** The iterate, objective and gradient/proximal-residual tests combine by **OR**: any one can propose a stop. A proposal counts only if the applicable stationarity check passes at the accepted iterate. Otherwise `x_converged`, `f_converged` and `grad_converged` are all cleared, `converged=false`, and the solve continues unless another exit applies. The residual fields continue to report their diagnostics. The exact-stall rule in [STOP-10](@ref) applies before this proposal is checked.
+**Statement.** The iterate, objective and gradient/proximal-residual tests combine by **OR**: any one can propose a stop. A proposal counts only if the applicable stationarity check passes at the accepted iterate. Otherwise `x_converged`, `f_converged` and `grad_converged` are all cleared, `converged=false`, and the solve continues unless another exit applies. The residual fields continue to report their diagnostics. The exact-stall rule in [STOP-10](@ref) applies before this proposal is checked. On the ℓ1-ball route of [IN-12](@ref), two structural proposals are added and the full check of [STOP-22](@ref) is the stationarity check; a passing check at a point not classified inside the ball stops the solve as an approximate solution with `converged=false`.
 
 `converged=true` therefore records a computed working-precision check. It is not an exact-arithmetic certificate, a bound on distance to a minimizer, or a promise of a specified number of correct coefficient digits. PGD and APG use the same acceptance policy; their iteration residuals differ. Independent KKT or duality-gap evaluation is needed to assess a returned point.
 
@@ -28,7 +28,7 @@ Input acceptance is specified by [IN-01](@ref). Option validation and reporting 
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
-**Tests.** test/stopping_scale.jl; test/stopping_coordinatewise.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
+**Tests.** test/stopping_scale.jl; test/stopping_coordinatewise.jl; test/core_regressions.jl; test/accelerated_pgd.jl; test/l1ball_numerical.jl for the ℓ1-ball route.
 
 **Sources.** `docs/src/numerics.md:L56`, `docs/src/numerics.md:L62`, `docs/src/numerics.md:L67`, `docs/src/numerics.md:L80`, `docs/src/numerics.md:L86`, `docs/src/numerics.md:L109`, `docs/src/numerics.md:L123`, `docstring:src/types.jl:L16`, `docs/src/choosing-solver.md:L167`, `docs/src/concepts.md:L64`, `docs/src/getting-started.md:L92`, `docs/src/working-with-results.md:L29`, `docs/src/working-with-results.md:L46`, `README.md:L52`.
 
@@ -258,11 +258,13 @@ Each generic check with finite positive `t` adds one proximal evaluation, counte
 
 The dedicated nonnegative-penalty check [STOP-16](@ref) and the Euclidean-norm check [STOP-17](@ref) add no proximal evaluation.
 
+The full check of the ℓ1-ball route ([STOP-22](@ref)) adds one gradient and one projection per check, both counted, and computes no `λmax`.
+
 **Applies to.** PGD and APG; dense Vector{T} and the matrices in [IN-10](@ref); T = Float32 or Float64: the work of the `λmax`-based, generic and coordinatewise ([STOP-21](@ref)) checks.
 
 **Code.** `src/utils.jl: _lambda_max!, _gradient_at_x!, _stationary!, _filled_scales!`.
 
-**Tests.** test/stopping_scale.jl; test/stopping_coordinatewise.jl (the counters of a coordinatewise check, no `λmax`, no allocation after the first check for the tested level types); test/weighted_lasso.jl; test/weighted_elasticnet.jl; test/linf.jl; test/accelerated_pgd.jl; test/norml2_pgd.jl: no added proximal call and the cached scale.
+**Tests.** test/stopping_scale.jl; test/stopping_coordinatewise.jl (the counters of a coordinatewise check, no `λmax`, no allocation after the first check for the tested level types); test/weighted_lasso.jl; test/weighted_elasticnet.jl; test/linf.jl; test/accelerated_pgd.jl; test/norml2_pgd.jl: no added proximal call and the cached scale; test/l1ball_numerical.jl: the counts of the ℓ1-ball full checks.
 
 **Sources.** `docs/src/numerics.md:L145`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docs/src/developer/implementation-notes.md:L286`, `docstring:src/types.jl:L23`, `docstring:src/types.jl:L75`. The later NormL1Nonneg check follows [upstream `fd45a427`, `_stationary!`](https://github.com/mlakolar/ProximalSolvers.jl/blob/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8/src/utils.jl#L141-L156).
 
@@ -280,13 +282,15 @@ At any exit the flags describe that same iteration:
 | `iteration_converged` | `iterations == maxiter`; a limit flag, not success. |
 | `stagnated` | The condition in [STOP-11](@ref); it can coincide with a call limit, iteration limit or callback stop. |
 
+On the ℓ1-ball route of [IN-12](@ref) an increase of the smooth loss does not end the solve, whatever `allow_f_increases`; `converged` is true when the full check passed at a point classified inside the ball, which can happen with all three flags false after a structural proposal, and `approximate_solution` is a separate flag ([STOP-22](@ref), [RES-04](@ref)).
+
 An increase normally exits with `converged=false`; it can coexist with `converged=true` if a proposal and its check pass at that iteration. In particular, with `ftol > 0`, an increase smaller than about two ulps in the ordinary finite-sum range can pass the objective test. With `ftol = 0`, only the iterate or gradient proposal can produce convergence at an increase. A successful proposal on the last allowed iteration sets both `converged=true` and `iteration_converged=true`. An increase exit on that iteration also sets the latter flag.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
 **Code.** `src/utils.jl: convergence_assessment; src/solve.jl: _solve_gradient!`.
 
-**Tests.** test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
+**Tests.** test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl; test/l1ball_numerical.jl: an increase that does not end the ℓ1-ball route, the flags of an approximate solution.
 
 **Sources.** `docs/src/numerics.md:L249`, `docs/src/numerics.md:L251`, `docs/src/numerics.md:L257`, `docs/src/numerics.md:L260`, `docs/src/numerics.md:L261`, `docs/src/numerics.md:L262`, `docs/src/numerics.md:L263`, `docs/src/numerics.md:L264`, `docs/src/numerics.md:L265`, `docs/src/numerics.md:L266`, `docs/src/numerics.md:L267`, `docs/src/numerics.md:L268`, `docs/src/numerics.md:L270`, `docs/src/numerics.md:L274`, `docs/src/numerics.md:L282`, `docs/src/numerics.md:L287`, `docstring:src/types.jl:L140`.
 
@@ -294,7 +298,7 @@ An increase normally exits with `converged=false`; it can coexist with `converge
 
 **Statement.** `ftol` is finite and nonnegative; `-0.0` is stored as `0.0`. A positive value that rounds to zero in Float64 is refused. `ProximalOptions(ftol=0)` turns off both objective-test forms and makes `f_converged=false` at every iteration; the reported `f_residual` is still computed. It does not disable objective-increase or limit exits, and the remaining proposals still require stationarity checks.
 
-Only under `ftol = 0`, an accepted iterate equal to the previous iterate entrywise by value (`-0.0 == 0.0`) sets neither `x_converged` nor `grad_converged`. A difference in any entry is assessed normally, even if its norm rounds to zero. With `ftol > 0`, an unchanged iterate can propose an iterate stop, which is then checked.
+Only under `ftol = 0`, an accepted iterate equal to the previous iterate entrywise by value (`-0.0 == 0.0`) sets neither `x_converged` nor `grad_converged`. A difference in any entry is assessed normally, even if its norm rounds to zero. With `ftol > 0`, an unchanged iterate can propose an iterate stop, which is then checked. On the ℓ1-ball route an unchanged iterate is also a structural proposal under `ftol = 0` ([STOP-22](@ref)); the flags of the three tests still follow this rule.
 
 A stall can end if `1/L` changes, or for APG if the extrapolated point changes. Neither must change, for example at a zero step or with APG `α = 1`. A permanently unchanged point with no separate exit reaches `maxiter` with `converged=false` and `iteration_converged=true`; this reports no progress, not that the point is wrong. Zero with an unweighted lasso level at least `norm(∇f(0), Inf)` is an example of a solution that can remain unchanged.
 
@@ -304,7 +308,7 @@ For APG, an extrapolated point equal to the accepted point while the accepted po
 
 **Code.** `src/types.jl: ProximalOptions; src/utils.jl: convergence_assessment, _unchanged`.
 
-**Tests.** test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl.
+**Tests.** test/stopping_scale.jl; test/core_regressions.jl; test/accelerated_pgd.jl; test/l1ball_numerical.jl: `ftol = 0` with unchanged iterates on the ℓ1-ball route.
 
 **Sources.** `docs/src/numerics.md:L310`, `docs/src/numerics.md:L312`, `docs/src/numerics.md:L374`, `docstring:src/types.jl:L94`, `docstring:src/types.jl:L109`, `docstring:src/types.jl:L123`.
 
@@ -338,15 +342,46 @@ with no unchanged iterate, is ended by another stop or by `maxiter`.
 can be inaccurate (a nearly interpolating problem with a small penalty level
 can stall with a duality gap above the `1e-5` target), and the iterate could
 still move at a later iteration if the solve continued. For `Float64` data, for
-`AccProxGradDescent` and with `ftol > 0`, `stagnated` is `false`.
+`AccProxGradDescent` and with `ftol > 0`, `stagnated` is `false`. On the
+ℓ1-ball route of [IN-12](@ref) the exit applies as stated; the unchanged
+iterate of such an iteration is a structural proposal of [STOP-22](@ref), whose
+full check runs first, so the exit can coincide with `converged` or
+`approximate_solution` when that check passes.
 
 **Applies to.** ProximalGradientDescent; Vector{Float32}; ftol = 0.
 
 **Code.** `src/solvers/proximal_gradient_descent.jl: _stagnated; src/solve.jl: _solve_gradient!`.
 
-**Tests.** test/core_regressions.jl: PGD stagnation testsets.
+**Tests.** test/core_regressions.jl: PGD stagnation testsets. The ℓ1-ball sentence adds no behavior: it states the order of the existing checks in `_solve_gradient!`.
 
 **Sources.** `docs/src/numerics.md:L393`, `docstring:src/types.jl:L123`, `docstring:src/types.jl:L140`, `docstring:src/types.jl:L335`.
+
+### [STOP-22 Stopping on the ℓ1-ball route](@id STOP-22)
+
+**Statement.** On the route of [IN-12](@ref), an iteration proposes a stop when any of these holds:
+
+- one of the three tests of [STOP-02](@ref), computed as for the other penalties on the smooth loss `F = f(x)` (the route's penalty value is `0`), with the exact-stall rule of [STOP-10](@ref) and the `ftol = 0` switch;
+- the iteration is the `maxiter`-th;
+- the accepted iterate equals the previous one entrywise by value, also under `ftol = 0`.
+
+A proposal runs the full check of [FP-05](@ref) at the accepted `x` with the decision cached by its trial ([PGD-09](@ref)); when that decision is not `:pass`, no check runs and the proposal fails. A zero computed gradient or a short step therefore does not stop the solve without the check. When the check passes:
+
+- at a point classified `:inside`, `converged = true`, and `x_converged`, `f_converged` and `grad_converged` keep the results of their tests, so all three are false when only a structural proposal was made;
+- at a point classified `:outside` or `:unknown`, the solve stops with `approximate_solution = true` and `converged = false`, and the three flags are cleared.
+
+When the check fails or does not run, the three flags are cleared, `converged = false`, and the solve continues unless another exit applies. A computed increase of the smooth loss does not end the solve, whatever `allow_f_increases` (the maintainer's decision I5): an accepted iterate can lie outside the ball within the cap, where the composite objective is `Inf`, and a projected step from it can raise the smooth loss. `f_increased` still reports the comparison. The limits, the callback and the Float32 PGD stagnation exit of [STOP-11](@ref) apply as for the other penalties.
+
+Each full check counts one gradient in `grad_calls` and one projection in `prox_calls` before the call limits are tested ([PGD-04](@ref)); `feasibility.checks` counts the checks, and the report holds the diagnostics of the last one ([RES-04](@ref)). The check writes the route's workspace, three `Float64` vectors (lengths `p`, `n` and `p`) and two vectors of `T` (length `p`) allocated once per solve, and no field of the state other than the two counters.
+
+The iterates and the full check are those of the research reference B1. The stopping iterations can differ from B1's, whose own progress rule proposed its stops.
+
+**Applies to.** PGD and APG on the ℓ1-ball route.
+
+**Code.** `src/solvers/l1ball.jl: convergence_assessment, _stationary!, _stop_on_gradient_increase, _approximate_solution`; `src/utils.jl: _ProposalsOnly`, through which the route reads the three proposals of the other penalties' `convergence_assessment`; `src/solve.jl: _solve_gradient!`.
+
+**Tests.** `test/l1ball_numerical.jl`: the #508 fixtures end with a passing check in both precisions and methods, each confirmed by the independent MPFR evaluation of [FP-05](@ref); `ftol = 0` on the stationary tails; an increase at the first iteration that does not stop the solve under `allow_f_increases = false` and that a callback stop at that iteration reports; a call limit reached with full checks counted, and a time limit; the trace and the callback objective equal to the smooth loss.
+
+**Sources.** [The approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919) and [the maintainer's decisions I2, I3, I5 and I6](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7074272157); `stop_scores!` of [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).
 
 ## Postconditions
 
@@ -357,11 +392,12 @@ still move at a later iteration if the solve continued. For `Float64` data, for
 | Class | Result fields | Evidence about the returned point |
 | --- | --- | --- |
 | Computed stationarity convergence | `converged = true` | A proposal passed the computed stationarity check of [STOP-01](@ref) to [STOP-07](@ref) or [STOP-21](@ref). The comparison uses the computed residual and threshold, so it establishes no exact residual bound ([STOP-12](@ref)) and no accuracy target. For least squares with `NormL1` or `ElasticNet`, [STOP-21](@ref) states what the coordinatewise check means in exact arithmetic. |
+| ℓ1-ball approximate solution | `approximate_solution = true` | On the route of [IN-12](@ref), the full check of [STOP-22](@ref) passed at a point classified outside the ball or not classified; `minimum` is `Inf` or `NaN` and `smooth_minimum` is the loss ([RES-04](@ref)). The check compares computed quantities, as in the first row. |
 | Float32 PGD stagnation | `stagnated = true` | An unchanged accepted iterate after the qualifying rejection of [STOP-11](@ref), under `ftol = 0`. The point is not checked. |
-| Objective increase | `f_increased = true` with `allow_f_increases = false` | A computed objective rise ended the solve ([STOP-09](@ref)). The flag records only the sign of the comparison; the result has no count of units in the last place. The relative size of the last change is `f_residual` ([RES-02](@ref)), and a stored trace holds both objective values once at least two iterations have completed. With `allow_f_increases = true`, `f_increased` describes only the last comparison; read the remaining rows. |
+| Objective increase | `f_increased = true` with `allow_f_increases = false`, except on the ℓ1-ball route, where an increase does not end the solve ([STOP-22](@ref)) | A computed objective rise ended the solve ([STOP-09](@ref)). The flag records only the sign of the comparison; the result has no count of units in the last place. The relative size of the last change is `f_residual` ([RES-02](@ref)), and a stored trace holds both objective values once at least two iterations have completed. With `allow_f_increases = true`, `f_increased` describes only the last comparison; read the remaining rows. |
 | Iteration limit | `iteration_converged = true` | The budget `maxiter` was used. |
 | Call limit | `call_limit_reached = true` | A positive call limit was reached ([PGD-04](@ref)). |
-| Callback or time limit | none of the fields above is set, `f_increased` excepted when `allow_f_increases = true`, and `iterations < maxiter` | A callback returned `true`, the time limit elapsed, or both. The result has no dedicated field for either cause. |
+| Callback or time limit | none of the fields above is set, `f_increased` excepted when `allow_f_increases = true` or on the ℓ1-ball route, and `iterations < maxiter` | A callback returned `true`, the time limit elapsed, or both. The result has no dedicated field for either cause. |
 
 No class carries independently verified target accuracy. PGD and APG compute no duality gap: `gap` is `NaN`, and a positive `gaptol` is refused ([PGD-05](@ref)). Only square-root-lasso CD returns a bounded gap ([CDQ-03](@ref)). Elsewhere an accuracy target must be evaluated outside the solver, for example by [STOP-13](@ref). A return in any row except the first can still be accurate to the stationarity bound; [STOP-15](@ref) describes one such case.
 
@@ -369,7 +405,7 @@ No class carries independently verified target accuracy. PGD and APG compute no 
 
 **Code.** `src/solve.jl: _solve_gradient!`; `src/types.jl: OptimizationResults`.
 
-**Tests.** No new test: the clause reads the flags already specified by [STOP-09](@ref), [STOP-11](@ref), [PGD-04](@ref) and [RES-02](@ref) and changes no behavior. `test/core_regressions.jl`, `test/accelerated_pgd.jl` and `test/minimal_core_characterization.jl` cover the individual flags. That the result has no dedicated field for a callback or time-limit stop follows from the result constructor, which records neither cause.
+**Tests.** No new test: the clause reads the flags already specified by [STOP-09](@ref), [STOP-11](@ref), [PGD-04](@ref), [RES-02](@ref) and, for the ℓ1-ball route, [RES-04](@ref), whose tests are in `test/l1ball_numerical.jl`; it changes no behavior. `test/core_regressions.jl`, `test/accelerated_pgd.jl` and `test/minimal_core_characterization.jl` cover the individual flags. That the result has no dedicated field for a callback or time-limit stop follows from the result constructor, which records neither cause.
 
 **Sources.** [Issue #320](https://github.com/mlakolar/ProximalSolvers.jl/issues/320), Stage 1 of the maintainer's 0.7 plan; current source `src/solve.jl` at `1a9f196b`.
 
@@ -546,6 +582,8 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 **Sources.** `README.md:L52`, `docs/src/working-with-results.md:L29`, `docstring:src/types.jl:L23`, `docstring:src/solvers/proximal_gradient_descent.jl:L30`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/numerics.md:L86`.
 
 ## Change log
+
+[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: [STOP-22](@ref) specifies the stopping rule of the opt-in ℓ1-ball route; [STOP-01](@ref), [STOP-08](@ref), [STOP-09](@ref), [STOP-10](@ref), [STOP-11](@ref) and [STOP-18](@ref) state where the route differs. The rules for the other penalties are unchanged.
 
 [#487](https://github.com/mlakolar/ProximalSolvers.jl/issues/487): least squares with `NormL1` or `ElasticNet` (with or without weights) on a dense vector is checked by the coordinatewise rule of [STOP-21](@ref), which replaces the scale `max(maxᵢ cᵢ, λmax)` and the #464 entry thresholds for these problems and computes no `λmax`. Exact zero scales (a column of stored `±0` entries with `λ2` a stored `±0`, and `x` and `y` of stored `±0` entries) pass when the computed score is finite and at most `0`. So a zero-response solve started at `x = 0` with a zero level or all-zero weights, whose proposals the `λmax`-based check refused (`S = 0`), now keeps its first proposal (under `ftol = 0` the unchanged iterate makes none, [STOP-10](@ref)); with positive coefficients that start passed the earlier check too when a proposal was made and its threshold `τ S` cleared the normal-range guard. Other zero and nonfinite thresholds refuse, including an infinite threshold that [STOP-04](@ref) accepts, and an exact or near-exact fit can return `converged = false`. The thresholds are carried as significand and exponent and converted to `T` once. A nonzero column whose plain sum of squares is below `floatmin(Float64)` or not finite gets its norm computed with scaling, and a nonzero column is classified as case D when that norm is `0` or not finite: the plan refused columns whose squares all underflow, and the maintainer chose the scaled norm ([decision](https://github.com/mlakolar/ProximalSolvers.jl/pull/521#issuecomment-7070479797)), together with declaring the stopping decisions with flushed subnormals unspecified. [STOP-04](@ref) is scoped to the `λmax`-based checks; [STOP-03](@ref), [STOP-06](@ref) and [STOP-08](@ref) summarize the coordinatewise route and keep the `λmax`-based rules for the other problems; the [STOP-12](@ref) offset limitation is retired for these problems and kept for the others; and [STOP-19](@ref) is retired. The [STOP-06](@ref) example of a computed `λmax` that cancellation leaves at `1` described the `λmax`-based elastic-net check, which `solve!` no longer reaches. Measurements: [coordinatewise-scale evidence](evidence/coordinatewise-scale-487.md).
 

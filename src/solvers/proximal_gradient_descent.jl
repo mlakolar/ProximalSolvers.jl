@@ -70,7 +70,13 @@ scores at positive and zero coefficients specified by
 Use `IndBox` or `IndBallLinf` for box constraints and `IndBallL2` for a
 four-coefficient Euclidean ball with a same-type radius. These indicators
 require a feasible start and use the generic proximal-gradient check, as does
-`NormLinf`. Assess fits with an
+`NormLinf`. The ℓ1 ball `IndBallL1(r)`, with a radius of the data's type, is
+accepted only on an opt-in numerical route, selected by the keyword
+`feasibility = NumericalFeasibility()` of [`solve!`](@ref): an accepted iterate
+can lie outside the ball within a numerical cap, a stop requires a full
+numerical check, and `converged` (the check passed at a point classified inside
+the ball) is distinguished from `approximate_solution`; see
+[`NumericalFeasibility`](@ref) and [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12). Assess fits with an
 independent diagnostic, particularly for Float32 or ill-conditioned designs.
 An error in an iteration restores the last accepted coefficients and
 is rethrown.
@@ -329,8 +335,8 @@ end
 
 """
     solve!(x, f, g, CDSolver())
-    solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
-    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
+    solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions(); feasibility=nothing)
+    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions(); feasibility=nothing)
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
 Minimize a supported penalized regression objective, overwriting `x`, and return
@@ -386,6 +392,14 @@ PGD/APG require a same-type `GroupNormL2{T}` and dense coefficients. PGD and APG
 accept `NormL2(lambda)` for least squares with a dense coefficient vector.
 Square-root lasso is available only with CD, an unscaled loss and an unweighted
 positive L1 level; its successful stopping flag requires a certificate.
+
+The keyword `feasibility` is accepted by the PGD and APG methods only.
+`feasibility = NumericalFeasibility(...)` selects the opt-in numerical route for
+`IndBallL1(r)` on dense `Vector{T}` least squares; it is refused with any other penalty,
+and `IndBallL1` without it is refused. The other solvers refuse the keyword. On the route,
+read `converged`, `approximate_solution` and the `feasibility` report of the result; its
+`minimum` can be `Inf` or `NaN`. See [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12) and
+[RES-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-04).
 
 Use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares and
 unweighted `NormL1Nonneg(lambda)` for nonnegative lasso. These penalties are accepted

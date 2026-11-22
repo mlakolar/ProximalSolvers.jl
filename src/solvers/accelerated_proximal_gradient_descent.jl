@@ -46,7 +46,10 @@ For least squares, the supported penalties are `NormL1` and `ElasticNet`, each w
 `NormLinf`, `NormL2` ([IN-11](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-11)) and a matching `GroupNormL2{T}` on dense coefficients.
 Box constraints use `IndBox` or `IndBallLinf`. Euclidean-ball constraints use
 `IndBallL2` with four coefficients and a radius of the same type. These
-indicators require a feasible starting vector.
+indicators require a feasible starting vector. The ℓ1 ball `IndBallL1(r)` is
+accepted only with the keyword `feasibility = NumericalFeasibility()` of
+[`solve!`](@ref), on the numerical route of
+[IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12) and [APG-09](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-09).
 Use [`ProximalGradientDescent`](@ref), or [`CDSolver`](@ref) on a dense `Vector`,
 for `IndNonnegative()` and unweighted `NormL1Nonneg`; APG does not support those constrained penalties.
 
@@ -337,7 +340,7 @@ function gradient_converged!(state::AccProxGradDescentState, options::ProximalOp
 end
 
 """
-    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
+    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions(); feasibility=nothing)
 
 Minimize the same least-squares lasso, elastic net, `NormLinf` or `NormL2` problem as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting dense `Vector{T}` coefficients
@@ -363,6 +366,10 @@ A raw `LogisticLoss(y, X)` with `NormL1` on a `Vector{Float64}` is solved for th
 order of refusals shared with PGD. The factors `β` and `α` and the dimension limits for one response above also apply, and the
 line search is that of
 [APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
+
+With `feasibility = NumericalFeasibility(...)` and `IndBallL1(r)`, APG solves the
+ℓ1-ball-constrained least-squares problem on the opt-in numerical route of
+[IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12), as described for `ProximalGradientDescent`.
 
 Every refusal of an input, option or
 method setting happens before `x` is modified. A step error

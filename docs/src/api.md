@@ -21,6 +21,7 @@ LogisticADMM
 ADMMSolver
 solve!
 ProximalOptions
+NumericalFeasibility
 CDResults
 ProxNewtonResults
 LogisticADMMResults
@@ -28,5 +29,6 @@ ADMMResults
 OptimizationState
 OptimizationTrace
 ProximalSolvers.OptimizationResults
+ProximalSolvers.NumericalFeasibilityReport
 ProximalSolvers.LineSearches.BackTracking
 ```
