@@ -148,14 +148,19 @@ function check_success(d::Fixture{T}, x, res) where T
   curvature = PS._l1_budgets(d.X, d.y, Float64(d.alpha), Float64(d.r), PS._feasibility_tolerances(NumericalFeasibility(), T)).curvature
   @test isapprox(curvature, b.curvature; rtol = 1e-12)
   ind = independent(d.X, d.y, d.alpha, d.r, x, curvature)
-  @test ind.violation <= BigFloat(q.cap)
-  @test ind.gap <= BigFloat(q.gap_budget)
-  @test ind.mapping <= BigFloat(q.mapping_budget)
-  @test ind.change <= BigFloat(q.gap_budget)
-  # the reported membership is consistent with the exact signed margin when it claims a side
-  q.membership === :inside && @test ind.signed <= 0
-  q.membership === :outside && @test ind.signed > 0
+  @test acceptable(ind, q)
+  setprecision(BigFloat, 256) do
+    # the reported membership is consistent with the exact signed margin when it claims a side
+    q.membership === :inside && @test ind.signed <= 0
+    q.membership === :outside && @test ind.signed > 0
+  end
   ind
+end
+
+# The #514 acceptance of the independent quantities against the reported cap and budgets, compared at 256 bits
+acceptable(ind, q) = setprecision(BigFloat, 256) do
+  ind.violation <= BigFloat(q.cap) && ind.gap <= BigFloat(q.gap_budget) &&
+    ind.mapping <= BigFloat(q.mapping_budget) && ind.change <= BigFloat(q.gap_budget)
 end
 
 # The result fields that depend on the membership (RES-04), for a result of the route on the data (X, y) of f,
@@ -296,8 +301,7 @@ end
     if res.converged || res.approximate_solution
       curvature = PS._l1_budgets(X, y, Float64(alpha), Float64(d.r), PS._feasibility_tolerances(NumericalFeasibility(), T)).curvature
       ind = independent(X, y, alpha, d.r, x, curvature)
-      @test ind.violation <= res.feasibility.cap && ind.gap <= res.feasibility.gap_budget &&
-            ind.mapping <= res.feasibility.mapping_budget && ind.change <= res.feasibility.gap_budget
+      @test acceptable(ind, res.feasibility)
     end
   end
 end
@@ -324,10 +328,10 @@ end
   @test occursin("dense Vector", msg_of(PB.SparseIterate(4), f, IndBallL1(0.6); feasibility = ok))
   # the data checks before the radius: shapes, a matrix response with a vector x, mixed types, aliasing, nonfinite data
   @test occursin("dimensions", msg_of(zeros(3), f, IndBallL1(0.0); feasibility = ok))
-  @test occursin("Vector{Float64}", msg_of(copy(x0), LeastSquaresLoss([y y], X), IndBallL1(0.6); feasibility = ok))
-  @test occursin("Matrix{Float32}", msg_of(Float32.(x0), f, IndBallL1(0.6f0); feasibility = ok))
+  @test occursin("Vector{Float64}", msg_of(copy(x0), LeastSquaresLoss([y y], X), IndBallL1(0.0); feasibility = ok))
+  @test occursin("Matrix{Float32}", msg_of(Float32.(x0), f, IndBallL1(0.0f0); feasibility = ok))
   let yy = copy(y)
-    @test occursin("alias", msg_of(yy, LeastSquaresLoss(yy, X), IndBallL1(0.6); feasibility = ok))
+    @test occursin("alias", msg_of(yy, LeastSquaresLoss(yy, X), IndBallL1(0.0); feasibility = ok))
   end
   let Xn = copy(X)
     Xn[2, 3] = NaN
@@ -339,6 +343,9 @@ end
   let Xh = copy(X)
     Xh[1, 1] = 1e200
     @test occursin("curvature", msg_of(fill(10.0, 4), LeastSquaresLoss(y, Xh), IndBallL1(0.6); feasibility = ok))
+    # an invalid tolerance before an unrepresentable budget
+    @test occursin("mapping_rtol", msg_of(copy(x0), LeastSquaresLoss(y, Xh), IndBallL1(0.6);
+                                          feasibility = NumericalFeasibility(mapping_rtol = NaN)))
   end
   # APG: the factors in the working type before the radius
   if method isa AccProxGradDescent
@@ -380,12 +387,13 @@ end
   refused_underflow([0.0], LeastSquaresLoss([1e-150], reshape([1e-150], 1, 1)), IndBallL1(0.5))
   # Float32: the curvature 1e-38 is normal in Float64 and subnormal in Float32
   refused_underflow([0.0f0], LeastSquaresLoss([2f-19], reshape([1f-19], 1, 1)), IndBallL1(1.0f0))
-  # admitted near the thresholds: Float64 curvature 1e-280 with normal budgets, and the Float32 curvature 4e-38
+  # admitted small-scale cases: a Float64 curvature 1e-280 with normal budgets, and the Float32 curvature 4e-38, just above
+  # floatmin(Float32)
   let X = reshape([1e-140], 1, 1), y = [2e-140], r = 1.0
     x = [0.0]
     res = solve!(x, LeastSquaresLoss(y, X), IndBallL1(r), method, OPTIONS; feasibility = ok)
     @test res.converged || res.approximate_solution
-    d = Fixture{Float64}("near_threshold", X, y, r, [0.0], 1.0)
+    d = Fixture{Float64}("small_scale", X, y, r, [0.0], 1.0)
     check_result_fields(d, x, res)
     check_success(d, x, res)
   end
@@ -393,11 +401,18 @@ end
     res = solve!(x, LeastSquaresLoss([4f-19], reshape([2f-19], 1, 1)), IndBallL1(1.0f0), method, OPTIONS; feasibility = ok)
     @test res isa PS.OptimizationResults && res.feasibility isa PS.NumericalFeasibilityReport
   end
-  # a zero design (a flat loss): admitted, and the zero start converges inside the ball
+  # a zero design (a flat loss), exempt from this check: the zero start converges inside the ball; with a zero response
+  # too, both budgets are zero and the check passes with zero scores and noise
   for T in (Float32, Float64)
     x = zeros(T, 2)
     res = solve!(x, LeastSquaresLoss(T[1, -1], zeros(T, 2, 2)), IndBallL1(one(T)), method, OPTIONS; feasibility = ok)
     @test res.converged && res.feasibility.membership === :inside && x == zeros(T, 2)
+    x = zeros(T, 2)
+    res = solve!(x, LeastSquaresLoss(zeros(T, 2), zeros(T, 2, 2)), IndBallL1(one(T)), method, OPTIONS; feasibility = ok)
+    q = res.feasibility
+    @test q.gap_budget == 0 && q.mapping_budget == 0 && q.checks >= 1
+    @test q.gap == 0 && q.gap_noise == 0 && q.mapping == 0 && q.map_noise == 0
+    @test res.converged && q.membership === :inside && x == zeros(T, 2)
   end
 end
 
@@ -423,48 +438,155 @@ end
   @test calls[] == 0
 end
 
-# A structural proposal alone: no engine test can hold (ftol = 0, xtol = 1e-300, gradtol = 0), the iterate changes, and
-# loose budgets let the full check of the last iteration pass, at a point inside the ball.
-@testset "structural proposal at maxiter, with a coinciding callback and call limits ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
-  d = only(filter(d -> d.name == "l1_correlated_interior", fixtures(T; big = false)))
-  a = NumericalFeasibility(objective_rtol = 1.0, mapping_rtol = 1.0)
-  opts(; kw...) = ProximalOptions(; maxiter = 2, ftol = 0, xtol = 1e-300, gradtol = 0, kw...)
-  run(o) = (x = copy(d.start); (x, solve!(x, loss(d), IndBallL1(d.r), method, o; feasibility = a)))
-  x, res = run(opts())
+# A one-coordinate problem, X = 1, y = 0.01, start -1, radius 2, with loose budgets (objective and mapping tolerances 1)
+# and no engine test that can hold (ftol = 0, xtol = 1e-300, gradtol = 0). At iterations 1 and 2 of both methods the
+# step exceeds |x| and the relative change of the loss exceeds 1, so neither progress proposal holds; the full check
+# passes wherever it runs.
+function loose_problem(::Type{T}) where T
+  T[-1], LeastSquaresLoss(T[0.01], reshape(T[1], 1, 1)), IndBallL1(T(2)), NumericalFeasibility(objective_rtol = 1.0, mapping_rtol = 1.0)
+end
+loose_options(; maxiter = 2, kw...) = ProximalOptions(; maxiter, ftol = 0, xtol = 1e-300, gradtol = 0, kw...)
+
+@testset "a structural proposal at maxiter alone, a coinciding callback and call limits ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+  x0, f, g, a = loose_problem(T)
+  # maxiter = 2: the only proposal is the last iteration's; the callback records the two iterates
+  seen = Vector{T}[]
+  x = copy(x0)
+  res = solve!(x, f, g, method, loose_options(callback = _ -> (push!(seen, copy(x)); false)); feasibility = a)
+  @test length(seen) == 2 && seen[1] != x0 && seen[2] != seen[1] && seen[2] == x
   @test res.iterations == 2 && res.iteration_converged && res.feasibility.checks == 1
   @test res.converged && !res.x_converged && !res.f_converged && !res.grad_converged
   @test res.feasibility.membership === :inside
-  # a callback that stops at that iteration: both reported
-  x2, res2 = run(opts(callback = s -> s.iteration == 2))
-  @test res2.converged && res2.iterations == 2 && x2 == x
-  # call limits at the counts that include the one check: the check's gradient and projection reach them
-  g2, p2 = res.grad_calls, res.prox_calls
-  for (lim, count) in ((:grad_calls_limit, g2), (:prox_calls_limit, p2))
-    _, r_at = run(opts(; lim => count))
-    _, r_above = run(opts(; lim => count + 1))
+  # a callback that stops at that iteration: invoked at both iterations, and the passing check is reported too
+  calls = Ref(0)
+  x2 = copy(x0)
+  res2 = solve!(x2, f, g, method, loose_options(callback = s -> (calls[] += 1; s.iteration == 2)); feasibility = a)
+  @test calls[] == 2 && res2.converged && res2.iterations == 2 && x2 == x
+  # control: maxiter = 3 and a callback stop at iteration 2, where nothing proposes: the same iterate without the check,
+  # one gradient and one projection fewer
+  x3 = copy(x0)
+  res3 = solve!(x3, f, g, method, loose_options(maxiter = 3, callback = s -> s.iteration == 2); feasibility = a)
+  @test res3.iterations == 2 && res3.feasibility.checks == 0 && !res3.converged && !res3.approximate_solution && x3 == x
+  @test res.grad_calls - res3.grad_calls == 1 && res.prox_calls - res3.prox_calls == 1
+  # call limits at the counts that include the check: the check's gradient and projection reach them
+  for (lim, count) in ((:grad_calls_limit, res.grad_calls), (:prox_calls_limit, res.prox_calls))
+    r_at = solve!(copy(x0), f, g, method, loose_options(; lim => count); feasibility = a)
+    r_above = solve!(copy(x0), f, g, method, loose_options(; lim => count + 1); feasibility = a)
     @test r_at.call_limit_reached && r_at.converged
     @test !r_above.call_limit_reached && r_above.converged
+  end
+end
+
+@testset "a progress proposal alone runs the check ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+  x0, f, g, a = loose_problem(T)
+  seen = Vector{T}[]
+  x = copy(x0)
+  res = solve!(x, f, g, method, loose_options(maxiter = 50, callback = _ -> (push!(seen, copy(x)); false)); feasibility = a)
+  # no engine test, not the last iteration and a changed iterate: a progress proposal ran the one check
+  @test res.converged && 3 <= res.iterations < 50 && res.feasibility.checks == 1
+  @test !res.x_converged && !res.f_converged && !res.grad_converged
+  @test length(seen) == res.iterations && seen[end] != seen[end-1]
+end
+
+# The tight #514 profile on the Float32 2048-coordinate ties: before the progress proposals, the route lost B1's
+# successes under --check-bounds=yes (l1_tied_2048_4 under both methods on Julia 1.10.13, l1_tied_2048_3 under APG on
+# Julia 1.13.4), since no proposal held at the iterate where B1 stopped. The success class only is asserted.
+@testset "tight profile on the Float32 2048 ties ($(mname(method)))" for method in METHODS
+  tight = NumericalFeasibility(coefficient_rtol = 2.0^-40, coefficient_atol = 0, objective_rtol = 1e-10, mapping_rtol = 1e-10)
+  for d in filter(d -> d.name in ("l1_tied_2048_3", "l1_tied_2048_4"), fixtures(Float32))
+    x, res = solve_fixture(d, method; feasibility = tight)
+    @test res.converged || res.approximate_solution
+  end
+end
+
+# FP-06: the absolute allowance for gradual underflow in the full check.
+mutable struct CheckStub{T}
+  x::Vector{T}
+  grad_calls::Int
+  prox_calls::Int
+end
+
+@testset "underflow allowance: the scaled reproducer does not report success ($(mname(method)))" for method in METHODS
+  # the unscaled Xᵀ(X w - y), about 1e-325, rounds to zero before the multiplication by 1e300; the gate admits the
+  # problem (normal curvature 1e-10 and budgets), and without the allowance both methods reported converged = true
+  f = 1e300 * LeastSquaresLoss([0.0], reshape([1e-155], 1, 1))
+  x = [1e-15]
+  res = solve!(x, f, IndBallL1(1e-14), method, OPTIONS; feasibility = NumericalFeasibility())
+  q = res.feasibility
+  @test !res.converged && !res.approximate_solution && q.checks >= 1
+  @test isfinite(q.gap_noise) && q.gap_noise > q.gap_budget
+  # scored with MPFR, the returned point misses the budgets
+  curvature = PS._l1_budgets(reshape([1e-155], 1, 1), [0.0], 1e300, 1e-14, PS._feasibility_tolerances(NumericalFeasibility(), Float64)).curvature
+  ind = independent(reshape([1e-155], 1, 1), [0.0], 1e300, 1e-14, x, curvature)
+  @test !acceptable(ind, q)
+end
+
+@testset "underflow allowance: a sweep of loss, design and response scales ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+  scales = T === Float64 ? (1e-300, 1e-150, 1.0, 1e150, 1e300) : (1e-30, 1.0, 1e30)
+  sizes = T === Float64 ? (1e-150, 1.0, 1e150) : (1e-15, 1.0, 1e15)
+  base = [1.0 0.25; 0.25 1.0]
+  u = [1.0, -0.5]
+  successes = 0
+  for alpha in scales, σ in sizes, response in (:zero, :fitted)
+    X = T.(σ .* base)
+    y = response === :zero ? zeros(T, 2) : T.(Float64.(X) * u)
+    r = T(0.75)
+    f = alpha * LeastSquaresLoss(y, X)
+    x = zeros(T, 2)
+    res = try
+      solve!(x, f, IndBallL1(r), method, OPTIONS; feasibility = NumericalFeasibility())
+    catch e
+      e isa ArgumentError || rethrow()
+      continue
+    end
+    if res.converged || res.approximate_solution
+      successes += 1
+      curvature = PS._l1_budgets(X, y, Float64(alpha), Float64(r), PS._feasibility_tolerances(NumericalFeasibility(), T)).curvature
+      @test acceptable(independent(X, y, alpha, r, x, curvature), res.feasibility)
+    end
+  end
+  @test successes > 0
+end
+
+@testset "underflow allowance: B1's noise bits in the normal range ($T)" for T in (Float32, Float64)
+  # the full check's noise equals B1's formulas, recomputed from the check's own witness, residual and gradient, at
+  # the start and at the returned point of an ordinary solve
+  d = only(filter(d -> d.name == "l1_correlated_active", fixtures(T; big = false)))
+  tol = PS._feasibility_tolerances(NumericalFeasibility(), T)
+  b = PS._l1_budgets(d.X, d.y, 1.0, Float64(d.r), tol)
+  x1, _ = solve_fixture(d, ProximalGradientDescent())
+  for x in (T[0.125, -0.0625, 0.0, 0.03125], x1)
+    ball = IndBallL1(d.r)
+    dec = PS._l1_decision(x, ball, b.cap)
+    @test dec.code === :pass
+    route = PS._NumericalL1Ball(ball, d.X, d.y, 1.0, b, tol, dec, 10)
+    PS._stationary!(CheckStub{T}(x, 0, 0), loss(d), route, OPTIONS)
+    n, p = size(d.X)
+    w, res, grad = route.witness, route.residual, route.gradient
+    ρ, dual, L = Float64(d.r), maximum(abs, grad), T(route.curvature)
+    score_noise = 1.0 * (PS._gamma64(p+2) * (route.frob * PS._norm2_64(w) + route.ynorm) + PS._gamma64(n+2) * PS._norm2_64(res))
+    gap_noise = 2ρ * route.col * score_noise + PS._gamma64(2p+12) * (2ρ * dual) + PS._gamma64(p+2) * max(ρ, ρ) * dual
+    map_noise = route.col * score_noise + Float64(eps(T)) * (Float64(L) * maximum(abs, w) + dual)
+    @test route.gap_noise === gap_noise && route.map_noise === map_noise
   end
 end
 
 # ---- the #508 fixtures ------------------------------------------------------------------------------------------------
 
 # The success class of each fixture with the default tolerances and maxiter = 320: :converged (C), :approximate_solution
-# (A), or either (E). The pinned classes are those of research B1 (projected_policy, ordinary #514 profile) and of the
-# route on Julia 1.10.13 and 1.13.4 (Discovery), except Float32 stationary_tail_2.0_eps under PGD, where B1's own
-# progress rule proposed at iteration 1 and returned A, while the route's first proposal is at iteration 5 and returns C.
-# E marks the Float32 dense correlated fixtures whose class differs between those Julia versions, for B1 and the route
-# alike (the rounding of the Float32 products differs), and Float32 l1_tied_2048_2 and _4, whose class differs between
-# runs with and without --check-bounds=yes on Julia 1.10.13 (bounds checks change the vectorized reductions).
+# (A), or either (E). On Julia 1.10.13 and 1.13.4 (Discovery), each with and without --check-bounds=yes, the route's
+# class equals that of research B1 (projected_policy, ordinary #514 profile) in every case. C and A are the classes
+# observed in all four configurations; E marks the Float32 fixtures whose observed class differs between them, for B1 and
+# the route alike.
 const CLASSES = Dict(
   Float32 => Dict(
     "tie_scale_-20" => "AA", "tie_scale_0" => "AA", "tie_scale_20" => "AA",
-    "stationary_tail_0.25_eps" => "AA", "stationary_tail_2.0_eps" => "CA",
+    "stationary_tail_0.25_eps" => "AA", "stationary_tail_2.0_eps" => "AA",
     "active_transition_1" => "CA", "active_transition_2" => "CA", "active_transition_3" => "CA",
     "active_transition_4" => "CC", "rounded_zero_predictor" => "CC",
     "l1_correlated_active" => "CE", "l1_correlated_scaled" => "EE", "l1_correlated_interior" => "CC",
     "l1_correlated_transition" => "CE",
-    "l1_tied_2048_1" => "CC", "l1_tied_2048_2" => "EE", "l1_tied_2048_3" => "CC", "l1_tied_2048_4" => "EE"),
+    "l1_tied_2048_1" => "CC", "l1_tied_2048_2" => "EE", "l1_tied_2048_3" => "CE", "l1_tied_2048_4" => "EC"),
   Float64 => Dict(
     "tie_scale_-20" => "AA", "tie_scale_0" => "AA", "tie_scale_20" => "AA",
     "stationary_tail_0.25_eps" => "AA", "stationary_tail_2.0_eps" => "AA",
