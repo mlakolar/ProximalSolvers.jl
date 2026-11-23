@@ -630,13 +630,15 @@ apart from the box and ball indicators whose feasibility preflight evaluates
 the penalty. Other solvers and problem routes reject the opt-in keywords.
 
 **Code.** `src/stopping.jl`, `src/solvers/pgd_stopping.jl` and
-`src/solvers/proximal_gradient_descent.jl`.
+`src/solvers/proximal_gradient_descent.jl`; the shared driver is
+`_solve_gradient!` in `src/solve.jl`.
 
 **Tests.** `test/pgd_stopping_policy.jl` exercises composition, history,
 caps, preflight, failed-step rollback, progress arithmetic and accepted
 checkpoints after rejected trials in the public solve path. It also checks
-the pilot's workspace and compares its progress stop with the default's
-coordinatewise check on an exact fit.
+the trace at an initial stop and after rejected trials, tests the pilot's
+workspace, and compares its progress stop with the default's coordinatewise
+check on an exact fit.
 `test/core_regressions.jl` covers the explicit-policy Float32 stagnation exit.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).

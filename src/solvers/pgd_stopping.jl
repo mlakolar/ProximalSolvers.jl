@@ -1,28 +1,30 @@
-struct PGDStoppingPoint{T,S}
+struct ProximalGradientDescentStoppingPoint{T,S}
     state::S
     iteration::Int
     objective::T
     previous_objective::T
 end
 
-function PGDStoppingPoint(state, k)
-    PGDStoppingPoint(state, k, state.f_x + state.g_x, state.f_x_previous + state.g_x_previous)
+function ProximalGradientDescentStoppingPoint(state, k)
+    ProximalGradientDescentStoppingPoint(state, k, state.f_x + state.g_x,
+                                        state.f_x_previous + state.g_x_previous)
 end
 
-function Stopping.same_iterate(point::PGDStoppingPoint{T}) where {T}
+function Stopping.same_iterate(point::ProximalGradientDescentStoppingPoint{T}) where {T}
     U = Stopping.bit_type(T)
     x = reinterpret(U, point.state.x)
     previous = reinterpret(U, point.state.x_previous)
     all(i -> Stopping.equal_bits(x[i], previous[i]), eachindex(x, previous))
 end
 
-Stopping.movement_distance(point::PGDStoppingPoint{Float64}) = norm(point.state.delta_x)
+Stopping.movement_distance(point::ProximalGradientDescentStoppingPoint{Float64}) =
+    norm(point.state.delta_x)
 _pgd_policy_norm(x::Vector{Float64}) = norm(x)
 _pgd_policy_norm(x::Vector{Float32}) = sqrt(sum(v -> abs2(Float64(v)), x))
-Stopping.movement_scale(point::PGDStoppingPoint) =
+Stopping.movement_scale(point::ProximalGradientDescentStoppingPoint) =
     max(_pgd_policy_norm(point.state.x), _pgd_policy_norm(point.state.x_previous))
 
-function Stopping.movement_distance(point::PGDStoppingPoint{Float32})
+function Stopping.movement_distance(point::ProximalGradientDescentStoppingPoint{Float32})
     state = point.state
     dx2 = 0.0
     @inbounds @simd for i in eachindex(state.x, state.x_previous)
@@ -112,40 +114,39 @@ function _solve_pgd_policy!(x, f, g, method, options, stopping, limits)
     _check_gradient_problem(x, f, g, :pgd)
     limit = _pgd_policy_limit(options, limits)
     monitor = Stopping.prepare(stopping, limit, eltype(x))
-    trace = OptimizationTrace{typeof(method)}()
     if iszero(limit.n)
+        trace = OptimizationTrace{typeof(method)}()
         return _pgd_policy_result(method, x, missing, false, trace, monitor, :limit, 0, 0, 0, 0, 0)
     end
     g_work = _working_gradient_penalty(g, eltype(x))
     state = initial_state(method, options, f, g_work, x, Val(false))
-    _run_pgd_policy!(state, f, g_work, method, options, trace, monitor)
+    _solve_gradient!(state, f, g_work, method, options, nothing, monitor)
 end
 
-function _run_pgd_policy!(state, f, g, method, options, trace, monitor)
-    k = 0
-    point = PGDStoppingPoint(state, k)
+function _initial_gradient_decision(monitor::Stopping.Monitor, state, options, t0)
+    point = ProximalGradientDescentStoppingPoint(state, 0)
     isfinite(point.objective) || throw(ArgumentError("start from a point where the composite objective is finite"))
     reason = Stopping.check!(monitor, point)
-    tracing = _gradient_tracing(state, options)
-    options.show_trace && @printf "Iter     Function value       |dx|/|x|       Step Size\n"
+    (; reason, stop=reason !== :continue, point)
+end
 
-    while reason === :continue
-        try
-            update_state!(f, g, state, method)
-            isfinite(state.f_x + state.g_x) || error("the gradient step did not produce a finite objective")
-        catch
-            _rollback_gradient_step!(state)
-            rethrow()
-        end
-        k += 1
-        point = PGDStoppingPoint(state, k)
-        reason = Stopping.check!(monitor, point)
-        if reason === :continue && _verified_pgd_stall(state)
-            reason = :stalled
-        end
-        tracing && trace!(trace, state, k, options)
+function _assess_gradient_step(monitor::Stopping.Monitor, state, f, g, options, iteration)
+    point = ProximalGradientDescentStoppingPoint(state, iteration)
+    reason = Stopping.check!(monitor, point)
+    if reason === :continue && _verified_pgd_stall(state)
+        reason = :stalled
     end
-    _pgd_policy_result(method, state.x, point.objective, point.objective > point.previous_objective,
-                       trace, monitor, reason, k, state.f_calls, state.grad_calls, state.prox_calls,
+    (; reason, stop=reason !== :continue, point)
+end
+
+# The pilot makes its decision at the checkpoint and disallows trace callbacks.
+_gradient_decision_after_trace(::Stopping.Monitor, previous, assessment, state, options, t0,
+                               iteration, stopped_by_callback) = assessment
+
+function _gradient_result(monitor::Stopping.Monitor, decision, state, method, options, trace, iteration)
+    point = decision.point
+    increased = point.objective > point.previous_objective
+    _pgd_policy_result(method, state.x, point.objective, increased, trace, monitor, decision.reason,
+                       iteration, state.f_calls, state.grad_calls, state.prox_calls,
                        state.backtrack_steps)
 end

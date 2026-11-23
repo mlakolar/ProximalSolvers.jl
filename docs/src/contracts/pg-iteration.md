@@ -41,7 +41,7 @@ At an iteration it saves the last accepted point, objective components and gradi
 3. Form the trial's least-squares image and value.
 4. Apply the line-search decision, refreshing the gradient when its mode requires it.
 
-The accepted point's gradient is refreshed if the line search did not already update it, including a zero-step exit in gradient mode. The gradient engine then checks the accepted objective for finiteness, assesses stopping, traces/calls back, and checks limits and separate exits in that order.
+The accepted point's gradient is refreshed if the line search did not already update it, including a zero-step exit in gradient mode. The shared gradient driver checks the accepted objective for finiteness, counts completed steps, and records the trace. The default stopping sequence is in [PGD-04](@ref), and the explicit-policy checkpoint and cap rules are in [STOP-22](@ref).
 
 The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weights; soft thresholding followed by the ridge weight for `ElasticNet`; the point minus its projection onto the ℓ1 ball of radius `λ/L` for `NormLinf` (a common clipping level); and block soft thresholding for `GroupNormL2`, scaling a block `v_G` by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at step `γ`, with a zero block left zero. For `NormL2(λ)`, the exact-arithmetic formula at step `γ` is zero when `‖v‖₂ ≤ γ λ` and `(1 - γ λ/‖v‖₂) v` otherwise. The solver delegates the evaluation to ProximalBase, which can round the cutoff comparison. The working-precision conventions for these oracles are [FP-01](@ref). The level of `NormL2` is the working level of [IN-02](@ref), and its stop check is [STOP-17](@ref).
 

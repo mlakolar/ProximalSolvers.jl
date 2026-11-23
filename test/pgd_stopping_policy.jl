@@ -29,12 +29,14 @@ end
     user = UserStop(c -> (push!(calls, c.iteration); c.objective == T(0.5)))
     f, g, method = unit_loss(T), NormL1(zero(T)), unit_step()
 
-    r = solve!(x, f, g, method; stopping=AnyOf(IterateChange(), ObjectiveChange(), user))
+    r = solve!(x, f, g, method, ProximalOptions(store_trace=true);
+               stopping=AnyOf(IterateChange(), ObjectiveChange(), user))
     t = termination(r)
     @test t.reason == :user && t.satisfied && !r.converged && !t.limit_reached
     @test t.iteration == 0 && t.limit.n == 200 && t.winning_branch == ((3,),)
     @test map(o -> o.status, t.observations) == (:not_checked, :not_checked, :pass)
     @test calls == [0] && r.minimum === T(0.5) && PS.minimizer(r) === x
+    @test isempty(r.trace)
     @test (PS.f_calls(r), PS.grad_calls(r), PS.prox_calls(r)) == (1, 1, 0)
     @test t.counts.g_calls == 1
 
@@ -105,7 +107,7 @@ end
     try
         if set_zero_subnormals(true)
             state = (; x=[0.0], x_previous=[tiny])
-            point = PS.PGDStoppingPoint(state, 1, 0.0, 0.0)
+            point = PS.ProximalGradientDescentStoppingPoint(state, 1, 0.0, 0.0)
             @test !PS.Stopping.same_iterate(point)
             state.x_previous[1] = -0.0
             @test PS.Stopping.same_iterate(point)
@@ -156,7 +158,8 @@ end
     visited = Tuple{Int,Float64}[]
     user = UserStop(c -> (push!(visited, (c.iteration, c.objective)); c.iteration == 1))
     x = [0.0]
-    r = solve!(x, f, g, method; stopping=AllOf(user, ObjectiveChange(atol=0.5)),
+    r = solve!(x, f, g, method, ProximalOptions(store_trace=true, extended_trace=true);
+               stopping=AllOf(user, ObjectiveChange(atol=0.5)),
                limits=MaxIterations(2))
     t = termination(r)
     @test visited == [(0, 0.5), (1, 0.0)]
@@ -164,6 +167,9 @@ end
     @test t.counts == (f_calls=5, grad_calls=2, g_calls=4, prox_calls=3, backtrack_steps=3, rejected_trials=2)
     @test t.observations[2].value == t.observations[2].threshold == 0.5
     @test x == [1.0] && r.minimum == (x[1] - 1)^2 / 2
+    @test length(r.trace) == 1
+    @test r.trace[1].iteration == 1 && r.trace[1].fg_x == r.minimum
+    @test r.trace[1].metadata["x"] == x
 end
 
 @testset "Absolute movement requires a finite distance" begin
