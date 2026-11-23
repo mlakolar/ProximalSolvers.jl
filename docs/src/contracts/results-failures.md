@@ -110,7 +110,7 @@ This clause describes `OptimizationResults` for PGD and APG with regression
 coefficients, including [IN-10](@ref). See [PGD-08](@ref) for graphical-lasso PGD.
 `minimizer` aliases the caller's coefficient storage and `minimum` is the reported
 objective at that iterate. For a four-coefficient `IndBallL2` its penalty term is ProximalBase's
-standalone `g(x)` at the returned point, so `minimum` is `Inf` exactly when `g(x) == Inf`, which can accompany
+standalone `g(x)` at the returned point, so `minimum` is `Inf` when `g(x) == Inf`, which can accompany
 `converged = true`; a point that is outside the ball in exact arithmetic but has `g(x) == 0` is reported finite
 ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.

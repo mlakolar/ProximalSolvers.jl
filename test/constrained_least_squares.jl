@@ -318,7 +318,7 @@ end
     @test isfinite(traced.f_residual)
   end
 
-  # The smooth term of the minimum is the cached value of the accepted trial, as for every penalty; the penalty term is
+  # The smooth term of the minimum is the cached value of the accepted trial, as for the other penalties of these solvers; the penalty term is
   # ProximalBase's g(x). Here the cached value is one unit in the last place above the standalone loss at x = 0.
   @testset "Reported minimum: smooth term and penalty term" begin
     if T === Float32

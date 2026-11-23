@@ -623,8 +623,8 @@ _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point whe
   v == T(Inf) && _ball_rounding_admissible(x, g.r) ? zero(T) : v
 end
 
-# The penalty term of the result. The smooth term is the cached smooth value of the accepted trial, for every penalty;
-# it can differ from the standalone loss at x by rounding. The penalty term is the monitored value of the last trial,
+# The penalty term of the result. The smooth term is the cached smooth value of the accepted trial, as for the other penalties
+# of these solvers; it can differ from the standalone loss at x by rounding. The penalty term is the monitored value of the last trial,
 # except for IndBallL2, where ProximalBase's standalone value g(x) is evaluated again at the returned point. It is Inf
 # exactly when g(x) == Inf, so a return that is exterior in ProximalBase's sense is not reported with a finite minimum.
 # A point that is outside the ball in exact arithmetic but has g(x) == 0 is reported finite. For a returned point

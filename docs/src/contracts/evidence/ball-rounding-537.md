@@ -137,11 +137,11 @@ unchanged.
 
 ## [evidence-ball-rounding-minimum Smooth term of the reported minimum](@id evidence-ball-rounding-minimum)
 
-**Statement.** The smooth term of `minimum` is the cached smooth value of the accepted trial for every penalty, and it
+**Statement.** The smooth term of `minimum` is the cached smooth value of the accepted trial, as for the other penalties of these solvers, and it
 can differ from the standalone loss at the returned point by rounding. A Float32 case shows it: `y = vcat(fill(ldexp(1f0, 63), 2),
 fill(ldexp(1f0, 51), 4))`, the loss `2f0 * LeastSquaresLoss(y, zeros(Float32, 6, 4))`, `x = zeros(Float32, 4)` and one iteration
 (`ProximalOptions(maxiter=2, prox_calls_limit=1)`). With `IndBallL2(1f0)` and with `IndBox(-1f0, 1f0)`, with PGD and with APG,
-at the base `202545cc` and at the head, on Julia 1.10.12 and 1.13.3, every run returned `x = 0` and `minimum = 1.701412e38`,
+at the base `202545cc` and at the head, on Julia 1.10.12 and 1.13.3 (16 runs), each returned `x = 0` and `minimum = 1.701412e38`,
 while the standalone `f(x) + g(x)` was `1.7014118e38`, one unit in the last place lower. The base returned the same
 `minimum` for `IndBox`, so the difference is not introduced by the admission.
 
