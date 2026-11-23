@@ -37,5 +37,5 @@ AnyOf
 AllOf
 MaxIterations
 termination
-ProximalSolvers.PGDPolicyResult
+ProximalSolvers.ProximalGradientDescentPolicyResult
 ```

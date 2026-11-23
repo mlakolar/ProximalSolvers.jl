@@ -197,9 +197,10 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 ## [RES-04 Explicit-policy PGD result](@id RES-04)
 
-**Statement.** [STOP-22](@ref) returns a `PGDPolicyResult` whose `minimizer`
-aliases the caller's coefficient vector. `minimum` is the objective at the
-returned point, or `missing` if a zero iteration cap prevented initialization.
+**Statement.** [STOP-22](@ref) returns a `ProximalGradientDescentPolicyResult`
+whose `minimizer` aliases the caller's coefficient vector. `minimum` is the
+objective at the returned point, or `missing` if a zero iteration cap prevented
+initialization.
 `iterations` counts accepted updates. `iteration_converged` reports whether the
 cap was reached. `f_increased` compares the last two accepted objectives and
 is false when no update was accepted. `stagnated` reports a stagnation exit.
