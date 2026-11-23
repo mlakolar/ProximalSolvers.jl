@@ -27,14 +27,14 @@ outputs, computed in BigFloat.
   problems (scales 1e-3 to 1e3) failed 0 of 200 for each of the four combinations of method and precision. In Float64,
   `IndBallL2(1e-150)` failed with PGD and with APG, and `IndBallL2(1e157)` failed with PGD, all with "the gradient step did
   not produce a finite objective". The Float32 boundary cases passed in that draw.
-- **Attribution.** The failure is not in the curvature test: PGD's `backtrack!` and APG's certified bound read only the
-  smooth value. The `Inf` comes from ProximalBase's fused value of the stored projection, through `state.g_x`, and is
+- **Attribution.** The failure is not in the curvature test: PGD's `backtrack!` and APG's certified bound read the
+  smooth value and the displacement, not the penalty value. The `Inf` comes from ProximalBase's fused value of the stored projection, through `state.g_x`, and is
   stopped by the outer guard `isfinite(state.f_x + state.g_x)` in `_solve_gradient!`, which rolls back. In APG with
   momentum, the restart test `f_x + g_x > f_x_previous + g_x_previous` fires first; its retry from `x_previous` can
   succeed, which is why some solves passed, or it can reach the same guard. The first iteration (`ω = 0`) goes straight
   to the guard.
 - **Ordinary range.** No failing case of the supported four-entry scope appeared in the ordinary range. The admission
-  changes the behavior at the boundary cases above only.
+  applies to a trial whose ProximalBase value is `Inf`, which the ordinary-range solves did not produce.
 
 ## [evidence-ball-rounding-sweep Check against ProximalBase and BigFloat](@id evidence-ball-rounding-sweep)
 
