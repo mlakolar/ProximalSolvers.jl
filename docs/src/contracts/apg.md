@@ -298,6 +298,6 @@ The retired normalized-KKT shorthand remains separately available as [historical
 
 ## Change log
 
-[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): a four-coefficient `IndBallL2` trial whose stored projection is within rounding of the ball is admitted with monitored penalty `0` ([IN-08](@ref)).
+[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): the monitored penalty of a four-coefficient `IndBallL2` trial is specified in [IN-08](@ref).
 
 Relative to `legacy/full`, the dense method removed metric, tuple, owner and generic smooth-loss paths; validates its factors in `T`; retries a nonfinite trial through finite curvature growth; replaces the old rounded-square/8eps cached-image allowance by the proof above; and accepts a finite-value point with `x == y`, where the legacy path raised. A nonfinite extrapolated gradient follows the same restart/failure path as a nonfinite value. These are baseline differences, not changes introduced by this migration.

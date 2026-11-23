@@ -148,6 +148,6 @@ Existing tests listed at each clause cover image order, fused prox, counts, cons
 
 ## Change log
 
-[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): a four-coefficient `IndBallL2` trial whose stored projection is within rounding of the ball is admitted with monitored penalty `0` ([IN-08](@ref)). Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
+[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): the monitored penalty of a four-coefficient `IndBallL2` trial is specified in [IN-08](@ref). Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
 
 The shared image engine and scalar APIs are retained. The historical support wording above was retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) and remains only as provenance; no numerical restoration is inferred.
