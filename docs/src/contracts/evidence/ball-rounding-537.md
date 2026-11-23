@@ -28,12 +28,14 @@ outputs, computed in BigFloat.
   `IndBallL2(1e-150)` failed with PGD and with APG, and `IndBallL2(1e157)` failed with PGD, all with "the gradient step did
   not produce a finite objective". The Float32 boundary cases passed in that draw.
 - **Attribution.** The failure is not in the curvature test. PGD's `backtrack!` reads the smooth value, not the penalty
-  value. APG's search requires the smooth value of a trial to be finite, and curvature grows when it is not; its certified
-  image inequality reads the displacement and the images. The `Inf` comes from ProximalBase's fused value of the stored
+  value. APG's search requires the smooth value of a trial to be finite, and for a nonfinite smooth trial value it attempts a
+  curvature increase, which can error if `next_curvature` cannot increase; its certified image inequality reads the
+  displacement and the images. The `Inf` comes from ProximalBase's fused value of the stored
   projection, through `state.g_x`. The outer guard `isfinite(state.f_x + state.g_x)` in `_solve_gradient!` sees the trial
   that the step returns and rolls back when the composite is not finite. In APG with momentum the restart test
   `f_x + g_x > f_x_previous + g_x_previous` fires on such a trial first. The retry without momentum from `x_previous` can be
-  accepted, and the next outer iteration then extrapolates with momentum `1/4`, which is why some solves passed. The retry
+  accepted and the solve continues, which is why some solves passed; the next outer iteration, if one runs, extrapolates with
+  momentum `1/4`. The retry
   can also fail inside the search, for example when `next_curvature` cannot increase, or return a trial that reaches the
   guard. In the first step, and in the retry without momentum within a restarting iteration, a trial skips the momentum
   comparison and reaches the guard if the search returns it.
@@ -53,7 +55,7 @@ is then given to `_ball_rounding_admissible(y, r)`. The violation of `y` is comp
 The regimes cover an ordinary radius `r = 1`; a radius below ProximalBase's four-entry floor and near `floatmin`;
 coefficients of magnitude around 1e154 to 1e159 (Float64) and 1e18.3 to 1e19.5 (Float32), whose sums of squares can
 overflow; a radius drawn from the floor and its two adjacent floats (pooled in one row); entries
-whose magnitudes span three to twenty decades with random signs; and one dominant entry with the others small.
+with independent signed multipliers whose log10 magnitudes are drawn from [-20, 3); and one dominant entry with the others small.
 
 **Float32**, 100,000 samples per regime.
 
@@ -86,7 +88,7 @@ whose magnitudes span three to twenty decades with random signs; and one dominan
 | Total | 114312 | 0 | | |
 
 In the regimes above the check admitted all `Inf` outputs of ProximalBase. The largest violation of an `Inf` output was
-below the 2.5 eps that [IN-08](@ref) derives for the general route under its range assumptions. The value returned by
+below the 2.5 eps estimate in the comment of `_ball_rounding_admissible`, which states its range assumptions. The value returned by
 `value_and_prox!` equalled `g(y)` in all the samples, which supports the use of the standalone `g(x)` for the penalty term of
 the reported `minimum`.
 
@@ -126,7 +128,7 @@ and 8.0 eps (Float32).
 a start `x0 = 0` whose first trial of both PGD and APG ends on a stored projection with value `Inf`. For the radii
 `1e-150` (Float64) and `1e-16` (Float32), with `X = 2I` and loss scale 1/4, the first trial projects the target itself and
 the stored violation was below 0.4 eps(T). The huge-scale cases use the design `1e-150 I` (Float64) or `1e-17 I` (Float32)
-and radii near one tenth of the norm of the target. Float32 needed a search of a few hundred draws per case because
+and radii near one tenth of the norm of the target. The retained Float32 cases were found at draws 478 and 485 of one search (cumulative counts), because
 ProximalBase's `Inf` is rare there.
 
 At the base, `test/constrained_least_squares.jl` with the new testsets, run against a module built from the base source,
@@ -153,7 +155,8 @@ observations that accompany the comment of `_ball_rounding_admissible`, not guar
 - **A computed cutoff.** At `r = 1.1` (Float64), the point `(t, 0, 0, 0)` with `t` the rounded threshold `r (1 + 8eps)` is
   admitted at a true violation of 8.18 eps.
 - **An exterior point with value zero.** The point `(1, sqrt(eps(T))/4, 0, -0.0)` at radius one has `g(x) == 0` in Float32 and
-  Float64, with true violations of 3.7e-9 and 6.9e-18, and a solve accepts it as a start.
+  Float64, with true violations of 3.7e-9 and 6.9e-18. The point passes the indicator's feasibility check, and a PGD solve with `X = 2I`
+accepted it as a start.
 
 ## [evidence-ball-rounding-minimum Smooth term of the reported minimum](@id evidence-ball-rounding-minimum)
 
@@ -161,13 +164,13 @@ observations that accompany the comment of `_ball_rounding_admissible`, not guar
 can differ from the standalone loss at the returned point by rounding. A Float32 case shows it: `y = vcat(fill(ldexp(1f0, 63), 2),
 fill(ldexp(1f0, 51), 4))`, the loss `2f0 * LeastSquaresLoss(y, zeros(Float32, 6, 4))`, `x = zeros(Float32, 4)` and one iteration
 (`ProximalOptions(maxiter=2, prox_calls_limit=1)`). With `IndBallL2(1f0)` and with `IndBox(-1f0, 1f0)`, with PGD and with APG,
-at the base `202545cc` and at the head, on Julia 1.10.12 and 1.13.3 (16 runs), each returned `x = 0` and `minimum = 1.701412e38`,
+at `202545cc` and at `c0878e5b`, on Julia 1.10.12 and 1.13.3 (16 runs), each returned `x = 0` and `minimum = 1.701412e38`,
 while the standalone `f(x) + g(x)` was `1.7014118e38`, one unit in the last place lower. The base returned the same
 `minimum` for `IndBox`, so the difference is not introduced by the admission.
 
 ## [evidence-ball-rounding-perf Paired performance](@id evidence-ball-rounding-perf)
 
-**Statement.** The base source, the head and a second copy of the head source (the A/A control) were loaded in one
+**Statement.** The base source `202545cc`, the implementation `f2465717` and a second copy of its source (the A/A control) were loaded in one
 process on a cluster (Slurm) node, Julia 1.10.12 and 1.13.3, with one Julia thread. The BLAS thread count was 32 on Julia 1.10.12
 and 2 on Julia 1.13.3; all three sides ran in one process, so each pair shares the count. For each case the three sides
 solved the same problem in alternating order inside each repetition (the order rotates), 30 repetitions in each of 5 rounds.

@@ -26,8 +26,8 @@ end
 
 # Whether the reported minimum has the penalty term g(x) of ProximalBase's standalone oracle at the returned point: it
 # must be Inf when g(x) == Inf, and otherwise finite with g(x) equal to zero and the smooth term equal to the
-# standalone loss up to rounding. A NaN penalty value fails. The smooth term is the cached value of the accepted trial,
-# which the result does not expose, so it is compared with the standalone loss at the tolerance sqrt(eps(T)).
+# standalone loss up to rounding. A NaN penalty value fails. The smooth term is the cached value of the accepted trial;
+# the result has no dedicated smooth-term field, so it is compared with the standalone loss at the tolerance sqrt(eps(T)).
 function strict_minimum(result, x, loss, g)
   T = eltype(x)
   penalty = g(x)
@@ -260,7 +260,7 @@ end
   end
 
   # A trial whose stored projection ProximalBase evaluates as Inf is admitted when it is within the rounding
-  # tolerance of IN-08: the iteration monitors the smooth value, and the result reports the strict composite.
+  # tolerance of IN-08: the iteration monitors the smooth value, and the result reports the cached smooth value plus the standalone g(x) at the returned point.
   @testset "Admitted exterior trial: radius below the four-entry range" begin
     fixed_step = method isa ProximalGradientDescent ?
       ProximalGradientDescent(ls=ProximalSolvers.LineSearches.BackTracking(α=1.0)) :
@@ -284,7 +284,7 @@ end
       before = copy(x)
       @test_throws ArgumentError solve!(x, loss, g, fixed_step)
       @test x == before
-      # the solve to convergence completes; the result is the strict composite at the returned point
+      # a solve with the default options completes; its minimum is the cached smooth value plus the standalone g(x) at the returned point
       x = zeros(T, 4)
       result = solve!(x, loss, g, fixed_step)
       @test result.minimizer === x
@@ -376,7 +376,7 @@ end
   admitted = ProximalSolvers._admitted_penalty_value
   u = [0.2, 0.4, 0.4, 0.8]    # a direction; `point` divides it by its norm
   radii = T === Float64 ? (1.0, 1e-150, 1e157) : (1f0, 1f-16, 1f19)
-  # The stored point (1 + δ eps) r u, rounded to T, lies about δ eps outside the ball (up to the rounding of its entries).
+  # The stored point (1 + δ eps) r u / ‖u‖, rounded to T, lies about δ eps outside the ball (δ is a nominal offset before the entries are rounded).
   point(r, δ) = setprecision(BigFloat, 256) do
     T.((1 + δ * big(eps(T))) * big(r) * big.(u) / sqrt(sum(abs2, big.(u))))
   end

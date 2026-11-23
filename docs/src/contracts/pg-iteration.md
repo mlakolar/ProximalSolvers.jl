@@ -148,6 +148,6 @@ Existing tests listed at each clause cover image order, fused prox, counts, cons
 
 ## Change log
 
-[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): an admitted `IndBallL2` trial passes the finiteness guard with monitored penalty `0`, where earlier releases raised when the step returned such a trial or APG restarted on it ([IN-08](@ref)). Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
+[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): an admitted `IndBallL2` trial carries monitored penalty `0` into the finiteness guard, which checks the monitored composite of the candidate that the step returns, where earlier releases raised when the step returned such a trial or APG restarted on it ([IN-08](@ref)). Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
 
 The shared image engine and scalar APIs are retained. The historical support wording above was retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) and remains only as provenance; no numerical restoration is inferred.

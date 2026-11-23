@@ -403,12 +403,14 @@ the singleton at zero.
 
 A trial of an `IndBallL2{T}` whose fused ProximalBase value is `Inf` is *admitted*
 when `r` is finite and positive, every stored entry is finite, and the computed norm
-of the stored point is at most the computed threshold `r(1 + 8eps(T))`; for `Float64`
-data the norm is formed from the entries scaled by a power of two. An admitted trial
+of the stored point is at most the computed threshold `r(1 + 8eps(T))`. For `Float32` data
+both sides are computed in `Float64`; for `Float64` data the radius and the entries share
+one power-of-two scaling, with the largest nonzero magnitude scaled into `[1, 2)`. An admitted trial
 carries monitored penalty value `0` in the iteration state. To first order in `eps(T)`,
 under round-to-nearest with gradual underflow, an admitted point violates the ball by
 at most about `10eps(T)` relative to `r`; the derivation is in the comment of
-`_ball_rounding_admissible`. Any other trial keeps its value. If the step returns a
+`_ball_rounding_admissible`. A fused value other than `Inf` is left unchanged without a scan
+of the entries, and an unadmitted `Inf` keeps its value. If the step returns a
 trial whose monitored composite is not finite, the finiteness guard raises
 `ErrorException("the gradient step did not produce a finite objective")` and the last
 accepted point is restored ([RES-03](@ref), [LS-09](@ref), [APG-03](@ref)). The APG
@@ -418,10 +420,10 @@ restart test, the finiteness guard, the objective and increase tests, the trace 
 The reported `minimum` is the cached smooth value of the accepted trial plus
 ProximalBase's standalone `g(x)` at the returned point, which is `Inf` when
 `g(x) == Inf`, so a return can have `minimum = Inf` with `converged = true`. The
-stopping rules are unchanged: `converged` and the proposal flags `x_converged`,
-`f_converged` and `grad_converged` are the decision of [STOP-07](@ref) with its veto,
-and the other flags keep their clauses ([STOP-09](@ref)); `f_increased` compares
-monitored objectives. A returned or restored point with `g(x) == Inf` fails the
+stopping rules are unchanged: the proposal flags `x_converged`, `f_converged` and
+`grad_converged` are set by the tests of [STOP-02](@ref), the check of [STOP-07](@ref)
+can clear them, and `converged` is their OR after it ([STOP-01](@ref)); the other flags
+keep their clauses ([STOP-09](@ref)), and `f_increased` compares monitored objectives. A returned or restored point with `g(x) == Inf` fails the
 indicator's feasibility check as a start; a point with `g(x) == 0` passes that check,
 and the other start checks still apply.
 
@@ -437,7 +439,7 @@ The coordinate-descent solver and coefficient storage other than a dense
 
 **Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`, `_admitted_penalty_value`, `_ball_rounding_admissible`, `_returned_penalty_value`, `_solve_gradient!`. The admission is called from `update_state!` of PGD and `_prox_grad_step!` of APG.
 
-**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions. For PGD and APG in both precisions, from hard-coded trial points: "Admitted exterior trial: radius below the four-entry range" checks the fused value `Inf` of the first trial, a one-iteration solve with `g(x) = Inf`, `minimum = Inf` and violation within `10eps(T)` in 256-bit arithmetic, the refusal of the returned point as a start, and a solve to convergence with `converged` agreeing with an independent residual; "Admitted exterior trial: sum of squares beyond the range of T" checks the one-iteration trigger, the violation and the reported `minimum`; "Admitted exterior trial: monitored trace and residual" checks finite trace values and `f_residual` with `minimum = Inf`. "Reported minimum: smooth term and penalty term" runs in `Float32` only: for a scaled loss whose cached and standalone values differ by one unit in the last place, `minimum` equals the value with an `IndBox` penalty. "Exceptional Euclidean projection rolls back" keeps a rejected trial (radius `nextfloat(zero(T))`) raising and restoring. "Admission of a rounded ball trial" checks the helper at points `2eps(T)` and `12eps(T)` outside the ball, nonfinite entries, zero, `NaN`, other penalties and zero allocations. The measurements are in the [evidence page](evidence/ball-rounding-537.md).
+**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions. For PGD and APG in both precisions, from hard-coded trial points: "Admitted exterior trial: radius below the four-entry range" checks the fused value `Inf` of the first trial, a one-iteration solve with `g(x) = Inf`, `minimum = Inf` and violation within `10eps(T)` (computed in 256-bit arithmetic, then rounded to `Float64`), the refusal of the returned point as a start, and a solve to convergence with `converged` agreeing with an independent residual; "Admitted exterior trial: sum of squares beyond the range of T" checks the one-iteration trigger, the violation and the reported `minimum`; "Admitted exterior trial: monitored trace and residual" checks finite trace values and `f_residual` with `minimum = Inf`. "Reported minimum: smooth term and penalty term" runs in `Float32` only: for a scaled loss whose cached and standalone values differ by one unit in the last place, `minimum` equals the value with an `IndBox` penalty. "Exceptional Euclidean projection rolls back" keeps a rejected trial (radius `nextfloat(zero(T))`) raising and restoring. "Admission of a rounded ball trial" checks the helper at points nominally `2eps(T)` and `12eps(T)` outside the ball (offsets before the entries are rounded), nonfinite entries, zero, `NaN`, other penalties and zero allocations. The measurements are in the [evidence page](evidence/ball-rounding-537.md).
 
 **Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/docs/src/numerics.md#L176-L187). The admission of an `Inf` value is [issue #537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537).
 
