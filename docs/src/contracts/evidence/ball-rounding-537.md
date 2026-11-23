@@ -159,10 +159,10 @@ accepted it as a start.
 
 ## [evidence-ball-rounding-minimum Smooth term of the reported minimum](@id evidence-ball-rounding-minimum)
 
-**Statement.** The measurements below, and the results with `minimum = Inf` in the earlier rounds of this change, were
-taken under the earlier policy of this pull request (revisions `c0878e5b` and `1d4ac095`), in which the result
-re-evaluated the standalone `g(x)` at the returned point for the penalty term of `minimum`. The base `202545cc` reported the
-cached penalty, as the current policy does. From `44bd7d88` `minimum` is the monitored objective, the cached smooth value plus
+**Statement.** The earlier `IndBallL2` returns with `minimum = Inf` in this change were measured at `c0878e5b` and `1d4ac095`,
+under the earlier policy of this pull request, in which the result re-evaluated the standalone `g(x)` at the returned point for
+the penalty term of `minimum`. The base `202545cc` and the `IndBox` control reported the cached penalty, as the current policy
+does; the comparison below with them is a separate observation. From `44bd7d88` `minimum` is the monitored objective, the cached smooth value plus
 the monitored penalty ([IN-08](@ref)). Admission gives the monitored penalty zero, so the objective is finite for an admitted point
 that passes the outer finiteness check and is returned. The smooth term of `minimum` is the cached smooth value of the accepted trial, as for the other penalties of these solvers, and it
 can differ from the standalone loss at the returned point by rounding. A Float32 case shows it: `y = vcat(fill(ldexp(1f0, 63), 2),
