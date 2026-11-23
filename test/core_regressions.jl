@@ -1117,10 +1117,10 @@ end
              ProximalOptions(ftol = 1e-15, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11, maxiter = 2000))
   # an exact stall in the first iterations of the inflated curvature proposes the x test at a
   # point that is not stationary, which the check refuses (#296): the solve is not converged
-  # after its first nine iterations. The returned point is checked independently by its duality gap:
-  # a converged stop has a KKT residual below 64eps(Float32) max(λ, λmax) (the default floor, as
-  # gradtol = 1e-11 is below it), and the gap satisfies (F - D)/F <= 2k + k^2 for k = ‖G‖∞/λ (see
-  # numerics.md), with 1% extra for the rounding of the computed residual
+  # after its first nine iterations. The returned point is checked independently by its duality gap,
+  # (F - D)/F <= 2k + k^2 for k = ‖G‖∞/λ (STOP-13), with k = 64eps(Float32) max(λ, λmax)/λ (the default floor, as
+  # gradtol = 1e-11 is below it) and 1% extra for rounding: the gap of a residual at that threshold. The
+  # coordinatewise check (STOP-21) does not imply that bound, and this fixture meets it
   r9 = solve!(ones(Float32, 32), Float32(s) * LeastSquaresLoss(b, A), NormL1(Float32(c^2 * λ)), ProximalGradientDescent(),
               ProximalOptions(ftol = 1e-15, allow_f_increases = true, xtol = 1e-300, gradtol = 1e-11, maxiter = 9))
   @test !r9.converged && !r9.x_converged && r9.iteration_converged
@@ -1178,7 +1178,8 @@ end
 # that the assessment reads are set. F = f_x + g_x with g_x = 0; xtol = 1e-8, gradtol = 1e-11.
 # A proposed stop is kept only if x is stationary (#296): `stationary = true` moves both gradients
 # by the same amount, so that the gradient at x is -λ sign(x) (the residual of the gradient test
-# does not change; the model is the identity design, whose λmax is ‖y‖∞ = ‖x‖∞ + λ),
+# does not change; the scores at x are then 0 at a nonzero coefficient and -λ at a zero one, below the coordinatewise
+# thresholds that the check forms from the design and the f_x set here, STOP-21),
 # `stationary = false` leaves the gradient at x one away from it, and `stationary = nothing` sets
 # the given gradients as they are.
 function pgd_assessment(T, ftol; x, previous, F, F_previous, delta = x .- previous,
@@ -1542,7 +1543,7 @@ end
   @test all(isfinite, x)
 end
 
-@testset "PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317)" begin
+@testset "PGD: diag(1, 1e-6) with a solution at 1e-150 ends without the line search's 0 · Inf error, and a long run is accurate (#317, #487)" begin
   # X = diag(1, s), y = (0, s 1e-150): the solution of the rounded data is x* = (0, y₂ / s). ‖X‖_F² ≥ 1.
   s = 1e-6
   X, y = [1.0 0; 0 s], [0.0, s * 1e-150]
@@ -1551,15 +1552,17 @@ end
   x = [0.0, 0.0]
   solve!(x, f, g, ProximalGradientDescent())
   @test all(isfinite, x)
-  # a longer run: converged = true means the computed residual ‖G‖∞ is below τ S, with
-  # τ = max(gradtol, 64 eps) and S = max(λ, λmax) = λmax = |X₂₂ y₂|. In exact arithmetic
-  # G₂ = X₂₂² (x₂ - x₂*), so |x₂ - x₂*| = |G₂| / X₂₂². The computed G₂ is s (fl(fl(s x₂) - y₂)) with three roundings, and the
-  # computed S has one: |G₂| ≤ (τ S + u X₂₂² |x₂|)(1 + 4u), u = eps(Float64), from first-order
-  # bounds with u twice the unit roundoff.
+  # a longer run. These data fit exactly (F* = 0); with these options the coordinatewise check of STOP-21 refuses each
+  # proposal (on Julia 1.13.4 the run returned the minimizer to working precision at maxiter, with a relative residual
+  # of about 5e-17), so the run returns with converged = false at maxiter or an objective increase; it is checked
+  # against the accuracy below. With τ = max(gradtol, 64 eps) and
+  # S = |X₂₂ y₂|: in exact arithmetic G₂ = X₂₂² (x₂ - x₂*), so |G₂| ≤ τ S gives |x₂ - x₂*| ≤ τ S / X₂₂², a relative
+  # error of τ. The bound below is (τ S / X₂₂² + u |x₂|)(1 + 4u), u = eps(Float64), with slack for the rounding of x₂,
+  # and x₁ (whose minimizer is 0) is held to (τ S + u |x₁|)(1 + 4u).
   x = [0.0, 0.0]
   options = ProximalOptions(maxiter = 20_000)
   r = solve!(x, f, g, ProximalGradientDescent(), options)
-  @test r.converged
+  @test !r.converged && (r.iteration_converged || r.f_increased)
   setprecision(BigFloat, 256) do
     u, τ = BigFloat(eps(Float64)), BigFloat(max(options.gradtol, 64 * eps(Float64)))
     s2, y2 = BigFloat(X[2, 2]), BigFloat(y[2])

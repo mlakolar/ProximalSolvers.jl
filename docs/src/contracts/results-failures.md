@@ -15,7 +15,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 | --- | --- | --- | --- | --- |
 | `CDSolver`, least squares with `NormL1`, `ElasticNet`, `IndNonnegative()` or unweighted `NormL1Nonneg` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
-| `ProximalGradientDescent`, `AccProxGradDescent` on the regression routes with a dedicated KKT check | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and the computed residual passed [STOP-04](@ref) and any applicable entry or group checks for [lasso](@ref STOP-03), [group lasso](@ref STOP-05), [elastic net](@ref STOP-06), [the Euclidean norm](@ref STOP-17), or [the nonnegative penalties](@ref STOP-16) | a residual formed in working precision |
+| `ProximalGradientDescent`, `AccProxGradDescent` on the regression routes with a dedicated KKT check | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and, for least squares with `NormL1` or `ElasticNet` on a dense vector, every coordinate's computed score passed the rule of [STOP-21](@ref) (below its threshold, or at most `0` at an exact zero scale, where no threshold is formed); otherwise the computed residual passed [STOP-04](@ref) and any applicable entry or group checks for [the logistic and matrix-response lasso](@ref STOP-03), [group lasso](@ref STOP-05), [the Euclidean norm](@ref STOP-17), or [the nonnegative penalties](@ref STOP-16) | a comparison in `T` of computed scores and thresholds, formed as stated below; for least squares with `NormL1` or `ElasticNet` on a dense vector, its exact-arithmetic analogue is approximate coordinatewise stationarity relative to the smooth part of the model that the check scores (the objective of the solve when their coefficients agree), with no general error bound ([STOP-21](@ref)) |
 | `ProximalGradientDescent`, `AccProxGradDescent` with a generic stationarity check | the same | the generic check | a test proposed a stop and the proximal-gradient residual passed the threshold comparison and guards in [STOP-07](@ref) | a working-precision indication that can be weaker when the accepted `L` is small |
 | `ProxNewton`, logistic regression | the accepted point, at the start and after each accepted iteration | nothing | the largest ProximalBase KKT score `kkt` of the original problem, from a gradient formed at the returned point, is finite and at most `tol` (see [PN-05](@ref)) | a residual formed in working precision; `stop_reason` is `:converged`, `:maxiter` or `:stalled` |
 | `LogisticADMM`, logistic regression | each completed iteration | nothing | the primal residual `‖X b - t‖` and the dual residual `ρ ‖Xᵀ(t - t_previous)‖` are within their thresholds, and the largest ProximalBase KKT score `kkt` of the original problem, from a gradient formed at the returned point, is at most `tol` (see [LA-04](@ref)) | residuals formed in working precision; `stop_reason` is `:converged`, `:maxiter`, `:stalled` or `:prox_failed` |
@@ -24,10 +24,11 @@ certified optimum. The solvers stop on three kinds of evidence:
 The entrywise matrix lasso uses the same PGD/APG result flags, with the
 full-matrix scores and scale in [STOP-03](@ref).
 
-In the regression PGD/APG rows, the stationarity checks form their thresholds
+In the regression PGD/APG rows, the `λmax`-based stationarity checks form their thresholds
 in `T`. [STOP-04](@ref) specifies the finite-scale and finite-residual guards,
-the lower bound on the threshold and the strict comparison for dedicated KKT
-checks. [STOP-07](@ref) adds guards for the generic mapping check. A computed
+the lower bound on the threshold and the strict comparison for those
+checks; the coordinatewise check of [STOP-21](@ref) forms its thresholds from factors carried as a
+`Float64` significand times a power of two and converts each to `T` once, under its own guards. [STOP-07](@ref) adds guards for the generic mapping check. A computed
 threshold can overflow to `Inf`. Interpret a kept stop as the result of the
 computed comparison. Graphical-lasso PGD uses the comparison in [PGD-08](@ref).
 
@@ -95,7 +96,7 @@ rollback boundary in [PGD-07](@ref).
 
 **Code.** `src/cd/solver.jl`: completed passes and CD results; `src/solve.jl`: gradient iteration/stationarity decisions; `src/types.jl`: result fields; `src/solvers/logistic_proxnewton.jl`: the `ProxNewton` result; `src/solvers/logistic_admm.jl`: the `LogisticADMM` result.
 
-**Tests.** `test/weighted_elasticnet.jl` checks public convergence flags against the weighted residual and scale. `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/logistic_proxnewton.jl` checks the `ProxNewton` result fields and stop reasons against an independent objective and KKT score, and `test/logistic_admm.jl` does so for the `LogisticADMM` result. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl` (the nonnegative CD fits, judged by an independent constrained KKT score) and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
+**Tests.** `test/weighted_elasticnet.jl` checks public convergence flags against the independent weighted scores and the coordinatewise scales of [STOP-21](@ref), and `test/stopping_coordinatewise.jl` the convergence flags of zero-scale, exact-fit and offset problems. `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/logistic_proxnewton.jl` checks the `ProxNewton` result fields and stop reasons against an independent objective and KKT score, and `test/logistic_admm.jl` does so for the `LogisticADMM` result. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl` (the nonnegative CD fits, judged by an independent constrained KKT score) and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
 
 **Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`. The later nonnegative-lasso result interpretation follows [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The square-root fallback qualification is from [f573224f](https://github.com/mlakolar/ProximalSolvers.jl/commit/f573224f70058be24b81378ab2d6e1c752eb93e8), as retained in [the integrated result guidance at ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/blob/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7/docs/src/stopping-limits.md#L35-L45).
 
@@ -196,7 +197,7 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 ## [RES-04 Explicit-policy PGD result](@id RES-04)
 
-**Statement.** [STOP-21](@ref) returns a `PGDPolicyResult` whose `minimizer`
+**Statement.** [STOP-22](@ref) returns a `PGDPolicyResult` whose `minimizer`
 aliases the caller's coefficient vector. `minimum` is the objective at the
 returned point, or `missing` if a zero iteration cap prevented initialization.
 `iterations` counts accepted updates. `iteration_converged` reports whether the
@@ -237,7 +238,7 @@ is the trial count minus accepted iterations. `backtrack_steps` keeps the
 PGD line-search convention of [RES-02](@ref). Initialization contributes one
 smooth value and gradient and no prox trial. A zero-cap result has zero counts.
 
-**Applies to.** The dense vector least-squares PGD pilot in [STOP-21](@ref).
+**Applies to.** The dense vector least-squares PGD pilot in [STOP-22](@ref).
 
 **Code.** `src/solvers/pgd_stopping.jl` and `src/stopping.jl`.
 

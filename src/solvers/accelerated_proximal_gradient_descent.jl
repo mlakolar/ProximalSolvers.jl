@@ -94,7 +94,7 @@ end
 
 # Dense iterates and gradient with the LS image cache: z_x = A x (of the current
 # trial point once a step starts), z_previous = A x_previous and z_y = A y.
-mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z}
+mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z, C}
     x::X
     f_x::T
     g_x::T
@@ -107,8 +107,10 @@ mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z}
     delta_x::X
     L::T
     max_residual::T
-    λmax::T           # ‖∇f(0)‖ for the stationarity check: the ∞-norm for NormL1, ElasticNet and NormLinf, the
-                      # largest group 2-norm for GroupNormL2 (_scale_norm); -1 until it is computed
+    λmax::T           # ‖∇f(0)‖ for the stationarity check: the ∞-norm for NormL1 (logistic loss, matrix response)
+                      # and NormLinf, the largest group 2-norm for GroupNormL2, the 2-norm for NormL2 (_scale_norm);
+                      # -1 until it is computed. The coordinatewise check (scales below) does not compute it, so it
+                      # stays -1 in those solves.
     k::Int            # iterations since the start or the last restart
     restarts::Int
     backtrack_steps::Int
@@ -129,6 +131,9 @@ mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z}
     normx_previous::_SE{T}  # ‖x_previous‖
     fresh_only::Bool  # internal validation switch: decide every trial with the fresh A d
     fallbacks::Int    # trials decided with the fresh A d
+    # the column data of the coordinatewise check (_CoordinateScales, STOP-21) for least squares with NormL1 or
+    # ElasticNet on a Vector{Float32} or Vector{Float64}, filled at the first check; nothing for the other problems
+    scales::C
 end
 
 function initial_state(
@@ -176,7 +181,8 @@ function initial_state(
                          normx0,
                          normx0,
                          false,
-                         0
+                         0,
+                         _coordinate_scales(model, g, x0)
                          )
 end
 

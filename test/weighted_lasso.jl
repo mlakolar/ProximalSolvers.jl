@@ -18,15 +18,19 @@ module WeightedLassoTests
 # gradient (`eG`, from the standard dot-product bounds; it is an estimate under that error model, not a
 # guarantee for the BLAS kernel in use).
 #
-# Tolerances are stated relative to each solver's own tolerance. For PGD and APG a stop counts only where the
-# computed residual is below τ S, with τ = max(gradtol, 64 eps(T)) and S = max(maxⱼ cⱼ, α‖Xᵀy‖∞); the check is
-# G - eG <= τ (1 + 4 eps) (S + eS). For CD with the default `relative = true` and y ≠ 0, `converged` means that
+# Tolerances are stated relative to each solver's own tolerance. For PGD and APG a stop counts only where each
+# coordinate passes the coordinatewise check (STOP-21): its computed score is below its threshold, whose exact-arithmetic
+# formula is τ sᵢ with τ = max(gradtol, 64 eps(T)) and sᵢ = α‖Xᵢ‖‖Xx - y‖ (STOP-21 gives the working score, the stored
+# loss value and the guard), or at most 0 for a zero column (and at x = 0 with y = 0); the check here is
+# Gᵢ - eGᵢ <= τ (1 + 4 eps) (sᵢ + esᵢ) for every coordinate (`coordinate_bound`), where Gᵢ is the entry of G
+# below and eGᵢ, esᵢ the rounding allowances of the computed score and scale. For CD with the default `relative = true` and y ≠ 0, `converged` means that
 # every coordinate change of the last full pass, scaled, is below tol times the response scale:
 # |Δxₖ| ‖Xₖ‖ < tol ‖y‖. In exact arithmetic each coordinate of that pass was the minimizer in its coordinate when it was
 # updated, so G is at most (p - 1) α maxⱼ ‖Xⱼ‖ ‖y‖ tol, the effect of the later coordinates of the pass on the gradient
 # of an earlier one; the term 64 eps(T) S allows for the rounding of the residual cache over the passes, and the
 # largest measured G over this bound is printed at the end. For a design of full column rank, a distance to the reference follows from the strong convexity of the loss,
-# μ = α σmin(X)²: ‖x - β‖₂ <= √p Gtol/μ, and F(x) - F(β) <= p Gtol²/(2μ), with Gtol the tolerance above plus eG.
+# μ = α σmin(X)²: ‖x - β‖₂ <= √p Gtol/μ, and F(x) - F(β) <= p Gtol²/(2μ), with Gtol the tolerance above plus eG
+# (for PGD and APG, the largest coordinate tolerance plus its eGᵢ).
 # Refusals of penalties and of iterates for the other receivers are also in test/core_contracts.jl.
 using Test, LinearAlgebra, Random, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
@@ -81,6 +85,44 @@ function kktparts(X, y, α, λ0, w, x, ::Type{T}) where T
     eG = maximum(a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ c)) + big(nextfloat(zero(T))) / 2
     eS = a * (n + 1) * u * maximum(absX' * abs.(yb))
     (G, S, eG, eS)
+  end
+end
+
+# The coordinatewise quantities in BigFloat for the point x of the problem with the penalty NormL1(λ0, w) (STOP-21):
+# the scores Gᵢ (the entries of G in the header), their allowances eGᵢ (the terms of eG above), the scales
+# sᵢ = α‖Xᵢ‖‖Xx - y‖ and the allowances esᵢ = α‖Xᵢ‖‖e‖ + (n + p + 4) u sᵢ of the computed scale (|‖d̂‖ - ‖d‖| ≤ ‖e‖
+# for the computed residual d̂, and the roundings of the loss value, of the column norm and of the square roots).
+function coordparts(X, y, α, λ0, w, x, ::Type{T}) where T
+  big256() do
+    Xb, yb, xb, a, l0, wb = big.(X), big.(y), big.(x), big(α), big(λ0), big.(w)
+    n, p = size(Xb)
+    u = big(eps(T))
+    c = l0 .* wb
+    d = Xb * xb - yb
+    g = a .* (Xb' * d)
+    G = [iszero(xb[j]) ? max(abs(g[j]) - c[j], zero(l0)) : abs(g[j] + c[j] * sign(xb[j])) for j in 1:p]
+    absX = abs.(Xb)
+    e = (p + 1) * u .* (absX * abs.(xb) + abs.(yb))
+    eG = a .* (absX' * (e .+ (n + 1) * u .* (abs.(d) .+ e))) .+ u .* (abs.(g) .+ c) .+ big(nextfloat(zero(T))) / 2
+    norms = [sqrt(sum(abs2, Xb[:, j])) for j in 1:p]
+    sc = a .* norms .* sqrt(sum(abs2, d))
+    es = a .* norms .* sqrt(sum(abs2, e)) .+ (n + p + 4) * u .* sc
+    (G, eG, sc, es)
+  end
+end
+
+# The check of a kept PGD or APG stop on the fixtures of this file (STOP-21): Gᵢ - eGᵢ <= tᵢ = τ (1 + 4 eps) (sᵢ + esᵢ)
+# for every coordinate, with τ = max(gradtol, 64 eps(T)) and the first-order rounding allowances of coordparts (a zero
+# column has sᵢ = 0 and so needs Gᵢ <= eGᵢ); an estimate under that error model, not a bound that every kept computed
+# stop satisfies. Returns that verdict, maxᵢ (tᵢ + eGᵢ), a bound on the exact ‖G‖∞ where the verdict holds, and the
+# largest ratio of max(Gᵢ - eGᵢ, 0) to tᵢ (where tᵢ = 0: Inf when Gᵢ > eGᵢ, 0 otherwise).
+function coordinate_bound(X, y, α, λ0, w, x, gradtol, ::Type{T}) where T
+  G, eG, sc, es = coordparts(X, y, α, λ0, w, x, T)
+  big256() do
+    u = big(eps(T))
+    t = max(big(gradtol), 64u) * (1 + 4u) .* (sc .+ es)
+    ratio = maximum(i -> t[i] > 0 ? max(G[i] - eG[i], 0) / t[i] : (G[i] > eG[i] ? big(Inf) : big(0)), eachindex(G))
+    all(G .- eG .<= t), maximum(t .+ eG), ratio
   end
 end
 
@@ -239,15 +281,18 @@ function check_solution(label, s::Spec, ::Type{T}, X, y, α, λ0, w, x, r, β; r
   n, p = size(X)
   G, S, eG, eS = kktparts(X, y, α, λ0, w, x, T)
   u = big(eps(T))
-  Gtol = if s.kind === :cd
+  if s.kind === :cd
     # in BigFloat: α and ‖y‖ can be large
-    (p - 1) * big(α) * maximum(j -> norm(big.(X[:, j])), 1:p) * norm(big.(y)) * big(tol) + 64 * u * S
+    Gtol = (p - 1) * big(α) * maximum(j -> norm(big.(X[:, j])), 1:p) * norm(big.(y)) * big(tol) + 64 * u * S
+    r.converged && @test (label, G - eG <= Gtol) == (label, true)
+    r.converged && note!(T, s, :G, max(G - eG, 0) / Gtol)
+    Gt = Gtol + eG
   else
-    max(big(options.gradtol), 64 * u) * (1 + 4 * u) * (S + eS)
+    within, Gt, ratio = coordinate_bound(X, y, α, λ0, w, x, options.gradtol, T)
+    r.converged && @test (label, within) == (label, true)
+    r.converged && note!(T, s, :G, ratio)
   end
   require_converged && @test (label, r.converged) == (label, true)
-  r.converged && @test (label, G - eG <= Gtol) == (label, true)
-  r.converged && note!(T, s, :G, max(G - eG, 0) / Gtol)
   F = objective_big(X, y, α, λ0, w, x)
   # the reported objective is formed from the iterate (PGD, APG) or from a cached residual (CD): within
   # 4 (n + p) eps(T) of the scale α/2 ‖y‖² + λ0 Σ wⱼ|xⱼ| (the cd_numerics fixture bound, widened by 4), plus
@@ -259,7 +304,6 @@ function check_solution(label, s::Spec, ::Type{T}, X, y, α, λ0, w, x, r, β; r
   note!(T, s, :objective, abs(big(r.minimum) - F) / (4 * (n + p) * u * scale + big(floatmin(T))))
   if β !== nothing
     μ = big(α) * σmin2(X)
-    Gt = Gtol + eG
     dx = big256(() -> norm(big.(x) .- β))
     @test (label, dx <= 1.01 * sqrt(big(p)) * Gt / μ) == (label, true)
     note!(T, s, :distance, dx / (sqrt(big(p)) * Gt / μ))
@@ -373,13 +417,15 @@ end
 # or objective-derived quantities between the two runs is asserted. Those comparisons, and the bit equality of the final
 # points, are recorded in the counters printed at the end. (2) The stop rule is checked at fixed points,
 # independently of any trajectory (D4): at the zero vector, at the final points of both runs and at one fixed perturbed
-# point, the stop scale S = max(level, λmax), ProximalBase's `kkt_violation` of the converted penalty at the same
+# point, the scale S = max(level, λmax), ProximalBase's `kkt_violation` of the converted penalty at the same
 # gradient and the verdict of `_stationary!` are equal for the weighted and the unweighted penalty. They are equal bit
 # for bit because the coefficients are the same numbers (T(λw) c = T(λu) for a power of two c) and the data, the point
-# and the gradient are the same; none of them uses the computed objective.
+# and the gradient are the same. The verdict reads the stored loss value, which is the same number for both runs at a
+# fixed point.
 
-# The quantities of the stop rule of `s` (PGD or APG) for the penalty g at the point x, formed as `_stationary!` forms
-# them: the level of the converted penalty, λmax, S, ProximalBase's residual at the gradient at x, and the verdict.
+# Quantities at the point x for the penalty g of `s` (PGD or APG): the level of the converted penalty, λmax and
+# S = max(level, λmax) (the scale of the λmax-based check, which the coordinatewise check of these problems does not
+# use, STOP-21; compared as data), ProximalBase's residual at the gradient at x, and the verdict of `_stationary!`.
 function stop_quantities(s::Spec, ::Type{T}, f, g, x, options) where T
   state = PS.initial_state(method_of(s, T), options, f, g, copy(x))
   λmax = PS._lambda_max!(state)
@@ -567,8 +613,7 @@ end
         @test (label, s.label, r.minimizer === x, all(isfinite, Vector(x))) == (label, s.label, true, true)
         # no claim of accuracy at these scales, but a converged = true must be within the solver's tolerance
         if r.converged && s.kind !== :cd
-          G, S, eG, eS = kktparts(X, y, 1, λ0, w, Vector(x), T)
-          @test (label, s.label, G - eG <= max(big(gradient_options(T).gradtol), 64 * big(eps(T))) * (1 + 4 * big(eps(T))) * (S + eS)) ==
+          @test (label, s.label, coordinate_bound(X, y, 1, λ0, w, Vector(x), gradient_options(T).gradtol, T)[1]) ==
                 (label, s.label, true)
         end
       else
@@ -702,11 +747,7 @@ end
     w = T[0, 0, 0, 1, 1, 1, 1, 1]
     λ0 = T(0.2 * lambdamax(X, y, 1.0))
     s = Spec("stop", method isa ProximalGradientDescent ? :pgd : :apg, :cyclic, nothing, false)
-    within_bound(x, options) = begin
-      G, S, eG, eS = kktparts(X, y, 1, λ0, w, x, T)
-      τ = max(big(options.gradtol), 64 * big(eps(T)))
-      G - eG <= τ * (1 + 4 * big(eps(T))) * (S + eS)
-    end
+    within_bound(x, options) = coordinate_bound(X, y, 1, λ0, w, x, options.gradtol, T)[1]
     for options in (ProximalOptions(allow_f_increases = true), gradient_options(T))
       x, r = solve_spec(s, T, LeastSquaresLoss(y, X), NormL1(λ0, w), zeros(T, p); options)
       label = (T, s.kind, options.gradtol, :allow_f_increases, r.converged, r.f_increased, r.stagnated, r.iterations)
@@ -740,8 +781,8 @@ end
 
 # A stop is proposed at the first iteration (xtol is huge), at a point that is not stationary for the weighted
 # problem: the unpenalized entries have a gradient. The stationarity check refuses it and the solve continues; a stop
-# is accepted where the computed residual is below τ S, which the independent check confirms up to the allowance
-# eG. An unweighted check with the level λ0
+# is accepted where each computed score is below its threshold τ sᵢ, which the independent check confirms up to the
+# allowances (`coordinate_bound`). An unweighted check with the level λ0
 # alone (λ0 above λmax: stationary at 0) would accept the first proposal.
 @testset "zero weights do not produce a false stop" begin
   n, p = 30, 6
@@ -755,8 +796,7 @@ end
     label = (T, s.kind, seed)
     @test (label, r.iterations > 1) == (label, true)
     if r.converged
-      G, S, eG, eS = kktparts(X, y, 1, λ0, w, x, T)
-      @test (label, G - eG <= max(big(options.gradtol), 64 * big(eps(T))) * (1 + 4 * big(eps(T))) * (S + eS)) == (label, true)
+      @test (label, coordinate_bound(X, y, 1, λ0, w, x, options.gradtol, T)[1]) == (label, true)
       @test (label, any(!iszero, x[[1, 2, 5]])) == (label, true)
     end
   end

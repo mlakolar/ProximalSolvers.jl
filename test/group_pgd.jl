@@ -270,7 +270,8 @@ end
   @test abs(objs["contiguous ranges"] - objs["contiguous vectors"]) <= gap_target(T) * abs(objs["contiguous ranges"])
 
   # Singleton groups with unit weights are the lasso: on this fixture (no entry of ∇f(0) has a subnormal square) the
-  # scale S is the lasso's exactly; each solver's own final
+  # scale S = max(λ, λmax) of the group check equals the one formed for NormL1(λ) by the same helpers, which the
+  # least-squares NormL1 check itself does not use (it is coordinatewise, STOP-21); each solver's own final
   # point meets the independent residual and the objectives agree within the target (the iterates are not compared).
   λ = T(0.2 * lambda_max(X, y, s, [i:i for i in 1:p], ones(p)))
   gs, gl = GroupNormL2(λ, [i:i for i in 1:p], ones(T, p)), NormL1(λ)

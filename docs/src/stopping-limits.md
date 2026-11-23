@@ -10,7 +10,7 @@ Use `stopping` to choose a condition and `limits=MaxIterations(n)` to cap the
 number of accepted updates. `AnyOf` accepts the first passing condition.
 `AllOf` needs its conditions to pass at the same checkpoint. `IterateChange`
 and `ObjectiveChange` measure progress between accepted points. `UserStop`
-accepts a predicate over scalar checkpoint metadata. The [stopping contract](@ref STOP-21)
+accepts a predicate over scalar checkpoint metadata. The [stopping contract](@ref STOP-22)
 specifies the comparison scales, option conflicts and checks available at the cap.
 
 ```julia
@@ -33,7 +33,15 @@ keywords to use the default PGD stopping policy.
 
 ## The criterion and a certificate
 
-See the [current section](@ref RES-01). For square-root lasso, a bounded
+See the [current section](@ref RES-01). For PGD and APG on least squares with a
+dense vector response and `NormL1` or `ElasticNet`, a kept stop records that each coordinate's computed score
+passed the rule: below its computed threshold, or at most `0` at an exact zero scale,
+where no threshold is formed. In exact arithmetic the same comparison would bound
+the decrease available from each coordinate of the model that the check scores,
+under the conditions of [STOP-21](@ref) (that model is the objective of the solve
+when their coefficients agree); neither bounds the error of the objective or the coefficients in
+general, and an exact or near-exact fit can return `converged = false`. The matrix-response
+lasso of [IN-10](@ref) keeps the `λmax`-based check of [STOP-03](@ref). For square-root lasso, a bounded
 fallback can certify an uncertified stopped point or return a point with a
 proved lower objective; recovery at exact fits is not guaranteed. See the
 [bounded recovery rule](@ref CDQ-05).

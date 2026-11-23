@@ -6,6 +6,23 @@ const PS = ProximalSolvers
 unit_loss(::Type{T}) where T = LeastSquaresLoss(T[1], fill(one(T), 1, 1))
 unit_step() = ProximalGradientDescent(ls=PS.LineSearches.BackTracking(α=1.0))
 
+@testset "Explicit policy skips the coordinatewise workspace ($T)" for T in (Float32, Float64)
+    f, method, options = unit_loss(T), unit_step(), ProximalOptions(maxiter=3)
+    for g in (NormL1(zero(T)), ElasticNet(T(0.25), T(0.5)))
+        @test PS.initial_state(method, options, f, g, T[1]).scales isa PS._CoordinateScales
+        @test PS.initial_state(method, options, f, g, T[1], Val(false)).scales === nothing
+    end
+
+    # Rule B's smooth scale is zero at this nontrivial exact fit. The selected
+    # progress policy stops once the accepted iterate is unchanged.
+    g = NormL1(zero(T))
+    legacy = solve!(T[1], f, g, method, options)
+    pilot = solve!(T[1], f, g, method; stopping=IterateChange(), limits=MaxIterations(3))
+    @test legacy.iterations == 3 && !legacy.converged
+    @test pilot.iterations == 1 && termination(pilot).satisfied && !pilot.converged
+    @test legacy.minimizer == pilot.minimizer == T[1]
+end
+
 @testset "Initial checkpoint and caps ($T)" for T in (Float32, Float64)
     x = T[0]
     calls = Int[]

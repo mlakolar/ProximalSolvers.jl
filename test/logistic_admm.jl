@@ -720,13 +720,15 @@ end
              t = [0.0], u = [nextfloat(0.0)])
   @test r.dual_kkt == 0 && 1e-10 * nextfloat(0.0) == 0
   @test 1.6e-177 < Float64(big(2.0^520) * big(1e-10) * big(nextfloat(0.0))) < 1.8e-177
-  # the same documented limits can give NaN: with ρ = 1, X = 2^520 in four rows and u = ±2^504 alternating, the terms
-  # of Xᵀŵ are ±2^1024, their partial sums Inf - Inf, and dual_kkt is NaN, while the exact sum is 0
+  # with ρ = 1, X = 2^520 in four rows and u = ±2^504 alternating, the terms of Xᵀŵ are ±2^1024:
+  # individual products overflow Float64, but the BLAS reduction can return NaN, Inf or a finite cancellation
+  # depending on the platform. A finite result must be close to the exact sum of 0.
   X4 = fill(2.0^520, 4, 1)
   u4 = [2.0^504, -2.0^504, 2.0^504, -2.0^504]
   r = solve!([0.0], LogisticLoss([0.0, 1.0, 0.0, 1.0], X4), NormL1(0.0), LogisticADMM(ρ = 1.0, maxiter = 0);
              t = zeros(4), u = copy(u4))
-  @test isnan(r.dual_kkt) && isfinite(r.kkt)
+  @test isnan(r.dual_kkt) || r.dual_kkt == Inf || isapprox(r.dual_kkt, 0.0; atol = 1e-12)
+  @test isfinite(r.kkt)
   @test sum(big.(vec(X4)) .* big.(u4)) == 0
   # and subnormal rounding of ρ u[i] can distort a contribution upward: with ρ = 0.75 and u = nextfloat(0.0), ρ u
   # rounds up to nextfloat(0.0), so dual_kkt is X u, above the exact score 0.75 X u

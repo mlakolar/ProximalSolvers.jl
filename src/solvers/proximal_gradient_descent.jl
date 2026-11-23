@@ -102,7 +102,7 @@ function ProximalGradientDescent(; ls = LineSearches.BackTracking(), normalized:
 end
 
 # Native dense iterates/gradients with retained LS image buffers.
-mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M, Z}
+mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M, Z, C}
     x::X
     f_x::T
     g_x::T
@@ -115,8 +115,10 @@ mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M
     delta_x::X
     L::T
     max_residual::T
-    λmax::T         # ‖∇f(0)‖ for the stationarity check: the ∞-norm for NormL1, ElasticNet and NormLinf, the
-                    # largest group 2-norm for GroupNormL2 (_scale_norm); -1 until it is computed
+    λmax::T         # ‖∇f(0)‖ for the stationarity check: the ∞-norm for NormL1 (logistic loss, matrix response),
+                    # NormL1Nonneg and NormLinf, the largest group 2-norm for GroupNormL2, the 2-norm for NormL2
+                    # (_scale_norm); -1 until it is computed. The coordinatewise check (scales below) does not
+                    # compute it, so it stays -1 in those solves.
     backtrack_simple::Bool  # line search uses function values, not gradients
     backtrack_steps::Int
     f_calls::Int
@@ -131,6 +133,9 @@ mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M
     # min(Lexact, max(c, L/β)) for the rejected trial's L, which need not equal c); set by
     # backtrack!, cleared at the start of update_state!
     verified_rejection::Bool
+    # Column data for the default coordinatewise check (STOP-21), filled at the
+    # first check. The explicit stopping pilot (STOP-22) leaves this as nothing.
+    scales::C
 end
 
 
@@ -139,7 +144,8 @@ function initial_state(
           options,
           f,
           g,
-          x0::VecOrMat{T}) where T
+          x0::VecOrMat{T},
+          ::Val{allocate_scales} = Val(true)) where {T, allocate_scales}
 
     grad_f_x = _dense_similar(x0)
     model = _image_model(f)
@@ -173,7 +179,8 @@ function initial_state(
                          z_x,
                          dz,
                          0,
-                         false
+                         false,
+                         allocate_scales ? _coordinate_scales(model, g, x0) : nothing
                          )
 end
 
@@ -351,7 +358,7 @@ saved_beta = copy(result.minimizer)
 The meaning of `converged` depends on the method and loss; see
 [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
 The dense vector least-squares PGD pilot accepts explicit conditions and an
-independent iteration budget. See [STOP-21](@ref) and [`termination`](@ref).
+independent iteration budget. See [STOP-22](@ref) and [`termination`](@ref).
 
 # Extended help
 

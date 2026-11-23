@@ -35,7 +35,7 @@ end
 
 Check the Euclidean displacement between successive accepted iterates against
 an absolute plus relative tolerance. Two zero tolerances select elementwise
-equality. The exact comparison and scale are specified in [STOP-21](@ref).
+equality. The exact comparison and scale are specified in [STOP-22](@ref).
 """
 struct IterateChange
     atol::Float64
@@ -49,7 +49,7 @@ end
 
 Check the absolute change in the original composite objective between successive
 accepted iterates. Two zero tolerances select equality of the computed
-objectives. See [STOP-21](@ref) for the scale and arithmetic.
+objectives. See [STOP-22](@ref) for the scale and arithmetic.
 """
 struct ObjectiveChange
     atol::Float64
@@ -63,7 +63,7 @@ end
 
 Stop when `predicate(context)` returns `true`. The immutable context has
 `iteration` and `objective` fields and is available from the initial point.
-See [STOP-21](@ref) for evaluation order and budget ties.
+See [STOP-22](@ref) for evaluation order and budget ties.
 """
 struct UserStop{F}
     predicate::F

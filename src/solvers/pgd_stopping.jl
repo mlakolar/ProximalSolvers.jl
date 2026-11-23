@@ -117,7 +117,7 @@ function _solve_pgd_policy!(x, f, g, method, options, stopping, limits)
         return _pgd_policy_result(method, x, missing, false, trace, monitor, :limit, 0, 0, 0, 0, 0)
     end
     g_work = _working_gradient_penalty(g, eltype(x))
-    state = initial_state(method, options, f, g_work, x)
+    state = initial_state(method, options, f, g_work, x, Val(false))
     _run_pgd_policy!(state, f, g_work, method, options, trace, monitor)
 end
 

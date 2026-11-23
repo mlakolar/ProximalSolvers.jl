@@ -162,7 +162,7 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
 | PGD with dense vector-response least squares, raw or with one supported positive scale, and its supported penalties apart from box and ball indicators | `Vector{Float32}` or `Vector{Float64}` | `IterateChange`, `ObjectiveChange`, `UserStop`, `AnyOf`, `AllOf` and `MaxIterations` |
 
 Other solver and problem routes use their existing stopping options. See
-[the explicit-policy contract](@ref STOP-21) for the input and option rules.
+[the explicit-policy contract](@ref STOP-22) for the input and option rules.
 
 ### Statistical applications
 
