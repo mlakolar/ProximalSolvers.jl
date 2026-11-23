@@ -30,17 +30,13 @@ types. The source snapshot reconciled in [issue #416](https://github.com/mlakola
 `sqrtlasso.jl`). This is a dated source inventory, not a permanent file-count
 guarantee. The superseded thirteen-file list is preserved as
 [retired historical evidence](@ref ARCH-UNRECONCILED). Among later additions,
-`src/solvers/l1ball.jl` holds the opt-in ℓ1-ball route of PGD and APG
-([IN-12](@ref)): its working constraint and its methods of the engine's hooks for
-the trial ([PGD-09](@ref)), the stopping assessment ([STOP-22](@ref)) and the result
-([RES-04](@ref)), whose methods for the other penalties compute the trial, the
-stopping assessment and the reported minimum of the base code.
+`src/solvers/l1ball.jl` holds the ℓ1-ball route of PGD and APG ([IN-12](@ref)): its
+working constraint and its methods of the engine's trial, stopping and result hooks.
 
 ProximalBase supplies losses, L1 proximal operations and sparse coefficient
 storage; ProximalSolvers owns orchestration and algorithm-specific results. CD
 uses ProximalBase's scalar `prox_block`; PGD retains fused `value_and_prox!`, except on the
-ℓ1-ball route, whose trials call ProximalBase's `prox!` and form a widened `Float64` decision
-([PGD-09](@ref)).
+ℓ1-ball route, whose trials call ProximalBase's `prox!` ([IN-12](@ref)).
 Ownership of least-squares value/gradient oracles and solver caches is specified
 once in [FP-01](@ref). Dependency and diagnostic provenance is in [HIST-03](@ref).
 

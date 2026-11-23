@@ -333,13 +333,25 @@ end
   b = PS._l1_budgets(X, y, alpha, r, PS._feasibility_tolerances(NumericalFeasibility(), Float64))
   ball = IndBallL1(r)
   route = PS._NumericalL1Ball(ball, X, y, alpha, b, PS._l1_decision([1e-15], ball, b.cap))
-  @test !PS._stationary!(CheckStub([1e-15], 0, 0), f, route, OPTIONS)
+  stub = CheckStub([1e-15], 0, 0)
+  @test !PS._stationary!(stub, f, route, OPTIONS)
   @test all(iszero, route.gradient)
+  # one full check counts one gradient and one projection (STOP-08)
+  @test stub.grad_calls == 1 && stub.prox_calls == 1
   # the solve reports neither success, and the returned point misses the budgets in MPFR
   x = [1e-15]
   res = solve!(x, f, IndBallL1(r), method, OPTIONS)
   @test !res.converged && !res.approximate_solution
   @test !acceptable(X, y, alpha, r, x)
+end
+
+# The factor 2 of the mapping's underflow allowance (FP-05): the ℓ1-ball projection is 2-Lipschitz in the ∞-norm, not
+# nonexpansive; this pair expands by 4/3
+@testset "the ℓ1-ball projection expands an ∞-norm difference by at most 2 ($T)" for T in (Float32, Float64)
+  ball = IndBallL1(T(3))
+  z, z2 = T[3, 3, 3], T[3.125, 2.875, 2.875]
+  ratio = Float64(maximum(abs, ProximalBase.prox(ball, z) - ProximalBase.prox(ball, z2))) / Float64(maximum(abs, z - z2))
+  @test 1 < ratio <= 2 && isapprox(ratio, 4 / 3; rtol = 64eps(T))
 end
 
 # ---- boundary rounding: the cached decision -------------------------------------------------------------------------------

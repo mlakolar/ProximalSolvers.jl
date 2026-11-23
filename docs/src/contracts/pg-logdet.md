@@ -156,9 +156,7 @@ change in [RES-02](@ref). Both are `NaN` before the first completed step.
 change to be below the tolerance. `ftol=0` disables the objective proposal.
 `grad_converged` equals `converged`. `f_increased` records an actual
 increase on the last completed step, which can occur within the comparison
-allowance. The trace is empty and `gap=NaN`. The three fields that follow `gap` take the values of
-the routes other than the ℓ1-ball route ([RES-04](@ref)): `approximate_solution = false`,
-`smooth_minimum = f(Θ)` as stored and `feasibility = nothing`.
+allowance. The trace is empty, `gap=NaN` and `approximate_solution=false`.
 
 `iterations` counts completed steps, including an accepted unchanged
 point. `backtrack_steps` counts attempted proposals, including accepted

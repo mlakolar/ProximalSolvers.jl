@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` or `ElasticNet` with optional weights under [IN-03](@ref), `NormLinf`, `NormL2` ([IN-11](@ref)) or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref), and `IndBallL1` on the opt-in route of [IN-12](@ref) ([APG-09](@ref)). The penalty prox is described in [PGD-01](@ref). For a raw `LogisticLoss(y, X)` the smooth term is the summed logistic loss of [IN-09](@ref) and the penalty is `NormL1` (optional weights); [APG-08](@ref) gives its line search.
+Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` or `ElasticNet` with optional weights under [IN-03](@ref), `NormLinf`, `NormL2` ([IN-11](@ref)) or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref), and `IndBallL1` on the route of [IN-12](@ref). The penalty prox is described in [PGD-01](@ref). For a raw `LogisticLoss(y, X)` the smooth term is the summed logistic loss of [IN-09](@ref) and the penalty is `NormL1` (optional weights); [APG-08](@ref) gives its line search.
 
 ## Notation
 
@@ -86,39 +86,17 @@ prox_calls = backtrack_steps + C_prox
 f_calls = 1 + grad_calls + backtrack_steps - C
 ```
 
-For a dedicated KKT check, including the `NormL2` check of [STOP-17](@ref), `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). These counters describe the existing implementation; errors do not transactionally restore them. On the ℓ1-ball route, whose trials can skip the projection or the loss value, the identities of [APG-09](@ref) replace these.
+For a dedicated KKT check, including the `NormL2` check of [STOP-17](@ref), `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). These counters describe the existing implementation; errors do not transactionally restore them. On the ℓ1-ball route of [IN-12](@ref), whose trials can skip the projection or the loss value, these identities are not specified.
 
 **Applies to.** Completed AccProxGradDescent solves.
 
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!; src/utils.jl: _gradient_at_x!, _stationary!`.
 
-**Tests.** test/accelerated_pgd.jl: image-cache counters and trace/limits; test/linf.jl: one extra prox for a proposed stop; test/norml2_pgd.jl: `backtrack_steps == prox_calls` with a dedicated `NormL2` check; test/l1ball_numerical.jl: the identities of [APG-09](@ref) on the ℓ1-ball route.
+**Tests.** test/accelerated_pgd.jl: image-cache counters and trace/limits; test/linf.jl: one extra prox for a proposed stop; test/norml2_pgd.jl: `backtrack_steps == prox_calls` with a dedicated `NormL2` check.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L320`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docstring:src/types.jl:L75`.
 
 Result identity, trace/callback ownership, limit ordering and mutation rules are [PGD-04](@ref) and [RES-01](@ref).
-
-### [APG-09 APG on the ℓ1-ball route](@id APG-09)
-
-**Statement.** On the route of [IN-12](@ref), APG keeps the extrapolation, cached images, certified bound and restart of [APG-01](@ref), [APG-03](@ref) and [APG-06](@ref), with the trials of [PGD-09](@ref). A trial over the cap, unresolved or from a gradient-step point with a nonfinite entry has `f(x) = Inf`: it is not accepted, and the step attempts to raise `L` through `next_curvature`, which raises its line-search error when `L/β` is not a finite increase. After the trial hook returns, APG forms the displacement `x - y` in its scratch `xhat`. On a trial with `f(x) = Inf` that value is unused (B1 forms it only after a finite trial value); on a trial with a finite value it enters the norm and bound tests, which can still reject the trial, after which the step attempts to raise `L` as above. The restart compares smooth losses, since the penalty value is `0`: a step with momentum whose accepted smooth loss exceeds the previous one, or whose extrapolated point has a nonfinite value or gradient, is repeated once without momentum, and the repeated step counts its own 64 trials. A step without momentum from a point with a nonfinite value or gradient ends with `f(x) = Inf`, and the gradient engine raises its nonfinite-objective error after restoring the last accepted iterate ([APG-03](@ref)).
-
-Let `N` count the trials from a gradient-step point with a nonfinite entry, `R` the trials projected with a code other than `:pass`, and `C` the full checks of [STOP-22](@ref), each of which adds one gradient and one projection. On a solve that returns a result (not on a thrown error, after which the counters are not restored),
-
-```
-grad_calls = iterations + restarts + C
-prox_calls = backtrack_steps - N + C
-f_calls = 1 + (grad_calls - C) + (backtrack_steps - N - R)
-```
-
-`backtrack_steps` counts every trial, as in [APG-04](@ref). These identities describe the implementation.
-
-**Applies to.** `AccProxGradDescent` on the ℓ1-ball route.
-
-**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: update_state!, _prox_grad_step!`; `src/solvers/l1ball.jl: LineSearches.trial!, _prox_grad_step!, _stationary!`.
-
-**Tests.** `test/l1ball_numerical.jl`, “counter identities”, over the small #508 fixtures in both precisions: `grad_calls - iterations - C` is nonnegative, and positive (a restart) for at least one fixture; `prox_calls = backtrack_steps + C`, the case `N = 0` (no fixture has a gradient-step point with a nonfinite entry); `f_calls ≤ 1 + (grad_calls - C) + backtrack_steps`, with equality on a fixture whose trials pass the cap (`N = R = 0`). No test isolates or asserts the nonzero `N` or `R` terms of these identities. The #508 fixtures, the rollback test and the semantics tests run APG in both precisions.
-
-**Sources.** [The approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919) and [the maintainer's decisions I4 and I6](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7074272157); `accelerated_trial!` and `step!` of [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).
 
 ## Floating-point rules
 
@@ -320,6 +298,6 @@ The retired normalized-KKT shorthand remains separately available as [historical
 
 ## Change log
 
-[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: [APG-09](@ref) specifies APG on the opt-in ℓ1-ball route and its counter identities; [APG-04](@ref) points to them. APG on the other penalties is unchanged.
+[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: APG accepts `IndBallL1` on the route of [IN-12](@ref); [APG-04](@ref) excludes that route from its counter identities. APG on the other penalties is unchanged.
 
 Relative to `legacy/full`, the dense method removed metric, tuple, owner and generic smooth-loss paths; validates its factors in `T`; retries a nonfinite trial through finite curvature growth; replaces the old rounded-square/8eps cached-image allowance by the proof above; and accepts a finite-value point with `x == y`, where the legacy path raised. A nonfinite extrapolated gradient follows the same restart/failure path as a nonfinite value. These are baseline differences, not changes introduced by this migration.

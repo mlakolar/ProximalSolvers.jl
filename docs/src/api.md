@@ -29,6 +29,5 @@ ADMMResults
 OptimizationState
 OptimizationTrace
 ProximalSolvers.OptimizationResults
-ProximalSolvers.NumericalFeasibilityReport
 ProximalSolvers.LineSearches.BackTracking
 ```

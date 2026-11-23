@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` and `ElasticNet` (each with optional weights, [IN-03](@ref)), `NormLinf`, `NormL2` ([IN-11](@ref)), `GroupNormL2`, unweighted `NormL1Nonneg` and `IndNonnegative()`. `NormL1Nonneg` and `IndNonnegative()` enforce `x ≥ 0` under [IN-07](@ref). PGD also accepts `IndBox` (including `IndBallLinf`) and four-coefficient `IndBallL2` under [IN-08](@ref), and, on the opt-in route of [IN-12](@ref), `IndBallL1` with the trials of [PGD-09](@ref).
+Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` and `ElasticNet` (each with optional weights, [IN-03](@ref)), `NormLinf`, `NormL2` ([IN-11](@ref)), `GroupNormL2`, unweighted `NormL1Nonneg` and `IndNonnegative()`. `NormL1Nonneg` and `IndNonnegative()` enforce `x ≥ 0` under [IN-07](@ref). PGD also accepts `IndBox` (including `IndBallLinf`) and four-coefficient `IndBallL2` under [IN-08](@ref), and `IndBallL1` on the route of [IN-12](@ref).
 
 ## Notation
 
@@ -32,7 +32,7 @@ Solvers, options and `BackTracking` each have a validating inner constructor. Se
 
 ### [PGD-01 Image, loss, gradient and proximal iteration order](@id PGD-01)
 
-**Statement.** PGD keeps the native least-squares image buffers and uses ProximalBase's value and gradient oracles. It forms the image before value and gradient, takes scalar steps, and calls `value_and_prox!` for each penalty step, except on the ℓ1-ball route, whose trials are [PGD-09](@ref). Unweighted lasso levels follow [IN-02](@ref).
+**Statement.** PGD keeps the native least-squares image buffers and uses ProximalBase's value and gradient oracles. It forms the image before value and gradient, takes scalar steps, and calls `value_and_prox!` for each penalty step, except on the ℓ1-ball route, whose trials are in [IN-12](@ref). Unweighted lasso levels follow [IN-02](@ref).
 
 At an iteration it saves the last accepted point, objective components and gradient; multiplies `L` by the line search's `α`; then repeats the following trial until [LS-01](@ref) accepts it:
 
@@ -87,32 +87,6 @@ PGD obtains the same initialization through a column-wise scan, with the Frobeni
 
 **Sources.** `docstring:src/solvers/proximal_gradient_descent.jl:L5`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L21`, `docs/src/numerics.md:L168`, `docs/src/numerics.md:L833`.
 
-### [PGD-09 Trials on the ℓ1-ball route](@id PGD-09)
-
-**Statement.** On the route of [IN-12](@ref), the iterations of PGD ([PGD-01](@ref)) and APG ([APG-01](@ref)) keep their order, and each trial from the gradient-step point `xhat` replaces the proximal step and the image and value of the trial as follows:
-
-1. When an entry of `xhat` is not finite, the trial has `f(x) = Inf`, with no projection, no write to `x` and no `prox_calls` or `f_calls` count. It still counts as one of the 64 trials below, and the line search counts it in `backtrack_steps` (PGD's nonfinite branch, APG's count of every trial).
-2. Otherwise ProximalBase's `prox!`, at step `1/L`, for a private `IndBallL1` that the solve builds with the radius of the caller's ball, writes the projection of `xhat` into the caller's `x`, counted in `prox_calls`, and the decision of `x` against the cap ([FP-05](@ref)) then replaces the route's cached decision.
-3. For the code `:pass`, the image and loss value of `x` are formed, counted in `f_calls`, and the penalty value is `0`. For `:over` and `:unresolved`, the trial has `f(x) = Inf` and no loss value is formed.
-
-A trial with `f(x) = Inf` takes the nonfinite branch of PGD's line search ([LS-02](@ref)) and, in APG, raises `L` through `next_curvature` ([APG-09](@ref)); the trials that pass the cap are decided by PGD's backtracking or APG's certified bound ([APG-06](@ref)) as for the other penalties. An accepted trial has a finite loss, so its decision passed the cap.
-
-A search from one base point allows 64 trials: PGD's line search of an iteration, and each call of APG's step, so that the restart's repeated step counts its own trials. When 64 trials from one base point were not accepted, the route raises `ErrorException("line search failed: 64 trials from one base point were not accepted (…)")` at the start of the would-be 65th trial, after its gradient-step point has been formed in the scratch `xhat` and before any projection; `next_curvature` or PGD's curvature update can raise their own line-search error earlier. The gradient engine copies the last accepted iterate into `x` and rethrows ([RES-03](@ref)). No retry follows.
-
-PGD checks the gradient at the accepted trial after the line search, as B1's step does: when that gradient has a nonfinite entry, the route raises `ErrorException("the gradient at the accepted trial has a nonfinite entry (…)")` inside the step, and the gradient engine copies the last accepted iterate into `x` and rethrows, before the stopping assessment, the trace and the callback of that iteration. Within its step, after the projection, APG forms no gradient at its accepted trial, so it has no such check; a later full check ([STOP-22](@ref)) can form a gradient at a witness equal to that point.
-
-Ownership: within a completed step, only trials write `x`. A trial that projects into `x` replaces the cached decision right after the projection, and a trial with a nonfinite `xhat` writes neither, so after every completed trial the cached decision describes `x`; after a completed iteration that is the accepted iterate. A projection that throws can leave `x` written without the cache update; the rollback that follows copies `x_previous` into `x` and is followed by the rethrow, so no result is built from such a state. The full check of [STOP-22](@ref) writes the route's workspace and the two counters, not `x` or the cached decision. A callback may read the coefficients; these statements, and the report of [RES-04](@ref), assume that it leaves them and the borrowed data unchanged, since the solver does not detect a change made by a callback.
-
-The state's initial penalty value is `0`, including for a start that passes the cap outside the ball, where the mathematical indicator is `Inf` (ProximalBase's indicator, which compares a rounded sum, can also be `0` there; the route does not evaluate it). The trace's `fg_x` (the “Function value” of the displayed trace), the callback's objective and the engine's objective comparisons therefore use the smooth loss.
-
-**Applies to.** `ProximalGradientDescent` and `AccProxGradDescent` on the ℓ1-ball route.
-
-**Code.** `src/solvers/l1ball.jl: LineSearches.trial!, LineSearches.search!, _prox_grad_step!, _NumericalL1Ball, _run_numerical_l1!`; `src/utils.jl: LineSearches.trial!, _trial_step!` (the trial of the other penalties); `src/line_searches.jl: search!`; `src/solvers/proximal_gradient_descent.jl: update_state!`; `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!`.
-
-**Tests.** `test/l1ball_numerical.jl`: a callback recomputes the decision of `x` at every iteration of the small #508 fixtures, every accepted iterate passes the cap, and the last recomputed decision equals the report; a callback stop returns the iterate of its iteration bitwise; with a zero cap, a start inside the ball by just more than the rounding allowance and a far response, no trial from the start is accepted, and both methods raise the error of the 64-trial limit and restore the start bitwise, in both precisions (the test does not record the decision of each rejected trial); a `Float32` PGD trial accepted at `Lexact` whose gradient overflows raises the gradient error, restores the start bitwise, and no callback runs.
-
-**Sources.** [The approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919) and [the maintainer's decision I4](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7074272157); `trial_value!`, `step!` and `accelerated_trial!` of [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).
-
 ## Stopping
 
 The complete shared policy is [STOP-01](@ref), including the three OR-combined proposals, the independent check of the accepted point and the separate objective-increase and stagnation exits.
@@ -125,7 +99,7 @@ The complete shared policy is [STOP-01](@ref), including the three OR-combined p
 
 Call and time limits are checked after a complete iteration, including any proposed-stop check and callback. A zero call limit is unlimited; counts can overshoot a positive limit by the work of one iteration. `maxiter` caps completed iterations, and `iteration_converged` means `iterations == maxiter`, not successful convergence. The Float32 stagnation check follows tracing and any callback due at that iteration; it does not change cadence.
 
-On the ℓ1-ball route ([IN-12](@ref)) the traced and called-back objective is the smooth loss, since the route's penalty value is `0` ([PGD-09](@ref)), and the full checks of [STOP-22](@ref) count in `grad_calls` and `prox_calls` before the limits are checked.
+On the ℓ1-ball route the traced and called-back objective is the loss, and the full checks count in `grad_calls` and `prox_calls` ([IN-12](@ref)).
 
 The displayed `|g(x)|` is an internal gradient/proximal stopping residual, not the user's penalty value. Displayed `|x - x'|` and trace `dxx` are iterate-change diagnostics, and `backtrack_steps` counts line-search trials subject to each method's zero-step and stationarity-check rules. They do not describe changes in the statistical model.
 
@@ -176,6 +150,6 @@ Existing tests listed at each clause cover image order, fused prox, counts, cons
 
 ## Change log
 
-[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: the opt-in ℓ1-ball route adds [PGD-09](@ref); the trial of the other penalties is unchanged.
+[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: PGD accepts `IndBallL1` on the route of [IN-12](@ref); the trial of the other penalties is unchanged.
 
 The shared image engine and scalar APIs are retained. The historical support wording above was retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) and remains only as provenance; no numerical restoration is inferred.
