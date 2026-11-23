@@ -611,70 +611,63 @@ _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point whe
 # point within rounding of the ball. This can occur for a radius below 2sqrt(4floatmin(T) / eps(T)) and for entries
 # whose sum of squares leaves the normal range of T, where the projection takes ProximalBase's general route. The
 # IndBallL2 method returns zero, the value of a clipped IndBox trial, when v == Inf and _ball_rounding_admissible
-# accepts x. It returns v otherwise, so an unadmitted trial keeps the value Inf. Backtracking or an APG momentum restart
-# can supersede such a trial before the step returns (they act on the smooth value and, for the restart, on the monitored
-# composite); the finiteness guard of _solve_gradient! acts on the trial that the step returns, and raises and restores
-# the last accepted point when its monitored value is nonfinite. A value v that is 0 or NaN is returned without a scan
-# of x. The generic method returns v for any other penalty, and for an IndBallL2 whose radius or coefficient array does
-# not have the element type T (the gates refuse that problem).
+# accepts x. Otherwise it returns v: an unadmitted Inf stays Inf, and 0 and NaN are returned unchanged without a scan
+# of x. Backtracking or an APG momentum restart can supersede a trial that carries Inf before the step returns. The
+# finiteness guard of _solve_gradient! sees the trial that the step returns, and raises and restores the last accepted
+# point when its monitored composite is not finite. The generic method returns v for any other penalty, and for an
+# IndBallL2 whose radius or coefficient array does not have the element type T (the gates refuse that problem).
 @inline _admitted_penalty_value(g, v, x) = v
 
 @inline function _admitted_penalty_value(g::IndBallL2{T}, v, x::Vector{T}) where {T<:Union{Float32, Float64}}
   v == T(Inf) && _ball_rounding_admissible(x, g.r) ? zero(T) : v
 end
 
-# The penalty term of the result. The smooth term is the cached smooth value of the accepted trial, as for the other penalties
-# of these solvers; it can differ from the standalone loss at x by rounding. The penalty term is the monitored value of the last trial,
-# except for IndBallL2, where ProximalBase's standalone value g(x) is evaluated again at the returned point. It is Inf
-# exactly when g(x) == Inf, so a return that is exterior in ProximalBase's sense is not reported with a finite minimum.
-# A point that is outside the ball in exact arithmetic but has g(x) == 0 is reported finite. For a returned point
-# that is not admitted, the monitored value is zero and g(x) agrees with it up to the agreement of ProximalBase's fused
-# value with its standalone value.
+# The penalty term of the result. The generic method reports state.g_x, the monitored penalty in the returned state.
+# For IndBallL2 the result evaluates ProximalBase's standalone g at the returned point: Inf when g(x) == Inf, and zero
+# when g(x) == 0, also for a point that is outside the ball in exact arithmetic. The smooth term of the reported minimum
+# is state.f_x, the cached smooth value of the accepted trial, which can differ from the standalone loss at x by rounding.
 _returned_penalty_value(g, state) = state.g_x
 _returned_penalty_value(g::IndBallL2{T}, state) where {T<:Union{Float32, Float64}} = convert(T, g(state.x))
 
-# Whether the stored point x of an IndBallL2(r) trial is accepted by the admission rule of IN-08: r finite and positive,
-# every entry finite, and the computed norm of x at most the computed threshold r (1 + 8eps(T)). Both sides of the
-# comparison are rounded quantities. The bounds below hold to first order in u = eps(T) / 2 (terms of order u² are
-# neglected), for the n = 4 entries of the supported IndBallL2.
+# Whether the stored point x of an IndBallL2(r) trial is admitted (IN-08): r finite and positive, every entry finite, and
+# the computed norm of x at most the computed threshold r (1 + 8eps(T)). The error bounds below assume round-to-nearest
+# with gradual underflow (flushing subnormals to zero can erase an entry), hold to first order in u = eps(T) / 2, and are
+# for the n = 4 entries of the supported IndBallL2.
 #
-# Rounding of ProximalBase's projection. Suppose the quotient r / n̂ and the stored products are normal numbers. Its
-# general route can then store y_i = fl(fl(r / n̂) x_i) with n̂ = fl(sqrt(fl(x_1² + ... + x_4²))). The sum of four
-# squares has relative error at most 4u, so n̂ has at most 3u, the quotient adds u and the product adds u:
-# ‖y‖ ≤ r (1 + 5u) = r (1 + 2.5 eps(T)). The scaled route, which sums compensated in Float64, counts at most 4u: two for
-# the norm, one for the quotient and one for the entry. Under these assumptions a stored point that ProximalBase values
-# as Inf violates the ball by at most 2.5 eps(T), well below 8 eps(T). A stored product below floatmin(T) has an
-# absolute error of up to nextfloat(zero(T)) / 2, which relative to the radius is not bounded by u. For
-# r = nextfloat(zero(T)) and x = (a, a, 0, -0.0) with a normal, the projection stores two entries equal to r, so
-# ‖y‖ = sqrt(2) r (a violation of about 41%); the check rejects that point, as the rule intends.
+# Projection. Suppose the quotient r / n̂ and the stored products are normal numbers. Its general route can then store
+# y_i = fl(fl(r / n̂) x_i) with n̂ = fl(sqrt(fl(x_1² + ... + x_4²))). The sum of four squares has relative error at most
+# 4u, so n̂ has at most 3u, the quotient adds u and the product adds u: ‖y‖ ≤ r (1 + 5u) = r (1 + 2.5 eps(T)). The scaled
+# route, which sums compensated in Float64, counts at most 4u: two for the norm, one for the quotient and one for the
+# entry. Under these assumptions a stored point with fused value Inf violates the ball by at most 2.5 eps(T). Outside them
+# the error of a stored product is absolute: the final rounding of a product that falls in the subnormal range is at most
+# nextfloat(zero(T)) / 2 (the recovered route can round the significand before that step), which relative to the radius
+# is not bounded by u. For r = nextfloat(zero(T)) and x = (1, 1, 0, 0) the projection stores two entries equal to r, so
+# ‖y‖ = sqrt(2) r, and the check rejects that point.
 #
-# Rounding of the check, which bounds the violation of an admitted point.
-# Float64: the entries are multiplied by a power of two 2^k with k = -exponent(m) for the largest magnitude m, so that
-# the scaled maximum lies in [1, 2) and no square overflows. A scaled entry below 2^-1022 is rounded in the subnormal
-# range or lost to zero, and a square below 2^-1022 is rounded or lost likewise (an entry 2^-600 beside a largest entry
-# in [1, 2) squares to zero). Each such entry changes by at most 2^-1074 and each such square by at most 2^-1075, so the
-# sum of squares changes by less than 2^-1072, against a sum of at least 1 (the scaled maximum is in [1, 2)): the loss
-# is negligible against u. The k lies outside the normal range of exponents (-1022 to 1023) for m below 2^-1023 or at
-# least 2^1023, so the factor is the product of two normal powers of two 2^k1 and 2^(k - k1), k1 = clamp(k, -1022, 1023),
-# applied as two multiplications; both are exact for the largest entry. ldexp is not used on the entries or the radius,
-# because Julia 1.10's ldexp can return zero in the binade that straddles the subnormal threshold. The sum of squares,
-# taken in order, has relative error at most 4u (the first two squares go through four roundings), so the computed norm
-# has at most 3u; the threshold (r 2^k)(1 + 8eps) adds u. The computed norm is at most the computed threshold, so an
-# admitted point has ‖y‖ ≤ r (1 + 8eps + 4u) = r (1 + 10 eps). The scaled radius r 2^k can overflow: it is then Inf,
-# while the scaled norm is below 2sqrt(n) = 4, so the point is far inside the ball and is admitted. It can also underflow
-# or be subnormal: it is then below 2^-1022, while the scaled norm is at least 1, so the point is rejected, as it is far
-# outside.
-# Float32: Float64 holds the exact square of every finite Float32, which neither overflows nor underflows, so there is
-# no scaling and no entry or square is lost. The sum has relative error at most 3·2^-53, and the square root and the
-# product with the radius add 2^-53 each, below 7e-16 in all. An admitted point has
+# Check, Float64. The entries are multiplied by a power of two 2^k with k = -exponent(m) for the largest magnitude m, so
+# that the scaled maximum lies in [1, 2) and no square overflows. The k lies outside the normal range of exponents
+# (-1022 to 1023) for m below 2^-1023 or at least 2^1023, so the factor is the product of two normal powers of two 2^k1
+# and 2^(k - k1), k1 = clamp(k, -1022, 1023), applied as two multiplications; both are exact for the largest entry.
+# ldexp is not used on the entries or the radius, because Julia 1.10's ldexp can return zero in the binade that
+# straddles the subnormal threshold. A scaled entry or square in the subnormal range is rounded, or lost to zero, with
+# an absolute error (an entry can also round up to floatmin(Float64): prevfloat(2floatmin) beside a largest entry 2).
+# Each scaled entry changes by at most 2^-1074 and each square by at most 2^-1075, so before the rounding of the sum the
+# sum of squares changes by less than 2^-1072, against a sum of at least 1. This error is negligible in the bound below.
+# It does not leave the decision unchanged: at a rounding tie of the computed norm it can change the computed result.
+# The sum of squares, taken in order, has relative error at most 4u (the first two squares go through four roundings),
+# so the computed norm has at most 3u; the threshold (r 2^k)(1 + 8eps) adds u. The computed norm is at most the computed
+# threshold, so an admitted point has ‖y‖ ≤ r (1 + 8eps + 4u) = r (1 + 10 eps). The scaled radius r 2^k can overflow:
+# it is then Inf, while the scaled norm is below 2sqrt(n) = 4, so the point is far inside the ball and is admitted. It can
+# also underflow or be subnormal: it is then below 2^-1022, while the scaled norm is at least 1, so the point is
+# rejected, as it is far outside.
+# Check, Float32. Float64 holds the exact square of every finite Float32, which neither overflows nor underflows, so
+# there is no scaling, and under gradual underflow no entry or square is lost. The sum has relative error at most
+# 3·2^-53, and the square root and the product with the radius add 2^-53 each, below 7e-16 in all. An admitted point has
 # ‖y‖ ≤ r (1 + 8eps(Float32) + 7e-16).
-# The decision is the comparison of computed values, not the exact test ‖y‖ ≤ r (1 + 8eps): at r = 1.1 (Float64), the
-# point (t, 0, 0, 0) with t the rounded threshold is admitted at a true violation of about 8.18 eps. The bound of
-# 10 eps(T) covers those roundings.
-# In both precisions the relative violation of an admitted point is at most 10 eps(T), to first order. A stored point
-# of the general route within the assumptions above violates by at most 2.5 eps(T), so in Float64 its computed norm is
-# at most r (1 + 5u)(1 + 3u), about r (1 + 4 eps(T)), below the threshold r (1 + 8eps(T))(1 - u), and the point is
-# admitted.
+# The decision compares computed values, not the exact test ‖y‖ ≤ r (1 + 8eps); the bound of 10 eps(T) covers the
+# roundings. Under the assumptions of the projection estimate, a stored point of the general route violates by at most
+# 2.5 eps(T), so in Float64 its computed norm is at most r (1 + 5u)(1 + 3u), about r (1 + 4 eps(T)), below the threshold
+# r (1 + 8eps(T))(1 - u), and the point is admitted.
 # An all-zero x is admitted before any exponent is taken, because exponent(0.0) throws.
 function _ball_rounding_admissible(x::Vector{Float32}, r::Float32)
   (isfinite(r) && r > 0) || return false

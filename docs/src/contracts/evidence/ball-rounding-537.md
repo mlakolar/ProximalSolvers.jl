@@ -28,13 +28,15 @@ outputs, computed in BigFloat.
   `IndBallL2(1e-150)` failed with PGD and with APG, and `IndBallL2(1e157)` failed with PGD, all with "the gradient step did
   not produce a finite objective". The Float32 boundary cases passed in that draw.
 - **Attribution.** The failure is not in the curvature test. PGD's `backtrack!` reads the smooth value, not the penalty
-  value. APG's search first requires the smooth value of a trial to be finite; its certified image inequality then
-  reads the displacement and the images, not the loss value or the penalty value. The `Inf` comes from ProximalBase's
-  fused value of the stored projection, through `state.g_x`. A trial that carries it and that the step returns meets
-  the outer guard `isfinite(state.f_x + state.g_x)` in `_solve_gradient!`, which rolls back. In APG with momentum the
-  restart test `f_x + g_x > f_x_previous + g_x_previous` fires on such a trial first; its retry from `x_previous` can
-  succeed, which is why some solves passed, or it can return a trial that reaches the same guard. In the first step and
-  in a step after a restart (`ω = 0`) the trial skips the comparison and reaches the guard.
+  value. APG's search requires the smooth value of a trial to be finite, and curvature grows when it is not; its certified
+  image inequality reads the displacement and the images. The `Inf` comes from ProximalBase's fused value of the stored
+  projection, through `state.g_x`. The outer guard `isfinite(state.f_x + state.g_x)` in `_solve_gradient!` sees the trial
+  that the step returns and rolls back when the composite is not finite. In APG with momentum the restart test
+  `f_x + g_x > f_x_previous + g_x_previous` fires on such a trial first. The retry without momentum from `x_previous` can be
+  accepted, and the next outer iteration then extrapolates with momentum `1/4`, which is why some solves passed. The retry
+  can also fail inside the search, for example when `next_curvature` cannot increase, or return a trial that reaches the
+  guard. In the first step, and in the retry without momentum within a restarting iteration, a trial skips the momentum
+  comparison and reaches the guard if the search returns it.
 - **Ordinary range.** No failing case of the supported four-entry scope appeared in the ordinary range. The admission
   applies to a trial whose ProximalBase value is `Inf`, which the ordinary-range solves did not produce.
 
@@ -116,8 +118,7 @@ admitted points show where the decision switches.
 
 The largest true violation of an admitted synthetic point was 8.99 eps (Float64) and 8.0 eps (Float32) against the
 documented bound of 10 eps; no admitted point lay beyond 10 eps. The smallest violation of a rejected point was 7.68 eps (Float64)
-and 8.0 eps (Float32). The decision is a comparison of computed values: at `r = 1.1` (Float64), the point
-`(t, 0, 0, 0)` with `t` the rounded threshold `r (1 + 8eps)` is admitted at a true violation of 8.18 eps.
+and 8.0 eps (Float32).
 
 ## [evidence-ball-rounding-cases Trial points and the base](@id evidence-ball-rounding-cases)
 
@@ -134,6 +135,25 @@ methods) raised "the gradient step did not produce a finite objective", and the 
 helper does not exist at the base. The testset "Reported minimum: smooth term and penalty term" passed at the base, because
 the behavior it checks is not changed by the admission. The existing testset "Exceptional Euclidean projection rolls back" passed
 unchanged.
+
+## [evidence-ball-rounding-rounding Rounding observations](@id evidence-ball-rounding-rounding)
+
+**Statement.** Julia 1.10.12 and 1.13.3 gave the same results, on a cluster (Slurm), at ProximalBase `bc9e888d`. They are
+observations that accompany the comment of `_ball_rounding_admissible`, not guarantees.
+
+- **Least positive radius.** For `r = nextfloat(zero(T))` and the trial `(a, a, 0, -0.0)`, ProximalBase stores `(r, r, 0, -0.0)` for
+  `a = 1`, `(-r, -r, 0, -0.0)` for `a = -1`, with fused value `Inf` and a relative violation of `sqrt(2) - 1`, in Float32 and
+  Float64. For `a = 0` it stores zeros with value `0`. The check rejects the first two (the rollback test uses `a = 1`).
+- **A small square lost at a rounding tie.** For Float64, `x = [1.0, 2.0^-26, 2.0^-53, 2.0^-600]` and `r = 1 - 8eps(Float64)`, the
+  helper admits. The scaled square of the last entry rounds to zero. In 1600-bit arithmetic the norm without that square is
+  exactly the midpoint between `1.0` and `nextfloat(1.0)`, and the norm with it is above the midpoint, so the correctly rounded
+  norm changes from `1.0` to `nextfloat(1.0)`, while the computed threshold is `1.0`.
+- **A subnormal scaled entry rounded up.** With largest magnitude `2.0` and another entry `prevfloat(2floatmin(Float64))`, the
+  scaled entry is `floatmin(Float64)`.
+- **A computed cutoff.** At `r = 1.1` (Float64), the point `(t, 0, 0, 0)` with `t` the rounded threshold `r (1 + 8eps)` is
+  admitted at a true violation of 8.18 eps.
+- **An exterior point with value zero.** The point `(1, sqrt(eps(T))/4, 0, -0.0)` at radius one has `g(x) == 0` in Float32 and
+  Float64, with true violations of 3.7e-9 and 6.9e-18, and a solve accepts it as a start.
 
 ## [evidence-ball-rounding-minimum Smooth term of the reported minimum](@id evidence-ball-rounding-minimum)
 

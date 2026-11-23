@@ -24,8 +24,8 @@ function ball_violation(x, r)
   end
 end
 
-# Whether the reported minimum has the penalty term g(x) of ProximalBase's standalone oracle at the returned point: Inf
-# exactly when g(x) == Inf, and otherwise a finite value with g(x) exactly zero and the smooth term equal to the
+# Whether the reported minimum has the penalty term g(x) of ProximalBase's standalone oracle at the returned point: it
+# must be Inf when g(x) == Inf, and otherwise finite with g(x) equal to zero and the smooth term equal to the
 # standalone loss up to rounding. A NaN penalty value fails. The smooth term is the cached value of the accepted trial,
 # which the result does not expose, so it is compared with the standalone loss at the tolerance sqrt(eps(T)).
 function strict_minimum(result, x, loss, g)
@@ -33,7 +33,7 @@ function strict_minimum(result, x, loss, g)
   penalty = g(x)
   isnan(penalty) && return false
   isinf(penalty) && return result.minimum == T(Inf)
-  iszero(penalty) && !isnan(result.minimum) && isapprox(result.minimum, loss(x); rtol = sqrt(eps(T)))
+  iszero(penalty) && isfinite(result.minimum) && isapprox(result.minimum, loss(x); rtol = sqrt(eps(T)))
 end
 
 # function barriers: the call gets concrete argument types, which the loop variable T of a testset does not
@@ -41,9 +41,9 @@ alloc_admissible(x, r) = @allocated ProximalSolvers._ball_rounding_admissible(x,
 alloc_admitted(g, v, x) = @allocated ProximalSolvers._admitted_penalty_value(g, v, x)
 
 # Trial points for which ProximalBase's value of the stored projection onto IndBallL2(r) is Inf although the point is
-# within rounding of the ball. The vectors came from a search over one-iteration solves of both methods (offline). Each
-# test asserts that the stored point after one iteration has value Inf, so a change that removes that trigger fails at
-# that assertion.
+# within rounding of the ball. The vectors came from a search over one-iteration solves of both methods (offline). The
+# tests assert that the stored point after one iteration has value Inf (the tiny cases also assert the fused value of the
+# first trial), which detects the loss of the trigger.
 # `TINY`: radii below ProximalBase's four-entry range, `2sqrt(4floatmin(T) / eps(T))`, solved with X = 2I and a loss
 # scale 1/4 (curvature 1, so the first trial projects `target`). `HUGE`: coefficients whose sum of squares overflows,
 # with the design d I so that f stays finite.

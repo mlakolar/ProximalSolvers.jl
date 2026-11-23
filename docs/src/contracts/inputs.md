@@ -401,70 +401,33 @@ projection is checked and corrected for ordinary trial sums of squares and
 positive radii of at least `2sqrt(4floatmin(T) / eps(T))`. Zero radius gives
 the singleton at zero.
 
-At exceptional scales ProximalBase's `value_and_prox!` can return `Inf` for the
-stored projection, because it evaluates that rounded point strictly. This can
-occur for a radius below the range above and for entries whose sum of squares
-leaves the normal range of `T`. Such a trial is *admitted* when `r` is finite and
-positive, every stored entry is finite, and the computed Euclidean norm of the
-stored point is at most the computed threshold `r(1 + 8eps(T))`; both sides are
-rounded quantities. The norm is formed in `Float64` for `Float32` data and, for
-`Float64` data, from the entries scaled by a power of two, so that the largest
-square neither overflows nor underflows; a scaled radius that overflows admits the
-point and one that underflows rejects it. A scaled entry or square that
-underflows is rounded or lost with an absolute error below `2^-1072` in the sum of
-squares, against a scaled sum of at least 1, so it does not affect the comparison.
-An admitted point lies outside the ball by at most `10eps(T)` relative to `r`, to
-first order in `eps(T)` (`8eps(T)` of tolerance and at most `2eps(T)` of rounding
-in the norm and the comparison for `Float64`; the derivation is in the comment of
-`_ball_rounding_admissible`). The decision is the computed comparison, not the
-exact test: at `r = 1.1` in `Float64`, a point formed from the rounded threshold
-is admitted at a true violation of about `8.18eps(T)`, which the bound covers.
+A trial of an `IndBallL2{T}` whose fused ProximalBase value is `Inf` is *admitted*
+when `r` is finite and positive, every stored entry is finite, and the computed norm
+of the stored point is at most the computed threshold `r(1 + 8eps(T))`; for `Float64`
+data the norm is formed from the entries scaled by a power of two. An admitted trial
+carries monitored penalty value `0` in the iteration state. To first order in `eps(T)`,
+under round-to-nearest with gradual underflow, an admitted point violates the ball by
+at most about `10eps(T)` relative to `r`; the derivation is in the comment of
+`_ball_rounding_admissible`. Any other trial keeps its value. If the step returns a
+trial whose monitored composite is not finite, the finiteness guard raises
+`ErrorException("the gradient step did not produce a finite objective")` and the last
+accepted point is restored ([RES-03](@ref), [LS-09](@ref), [APG-03](@ref)). The APG
+restart test, the finiteness guard, the objective and increase tests, the trace and
+`f_residual` read the monitored value.
 
-Where the quotient of the projection and its stored products are normal numbers,
-ProximalBase's own rounding on its general route is at most `2.5eps(T)`, so an
-`Inf` that this rounding produces is admitted. A stored product below
-`floatmin(T)` has an absolute error that, relative to `r`, this estimate does not
-bound: for `r = nextfloat(zero(T))` and a trial `(a, a, 0, -0.0)` the projection
-stores two entries equal to `r`, a relative violation of `sqrt(2) - 1`, and the
-trial is rejected as stated below. A value of `0` or `NaN` is not examined.
+The reported `minimum` is the cached smooth value of the accepted trial plus
+ProximalBase's standalone `g(x)` at the returned point, which is `Inf` when
+`g(x) == Inf`, so a return can have `minimum = Inf` with `converged = true`. The
+stopping rules are unchanged: `converged` and the proposal flags `x_converged`,
+`f_converged` and `grad_converged` are the decision of [STOP-07](@ref) with its veto,
+and the other flags keep their clauses ([STOP-09](@ref)); `f_increased` compares
+monitored objectives. A returned or restored point with `g(x) == Inf` fails the
+indicator's feasibility check as a start; a point with `g(x) == 0` passes that check,
+and the other start checks still apply.
 
-An admitted trial carries penalty value `0` in the iteration state, as a clipped
-`IndBox` trial does. This monitored value is the one that the APG restart test,
-the finiteness guard after a trial, the objective and increase tests, the trace
-and `f_residual` read; the stored point is the trial. PGD's backtracking test and
-APG's certified bound read the smooth value and the displacement, not the penalty
-value, and APG's search also requires the smooth value of a trial to be finite. A
-trial whose value is `Inf` and that is not admitted keeps that value.
-Backtracking or an APG restart with momentum can supersede such a trial. If the
-trial that the step returns has a nonfinite monitored composite, the finiteness
-guard raises `ErrorException("the gradient step did not produce a finite objective")`
-and the last accepted point is restored ([RES-03](@ref)).
-
-The reported `minimum` has two terms. The smooth term is the cached smooth value of
-the accepted trial, as for the other penalties of these solvers; it can differ from the standalone loss at
-`x` by rounding. The penalty term is ProximalBase's standalone `g(x)`, evaluated
-again at the returned point. It is `Inf` exactly when `g(x) == Inf`, so a returned
-point that is exterior in ProximalBase's sense (`g(x) == Inf`) is not reported with
-a finite `minimum`; this is the meaning of an *exterior return* here and in
-[RES-02](@ref) and [RES-03](@ref). A point that is outside the ball in exact
-arithmetic but has `g(x) == 0` is reported with a finite `minimum` and passes the
-feasible-start check. The admission does not change the stopping decision
-([STOP-07](@ref)) behind `converged` and the proposal flags `x_converged`,
-`f_converged` and `grad_converged` after the veto, so a return can have
-`converged = true` and `minimum = Inf` ([STOP-18](@ref)). The limit flags,
-`iteration_converged` and `f_increased` keep their own clauses ([STOP-09](@ref));
-`f_increased` compares monitored objectives. The feasible-start rule above
-(`iszero(g(x0))`) refuses a returned point with `g(x) == Inf` as a start. A later
-step error restores the last accepted point; when that point has `g(x) == Inf`, the
-same rule refuses it.
-
-APG's restart test compares monitored composites. In earlier releases a trial with
-value `Inf` that reached the comparison with nonzero momentum triggered a restart,
-whose retry either succeeded or reached the guard; a trial of the first step or of
-a step after a restart (zero momentum) skipped the comparison and reached the guard,
-which raised. With the admission, an admitted trial does not by itself cause a
-restart or a raise, so `restarts`, the iterates and `minimum` of such a solve can
-differ from earlier releases.
+In earlier releases a solve raised when the step returned such a trial, or APG
+restarted on it, so `restarts`, the iterates and `minimum` can differ from earlier
+releases in those cases.
 
 The coordinate-descent solver and coefficient storage other than a dense
 `Vector{T}` are unsupported for this indicator. Stopping proposals use the
@@ -474,7 +437,7 @@ The coordinate-descent solver and coefficient storage other than a dense
 
 **Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`, `_admitted_penalty_value`, `_ball_rounding_admissible`, `_returned_penalty_value`, `_solve_gradient!`. The admission is called from `update_state!` of PGD and `_prox_grad_step!` of APG.
 
-**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions. For PGD and APG in both precisions, from hard-coded trial points: "Admitted exterior trial: radius below the four-entry range" checks that the first stored projection has value `Inf`, that a one-iteration solve returns `g(x) = Inf` and `minimum = Inf` within `10eps(T)` of the ball in 256-bit arithmetic, that the returned point is refused as a start with `x` unchanged, and that the solve to convergence completes with `converged` agreeing with an independent residual; "Admitted exterior trial: sum of squares beyond the range of T" checks the one-iteration trigger, the violation and the reported `minimum`; "Admitted exterior trial: monitored trace and residual" checks that the stored trace values and `f_residual` are finite while `minimum = Inf`; "Reported minimum: smooth term and penalty term" checks, for a scaled loss whose cached and standalone values differ by one unit in the last place, that `minimum` equals the value reported with an `IndBox` penalty and that `(minimum == Inf) == isinf(g(x))` in that case. "Exceptional Euclidean projection rolls back" keeps a rejected trial (radius `nextfloat(zero(T))`) raising and restoring. "Admission of a rounded ball trial" checks the helper at points `2eps(T)` and `12eps(T)` outside the ball, nonfinite entries, zero, `NaN`, other penalties and zero allocations. The measurements are in the [evidence page](evidence/ball-rounding-537.md).
+**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions. For PGD and APG in both precisions, from hard-coded trial points: "Admitted exterior trial: radius below the four-entry range" checks the fused value `Inf` of the first trial, a one-iteration solve with `g(x) = Inf`, `minimum = Inf` and violation within `10eps(T)` in 256-bit arithmetic, the refusal of the returned point as a start, and a solve to convergence with `converged` agreeing with an independent residual; "Admitted exterior trial: sum of squares beyond the range of T" checks the one-iteration trigger, the violation and the reported `minimum`; "Admitted exterior trial: monitored trace and residual" checks finite trace values and `f_residual` with `minimum = Inf`. "Reported minimum: smooth term and penalty term" runs in `Float32` only: for a scaled loss whose cached and standalone values differ by one unit in the last place, `minimum` equals the value with an `IndBox` penalty. "Exceptional Euclidean projection rolls back" keeps a rejected trial (radius `nextfloat(zero(T))`) raising and restoring. "Admission of a rounded ball trial" checks the helper at points `2eps(T)` and `12eps(T)` outside the ball, nonfinite entries, zero, `NaN`, other penalties and zero allocations. The measurements are in the [evidence page](evidence/ball-rounding-537.md).
 
 **Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/docs/src/numerics.md#L176-L187). The admission of an `Inf` value is [issue #537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537).
 
