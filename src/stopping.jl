@@ -7,7 +7,7 @@ budget as `limits` to [`solve!`](@ref ProximalSolvers.solve!).
 """
 module Stopping
 
-export IterateChange, ObjectiveChange, UserStop, AnyOf, AllOf, MaxIterations, termination
+export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, termination
 
 # The integer call boundary keeps scalar comparisons valid when the thread
 # flushes subnormals and the compiler recognizes a floating-point zero test.
@@ -56,6 +56,18 @@ struct ObjectiveChange
     rtol::Float64
     ObjectiveChange(; atol::Real=0.0, rtol::Real=0.0) =
         new(tolerance(atol, "atol"), tolerance(rtol, "rtol"))
+end
+
+"""
+    ScaledKKT(; rtol)
+
+Check coordinatewise stationarity at the current point using the relative
+tolerance in [STOP-21](@ref). Supported for dense vector least-squares PGD with
+`NormL1` or `ElasticNet`, with or without weights.
+"""
+struct ScaledKKT
+    rtol::Float64
+    ScaledKKT(; rtol::Real) = new(tolerance(rtol, "rtol"))
 end
 
 """
@@ -123,7 +135,7 @@ mutable struct RuleState{R}
 end
 
 bind_rule(rule, context) = throw(ArgumentError("unsupported stopping condition $(typeof(rule))"))
-bind_rule(rule::Union{IterateChange,ObjectiveChange}, context) = RuleState(rule)
+bind_rule(rule::Union{IterateChange,ObjectiveChange,ScaledKKT}, context) = RuleState(rule)
 function bind_rule(rule::UserStop, context)
     applicable(rule.predicate, context) || throw(ArgumentError("UserStop needs a predicate callable with the stopping context"))
     RuleState(rule)
@@ -139,16 +151,43 @@ mutable struct MovementCache
     unchanged::Union{Nothing,Bool}
 end
 
-struct Monitor{R}
+mutable struct StationarityCache{F}
+    provider::F
+    iteration::Int
+    decisions::Dict{UInt64,Bool}
+end
+
+struct Monitor{R,S}
     root::R
     limit::MaxIterations
     movement::MovementCache
+    stationarity::S
 end
 
 user_context(k, objective) = (; iteration=k, objective)
 prepare(rule, limit::MaxIterations, ::Type{T}) where {T} =
     Monitor(rule === nothing ? nothing : bind_rule(rule, user_context(0, zero(T))),
-            limit, MovementCache(nothing, nothing, nothing))
+            limit, MovementCache(nothing, nothing, nothing), nothing)
+
+needs_stationarity(monitor::Monitor) = needs_stationarity(monitor.root)
+needs_stationarity(::Union{Nothing,RuleState}) = false
+needs_stationarity(::RuleState{ScaledKKT}) = true
+needs_stationarity(tree::Union{AnyOf,AllOf}) = any(needs_stationarity, tree.rules)
+
+with_stationarity(monitor, provider) =
+    Monitor(monitor.root, monitor.limit, monitor.movement,
+            StationarityCache(provider, -1, Dict{UInt64,Bool}()))
+
+function stationarity!(cache::StationarityCache, point, rtol::Float64)
+    if cache.iteration != point.iteration
+        empty!(cache.decisions)
+        cache.iteration = point.iteration
+    end
+    # The key is the stored tolerance, even when the thread flushes subnormals.
+    get!(cache.decisions, reinterpret(UInt64, rtol)) do
+        cache.provider(point, rtol)
+    end
+end
 
 function movement_distance end
 function movement_scale end
@@ -166,8 +205,9 @@ end
 
 boolean_observation(pass::Bool) = Observation(pass ? :pass : :fail, pass, true, missing)
 
-function assess(rule::IterateChange, point, cache, at_limit)
+function assess(rule::IterateChange, point, monitor, at_limit)
     (point.iteration == 0 || at_limit) && return unchecked
+    cache = monitor.movement
     if stored_zero(rule.atol) && stored_zero(rule.rtol)
         equal = cache.unchanged
         equal === nothing && (cache.unchanged = equal = same_iterate(point))
@@ -181,7 +221,7 @@ function assess(rule::IterateChange, point, cache, at_limit)
     atmost(value, rule.atol, rule.rtol, scale)
 end
 
-function assess(rule::ObjectiveChange, point, cache, at_limit)
+function assess(rule::ObjectiveChange, point, monitor, at_limit)
     point.iteration == 0 && return unchecked
     if stored_zero(rule.atol) && stored_zero(rule.rtol)
         return boolean_observation(stored_equal(point.objective, point.previous_objective))
@@ -190,7 +230,12 @@ function assess(rule::ObjectiveChange, point, cache, at_limit)
     atmost(abs(current - previous), rule.atol, rule.rtol, max(abs(current), abs(previous)))
 end
 
-function assess(rule::UserStop, point, cache, at_limit)
+function assess(rule::ScaledKKT, point, monitor, at_limit)
+    at_limit && return unchecked
+    boolean_observation(stationarity!(monitor.stationarity, point, rule.rtol))
+end
+
+function assess(rule::UserStop, point, monitor, at_limit)
     at_limit && return unchecked
     pass = rule.predicate(user_context(point.iteration, point.objective))
     pass isa Bool || throw(ArgumentError("UserStop predicate must return Bool"))
@@ -198,39 +243,40 @@ function assess(rule::UserStop, point, cache, at_limit)
 end
 
 evidence(::Union{IterateChange,ObjectiveChange}) = :progress
+evidence(::ScaledKKT) = :stationarity
 evidence(::UserStop) = :user
 
-evaluate!(::Nothing, point, cache, at_limit) = :continue
-function evaluate!(state::RuleState, point, cache, at_limit)
-    observation = assess(state.rule, point, cache, at_limit)
+evaluate!(::Nothing, point, monitor, at_limit) = :continue
+function evaluate!(state::RuleState, point, monitor, at_limit)
+    observation = assess(state.rule, point, monitor, at_limit)
     state.iteration = point.iteration
     state.observation = observation
     observation.status === :pass || return :continue
     evidence(state.rule) === :user ? :user : :rule
 end
 
-any_pass!(::Tuple{}, point, cache, at_limit) = :continue
-function any_pass!(rules::Tuple, point, cache, at_limit)
-    reason = evaluate!(first(rules), point, cache, at_limit)
-    reason === :continue ? any_pass!(Base.tail(rules), point, cache, at_limit) : reason
+any_pass!(::Tuple{}, point, monitor, at_limit) = :continue
+function any_pass!(rules::Tuple, point, monitor, at_limit)
+    reason = evaluate!(first(rules), point, monitor, at_limit)
+    reason === :continue ? any_pass!(Base.tail(rules), point, monitor, at_limit) : reason
 end
 
-all_pass!(::Tuple{}, point, cache, at_limit, reason) = reason
-function all_pass!(rules::Tuple, point, cache, at_limit, reason)
-    child_reason = evaluate!(first(rules), point, cache, at_limit)
+all_pass!(::Tuple{}, point, monitor, at_limit, reason) = reason
+function all_pass!(rules::Tuple, point, monitor, at_limit, reason)
+    child_reason = evaluate!(first(rules), point, monitor, at_limit)
     child_reason === :continue && return :continue
-    all_pass!(Base.tail(rules), point, cache, at_limit, child_reason === :rule ? :rule : reason)
+    all_pass!(Base.tail(rules), point, monitor, at_limit, child_reason === :rule ? :rule : reason)
 end
 
-evaluate!(tree::AnyOf, point, cache, at_limit) = any_pass!(tree.rules, point, cache, at_limit)
-evaluate!(tree::AllOf, point, cache, at_limit) = all_pass!(tree.rules, point, cache, at_limit, :user)
+evaluate!(tree::AnyOf, point, monitor, at_limit) = any_pass!(tree.rules, point, monitor, at_limit)
+evaluate!(tree::AllOf, point, monitor, at_limit) = all_pass!(tree.rules, point, monitor, at_limit, :user)
 
 function check!(monitor, point)
     monitor.movement.distance = nothing
     monitor.movement.scale = nothing
     monitor.movement.unchanged = nothing
     at_limit = point.iteration == monitor.limit.n
-    reason = evaluate!(monitor.root, point, monitor.movement, at_limit)
+    reason = evaluate!(monitor.root, point, monitor, at_limit)
     reason === :continue && at_limit ? :limit : reason
 end
 

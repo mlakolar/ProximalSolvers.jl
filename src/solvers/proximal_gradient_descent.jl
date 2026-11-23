@@ -133,8 +133,8 @@ mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M
     # min(Lexact, max(c, L/β)) for the rejected trial's L, which need not equal c); set by
     # backtrack!, cleared at the start of update_state!
     verified_rejection::Bool
-    # Column data for the default coordinatewise check (STOP-21), filled at the
-    # first check. The explicit stopping pilot (STOP-22) leaves this as nothing.
+    # Column data, filled at the first coordinatewise check (STOP-21).
+    # Explicit policies without ScaledKKT leave this as nothing (STOP-22).
     scales::C
 end
 

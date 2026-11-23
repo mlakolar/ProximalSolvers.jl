@@ -32,6 +32,7 @@ ProximalSolvers.LineSearches.BackTracking
 ProximalSolvers.Stopping
 IterateChange
 ObjectiveChange
+ScaledKKT
 UserStop
 AnyOf
 AllOf

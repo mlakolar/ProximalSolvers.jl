@@ -568,8 +568,8 @@ A nonnegative `Int` iteration budget counts accepted PGD updates.
 `MaxIterations(0)` validates the configuration and returns the unchanged start
 before solver oracle initialization or rule evaluation. A positive budget
 initializes the loss, gradient and penalty value and requires a finite starting
-composite objective. Pilot initialization omits the column workspace for the
-default coordinatewise check of [STOP-21](@ref). The solve checks the initial
+composite objective. Pilot initialization reserves the column workspace of
+[STOP-21](@ref) for rule trees containing `ScaledKKT`. The solve checks the initial
 point and then checks each completed update once after acceptance, gradient
 completion and the finite objective check. A rejected trial leaves the policy
 history at the preceding accepted point. A failed update restores that point
@@ -604,6 +604,16 @@ threshold is invalid and cannot pass. A positive-tolerance comparison uses
 the computed values under the thread's floating-point mode, including any
 rounding of a threshold to zero. No tolerance floor is applied.
 
+`ScaledKKT(rtol=...)` is supported for `NormL1` and `ElasticNet`, with or
+without supported weights. It applies [STOP-21](@ref) with the rule's `rtol`
+in place of `gradtol`, including the `64 eps(T)` floor and its range guards.
+`rtol` uses the same validation as the progress tolerances. Every rule leaf
+must be supported before initialization, even under a zero cap or a
+short-circuiting expression. The initial point and accepted updates supply the
+computed loss and gradient already stored by PGD. The check fills the column
+scales at its first evaluation and reuses them for the solve. Evaluations with
+identical `rtol` share a decision within the same checkpoint.
+
 `UserStop(predicate)` receives an immutable named tuple with `iteration` and
 `objective` (native type). Return `true` to request a stop or `false` to continue.
 A predicate must be callable with that tuple. Other return values are errors
@@ -618,8 +628,8 @@ that checkpoint. Invalid and unchecked leaves cannot pass. Iterate measurements
 of the same kind are shared within a checkpoint, and objective conditions reuse
 the solver's accepted objective values. At a reached cap, the monitor may
 decide a tie using the cached objective and predecessor. It skips movement
-scans and predicates and leaves those conditions unchecked. Display and result
-construction request no extra solver oracle calls. Trace operations run after
+scans, stationarity checks and predicates. It leaves those conditions unchecked.
+Display and result construction request no extra solver oracle calls. Trace operations run after
 the policy decision and cannot supply evidence for it. [RES-04](@ref) specifies
 the result and accounting.
 
@@ -639,7 +649,11 @@ checkpoints after rejected trials in the public solve path. It also checks
 the trace at an initial stop and after rejected trials, tests the pilot's
 workspace, and compares its progress stop with the default's coordinatewise
 check on an exact fit.
-`test/core_regressions.jl` covers the explicit-policy Float32 stagnation exit.
+It also checks stationarity at initial and accepted points, short-circuited and
+capped KKT leaves, unsupported nested leaves and oracle accounting.
+`test/stopping_coordinatewise.jl` checks the shared evaluator against
+independent references. `test/core_regressions.jl` covers the explicit-policy
+Float32 stagnation exit.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
 
