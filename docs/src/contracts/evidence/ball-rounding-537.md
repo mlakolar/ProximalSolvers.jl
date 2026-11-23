@@ -161,8 +161,9 @@ accepted it as a start.
 
 **Statement.** The measurements below, and the results with `minimum = Inf` in the earlier rounds of this change, were
 taken under the earlier reporting policy (revisions `c0878e5b` and `1d4ac095`), in which the penalty term of `minimum` was the
-standalone `g(x)` at the returned point. From this revision `minimum` is the monitored objective, the cached smooth value plus
-the monitored penalty, which is finite for an admitted trial. The smooth term of `minimum` is the cached smooth value of the accepted trial, as for the other penalties of these solvers, and it
+standalone `g(x)` at the returned point. From `44bd7d88` `minimum` is the monitored objective, the cached smooth value plus
+the monitored penalty ([IN-08](@ref)). Admission gives the monitored penalty zero, so the objective is finite for an admitted point
+that passes the outer finiteness check and is returned. The smooth term of `minimum` is the cached smooth value of the accepted trial, as for the other penalties of these solvers, and it
 can differ from the standalone loss at the returned point by rounding. A Float32 case shows it: `y = vcat(fill(ldexp(1f0, 63), 2),
 fill(ldexp(1f0, 51), 4))`, the loss `2f0 * LeastSquaresLoss(y, zeros(Float32, 6, 4))`, `x = zeros(Float32, 4)` and one iteration
 (`ProximalOptions(maxiter=2, prox_calls_limit=1)`). With `IndBallL2(1f0)` and with `IndBox(-1f0, 1f0)`, with PGD and with APG,

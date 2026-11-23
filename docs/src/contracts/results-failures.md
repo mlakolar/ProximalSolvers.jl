@@ -111,8 +111,8 @@ coefficients, including [IN-10](@ref). See [PGD-08](@ref) for graphical-lasso PG
 `minimizer` aliases the caller's coefficient storage and `minimum` is the reported
 objective at that iterate. It is the solver's numerical objective, the cached smooth value plus the monitored
 penalty; for a four-coefficient `IndBallL2` it can be finite at a point that ProximalBase's strict indicator
-evaluates as `Inf`. Neither `minimum` nor `converged` (the computed stopping check) certifies strict
-feasibility; evaluate `g(result.minimizer)` ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
+evaluates as `Inf`. Neither `minimum` nor `converged` (the computed stopping check) certifies exact
+feasibility; `g(result.minimizer)` is ProximalBase's standalone check in working precision ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.
 
 The result stores stopping flags, residuals and tolerances, an optional `trace`,

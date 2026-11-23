@@ -270,13 +270,14 @@ end
       loss = T(0.25) * LeastSquaresLoss(X * target, X)
       # the first trial projects `target`, and ProximalBase evaluates the stored point as Inf
       @test isinf(value_and_prox!(similar(target), g, copy(target), one(T)))
-      # one iteration: the trial is accepted although g(x) = Inf
+      # one iteration: the step returns an admitted trial although g(x) = Inf
       x = zeros(T, 4)
       one_step = solve!(x, loss, g, fixed_step, ProximalOptions(maxiter=2, prox_calls_limit=1, store_trace=true))
       @test one_step.iterations == 1
       @test isinf(g(x))
       @test isfinite(one_step.minimum)
       @test one_step.minimum == last(one_step.trace).fg_x
+      @test isapprox(one_step.minimum, loss(x); rtol = sqrt(eps(T)))
       @test ball_violation(x, r) <= 10eps(T)
       @test all(isfinite, x)
       # a point returned in this state is refused as a start by the feasible-start rule, before any write
@@ -352,6 +353,7 @@ end
       @test isinf(g(x))
       @test isfinite(one_step.minimum)
       @test one_step.minimum == last(one_step.trace).fg_x
+      @test isapprox(one_step.minimum, loss(x); rtol = sqrt(eps(T)))
       @test ball_violation(x, r) <= 10eps(T)
       x = zeros(T, 4)
       result = solve!(x, loss, g, method)

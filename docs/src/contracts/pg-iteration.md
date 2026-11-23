@@ -47,7 +47,7 @@ The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weigh
 
 For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`. For `IndNonnegative()`, ProximalBase projects componentwise with `max(v, 0)`. Both operators enforce nonnegativity at each step. The feasible-start and input requirements are [IN-07](@ref), and the dedicated constrained stationarity check is [STOP-16](@ref).
 
-For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref). For `IndBallL2`, a stored projection with fused value `Inf` can be admitted with monitored penalty `0`, and the reported `minimum` is the monitored objective ([IN-08](@ref)).
+For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref). For `IndBallL2`, ProximalBase's rounded projection can store a point with fused value `Inf` that is admitted with monitored penalty `0`, and the reported `minimum` is the monitored objective ([IN-08](@ref)).
 
 For matrix-response entrywise lasso, the same sequence carries coefficient,
 gradient and displacement buffers of size `p × K` and predictor and residual
