@@ -206,6 +206,17 @@ function _scanned_initial_curvature(::Type{T}, X, α) where {T}
   _initial_curvature(T, _root_scale(T, α), _frobenius_upper(T, X, s))
 end
 
+# One trial at the current state.L from the accepted point and gradient in the *_previous
+# fields: the step, its proximal image in state.x, and f at it (LineSearches.search!).
+function LineSearches.trial!(state::ProximalGradientDescentState, f, g)
+    # find next point
+    _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
+    state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
+    state.f_x = _value!(state.x, f, state.model, state.z_x)
+    state.prox_calls += 1
+    state.f_calls += 1
+end
+
 function update_state!(
     f, g,
     state::ProximalGradientDescentState{T},
@@ -220,23 +231,7 @@ function update_state!(
     state.L *= method.ls.α
     state.verified_rejection = false
 
-    # backtracking loop
-    while true
-      # find next point
-      _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
-      state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      state.f_x = _value!(state.x, f, state.model, state.z_x)
-      state.prox_calls += 1
-      state.f_calls += 1
-
-      # check if enough progress is done
-      backtrack!(state, method.ls, f, g) && break
-    end
-    if has_updated_gradient( state, method.ls ) == false
-        LineSearches.value_and_gradient_at_x!(state, f)
-        state.f_calls += 1
-        state.grad_calls += 1
-    end
+    LineSearches.search!(state, method.ls, f, g)
     state
 end
 
