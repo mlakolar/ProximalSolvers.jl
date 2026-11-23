@@ -216,4 +216,25 @@ end
 
 has_updated_gradient(state, ::BackTracking) = state.backtrack_simple == false
 
+# trial!(state, f, g) constructs and evaluates one trial at the current state.L, from the
+# accepted point and gradient in the *_previous fields; the PGD state implements it
+# (proximal_gradient_descent.jl).
+function trial! end
+
+# Retries trials until backtrack! accepts one. On return, state.x is the accepted trial, with
+# f_x, g_x, grad_f_x and the image cache at that point. An error from the trial, backtrack!
+# or next_curvature propagates out of the loop, leaving the state as it was at the error.
+function search!(state, ls::BackTracking, f, g)
+    while true
+        trial!(state, f, g)
+        backtrack!(state, ls, f, g) && break
+    end
+    if !has_updated_gradient(state, ls)
+        value_and_gradient_at_x!(state, f)
+        state.f_calls += 1
+        state.grad_calls += 1
+    end
+    state
+end
+
 end

@@ -38,7 +38,7 @@ Accepted trials are not checked again by the curvature criterion. In particular,
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
-**Code.** `src/line_searches.jl: backtrack!, has_updated_gradient; src/solvers/proximal_gradient_descent.jl: update_state!`.
+**Code.** `src/line_searches.jl: backtrack!, has_updated_gradient, search!, trial!; src/solvers/proximal_gradient_descent.jl: update_state!, LineSearches.trial!`.
 
 **Tests.** test/minimal_core_characterization.jl: recorded trials, both modes and zero-step refresh; test/core_regressions.jl: checked rejection testsets; test/l1ball_numerical.jl: trials of the ℓ1-ball route from one start that are not accepted until the 64-trial limit, in the rollback testset.
 

@@ -226,23 +226,8 @@ function update_state!(
     _copyto!(state.grad_f_x_previous, state.grad_f_x)
     state.L *= method.ls.α
     state.verified_rejection = false
-    _begin_trials!(g)
 
-    # backtracking loop
-    while true
-      # find next point
-      _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
-      _trial!(state, f, g)
-
-      # check if enough progress is done
-      backtrack!(state, method.ls, f, g) && break
-    end
-    if has_updated_gradient( state, method.ls ) == false
-        LineSearches.value_and_gradient_at_x!(state, f)
-        state.f_calls += 1
-        state.grad_calls += 1
-    end
-    _check_accepted_gradient(state, g)
+    LineSearches.search!(state, method.ls, f, g)
     state
 end
 

@@ -60,7 +60,7 @@ For a raw `LogisticLoss` with `NormL1`, the same sequence forms the logistic ima
 
 **Applies to.** ProximalGradientDescent; dense vectors and the matrices in [IN-10](@ref).
 
-**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/solve.jl: _solve_gradient!`.
+**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/line_searches.jl: search!; src/solve.jl: _solve_gradient!`.
 
 **Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix buffer shapes, values, gradients and traces. test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/norml2_pgd.jl: PGD and APG solutions against the orthogonal closed form; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
 
