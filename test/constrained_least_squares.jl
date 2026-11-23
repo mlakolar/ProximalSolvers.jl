@@ -24,16 +24,14 @@ function ball_violation(x, r)
   end
 end
 
-# Whether the reported minimum has the penalty term g(x) of ProximalBase's standalone oracle at the returned point: it
-# must be Inf when g(x) == Inf, and otherwise finite with g(x) equal to zero and the smooth term equal to the
-# standalone loss up to rounding. A NaN penalty value fails. The smooth term is the cached value of the accepted trial;
-# the result has no dedicated smooth-term field, so it is compared with the standalone loss at the tolerance sqrt(eps(T)).
-function strict_minimum(result, x, loss, g)
+# Whether the reported minimum is the objective that the solver monitors at the returned point: finite, equal to the last
+# traced objective when a trace was stored, and equal to the standalone smooth loss at x up to rounding. A zero monitored
+# penalty makes it the cached smooth value; the result has no dedicated smooth-term field, so the comparison with the
+# standalone loss uses the tolerance sqrt(eps(T)).
+function monitored_minimum(result, x, loss)
   T = eltype(x)
-  penalty = g(x)
-  isnan(penalty) && return false
-  isinf(penalty) && return result.minimum == T(Inf)
-  iszero(penalty) && isfinite(result.minimum) && isapprox(result.minimum, loss(x); rtol = sqrt(eps(T)))
+  isfinite(result.minimum) && isapprox(result.minimum, loss(x); rtol = sqrt(eps(T))) &&
+    (isempty(result.trace) || result.minimum == last(result.trace).fg_x)
 end
 
 # function barriers: the call gets concrete argument types, which the loop variable T of a testset does not
@@ -260,7 +258,7 @@ end
   end
 
   # A trial whose stored projection ProximalBase evaluates as Inf is admitted when it is within the rounding
-  # tolerance of IN-08: the iteration monitors the smooth value, and the result reports the cached smooth value plus the standalone g(x) at the returned point.
+  # tolerance of IN-08: the iteration monitors the smooth value, and the result reports the monitored objective, which is finite.
   @testset "Admitted exterior trial: radius below the four-entry range" begin
     fixed_step = method isa ProximalGradientDescent ?
       ProximalGradientDescent(ls=ProximalSolvers.LineSearches.BackTracking(α=1.0)) :
@@ -274,22 +272,23 @@ end
       @test isinf(value_and_prox!(similar(target), g, copy(target), one(T)))
       # one iteration: the trial is accepted although g(x) = Inf
       x = zeros(T, 4)
-      one_step = solve!(x, loss, g, fixed_step, ProximalOptions(maxiter=2, prox_calls_limit=1))
+      one_step = solve!(x, loss, g, fixed_step, ProximalOptions(maxiter=2, prox_calls_limit=1, store_trace=true))
       @test one_step.iterations == 1
       @test isinf(g(x))
-      @test one_step.minimum == T(Inf)
+      @test isfinite(one_step.minimum)
+      @test one_step.minimum == last(one_step.trace).fg_x
       @test ball_violation(x, r) <= 10eps(T)
       @test all(isfinite, x)
       # a point returned in this state is refused as a start by the feasible-start rule, before any write
       before = copy(x)
       @test_throws ArgumentError solve!(x, loss, g, fixed_step)
       @test x == before
-      # a solve with the default options completes; its minimum is the cached smooth value plus the standalone g(x) at the returned point
+      # a solve with the default options completes; its minimum is the monitored objective at the returned point
       x = zeros(T, 4)
       result = solve!(x, loss, g, fixed_step)
       @test result.minimizer === x
       @test ball_violation(x, r) <= 10eps(T)
-      @test strict_minimum(result, x, loss, g)
+      @test monitored_minimum(result, x, loss)
       # converged agrees with an independent form of the generic check (L = 1, so t = 1): ∇f(x) = x - target
       setprecision(BigFloat, 256) do
         xb, tb = big.(x), big.(target)
@@ -312,26 +311,28 @@ end
     x = zeros(T, 4)
     traced = solve!(x, loss, g, fixed_step, ProximalOptions(maxiter=2, prox_calls_limit=1, store_trace=true))
     @test isinf(g(x))
-    @test traced.minimum == T(Inf)
+    @test isfinite(traced.minimum)
+    @test traced.minimum == last(traced.trace).fg_x
     # the trace and the objective-change residual read the monitored objective, which is finite
     @test length(traced.trace) == 1 && all(t -> isfinite(t.fg_x), traced.trace)
     @test isfinite(traced.f_residual)
   end
 
-  # The smooth term of the minimum is the cached value of the accepted trial, as for the other penalties of these solvers; the penalty term is
-  # ProximalBase's g(x). Here the cached value is one unit in the last place above the standalone loss at x = 0.
+  # The smooth term of the minimum is the cached value of the accepted trial, as for the other penalties of these solvers;
+  # the penalty term is the monitored penalty. Here the cached value is one unit in the last place above the standalone
+  # loss at x = 0.
   @testset "Reported minimum: smooth term and penalty term" begin
     if T === Float32
       y = vcat(fill(ldexp(1f0, 63), 2), fill(ldexp(1f0, 51), 4))
       loss = 2f0 * LeastSquaresLoss(y, zeros(T, 6, 4))
-      one_iteration = ProximalOptions(maxiter=2, prox_calls_limit=1)
+      one_iteration = ProximalOptions(maxiter=2, prox_calls_limit=1, store_trace=true)
       x_ball, x_box = zeros(T, 4), zeros(T, 4)
       ball = IndBallL2(1f0)
       with_ball = solve!(x_ball, loss, ball, method, one_iteration)
       with_box = solve!(x_box, loss, IndBox(-1f0, 1f0), method, one_iteration)
       @test x_ball == x_box == zeros(T, 4)
       @test iszero(ball(x_ball))
-      @test (with_ball.minimum == T(Inf)) == isinf(ball(x_ball))
+      @test with_ball.minimum == last(with_ball.trace).fg_x
       @test isfinite(with_ball.minimum)
       # the same smooth term as with a penalty that is not the ball, and within rounding of the standalone loss
       @test with_ball.minimum == with_box.minimum
@@ -346,16 +347,17 @@ end
       g = IndBallL2(r)
       loss = LeastSquaresLoss(D * target, D)
       x = zeros(T, 4)
-      one_step = solve!(x, loss, g, method, ProximalOptions(maxiter=2, prox_calls_limit=1))
+      one_step = solve!(x, loss, g, method, ProximalOptions(maxiter=2, prox_calls_limit=1, store_trace=true))
       @test one_step.iterations == 1
       @test isinf(g(x))
-      @test one_step.minimum == T(Inf)
+      @test isfinite(one_step.minimum)
+      @test one_step.minimum == last(one_step.trace).fg_x
       @test ball_violation(x, r) <= 10eps(T)
       x = zeros(T, 4)
       result = solve!(x, loss, g, method)
       @test result.minimizer === x
       @test ball_violation(x, r) <= 10eps(T)
-      @test strict_minimum(result, x, loss, g)
+      @test monitored_minimum(result, x, loss)
     end
   end
 

@@ -89,8 +89,7 @@ with independent signed multipliers whose log10 magnitudes are drawn from [-20, 
 
 In the regimes above the check admitted all `Inf` outputs of ProximalBase. The largest violation of an `Inf` output was
 below the 2.5 eps estimate in the comment of `_ball_rounding_admissible`, which states its range assumptions. The value returned by
-`value_and_prox!` equalled `g(y)` in all the samples, which supports the use of the standalone `g(x)` for the penalty term of
-the reported `minimum`.
+`value_and_prox!` equalled `g(y)` in all the samples.
 
 Synthetic points test the tolerance. A direction is drawn (Gaussian, entries spanning magnitudes, or one dominant
 entry), and the point `(1 + δ eps) r u`, with `u` a unit vector and the multiplier formed in BigFloat, is rounded to `T`, for radii
@@ -160,7 +159,10 @@ accepted it as a start.
 
 ## [evidence-ball-rounding-minimum Smooth term of the reported minimum](@id evidence-ball-rounding-minimum)
 
-**Statement.** The smooth term of `minimum` is the cached smooth value of the accepted trial, as for the other penalties of these solvers, and it
+**Statement.** The measurements below, and the results with `minimum = Inf` in the earlier rounds of this change, were
+taken under the earlier reporting policy (revisions `c0878e5b` and `1d4ac095`), in which the penalty term of `minimum` was the
+standalone `g(x)` at the returned point. From this revision `minimum` is the monitored objective, the cached smooth value plus
+the monitored penalty, which is finite for an admitted trial. The smooth term of `minimum` is the cached smooth value of the accepted trial, as for the other penalties of these solvers, and it
 can differ from the standalone loss at the returned point by rounding. A Float32 case shows it: `y = vcat(fill(ldexp(1f0, 63), 2),
 fill(ldexp(1f0, 51), 4))`, the loss `2f0 * LeastSquaresLoss(y, zeros(Float32, 6, 4))`, `x = zeros(Float32, 4)` and one iteration
 (`ProximalOptions(maxiter=2, prox_calls_limit=1)`). With `IndBallL2(1f0)` and with `IndBox(-1f0, 1f0)`, with PGD and with APG,

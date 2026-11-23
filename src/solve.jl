@@ -622,13 +622,6 @@ _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point whe
   v == T(Inf) && _ball_rounding_admissible(x, g.r) ? zero(T) : v
 end
 
-# The penalty term of the result. The generic method reports state.g_x, the monitored penalty in the returned state.
-# For IndBallL2 the result evaluates ProximalBase's standalone g at the returned point: Inf when g(x) == Inf, and zero
-# when g(x) == 0, also for a point that is outside the ball in exact arithmetic. The smooth term of the reported minimum
-# is state.f_x, the cached smooth value of the returned state, which can differ from the standalone loss at x by rounding.
-_returned_penalty_value(g, state) = state.g_x
-_returned_penalty_value(g::IndBallL2{T}, state) where {T<:Union{Float32, Float64}} = convert(T, g(state.x))
-
 # Whether the stored point x of an IndBallL2(r) trial is admitted (IN-08); the caller supplies the condition that the
 # fused value is Inf, which this function does not read. It requires r finite and positive, every entry finite, and
 # the computed norm of x at most the computed threshold r (1 + 8eps(T)). The error bounds below assume round-to-nearest
@@ -783,7 +776,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
   return OptimizationResults{typeof(method), typeof(state.f_x), ndims(state.x), typeof(method), typeof(state.x)}(
                 method,
                 state.x,
-                state.f_x + _returned_penalty_value(g, state),
+                state.f_x + state.g_x,
                 iteration,
                 iteration == options.maxiter,
                 converged,

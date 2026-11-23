@@ -109,8 +109,10 @@ The later ridge result assertions are [217cde72, shared result checks](https://g
 This clause describes `OptimizationResults` for PGD and APG with regression
 coefficients, including [IN-10](@ref). See [PGD-08](@ref) for graphical-lasso PGD.
 `minimizer` aliases the caller's coefficient storage and `minimum` is the reported
-objective at that iterate. For a four-coefficient `IndBallL2` its penalty term is ProximalBase's
-standalone `g(x)` at the returned point ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
+objective at that iterate. It is the solver's numerical objective, the cached smooth value plus the monitored
+penalty; for a four-coefficient `IndBallL2` it can be finite at a point that ProximalBase's strict indicator
+evaluates as `Inf`. Neither `minimum` nor `converged` (the computed stopping check) certifies strict
+feasibility; evaluate `g(result.minimizer)` ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.
 
 The result stores stopping flags, residuals and tolerances, an optional `trace`,
