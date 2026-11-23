@@ -34,14 +34,14 @@ function Stopping.movement_distance(point::ProximalGradientDescentStoppingPoint{
 end
 
 """
-    ProximalSolvers.ProximalGradientDescentPolicyResult
+    ProximalSolvers.ProximalGradientDescentStoppingResult
 
 Result of an explicit stopping-policy solve. `minimizer` aliases the supplied
 coefficient vector. `minimum` holds the computed objective or `missing` when
 the iteration budget was zero. Use [`termination`](@ref) to inspect the reason
 and the observations at the returned point.
 """
-struct ProximalGradientDescentPolicyResult{M,T,D}
+struct ProximalGradientDescentStoppingResult{M,T,D}
     method::M
     minimizer::Vector{T}
     minimum::Union{Missing,T}
@@ -58,21 +58,21 @@ struct ProximalGradientDescentPolicyResult{M,T,D}
     decision::D
 end
 
-Stopping.termination(r::ProximalGradientDescentPolicyResult) = r.decision
-Base.summary(r::ProximalGradientDescentPolicyResult) = summary(r.method)
-minimizer(r::ProximalGradientDescentPolicyResult) = r.minimizer
-minimum(r::ProximalGradientDescentPolicyResult) = r.minimum
-iterations(r::ProximalGradientDescentPolicyResult) = r.iterations
-converged(r::ProximalGradientDescentPolicyResult) = r.converged
-iteration_limit_reached(r::ProximalGradientDescentPolicyResult) = r.iteration_converged
-f_increased(r::ProximalGradientDescentPolicyResult) = r.f_increased
-stagnated(r::ProximalGradientDescentPolicyResult) = r.stagnated
-backtrack_steps(r::ProximalGradientDescentPolicyResult) = r.backtrack_steps
-f_calls(r::ProximalGradientDescentPolicyResult) = r.f_calls
-grad_calls(r::ProximalGradientDescentPolicyResult) = r.grad_calls
-prox_calls(r::ProximalGradientDescentPolicyResult) = r.prox_calls
+Stopping.termination(r::ProximalGradientDescentStoppingResult) = r.decision
+Base.summary(r::ProximalGradientDescentStoppingResult) = summary(r.method)
+minimizer(r::ProximalGradientDescentStoppingResult) = r.minimizer
+minimum(r::ProximalGradientDescentStoppingResult) = r.minimum
+iterations(r::ProximalGradientDescentStoppingResult) = r.iterations
+converged(r::ProximalGradientDescentStoppingResult) = r.converged
+iteration_limit_reached(r::ProximalGradientDescentStoppingResult) = r.iteration_converged
+f_increased(r::ProximalGradientDescentStoppingResult) = r.f_increased
+stagnated(r::ProximalGradientDescentStoppingResult) = r.stagnated
+backtrack_steps(r::ProximalGradientDescentStoppingResult) = r.backtrack_steps
+f_calls(r::ProximalGradientDescentStoppingResult) = r.f_calls
+grad_calls(r::ProximalGradientDescentStoppingResult) = r.grad_calls
+prox_calls(r::ProximalGradientDescentStoppingResult) = r.prox_calls
 
-function Base.show(io::IO, r::ProximalGradientDescentPolicyResult)
+function Base.show(io::IO, r::ProximalGradientDescentStoppingResult)
     println(io, summary(r), " (explicit stopping policy)")
     _show_minimizer(io, minimizer(r))
     println(io, " * Minimum: ", minimum(r))
@@ -101,7 +101,7 @@ function _pgd_policy_result(method, x, objective, increased, trace, monitor, rea
     g_calls = ismissing(objective) ? 0 : prox_calls + 1
     counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials=prox_calls-k)
     decision = Stopping.report(monitor, reason, k, counts)
-    ProximalGradientDescentPolicyResult(
+    ProximalGradientDescentStoppingResult(
         method, x, objective, k, false, decision.limit_reached, increased, reason === :stalled,
         trace, backtrack_steps, f_calls, grad_calls, prox_calls, decision)
 end

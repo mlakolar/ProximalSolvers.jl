@@ -197,7 +197,7 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 ## [RES-04 Explicit-policy PGD result](@id RES-04)
 
-**Statement.** [STOP-22](@ref) returns a `ProximalGradientDescentPolicyResult`
+**Statement.** [STOP-22](@ref) returns a `ProximalGradientDescentStoppingResult`
 whose `minimizer` aliases the caller's coefficient vector. `minimum` is the
 objective at the returned point, or `missing` if a zero iteration cap prevented
 initialization.

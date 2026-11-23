@@ -50,7 +50,7 @@ export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, Logist
        ProximalOptions, ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, LogisticADMMResults, OptimizationState,
        OptimizationTrace
 @static if VERSION >= v"1.11.0-DEV.469"
-  eval(Expr(:public, :OptimizationResults, :ProximalGradientDescentPolicyResult, :LineSearches))
+  eval(Expr(:public, :OptimizationResults, :ProximalGradientDescentStoppingResult, :LineSearches))
 end
 include("types.jl")
 include("stopping.jl")
