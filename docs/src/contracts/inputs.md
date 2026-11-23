@@ -399,9 +399,45 @@ Use `IndBallL2(r)` for four coefficients and a finite nonnegative radius
 of the same type `T`. At the pinned ProximalBase revision, the rounded
 projection is checked and corrected for ordinary trial sums of squares and
 positive radii of at least `2sqrt(4floatmin(T) / eps(T))`. Zero radius gives
-the singleton at zero. At exceptional scales the upstream oracle can
-return `Inf` after projection. In that case an iteration with a nonfinite
-objective raises and restores the last accepted point.
+the singleton at zero.
+
+At exceptional scales ProximalBase's `value_and_prox!` can return `Inf` for the
+stored projection, because it evaluates that rounded point strictly. This can
+occur for a radius below the range above and for entries whose sum of squares
+leaves the normal range of `T`. Such a trial is *admitted* when `r` is finite and
+positive, every stored entry is finite, and the computed Euclidean norm of the
+stored point is at most `r(1 + 8eps(T))`. The norm is formed in `Float64` for
+`Float32` data and, for `Float64` data, from the entries scaled by a power of two,
+so that no square overflows or underflows; a scaled radius that overflows admits
+the point and one that underflows rejects it. An admitted point lies outside the
+ball by at most `10eps(T)` relative to `r`, to first order in `eps(T)`
+(`8eps(T)` of tolerance and at most `2eps(T)` of rounding in the norm and the
+comparison for `Float64`; the derivation is in the comment of
+`_ball_rounding_admissible`). ProximalBase's own rounding of the projection on its
+general route is at most `2.5eps(T)`, so an `Inf` that this rounding alone
+produces is admitted. A value of `0` or `NaN` is not examined.
+
+An admitted trial carries penalty value `0` in the iteration state, as a clipped
+`IndBox` trial does. This monitored value is the one that the APG restart test,
+the finiteness guard after a trial, the objective and increase tests, the trace
+and `f_residual` read; the stored point is the trial. PGD's backtracking test and APG's certified
+bound read the smooth value and the displacement, not the penalty value.
+A trial whose value is `Inf` and that is not admitted keeps that value, so the
+finiteness guard raises `ErrorException("the gradient step did not produce a finite objective")`
+and the last accepted point is restored ([RES-03](@ref)).
+
+The reported `minimum` is the smooth value plus ProximalBase's strict value of the
+returned point: `Inf` when the returned point is an admitted trial outside the
+ball, and the smooth value otherwise. `converged` and the other flags are the
+decisions of the selected stopping rule ([STOP-07](@ref)), which this admission
+does not change, so a return can have `converged = true` and `minimum = Inf`
+([STOP-18](@ref)). The feasible-start rule above refuses such a returned point as
+a start (`iszero(g(x0))`). A later step error restores the last accepted point,
+which can be an admitted trial outside the ball; the same rule refuses it as a
+start. APG's restart test sees the monitored value, so an
+admitted trial does not by itself restart its momentum, as a trial with value
+`Inf` did in earlier releases; `restarts`, the iterates and `minimum` of such a
+solve can differ from those releases.
 
 The coordinate-descent solver and coefficient storage other than a dense
 `Vector{T}` are unsupported for this indicator. Stopping proposals use the
@@ -409,11 +445,11 @@ The coordinate-descent solver and coefficient storage other than a dense
 
 **Applies to.** Dense Float32 and Float64 PGD and APG with a least-squares loss and the concrete indicators above.
 
-**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`.
+**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`, `_admitted_penalty_value`, `_ball_rounding_admissible`, `_returned_penalty_value`, `_solve_gradient!`. The admission is called from `update_state!` of PGD and `_prox_grad_step!` of APG.
 
-**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions.
+**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions. The testsets "Admitted exterior trial: radius below the four-entry range" and "Admitted exterior trial: sum of squares beyond the range of T" (PGD and APG, both precisions) check, from hard-coded trial points, that the stored projection has value `Inf`, that the solve completes with the violation within `10eps(T)` in 256-bit arithmetic, that `minimum` is the strict composite, that `converged` agrees with an independent residual and that the returned point is refused as a start. "Exceptional Euclidean projection rolls back" keeps a rejected trial (radius `nextfloat(zero(T))`) raising and restoring. "Admission of a rounded ball trial" checks the helper at points `2eps(T)` and `12eps(T)` outside the ball, nonfinite entries, zero, `NaN`, other penalties and zero allocations. The measurements are in the [evidence page](evidence/ball-rounding-537.md).
 
-**Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/docs/src/numerics.md#L176-L187).
+**Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/docs/src/numerics.md#L176-L187). The admission of an `Inf` value is [issue #537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537).
 
 ## [IN-09 Sparse logistic regression with proximal gradient methods](@id IN-09)
 

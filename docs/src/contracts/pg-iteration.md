@@ -41,13 +41,13 @@ At an iteration it saves the last accepted point, objective components and gradi
 3. Form the trial's least-squares image and value.
 4. Apply the line-search decision, refreshing the gradient when its mode requires it.
 
-The accepted point's gradient is refreshed if the line search did not already update it, including a zero-step exit in gradient mode. The gradient engine then checks the accepted objective for finiteness, assesses stopping, traces/calls back, and checks limits and separate exits in that order.
+The accepted point's gradient is refreshed if the line search did not already update it, including a zero-step exit in gradient mode. The gradient engine then checks the accepted objective for finiteness (for a four-coefficient `IndBallL2`, the monitored objective of [IN-08](@ref), which can carry penalty value zero at a trial whose ProximalBase value is `Inf`), assesses stopping, traces/calls back, and checks limits and separate exits in that order.
 
 The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weights; soft thresholding followed by the ridge weight for `ElasticNet`; the point minus its projection onto the ℓ1 ball of radius `λ/L` for `NormLinf` (a common clipping level); and block soft thresholding for `GroupNormL2`, scaling a block `v_G` by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at step `γ`, with a zero block left zero. For `NormL2(λ)`, the exact-arithmetic formula at step `γ` is zero when `‖v‖₂ ≤ γ λ` and `(1 - γ λ/‖v‖₂) v` otherwise. The solver delegates the evaluation to ProximalBase, which can round the cutoff comparison. The working-precision conventions for these oracles are [FP-01](@ref). The level of `NormL2` is the working level of [IN-02](@ref), and its stop check is [STOP-17](@ref).
 
 For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`. For `IndNonnegative()`, ProximalBase projects componentwise with `max(v, 0)`. Both operators enforce nonnegativity at each step. The feasible-start and input requirements are [IN-07](@ref), and the dedicated constrained stationarity check is [STOP-16](@ref).
 
-For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref).
+For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref). A stored `IndBallL2` projection that ProximalBase values as `Inf` can be admitted within a rounding tolerance, and the reported `minimum` is then the strict composite at the returned point; both rules are in [IN-08](@ref).
 
 For matrix-response entrywise lasso, the same sequence carries coefficient,
 gradient and displacement buffers of size `p × K` and predictor and residual
@@ -147,5 +147,7 @@ Existing tests listed at each clause cover image order, fused prox, counts, cons
 **Sources.** `docs/src/developer/implementation-notes.md:L286`.
 
 ## Change log
+
+[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): for a four-coefficient `IndBallL2`, a trial whose ProximalBase value is `Inf` is admitted within a rounding tolerance instead of raising, and the reported `minimum` is the strict composite at the returned point ([IN-08](@ref)). Other penalties are unchanged. Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
 
 The shared image engine and scalar APIs are retained. The historical support wording above was retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) and remains only as provenance; no numerical restoration is inferred.

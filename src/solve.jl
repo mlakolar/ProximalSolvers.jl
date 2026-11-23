@@ -604,6 +604,92 @@ _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
 
+# The penalty value that a gradient step monitors for a trial whose stored point is x, with v the value that
+# ProximalBase's value_and_prox! returned for it (IN-08).
+#
+# For IndBallL2, ProximalBase stores a rounded projection and evaluates that stored point strictly, so v can be Inf for a
+# point within rounding of the ball. This can occur for a radius below 2sqrt(4floatmin(T) / eps(T)) and for entries
+# whose sum of squares leaves the normal range of T, where the projection takes ProximalBase's general route. The IndBallL2 method returns zero, the value of a clipped IndBox trial, when v == Inf and
+# _ball_rounding_admissible accepts x. It returns v otherwise, so a trial that is rejected keeps the value Inf and the
+# finiteness guard of _solve_gradient! raises and restores the last accepted point. A value v that is 0 or NaN is returned
+# without a scan of x. The generic method returns v for any other penalty, and for an IndBallL2 whose radius or
+# coefficient array does not have the element type T (the gates refuse that problem).
+@inline _admitted_penalty_value(g, v, x) = v
+
+@inline function _admitted_penalty_value(g::IndBallL2{T}, v, x::Vector{T}) where {T<:Union{Float32, Float64}}
+  v == T(Inf) && _ball_rounding_admissible(x, g.r) ? zero(T) : v
+end
+
+# The penalty value that the result reports with the smooth value at the returned point: the monitored value of the
+# last trial, except for IndBallL2, where ProximalBase's value at the stored point is evaluated again. That value is Inf
+# at an admitted exterior point and is the monitored value (zero) at any other returned point, up to the agreement of
+# ProximalBase's fused value with its standalone value.
+_returned_penalty_value(g, state) = state.g_x
+_returned_penalty_value(g::IndBallL2{T}, state) where {T<:Union{Float32, Float64}} = convert(T, g(state.x))
+
+# Whether the stored point x of an IndBallL2(r) trial is within the rounding tolerance of the ball: r finite and
+# positive, every entry finite, and the computed norm of x at most r (1 + 8eps(T)). The error bounds below hold to
+# first order in u = eps(T) / 2, for the n = 4 entries of the supported IndBallL2. A point outside the ball by more
+# than the tolerance is not admitted.
+#
+# Rounding of ProximalBase's projection. Its general route can store y_i = fl(fl(r / n̂) x_i) with
+# n̂ = fl(sqrt(fl(x_1² + ... + x_4²))). The sum of four squares has relative error at most 4u, so n̂ has at most 3u, the
+# quotient adds u and the product adds u: ‖y‖ ≤ r (1 + 5u) = r (1 + 2.5 eps(T)). The scaled route, which sums
+# compensated in Float64, counts at most 4u: two for the norm, one for the quotient and one for the entry. A stored
+# point of the general route that ProximalBase values as Inf therefore violates the ball by at most 2.5 eps(T), well
+# below 8 eps(T).
+#
+# Rounding of the check, which bounds the violation of an admitted point.
+# Float64: the entries are multiplied by a power of two 2^k with k = -exponent(m) for the largest magnitude m, so that
+# the scaled maximum lies in [1, 2) and no square overflows; the multiplication is exact except for entries that become
+# subnormal, whose squares are below 2^-2044, far below the rounding of a sum of squares that is at least 1. The
+# k lies outside the normal range of exponents (-1022 to 1023) for m below 2^-1023 or at least 2^1023, so the factor
+# is the product of two normal powers of two 2^k1 and 2^(k - k1), k1 = clamp(k, -1022, 1023), applied as two
+# multiplications; both are exact for the largest entry. ldexp is not used on the entries or the radius, because
+# Julia 1.10's ldexp can return zero in the binade that straddles the subnormal threshold. The sum of squares, taken in
+# order, has relative error at most 4u (the first two squares go through four roundings), so the computed norm has at
+# most 3u; the threshold (r 2^k)(1 + 8eps) adds u. An admitted point therefore has ‖y‖ ≤ r (1 + 8eps + 4u) = r (1 + 10 eps)
+# to first order. The scaled radius r 2^k can overflow: it is then Inf, while the scaled norm is at most 2sqrt(n) = 4,
+# so the point is far inside the ball and is admitted. It can also underflow or be subnormal: it is then below 2^-1022,
+# while the scaled norm is at least 1, so the point is rejected, as it is far outside.
+# Float32: Float64 holds the exact square of every finite Float32, which neither overflows nor underflows, so there is no
+# scaling. The sum has relative error at most 3·2^-53, and the square root and the product with the radius add 2^-53
+# each, below 7e-16 in all. An admitted point has ‖y‖ ≤ r (1 + 8eps(Float32) + 7e-16).
+# In both precisions the relative violation of an admitted point is at most 10 eps(T). A stored point of the general
+# route violates by at most 2.5 eps(T), so in Float64 its computed norm is at most r (1 + 5u)(1 + 3u), about
+# r (1 + 4 eps(T)), below the threshold r (1 + 8eps(T))(1 - u), and the point is admitted.
+# An all-zero x is admitted before any exponent is taken, because exponent(0.0) throws.
+function _ball_rounding_admissible(x::Vector{Float32}, r::Float32)
+  (isfinite(r) && r > 0) || return false
+  s = 0.0
+  for xi in x
+    isfinite(xi) || return false
+    s += abs2(Float64(xi))
+  end
+  sqrt(s) <= Float64(r) * (1 + 8 * Float64(eps(Float32)))
+end
+
+# 2^k from its bit pattern, for an integer k from -1022 to 1023, the normal exponents of Float64
+_power_of_two(k::Int) = reinterpret(Float64, UInt64(k + 1023) << 52)
+
+function _ball_rounding_admissible(x::Vector{Float64}, r::Float64)
+  (isfinite(r) && r > 0) || return false
+  m = 0.0
+  for xi in x
+    isfinite(xi) || return false
+    m = max(m, abs(xi))
+  end
+  iszero(m) && return true
+  k = -exponent(m)
+  k1 = clamp(k, -1022, 1023)
+  p1, p2 = _power_of_two(k1), _power_of_two(k - k1)
+  s = 0.0
+  for xi in x
+    s += abs2((xi * p1) * p2)
+  end
+  sqrt(s) <= ((r * p1) * p2) * (1 + 8 * eps(Float64))
+end
+
 _gradient_call_limit(state, options) =
   (0 < options.f_calls_limit <= state.f_calls ||
    0 < options.grad_calls_limit <= state.grad_calls ||
@@ -683,7 +769,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
   return OptimizationResults{typeof(method), typeof(state.f_x), ndims(state.x), typeof(method), typeof(state.x)}(
                 method,
                 state.x,
-                state.f_x + state.g_x,
+                state.f_x + _returned_penalty_value(g, state),
                 iteration,
                 iteration == options.maxiter,
                 converged,

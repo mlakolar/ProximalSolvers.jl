@@ -17,6 +17,47 @@ function certificate(X, y, beta, project)
      stationarity=norm(v - project(v - t * gradient), Inf) / t)
 end
 
+# The relative violation (‖x‖ - r) / r of a stored point, from 256-bit BigFloat arithmetic.
+function ball_violation(x, r)
+  setprecision(BigFloat, 256) do
+    Float64((sqrt(sum(abs2, big.(x))) - big(r)) / big(r))
+  end
+end
+
+# Whether the reported minimum is the strict composite loss(x) + g(x) at the returned point: Inf when the point is
+# outside the ball in ProximalBase's strict sense, the loss value up to its rounding otherwise.
+function strict_minimum(result, x, loss, g)
+  T = eltype(x)
+  isinf(g(x)) ? result.minimum == T(Inf) : isapprox(result.minimum, loss(x); rtol = sqrt(eps(T)))
+end
+
+# function barriers: the call gets concrete argument types, which the loop variable T of a testset does not
+alloc_admissible(x, r) = @allocated ProximalSolvers._ball_rounding_admissible(x, r)
+alloc_admitted(g, v, x) = @allocated ProximalSolvers._admitted_penalty_value(g, v, x)
+
+# Trial points for which ProximalBase's value of the stored projection onto IndBallL2(r) is Inf although the point is
+# within rounding of the ball. The vectors came from a search over one-iteration solves of both methods (offline). Each
+# test asserts that the stored point after one iteration has value Inf, so a change of the oracle fails at that assertion.
+# `TINY`: radii below ProximalBase's four-entry range, `2sqrt(4floatmin(T) / eps(T))`, solved with X = 2I and a loss
+# scale 1/4 (curvature 1, so the first trial projects `target`). `HUGE`: coefficients whose sum of squares overflows,
+# with the design d I so that f stays finite.
+const TINY = (
+  Float64 = (r = 1e-150, targets = (
+    [-1.3936453133661013e-150, 2.2440006126154474e-150, 1.297832774386162e-150, 4.144169983351243e-151],
+    [-1.429551341390078e-150, 2.0519376462897603e-150, 1.2481688155665707e-150, 1.1239732484354412e-150])),
+  Float32 = (r = 1f-16, targets = (
+    Float32[-1.3936453f-16, 2.2440007f-16, 1.2978327f-16, 4.14417f-17],
+    Float32[-1.4295514f-16, 2.0519377f-16, 1.2481688f-16, 1.1239733f-16])))
+const HUGE = (
+  Float64 = (d = 1e-150, cases = (
+    (r = 2.1469390911538068e157,
+     target = [-1.0066901230778689e158, 1.6209384347904241e158, 9.37480593412712e157, 2.9935127328193755e157]),
+    (r = 9.74294903087418e156,
+     target = [-2.12133401578938e157, -6.842124054338852e157, 4.962762568833905e157, -4.3567561237789935e157]))),
+  Float32 = (d = 1f-17, cases = (
+    (r = 7.4026555f18, target = Float32[-2.5851126f19, 3.0241854f19, 5.929007f19, 1.953889f19]),
+    (r = 7.3601523f18, target = Float32[6.9790718f19, 1.3375721f19, -1.6822154f19, 9.1948353f18]))))
+
 # Solves from each feasible start and checks the result against the raw data,
 # the independent projection `project` and the known minimizer `reference`.
 function check_solves(X, y, g, project, reference, starts, method, options, tolerance)
@@ -212,6 +253,69 @@ end
     @test x == zeros(T, 4)
   end
 
+  # A trial whose stored projection ProximalBase evaluates as Inf is admitted when it is within the rounding
+  # tolerance of IN-08: the iteration monitors the smooth value, and the result reports the strict composite.
+  @testset "Admitted exterior trial: radius below the four-entry range" begin
+    fixed_step = method isa ProximalGradientDescent ?
+      ProximalGradientDescent(ls=ProximalSolvers.LineSearches.BackTracking(α=1.0)) :
+      AccProxGradDescent(α=1.0)
+    r = TINY[Symbol(T)].r
+    @test r < 2sqrt(4floatmin(T) / eps(T))
+    g = IndBallL2(r)
+    for target in TINY[Symbol(T)].targets
+      loss = T(0.25) * LeastSquaresLoss(X * target, X)
+      # the first trial projects `target`, and ProximalBase evaluates the stored point as Inf
+      @test isinf(value_and_prox!(similar(target), g, copy(target), one(T)))
+      # one iteration: the trial is accepted although g(x) = Inf
+      x = zeros(T, 4)
+      one_step = solve!(x, loss, g, fixed_step, ProximalOptions(maxiter=2, prox_calls_limit=1))
+      @test one_step.iterations == 1
+      @test isinf(g(x))
+      @test one_step.minimum == T(Inf)
+      @test ball_violation(x, r) <= 10eps(T)
+      @test all(isfinite, x)
+      # a point returned in this state is refused as a start by the feasible-start rule, before any write
+      before = copy(x)
+      @test_throws ArgumentError solve!(x, loss, g, fixed_step)
+      @test x == before
+      # the solve to convergence completes; the result is the strict composite at the returned point
+      x = zeros(T, 4)
+      result = solve!(x, loss, g, fixed_step)
+      @test result.minimizer === x
+      @test ball_violation(x, r) <= 10eps(T)
+      @test strict_minimum(result, x, loss, g)
+      # converged agrees with an independent form of the generic check (L = 1, so t = 1): ∇f(x) = x - target
+      setprecision(BigFloat, 256) do
+        xb, tb = big.(x), big.(target)
+        projected = tb * big(r) / sqrt(sum(abs2, tb))
+        residual = maximum(abs, xb - projected)
+        scale = max(maximum(abs, tb), maximum(abs, xb - tb))
+        threshold = big(T(max(ProximalOptions().gradtol, 64 * Float64(eps(T))))) * scale
+        @test result.converged == (residual < threshold)
+      end
+    end
+  end
+
+  @testset "Admitted exterior trial: sum of squares beyond the range of T" begin
+    d = HUGE[Symbol(T)].d
+    D = Matrix(d * I, 4, 4)
+    for (r, target) in HUGE[Symbol(T)].cases
+      g = IndBallL2(r)
+      loss = LeastSquaresLoss(D * target, D)
+      x = zeros(T, 4)
+      one_step = solve!(x, loss, g, method, ProximalOptions(maxiter=2, prox_calls_limit=1))
+      @test one_step.iterations == 1
+      @test isinf(g(x))
+      @test one_step.minimum == T(Inf)
+      @test ball_violation(x, r) <= 10eps(T)
+      x = zeros(T, 4)
+      result = solve!(x, loss, g, method)
+      @test result.minimizer === x
+      @test ball_violation(x, r) <= 10eps(T)
+      @test strict_minimum(result, x, loss, g)
+    end
+  end
+
   @testset "Tiny progress at a nonstationary iterate" begin
     A = T[1 0; 0 1/64]
     b = T[2, -1]
@@ -221,6 +325,61 @@ end
     c = certificate(A, b, x, v -> clamp.(v, -4, 4))
     @test c.stationarity > 0.005
     @test !r.converged
+  end
+end
+
+@testset "Admission of a rounded ball trial $T" for T in (Float32, Float64)
+  admissible = ProximalSolvers._ball_rounding_admissible
+  admitted = ProximalSolvers._admitted_penalty_value
+  u = [0.2, 0.4, 0.4, 0.8]    # a unit vector, ‖u‖₂ = 1 in exact arithmetic
+  radii = T === Float64 ? (1.0, 1e-150, 1e157) : (1f0, 1f-16, 1f19)
+  # The stored point (1 + δ eps) r u, rounded to T, lies about δ eps outside the ball (up to the rounding of its entries).
+  point(r, δ) = setprecision(BigFloat, 256) do
+    T.((1 + δ * big(eps(T))) * big(r) * big.(u) / sqrt(sum(abs2, big.(u))))
+  end
+  @testset "radius $r" for r in radii
+    @test admissible(point(r, 0), r)
+    @test admissible(point(r, 2), r)
+    @test !admissible(point(r, 12), r)
+    @test !admissible(point(r, 11), r)
+    # Admitted points violate by at most 10 eps (the bound of IN-08), and rejected points by more than 6 eps
+    for δ in 0:0.25:16
+      y = point(r, δ)
+      violation = ball_violation(y, r) / Float64(eps(T))
+      admissible(y, r) ? (@test violation <= 10) : (@test violation > 6)
+    end
+  end
+  @test admissible(T[0, 0, 0, 0], one(T))
+  @test admissible(T[-0.0, 0, 0, 0], one(T))
+  @test admissible(T[nextfloat(zero(T)), 0, 0, 0], one(T))
+  @test !admissible(T[1, NaN, 0, 0], one(T))
+  @test !admissible(T[1, Inf, 0, 0], one(T))
+  @test !admissible(T[-Inf, 0, 0, 0], one(T))
+  @test !admissible(T[0, 0, 0, 0], zero(T))
+  @test !admissible(T[1, 0, 0, 0], T(Inf))
+  @test !admissible(T[1, 0, 0, 0], T(NaN))
+  @test !admissible(fill(floatmax(T), 4), floatmax(T))
+  @test admissible(T[floatmax(T), 0, 0, 0], floatmax(T))
+  @test !admissible(T[nextfloat(zero(T)), 0, 0, 0], zero(T))
+  g = IndBallL2(one(T))
+  inside, outside = point(1, 2), point(1, 12)
+  @test admitted(g, T(Inf), inside) === zero(T)
+  @test admitted(g, T(Inf), outside) === T(Inf)
+  @test admitted(g, zero(T), outside) === zero(T)    # a value of zero is returned as it is
+  @test isnan(admitted(g, T(NaN), inside))
+  @test admitted(g, T(Inf), T[NaN, 0, 0, 0]) === T(Inf)
+  # any other penalty, and a radius or vector of another type, keeps the value
+  @test admitted(IndBox(-one(T), one(T)), T(Inf), inside) === T(Inf)
+  @test admitted(IndNonnegative(), T(Inf), inside) === T(Inf)
+  @test admitted(NormL1(T(0.5)), T(3), inside) === T(3)
+  @test admitted(IndBallL2(1), T(Inf), inside) === T(Inf)
+  # warmed, the checks do not allocate
+  box = IndBox(-one(T), one(T))
+  for y in (inside, outside)
+    admitted(g, T(Inf), y); admissible(y, one(T)); admitted(box, T(Inf), y)
+    @test alloc_admitted(g, T(Inf), y) == 0
+    @test alloc_admissible(y, one(T)) == 0
+    @test alloc_admitted(box, T(Inf), y) == 0
   end
 end
 end
