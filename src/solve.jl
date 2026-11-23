@@ -98,10 +98,6 @@ function _check_penalty(g, x, ::Type{T}, kind::Symbol = :cd) where T
     throw(ArgumentError("CDSolver does not support GroupNormL2 (the group lasso) on a dense Vector or a SparseIterate; use CDSolver on a BlockIterate, or ProximalGradientDescent or AccProxGradDescent on a dense Vector"))
   elseif g isa IndBox && kind in (:gradient, :pgd)
     _check_box(g, x, T)
-  elseif g isa IndBallL1 && kind in (:gradient, :pgd)
-    # the opt-in route does not reach this branch: its gate checks the data with a NormL1 placeholder (IN-12)
-    throw(ArgumentError("IndBallL1 is supported by ProximalGradientDescent and AccProxGradDescent only on the opt-in " *
-                        "numerical route: pass feasibility = NumericalFeasibility() to solve! (see IN-12)"))
   elseif g isa IndBallL2 && kind in (:gradient, :pgd)
     length(x) == 4 || throw(ArgumentError("IndBallL2 requires four coefficients"))
     g.r isa T || throw(ArgumentError("IndBallL2 requires a radius of type $T"))
@@ -608,25 +604,18 @@ _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
 
-# ---- the gate of the opt-in IndBallL1 route of PGD and APG (IN-12) ----------------------------------------------------
+# ---- the gate of the IndBallL1 route of PGD and APG (IN-12) ----------------------------------------------------------
 #
-# Whether the `feasibility` keyword of solve! selects the IndBallL1 route. After the keyword check of solve!, which
-# refuses the other keywords first, a keyword other than `nothing` is refused when g is not an IndBallL1 and then when it
-# is not a NumericalFeasibility. An IndBallL1 without the keyword takes the gate of the other penalties; when its
-# earlier route and data checks pass, _check_penalty refuses it with a message that names the opt-in.
-_numerical_route(g, ::Nothing) = false
-function _numerical_route(g, feasibility)
-  g isa IndBallL1 ||
-    throw(ArgumentError("feasibility applies only to IndBallL1 with ProximalGradientDescent or AccProxGradDescent; " *
-                        "omit it for $(nameof(typeof(g)))"))
-  feasibility isa NumericalFeasibility ||
-    throw(ArgumentError("feasibility must be a NumericalFeasibility, such as NumericalFeasibility() (got $(typeof(feasibility)))"))
-  true
-end
+# Whether solve! takes the IndBallL1 route: for every IndBallL1. After the keyword check of solve!, a `feasibility`
+# other than `nothing` with another penalty is refused.
+_numerical_route(::IndBallL1, feasibility) = true
+_numerical_route(g, feasibility) = feasibility === nothing ? false :
+  throw(ArgumentError("feasibility applies only to IndBallL1 with ProximalGradientDescent or AccProxGradDescent; " *
+                      "omit it for $(nameof(typeof(g)))"))
 
-# The tolerances of a NumericalFeasibility for coefficients of type T, as Float64 (B1's `Accuracy`): a `nothing` takes
-# the #514 ordinary default of T. A value must be a Real that is finite and, with its Float64 conversion, nonnegative
-# for the coefficient tolerances and positive for the objective and mapping tolerances; -0.0 is stored as 0.0.
+# The tolerances of a NumericalFeasibility for coefficients of type T, as Float64: a `nothing` takes the default of T. A
+# value must be a Real that is finite and, with its Float64 conversion, nonnegative for the coefficient tolerances and
+# positive for the objective and mapping tolerances; -0.0 is stored as 0.0.
 function _feasibility_tolerances(a::NumericalFeasibility, ::Type{T}) where T
   coefficient, objective, mapping = T === Float32 ? (1e-5, 1e-5, 1e-4) : (1e-10, 1e-9, 1e-8)
   (; coefficient_rtol = _feasibility_tolerance(a.coefficient_rtol, coefficient, "coefficient_rtol", false),
@@ -652,23 +641,17 @@ end
 # A finite number of at least floatmin of its type (zero, subnormal and nonfinite numbers fail)
 _normal_positive(v::AbstractFloat) = isfinite(v) && v >= floatmin(v)
 
-# The checks of the IndBallL1 route, before any write to x, each an ArgumentError (a DimensionMismatch where the data
-# checks raise one), in this order: a logistic loss; coefficients that are not a dense Vector{Float32} or
-# Vector{Float64}; the data checks of _check_problem with the placeholder NormL1(zero(T)) for `kind` (:pgd or
-# :gradient), in their order: a square-root loss, a loss other than LeastSquaresLoss or one Scaled of it, the scale of
-# a Scaled loss, the types of X and y (a matrix response included), the shapes, aliasing, then nonfinite entries; for
-# APG, _check_method and _check_bound_size; the radius (of type T, finite and positive); the tolerances; the budgets
-# (B1's :unrepresentable_budget: cap, gap, mapping and curvature finite, and T(curvature) finite and positive); for a
-# design with a nonzero column, a curvature (in Float64 and in T), gap budget and mapping budget that are normal positive
-# numbers; the decision of the start, which must be :pass. After it, initial_state refuses a start whose loss is not
-# finite (_check_start), also before any write. Returns the tolerances, the budgets, the start decision, the loss scale
-# as Float64 and the least-squares data.
+# The checks of the IndBallL1 route (IN-12), before any write to x, in this order: a logistic loss; coefficients that
+# are not a dense Vector{Float32} or Vector{Float64}; the data checks of _check_problem with the placeholder
+# NormL1(zero(T)); for APG, _check_method and _check_bound_size; the radius; the tolerances; finite budgets and
+# curvature; for a design with a nonzero column, a normal positive curvature (in Float64 and in T), gap budget and
+# mapping budget; the start's decision, which must be :pass. initial_state then refuses a start whose loss is not finite.
 function _check_numerical_l1(x, f, g::IndBallL1, a::NumericalFeasibility, method, kind::Symbol)
   _is_logistic_loss(f) &&
-    throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility() needs LeastSquaresLoss or one positive " *
+    throw(ArgumentError("IndBallL1 with PGD or APG needs LeastSquaresLoss or one positive " *
                         "Scaled(LeastSquaresLoss); LogisticLoss is not supported"))
   x isa Vector && eltype(x) in (Float32, Float64) ||
-    throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility() needs x to be a dense Vector{Float32} or " *
+    throw(ArgumentError("IndBallL1 with PGD or APG needs x to be a dense Vector{Float32} or " *
                         "Vector{Float64}; matrix and other coefficient storage is not supported"))
   T = eltype(x)
   _check_problem(x, f, NormL1(zero(T)), kind)
@@ -678,14 +661,14 @@ function _check_numerical_l1(x, f, g::IndBallL1, a::NumericalFeasibility, method
   end
   r = g.r
   r isa T && isfinite(r) && r > 0 ||
-    throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility() needs a finite positive radius of type $T " *
+    throw(ArgumentError("IndBallL1 with PGD or APG needs a finite positive radius of type $T " *
                         "(got $r of type $(typeof(r)))"))
   tolerances = _feasibility_tolerances(a, T)
   d = leastsquares_data(f)
   alpha = Float64(d.α)
   b = _l1_budgets(d.X, d.Y, alpha, Float64(r), tolerances)
   all(isfinite, (b.cap, b.gap, b.mapping, b.curvature)) && isfinite(T(b.curvature)) && T(b.curvature) > 0 ||
-    throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility(): the feasibility cap, the stopping budgets or " *
+    throw(ArgumentError("IndBallL1: the feasibility cap, the stopping budgets or " *
                         "the curvature α maxⱼ‖Xⱼ‖² are not finite in Float64, or the curvature is not finite and positive in $T; " *
                         "rescale the data, the radius or the tolerances"))
   # A design with a nonzero column needs a normal curvature in Float64 and in T and normal budgets: under gradual
@@ -693,17 +676,17 @@ function _check_numerical_l1(x, f, g::IndBallL1, a::NumericalFeasibility, method
   # A design whose columns are all zero (C = 0, curvature 1.0) is exempt from this check only; the others apply to it.
   b.col > 0 && !(_normal_positive(b.curvature) && _normal_positive(T(b.curvature)) && _normal_positive(b.gap) &&
                  _normal_positive(b.mapping)) &&
-    throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility(): for a design with a nonzero column, the curvature " *
+    throw(ArgumentError("IndBallL1: for a design with a nonzero column, the curvature " *
                         "α maxⱼ‖Xⱼ‖² (in Float64 and in $T), the gap budget and the mapping budget must be normal positive " *
                         "numbers; one is zero or subnormal (underflow); rescale the data, the radius or the tolerances"))
   decision = _l1_decision(x, g, b.cap)
   decision.code === :over &&
-    throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility(): the starting point is infeasible, its widened ℓ1 " *
+    throw(ArgumentError("IndBallL1: the starting point is infeasible, its widened ℓ1 " *
                         "norm exceeds the radius by more than the feasibility cap $(b.cap)"))
   decision.code === :pass ||
-    throw(ArgumentError("IndBallL1 with feasibility = NumericalFeasibility(): the feasibility of the starting point against the " *
+    throw(ArgumentError("IndBallL1: the feasibility of the starting point against the " *
                         "cap $(b.cap) is unresolved at the rounding allowance of its widened ℓ1 norm"))
-  (; tolerances, budgets = b, decision, alpha, data = d)
+  (; budgets = b, decision, alpha, data = d)
 end
 
 _gradient_call_limit(state, options) =
@@ -718,14 +701,10 @@ _gradient_time_limit(t0::UInt64, options) = (time_ns() - t0) * 1e-9 >= options.t
 # A strict-budget search can return false when a limit interrupts a trial.
 _strict_gradient_limits(state) = false
 _stop_on_gradient_increase(state, options) = !options.allow_f_increases
-# The penalty argument selects the IndBallL1 route's method (src/solvers/l1ball.jl), which returns false; the other
-# penalties take the state's method above.
-_stop_on_gradient_increase(state, g, options) = _stop_on_gradient_increase(state, options)
-# The result hooks of the IndBallL1 route (RES-04). Here, for the other penalties: no approximate-solution stop, the
-# reported minimum f(x) + g(x), and no feasibility report.
+# The result hooks of the IndBallL1 route (IN-12). Here, for the other penalties: no approximate-solution stop and the
+# reported minimum f(x) + g(x).
 _approximate_solution(g) = false
 _composite_minimum(state, g) = state.f_x + state.g_x
-_feasibility_report(g) = nothing
 _gradient_tolerance(state, options) = options.gradtol
 _gradient_tracing(state, options) =
   options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
@@ -786,7 +765,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
     # that is due at this iteration under print_every
     stagnated = _stagnated(state, options)
 
-    increased = f_increased && _stop_on_gradient_increase(state, g, options)
+    increased = f_increased && _stop_on_gradient_increase(state, options)
     stopped = increased || stagnated || stopped_by_callback || stopped_by_time_limit || call_limit_reached ||
               _approximate_solution(g)
   end # while
@@ -816,8 +795,6 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
                 call_limit_reached,
                 stagnated,
                 NaN,           # gap sentinel, never computed
-                _approximate_solution(g),
-                state.f_x,
-                _feasibility_report(g))
+                _approximate_solution(g))
 
 end

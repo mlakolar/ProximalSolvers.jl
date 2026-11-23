@@ -77,15 +77,10 @@ function convergence_assessment(
 
   return x_converged, f_converged, grad_converged, converged, f_increased
 end
-# A penalty argument for which convergence_assessment above returns the three proposal flags unchecked: its
-# stationarity check passes. The IndBallL1 route (src/solvers/l1ball.jl) reads the engine's proposals through it.
-struct _ProposalsOnly end
-const _PROPOSALS = _ProposalsOnly()
-_stationary!(state, f, ::_ProposalsOnly, options::ProximalOptions) = true
 
 # One trial at state.L (PGD's search!, APG's _prox_grad_step!): the step into xhat from the base point (PGD: x_previous,
 # APG: y) and its gradient, the proximal image x of xhat at step 1/L, the penalty value, the image and loss value of x,
-# then the two counts. The IndBallL1 route has its own method (src/solvers/l1ball.jl, PGD-09).
+# then the two counts. The IndBallL1 route has its own method (src/solvers/l1ball.jl, IN-12).
 @inline function LineSearches.trial!(state::Union{ProximalGradientDescentState, AccProxGradDescentState}, f, g)
   _trial_step!(state)
   state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))

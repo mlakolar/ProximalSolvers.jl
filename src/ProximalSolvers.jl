@@ -32,7 +32,7 @@ weighted least-squares model ([PN-01](https://mlakolar.github.io/ProximalSolvers
 [`ADMMSolver`](@ref) also solves the lasso with a raw `LeastSquaresLoss` and unweighted `NormL1` for `Float64` data with a tall or square design, specified in [ADM-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-05).
 [`ADMMSolver`](@ref) also supports the graphical-lasso combination of `LogDetLoss` and matrix-weighted `NormL1` on a dense `Matrix` specified in [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
 [`ProximalGradientDescent`](@ref) also solves this graphical-lasso problem with bounded SPD backtracking and a KKT check, as specified in [PGD-06](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-06).
-[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) accept the ℓ1-ball constraint `IndBallL1` with a same-type radius on a dense `Vector{Float32}` or `Vector{Float64}` with same-type least-squares data only on an opt-in numerical route, selected by the keyword `feasibility = NumericalFeasibility()` of [`solve!`](@ref) ([IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12)).
+[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also support the ℓ1-ball constraint `IndBallL1` with a same-type radius on a dense `Vector{Float32}` or `Vector{Float64}` with same-type least-squares data, on the numerical route of [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12); the optional keyword `feasibility = NumericalFeasibility(...)` of [`solve!`](@ref) overrides its tolerances.
 Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
@@ -51,7 +51,7 @@ export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, Logist
        ProximalOptions, ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, LogisticADMMResults, OptimizationState,
        OptimizationTrace, NumericalFeasibility
 @static if VERSION >= v"1.11.0-DEV.469"
-  eval(Expr(:public, :OptimizationResults, :LineSearches, :NumericalFeasibilityReport))
+  eval(Expr(:public, :OptimizationResults, :LineSearches))
 end
 include("types.jl")
 include("solve.jl")
