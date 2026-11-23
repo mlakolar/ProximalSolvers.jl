@@ -216,9 +216,8 @@ end
 
 has_updated_gradient(state, ::BackTracking) = state.backtrack_simple == false
 
-# trial!(state, f, g) constructs and evaluates one trial at the current state.L, from the
-# accepted point and gradient in the *_previous fields; the PGD state implements it
-# (proximal_gradient_descent.jl).
+# trial!(state, f, g) constructs and evaluates one trial at the current state.L; the PGD and
+# APG states implement it (utils.jl, solvers/l1ball.jl).
 function trial! end
 
 # Retries trials until backtrack! accepts one. On return, state.x is the accepted trial, with

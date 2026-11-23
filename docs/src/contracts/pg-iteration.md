@@ -60,7 +60,7 @@ For a raw `LogisticLoss` with `NormL1`, the same sequence forms the logistic ima
 
 **Applies to.** ProximalGradientDescent; dense vectors and the matrices in [IN-10](@ref).
 
-**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/line_searches.jl: search!; src/solve.jl: _solve_gradient!`.
+**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/line_searches.jl: search!; src/utils.jl: LineSearches.trial!; src/solve.jl: _solve_gradient!`.
 
 **Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix buffer shapes, values, gradients and traces. test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/norml2_pgd.jl: PGD and APG solutions against the orthogonal closed form; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
 
@@ -107,7 +107,7 @@ The state's initial penalty value is `0`, including for a start that passes the 
 
 **Applies to.** `ProximalGradientDescent` and `AccProxGradDescent` on the ℓ1-ball route.
 
-**Code.** `src/solvers/l1ball.jl: _trial!, _begin_trials!, _check_accepted_gradient, _NumericalL1Ball, _run_numerical_l1!`; `src/utils.jl`: the methods of `_trial!`, `_begin_trials!` and `_check_accepted_gradient` for the other penalties, which hold the code of the base trial or do nothing; `src/solvers/proximal_gradient_descent.jl: update_state!`; `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!`.
+**Code.** `src/solvers/l1ball.jl: LineSearches.trial!, LineSearches.search!, _prox_grad_step!, _NumericalL1Ball, _run_numerical_l1!`; `src/utils.jl: LineSearches.trial!, _trial_step!` (the trial of the other penalties); `src/line_searches.jl: search!`; `src/solvers/proximal_gradient_descent.jl: update_state!`; `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!`.
 
 **Tests.** `test/l1ball_numerical.jl`: a callback recomputes the decision of `x` at every iteration of the small #508 fixtures, every accepted iterate passes the cap, and the last recomputed decision equals the report; a callback stop returns the iterate of its iteration bitwise; with a zero cap, a start inside the ball by just more than the rounding allowance and a far response, no trial from the start is accepted, and both methods raise the error of the 64-trial limit and restore the start bitwise, in both precisions (the test does not record the decision of each rejected trial); a `Float32` PGD trial accepted at `Lexact` whose gradient overflows raises the gradient error, restores the start bitwise, and no callback runs.
 

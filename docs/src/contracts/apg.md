@@ -114,7 +114,7 @@ f_calls = 1 + (grad_calls - C) + (backtrack_steps - N - R)
 
 **Applies to.** `AccProxGradDescent` on the ℓ1-ball route.
 
-**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: update_state!, _prox_grad_step!`; `src/solvers/l1ball.jl: _trial!, _begin_trials!, _stationary!`.
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: update_state!, _prox_grad_step!`; `src/solvers/l1ball.jl: LineSearches.trial!, _prox_grad_step!, _stationary!`.
 
 **Tests.** `test/l1ball_numerical.jl`, “counter identities”, over the small #508 fixtures in both precisions: `grad_calls - iterations - C` is nonnegative, and positive (a restart) for at least one fixture; `prox_calls = backtrack_steps + C`, the case `N = 0` (no fixture has a gradient-step point with a nonfinite entry); `f_calls ≤ 1 + (grad_calls - C) + backtrack_steps`, with equality on a fixture whose trials pass the cap (`N = R = 0`). No test isolates or asserts the nonzero `N` or `R` terms of these identities. The #508 fixtures, the rollback test and the semantics tests run APG in both precisions.
 

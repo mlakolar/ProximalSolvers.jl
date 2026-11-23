@@ -249,7 +249,6 @@ end
 # In exact arithmetic the image inequality is, for least squares, equivalent to
 # f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + (1 + 4eps)² L/2 ‖x - y‖²; for a logistic loss (α = ¼) it implies that inequality (APG-08).
 function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
-    _begin_trials!(g)
     f_y = _value_and_gradient!(state.grad_f_y, state.y, f, state.z_y, state.dz)
     state.f_calls += 1
     state.grad_calls += 1
@@ -260,8 +259,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
       return state
     end
     while true
-      _step!(state.xhat, state.y, state.grad_f_y, state.L)
-      _trial!(state, f, g)
+      LineSearches.trial!(state, f, g)
 
       _sub!(state.xhat, state.x, state.y)
       state.backtrack_steps += 1

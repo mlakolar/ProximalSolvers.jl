@@ -83,24 +83,19 @@ struct _ProposalsOnly end
 const _PROPOSALS = _ProposalsOnly()
 _stationary!(state, f, ::_ProposalsOnly, options::ProximalOptions) = true
 
-# The trial of PGD's update_state! and APG's _prox_grad_step!: the proximal step into x from xhat at step 1/L, the
-# penalty value, the image and loss value of x, then the two counts. The IndBallL1 route has its own method
-# (src/solvers/l1ball.jl, PGD-09).
-@inline function _trial!(state, f, g)
+# One trial at the current state.L (LineSearches.search! for PGD, _prox_grad_step! for APG): the step into xhat from
+# the base point and its gradient (PGD: x_previous; APG: y), the proximal image x of xhat at step 1/L, the penalty value,
+# the image and loss value of x, then the two counts. The IndBallL1 route has its own method (src/solvers/l1ball.jl,
+# PGD-09).
+@inline function LineSearches.trial!(state::Union{ProximalGradientDescentState, AccProxGradDescentState}, f, g)
+  _trial_step!(state)
   state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
   state.f_x = _value!(state.x, f, state.model, state.z_x)
   state.prox_calls += 1
   state.f_calls += 1
-  nothing
 end
-
-# Called before the first trial of each search from one base point (PGD's update_state!, each call of APG's
-# _prox_grad_step!); the IndBallL1 route resets its trial count here (PGD-09).
-_begin_trials!(g) = nothing
-
-# Called by PGD's update_state! after the gradient at the accepted trial is available; the IndBallL1 route raises an
-# error there when that gradient has a nonfinite entry (PGD-09).
-_check_accepted_gradient(state, g) = nothing
+_trial_step!(s::ProximalGradientDescentState) = _step!(s.xhat, s.x_previous, s.grad_f_x_previous, s.L)
+_trial_step!(s::AccProxGradDescentState) = _step!(s.xhat, s.y, s.grad_f_y, s.L)
 
 function gradient_converged!(state::ProximalGradientDescentState{T}, options::ProximalOptions) where T
   residual = g_residual(state)
