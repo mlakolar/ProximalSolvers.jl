@@ -109,9 +109,10 @@ The later ridge result assertions are [217cde72, shared result checks](https://g
 This clause describes `OptimizationResults` for PGD and APG with regression
 coefficients, including [IN-10](@ref). See [PGD-08](@ref) for graphical-lasso PGD.
 `minimizer` aliases the caller's coefficient storage and `minimum` is the reported
-objective at that iterate. For a four-coefficient `IndBallL2` it is the strict composite at the returned
-point, `Inf` when that point is an admitted trial outside the ball, which can accompany
-`converged = true` ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
+objective at that iterate. For a four-coefficient `IndBallL2` its penalty term is ProximalBase's
+standalone `g(x)` at the returned point, so `minimum` is `Inf` exactly when `g(x) == Inf`, which can accompany
+`converged = true`; a point that is outside the ball in exact arithmetic but has `g(x) == 0` is reported finite
+([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.
 
 The result stores stopping flags, residuals and tolerances, an optional `trace`,
@@ -178,8 +179,9 @@ nonfinite objective or KKT score of the original problem after an iteration, lea
 or `NaN` for valid inputs; it raises no exception ([LA-05](@ref)).
 
 PGD and APG numerical step exceptions restore the last accepted coefficient point
-and rethrow. For `IndBallL2` that point can be an admitted trial outside the ball by rounding, which a
-later solve refuses as a start ([IN-08](@ref)). For [IN-10](@ref) this restoration copies the full accepted
+and rethrow. For `IndBallL2` that point can be an admitted trial with `g(x) == Inf` as evaluated by
+ProximalBase, which a later solve refuses as a start; a restored point with `g(x) == 0` is accepted as a
+start even if it is outside the ball in exact arithmetic ([IN-08](@ref)). For [IN-10](@ref) this restoration copies the full accepted
 coefficient matrix into the supplied storage. They do not provide a general transaction for internal counters or
 buffers. The line-search boundary is [LS-09](@ref) and the accelerated trial/restart
 boundary is [APG-03](@ref). A finite run that reaches a limit may still commit or

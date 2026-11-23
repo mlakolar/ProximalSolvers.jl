@@ -24,11 +24,16 @@ function ball_violation(x, r)
   end
 end
 
-# Whether the reported minimum is the strict composite loss(x) + g(x) at the returned point: Inf when the point is
-# outside the ball in ProximalBase's strict sense, the loss value up to its rounding otherwise.
+# Whether the reported minimum has the penalty term g(x) of ProximalBase's standalone oracle at the returned point: Inf
+# exactly when g(x) == Inf, and otherwise a finite value with g(x) exactly zero and the smooth term equal to the
+# standalone loss up to rounding. A NaN penalty value fails. The smooth term is the cached value of the accepted trial,
+# which the result does not expose, so it is compared with the standalone loss at the tolerance sqrt(eps(T)).
 function strict_minimum(result, x, loss, g)
   T = eltype(x)
-  isinf(g(x)) ? result.minimum == T(Inf) : isapprox(result.minimum, loss(x); rtol = sqrt(eps(T)))
+  penalty = g(x)
+  isnan(penalty) && return false
+  isinf(penalty) && return result.minimum == T(Inf)
+  iszero(penalty) && !isnan(result.minimum) && isapprox(result.minimum, loss(x); rtol = sqrt(eps(T)))
 end
 
 # function barriers: the call gets concrete argument types, which the loop variable T of a testset does not
@@ -37,7 +42,8 @@ alloc_admitted(g, v, x) = @allocated ProximalSolvers._admitted_penalty_value(g, 
 
 # Trial points for which ProximalBase's value of the stored projection onto IndBallL2(r) is Inf although the point is
 # within rounding of the ball. The vectors came from a search over one-iteration solves of both methods (offline). Each
-# test asserts that the stored point after one iteration has value Inf, so a change of the oracle fails at that assertion.
+# test asserts that the stored point after one iteration has value Inf, so a change that removes that trigger fails at
+# that assertion.
 # `TINY`: radii below ProximalBase's four-entry range, `2sqrt(4floatmin(T) / eps(T))`, solved with X = 2I and a loss
 # scale 1/4 (curvature 1, so the first trial projects `target`). `HUGE`: coefficients whose sum of squares overflows,
 # with the design d I so that f stays finite.
@@ -296,6 +302,43 @@ end
     end
   end
 
+  @testset "Admitted exterior trial: monitored trace and residual" begin
+    fixed_step = method isa ProximalGradientDescent ?
+      ProximalGradientDescent(ls=ProximalSolvers.LineSearches.BackTracking(α=1.0)) :
+      AccProxGradDescent(α=1.0)
+    r, target = TINY[Symbol(T)].r, TINY[Symbol(T)].targets[1]
+    g = IndBallL2(r)
+    loss = T(0.25) * LeastSquaresLoss(X * target, X)
+    x = zeros(T, 4)
+    traced = solve!(x, loss, g, fixed_step, ProximalOptions(maxiter=2, prox_calls_limit=1, store_trace=true))
+    @test isinf(g(x))
+    @test traced.minimum == T(Inf)
+    # the trace and the objective-change residual read the monitored objective, which is finite
+    @test length(traced.trace) == 1 && all(t -> isfinite(t.fg_x), traced.trace)
+    @test isfinite(traced.f_residual)
+  end
+
+  # The smooth term of the minimum is the cached value of the accepted trial, as for every penalty; the penalty term is
+  # ProximalBase's g(x). Here the cached value is one unit in the last place above the standalone loss at x = 0.
+  @testset "Reported minimum: smooth term and penalty term" begin
+    if T === Float32
+      y = vcat(fill(ldexp(1f0, 63), 2), fill(ldexp(1f0, 51), 4))
+      loss = 2f0 * LeastSquaresLoss(y, zeros(T, 6, 4))
+      one_iteration = ProximalOptions(maxiter=2, prox_calls_limit=1)
+      x_ball, x_box = zeros(T, 4), zeros(T, 4)
+      ball = IndBallL2(1f0)
+      with_ball = solve!(x_ball, loss, ball, method, one_iteration)
+      with_box = solve!(x_box, loss, IndBox(-1f0, 1f0), method, one_iteration)
+      @test x_ball == x_box == zeros(T, 4)
+      @test iszero(ball(x_ball))
+      @test (with_ball.minimum == T(Inf)) == isinf(ball(x_ball))
+      @test isfinite(with_ball.minimum)
+      # the same smooth term as with a penalty that is not the ball, and within rounding of the standalone loss
+      @test with_ball.minimum == with_box.minimum
+      @test isapprox(with_ball.minimum, loss(x_ball); rtol=4eps(T))
+    end
+  end
+
   @testset "Admitted exterior trial: sum of squares beyond the range of T" begin
     d = HUGE[Symbol(T)].d
     D = Matrix(d * I, 4, 4)
@@ -331,7 +374,7 @@ end
 @testset "Admission of a rounded ball trial $T" for T in (Float32, Float64)
   admissible = ProximalSolvers._ball_rounding_admissible
   admitted = ProximalSolvers._admitted_penalty_value
-  u = [0.2, 0.4, 0.4, 0.8]    # a unit vector, ‖u‖₂ = 1 in exact arithmetic
+  u = [0.2, 0.4, 0.4, 0.8]    # a direction; `point` divides it by its norm
   radii = T === Float64 ? (1.0, 1e-150, 1e157) : (1f0, 1f-16, 1f19)
   # The stored point (1 + δ eps) r u, rounded to T, lies about δ eps outside the ball (up to the rounding of its entries).
   point(r, δ) = setprecision(BigFloat, 256) do

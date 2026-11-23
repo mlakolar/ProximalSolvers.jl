@@ -47,7 +47,7 @@ The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weigh
 
 For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`. For `IndNonnegative()`, ProximalBase projects componentwise with `max(v, 0)`. Both operators enforce nonnegativity at each step. The feasible-start and input requirements are [IN-07](@ref), and the dedicated constrained stationarity check is [STOP-16](@ref).
 
-For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref). A stored `IndBallL2` projection that ProximalBase values as `Inf` can be admitted within a rounding tolerance, and the reported `minimum` is then the strict composite at the returned point; both rules are in [IN-08](@ref).
+For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref). A stored `IndBallL2` projection that ProximalBase values as `Inf` can be admitted within a rounding tolerance, and the penalty term of the reported `minimum` is then ProximalBase's standalone `g(x)` at the returned point; both rules are in [IN-08](@ref).
 
 For matrix-response entrywise lasso, the same sequence carries coefficient,
 gradient and displacement buffers of size `p × K` and predictor and residual
@@ -148,6 +148,6 @@ Existing tests listed at each clause cover image order, fused prox, counts, cons
 
 ## Change log
 
-[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): for a four-coefficient `IndBallL2`, a trial whose ProximalBase value is `Inf` is admitted within a rounding tolerance instead of raising, and the reported `minimum` is the strict composite at the returned point ([IN-08](@ref)). Other penalties are unchanged. Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
+[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): for a four-coefficient `IndBallL2`, a trial whose ProximalBase value is `Inf` is admitted within a rounding tolerance and carries monitored penalty value zero, so it no longer reaches the finiteness guard of the gradient engine; the penalty term of the reported `minimum` is ProximalBase's standalone `g(x)` at the returned point ([IN-08](@ref)). The line search and the failure and restart rules are unchanged ([LS-09](@ref), [APG-03](@ref)). Other penalties are unchanged. Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
 
 The shared image engine and scalar APIs are retained. The historical support wording above was retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) and remains only as provenance; no numerical restoration is inferred.
