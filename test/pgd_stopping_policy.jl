@@ -104,11 +104,11 @@ end
     negative_tiny = reinterpret(Float64, 0x8000000000000001)
     try
         if set_zero_subnormals(true)
-            f = LeastSquaresLoss([0.0], zeros(1, 1))
-            x = [tiny]
-            r = solve!(x, f, NormL1(1.0), unit_step(); stopping=IterateChange(), limits=MaxIterations(3))
-            @test r.iterations == 2 && termination(r).satisfied
-            @test reinterpret(UInt64, x[1]) == 0
+            state = (; x=[0.0], x_previous=[tiny])
+            point = PS.PGDStoppingPoint(state, 1, 0.0, 0.0)
+            @test !PS.Stopping.same_iterate(point)
+            state.x_previous[1] = -0.0
+            @test PS.Stopping.same_iterate(point)
             point = (iteration=1, objective=tiny, previous_objective=0.0)
             @test PS.Stopping.assess(ObjectiveChange(), point, nothing, false).status == :fail
             @test_throws ArgumentError ObjectiveChange(atol=negative_tiny)

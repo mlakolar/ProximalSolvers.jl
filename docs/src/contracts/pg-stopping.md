@@ -545,6 +545,8 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 
 **Sources.** `README.md:L52`, `docs/src/working-with-results.md:L29`, `docstring:src/types.jl:L23`, `docstring:src/solvers/proximal_gradient_descent.jl:L30`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/numerics.md:L86`.
 
+## Explicit stopping
+
 ### [STOP-22 Explicit stopping for dense vector least-squares PGD](@id STOP-22)
 
 **Statement.** Pass `stopping=rule`, `limits=MaxIterations(n)`, or both to
@@ -572,9 +574,9 @@ point and then checks each completed update once after acceptance, gradient
 completion and the finite objective check. A rejected trial leaves the policy
 history at the preceding accepted point. A failed update restores that point
 and rethrows as in [RES-03](@ref). A finite increase in the accepted objective
-is recorded and does not of itself cause a stop. If the policy and cap permit continuing, PGD
-checks the Float32 verified-rejection stagnation condition of [STOP-11](@ref)
-independently of the legacy `ftol` setting.
+is recorded and does not of itself cause a stop. If the policy and cap permit
+continuing, PGD checks the Float32 verified-rejection stagnation condition of
+[STOP-11](@ref) independently of the legacy `ftol` setting.
 
 For successive accepted coefficients `p, x`, `IterateChange` compares
 `‖x-p‖₂` with `atol + rtol * max(‖x‖₂, ‖p‖₂)`. `ObjectiveChange` compares
@@ -582,8 +584,10 @@ For successive accepted coefficients `p, x`, `IterateChange` compares
 is the original composite objective. Both comparisons are inclusive. With
 two zero tolerances, `IterateChange` uses elementwise equality by value, and
 `ObjectiveChange` compares the stored objective values for equality. These
-exact checks compare the stored bits, equating the two signs of zero. Both
-progress conditions are unchecked at initialization, where no predecessor
+exact checks compare the stored bits, equating the two signs of zero. This
+specifies comparisons of fixed checkpoint values. [FP-01](@ref) governs the
+stopping decision of the solve under subnormal flushing. Both progress
+conditions are unchecked at initialization, where no predecessor
 exists. Step acceptance records the predecessor and the objective independently
 of which leaves are evaluated.
 
@@ -598,8 +602,7 @@ relative tolerance uses `atol` directly. Otherwise the threshold is formed
 with one rounded multiply-add in Float64. A nonfinite measurement or
 threshold is invalid and cannot pass. A positive-tolerance comparison uses
 the computed values under the thread's floating-point mode, including any
-rounding of a threshold to zero. No tolerance floor is applied. The precision
-limits of the solve follow [FP-01](@ref).
+rounding of a threshold to zero. No tolerance floor is applied.
 
 `UserStop(predicate)` receives an immutable named tuple with `iteration` and
 `objective` (native type). Return `true` to request a stop or `false` to continue.
