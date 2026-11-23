@@ -261,15 +261,11 @@ end
 @noinline _l1_gradient_error() =
   error("the gradient at the accepted trial has a nonfinite entry (IndBallL1 numerical route, PGD-09)")
 
-# PGD-09: a search from one base point starts with no trials; the PGD search ends with the check above, APG's
-# _prox_grad_step! skips it.
-function LineSearches.search!(state::ProximalGradientDescentState, ls::LineSearches.BackTracking, f,
-                              g::_NumericalL1Ball)
-  g.trials = 0
-  invoke(LineSearches.search!, Tuple{Any, LineSearches.BackTracking, Any, Any}, state, ls, f, g)
-  _allfinite(state.grad_f_x) || _l1_gradient_error()
-  state
-end
+# PGD-09: each search from one base point (PGD's search!, APG's _prox_grad_step!) starts with no trials; the PGD
+# search then applies the check above to the gradient at the accepted trial.
+LineSearches.search!(state::ProximalGradientDescentState, ls::LineSearches.BackTracking, f, g::_NumericalL1Ball) =
+  (g.trials = 0; invoke(LineSearches.search!, Tuple{Any, LineSearches.BackTracking, Any, Any}, state, ls, f, g);
+   _allfinite(state.grad_f_x) || _l1_gradient_error(); state)
 _prox_grad_step!(f, g::_NumericalL1Ball, state::AccProxGradDescentState{T}, β::T) where T =
   (g.trials = 0; invoke(_prox_grad_step!, Tuple{Any, Any, AccProxGradDescentState{T}, T}, f, g, state, β))
 
