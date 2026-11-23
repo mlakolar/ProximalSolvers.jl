@@ -3,11 +3,10 @@
 # solve!(x, f, IndBallL1(r), method, options; feasibility = NumericalFeasibility(...)). The gate is
 # _check_numerical_l1 (src/solve.jl, IN-12). The route runs the engine of the other penalties (_solve_gradient!, PGD's
 # update_state! and backtrack!, APG's update_state!, restart and certified bound) with this file's methods of the
-# engine's hooks: LineSearches.trial!, LineSearches.search! and _prox_grad_step! (PGD-09); convergence_assessment,
-# _stationary! and _stop_on_gradient_increase (STOP-22); and the result hooks of _solve_gradient! (RES-04). The
-# arithmetic of the decision, the budgets and the full check is that of research/issue-515/b1.jl at d58b9099 and of
-# the B0 helpers it imports (research/issue-514), with the same reductions, loops and Float64 conversions in the same
-# order (FP-05).
+# engine's hooks: trial!, search! and _prox_grad_step! (PGD-09); convergence_assessment, _stationary! and
+# _stop_on_gradient_increase (STOP-22); and the result hooks of _solve_gradient! (RES-04). The arithmetic of the
+# decision, the budgets and the full check is that of research/issue-515/b1.jl at d58b9099 and of the B0 helpers it
+# imports (research/issue-514), with the same reductions, loops and Float64 conversions in the same order (FP-05).
 #
 # Ownership (PGD-09): within a completed step only trials write state.x; each trial that projects into state.x stores
 # the decision of that vector in `decision` right after the projection, and a trial with a nonfinite xhat writes
@@ -255,17 +254,15 @@ function LineSearches.trial!(state::Union{ProximalGradientDescentState, AccProxG
   nothing
 end
 
-# PGD-09: B1's check of the gradient at the accepted trial (the end of its PGD `step!`). A nonfinite entry raises an
-# error inside the step, so the engine copies x_previous into x and rethrows before the assessment, the trace and the
-# callback.
+# PGD-09: each search from one base point (PGD's search!, APG's _prox_grad_step!) starts with no trials. The PGD
+# search then applies B1's check of the gradient at the accepted trial (the end of its PGD `step!`): a nonfinite entry
+# raises an error inside the step, so the engine copies x_previous into x and rethrows before the assessment, the trace
+# and the callback.
 @noinline _l1_gradient_error() =
   error("the gradient at the accepted trial has a nonfinite entry (IndBallL1 numerical route, PGD-09)")
-
-# PGD-09: each search from one base point (PGD's search!, APG's _prox_grad_step!) starts with no trials; the PGD
-# search then applies the check above to the gradient at the accepted trial.
 LineSearches.search!(state::ProximalGradientDescentState, ls::LineSearches.BackTracking, f, g::_NumericalL1Ball) =
   (g.trials = 0; invoke(LineSearches.search!, Tuple{Any, LineSearches.BackTracking, Any, Any}, state, ls, f, g);
-   _allfinite(state.grad_f_x) || _l1_gradient_error(); state)
+   _allfinite(state.grad_f_x) || _l1_gradient_error())
 _prox_grad_step!(f, g::_NumericalL1Ball, state::AccProxGradDescentState{T}, β::T) where T =
   (g.trials = 0; invoke(_prox_grad_step!, Tuple{Any, Any, AccProxGradDescentState{T}, T}, f, g, state, β))
 

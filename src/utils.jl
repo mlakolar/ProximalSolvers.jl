@@ -83,10 +83,9 @@ struct _ProposalsOnly end
 const _PROPOSALS = _ProposalsOnly()
 _stationary!(state, f, ::_ProposalsOnly, options::ProximalOptions) = true
 
-# One trial at the current state.L (LineSearches.search! for PGD, _prox_grad_step! for APG): the step into xhat from
-# the base point and its gradient (PGD: x_previous; APG: y), the proximal image x of xhat at step 1/L, the penalty value,
-# the image and loss value of x, then the two counts. The IndBallL1 route has its own method (src/solvers/l1ball.jl,
-# PGD-09).
+# One trial at state.L (PGD's search!, APG's _prox_grad_step!): the step into xhat from the base point (PGD: x_previous,
+# APG: y) and its gradient, the proximal image x of xhat at step 1/L, the penalty value, the image and loss value of x,
+# then the two counts. The IndBallL1 route has its own method (src/solvers/l1ball.jl, PGD-09).
 @inline function LineSearches.trial!(state::Union{ProximalGradientDescentState, AccProxGradDescentState}, f, g)
   _trial_step!(state)
   state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))

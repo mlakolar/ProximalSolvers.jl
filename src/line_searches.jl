@@ -216,13 +216,11 @@ end
 
 has_updated_gradient(state, ::BackTracking) = state.backtrack_simple == false
 
-# trial!(state, f, g) constructs and evaluates one trial at the current state.L; the PGD and
-# APG states implement it (utils.jl, solvers/l1ball.jl).
+# trial!(state, f, g) forms and evaluates one trial at state.L (methods: utils.jl, solvers/l1ball.jl).
 function trial! end
 
-# Retries trials until backtrack! accepts one. On return, state.x is the accepted trial, with
-# f_x, g_x, grad_f_x and the image cache at that point. An error from the trial, backtrack!
-# or next_curvature propagates out of the loop, leaving the state as it was at the error.
+# Retries trials until backtrack! accepts one; then state.x is that trial, with f_x, g_x, grad_f_x and the image
+# cache at it. An error from a trial, backtrack! or next_curvature propagates, leaving the state as at the error.
 function search!(state, ls::BackTracking, f, g)
     while true
         trial!(state, f, g)
@@ -233,7 +231,6 @@ function search!(state, ls::BackTracking, f, g)
         state.f_calls += 1
         state.grad_calls += 1
     end
-    state
 end
 
 end
