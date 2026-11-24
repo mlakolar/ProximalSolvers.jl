@@ -643,8 +643,8 @@ end
 # k = -exponent(m) for the largest magnitude m and k1 = clamp(k, -1022, 1023). ProximalBase's `_normal_power` builds each
 # factor from exponent bits over the normal range, and `_scale_value` applies them as two multiplications, so that the
 # scaled maximum lies in [1, 2) and no square overflows. Both factors are exact for the largest entry. `_power_factors` is
-# not used: for k = -1023 (m at least 2^1023) its single factor 2^-1023 is subnormal and flushes to zero when subnormals
-# are flushed.
+# not used: for k = -1023 (m at least 2^1023) its single factor 2^-1023 is subnormal and can be treated as zero when
+# subnormals are flushed.
 # A scaled entry or square in the subnormal range is rounded, or lost to zero, with
 # an absolute error (an entry can also round up to floatmin(Float64): prevfloat(2floatmin) beside a largest entry 2).
 # Each affected scaled entry changes by at most 2^-1074 and each affected square by at most 2^-1075, so before the
@@ -669,9 +669,10 @@ end
 # roundings. Under the assumptions of the projection estimate, a stored point of the general route violates by at most
 # 2.5 eps(T), so in Float64 its computed norm is at most r (1 + 5u)(1 + 3u), about r (1 + 4 eps(T)), below the threshold
 # r (1 + 8eps(T))(1 - u), and the point is admitted.
-# In the Float64 method, once the radius is validated as positive and finite, an all-zero x is admitted before any
-# exponent is taken, because exponent(0.0) throws. The function is reached only for the four-coefficient IndBallL2 that
-# solve! gates; a vector of another length returns false, so the trial keeps the value Inf.
+# In the Float64 method, once the radius is validated as positive and finite and the length is four, an all-zero x is
+# admitted before any exponent is taken, because exponent(0.0) throws. Through the public solve! route the function is
+# reached only for the four-coefficient IndBallL2 that solve! gates; a vector of another length returns false, so the trial
+# keeps the value Inf.
 function _within_ball_tolerance(x::Vector{Float32}, r::Float32)
   (isfinite(r) && r > 0 && length(x) == 4) || return false
   for xi in x

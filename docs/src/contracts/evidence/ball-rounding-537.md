@@ -167,11 +167,11 @@ differential test compared the final implementation, a variant that uses `_power
 `bc9e888d`, under gradual underflow and under `set_zero_subnormals(true)`.
 
 The generated cases are four-entry Float64 points with signs and zeros, in four groups of 100,000 points each (maximum in
-`[2^1023, floatmax]` with other entries down to the subnormal range; subnormal maximum, which can include `floatmin(Float64)`; maximum near
+`[2^1023, floatmax]` with other entries down to the subnormal range; subnormal-scale maxima, which can include `floatmin(Float64)`, a normal number; maximum near
 `2^-1022` and `2^1022`; ordinary scales). For each point the radii are the threshold radius, centred at the BigFloat norm divided by
 `1 + 8eps` and rounded to Float64, its 6 neighbours on each side and 3 random radii around it, when that centre is finite and positive;
 unusable random radii are omitted. The constructed cases are 549: the tie example, scaled by powers of two, with its neighbouring radii;
-axis points at the rounded threshold with signs and zeros; and largest entries at and above `2^1023` with radii around `2^1022`.
+axis points at the rounded threshold with signs and zeros; and largest entries at and above `2^1023` with radii around `2^1022`, including `r = 1`.
 
 | Decisions that differ from `a490f020` | Julia 1.10.12 | Julia 1.13.3 |
 |---|---|---|
@@ -192,9 +192,9 @@ on both versions.
 The compensated sum changes decisions near the cutoff, with no exact tie needed. For Float64 `x = [1.0, 2^-26, 1.25 * 2^-27, 1.25 * 2^-27]` and
 `r = 1 - 8eps`, `a490f020` and the final implementation admit and the compensated variant rejects. The Float32 counterpart
 `x = [1 + 2^-20, 2^-26, 1.25 * 2^-27, 1.25 * 2^-27]`, `r = 1` behaves the same way. The tie example above gives the same decision in all three variants.
-Over 1,300,000 generated Float32 decisions, the final implementation agreed with the plain Float64 loop and the compensated kernel also gave no
+Under gradual underflow, over 1,300,000 generated Float32 decisions, the final implementation agreed with the plain Float64 loop and the compensated kernel also gave no
 difference, so the generated Float32 points did not reach such a case. `_ball_l2_sum4` and the loop `s = 0.0; s += abs2(...)` gave bitwise equal sums
-on 2,000,000 random four-entry vectors.
+on 2,000,000 random four-entry vectors, also under gradual underflow.
 
 ## [evidence-ball-rounding-minimum Smooth term of the reported minimum](@id evidence-ball-rounding-minimum)
 

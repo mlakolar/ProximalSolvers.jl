@@ -430,23 +430,23 @@ end
   end
 end
 
-# With the largest entry at least 2^1023 the scaling factor 2^-1023 would be subnormal. The check keeps two normal factors,
-# so that its decision does not depend on whether subnormals are flushed. Here the scaled norm is 1 and the scaled radius is 1/2.
+# With the largest entry at least 2^1023 the scaling factor 2^-1023 would be subnormal. The check keeps two normal factors; for
+# this fixture its decision is the same with and without flushed subnormals (the scaled norm is 1 and the scaled radius is 1/2).
+# The length guard refuses other lengths regardless of the norm.
 @testset "Tolerance check, largest entry 2^1023, with and without flushed subnormals" begin
   within = ProximalSolvers._within_ball_tolerance
   x, r = [2.0^1023, nextfloat(2.0^-52), 0.0, -0.0], 2.0^1022
-  @test !within(x, r)
   @test !within(Float64[0, 0, 0], 1.0) && !within(Float32[0, 0, 0, 0, 0], 1f0)   # a vector of another length is not within the tolerance
   previous = Base.get_zero_subnormals()
-  flushing = Base.set_zero_subnormals(true)
-  flushed = nothing
-  if flushing
-    try
-      flushed = within(x, r)
-    finally
-      Base.set_zero_subnormals(previous)
-    end
+  gradual = flushed = nothing
+  try
+    Base.set_zero_subnormals(false)
+    gradual = within(x, r)
+    Base.set_zero_subnormals(true) && (flushed = within(x, r))
+  finally
+    Base.set_zero_subnormals(previous)
   end
-  flushing && @test flushed === false
+  @test gradual === false
+  flushed === nothing || @test flushed === false
 end
 end
