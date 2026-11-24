@@ -686,7 +686,7 @@ function _check_numerical_l1(x, f, g::IndBallL1, a::NumericalFeasibility, method
   decision.code === :pass ||
     throw(ArgumentError("IndBallL1: the feasibility of the starting point against the " *
                         "cap $(b.cap) is unresolved at the rounding allowance of its widened ℓ1 norm"))
-  (; budgets = b, decision, alpha, data = d)
+  (; budgets = b, tolerances, decision, alpha, data = d)
 end
 
 _gradient_call_limit(state, options) =
@@ -701,6 +701,8 @@ _gradient_time_limit(t0::UInt64, options) = (time_ns() - t0) * 1e-9 >= options.t
 # A strict-budget search can return false when a limit interrupts a trial.
 _strict_gradient_limits(state) = false
 _stop_on_gradient_increase(state, options) = !options.allow_f_increases
+# The IndBallL1 route has a method of this three-argument form that returns false (IN-12).
+_stop_on_gradient_increase(state, g, options) = _stop_on_gradient_increase(state, options)
 # The result hooks of the IndBallL1 route (IN-12). Here, for the other penalties: no approximate-solution stop and the
 # reported minimum f(x) + g(x).
 _approximate_solution(g) = false
@@ -765,7 +767,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
     # that is due at this iteration under print_every
     stagnated = _stagnated(state, options)
 
-    increased = f_increased && _stop_on_gradient_increase(state, options)
+    increased = f_increased && _stop_on_gradient_increase(state, g, options)
     stopped = increased || stagnated || stopped_by_callback || stopped_by_time_limit || call_limit_reached ||
               _approximate_solution(g)
   end # while

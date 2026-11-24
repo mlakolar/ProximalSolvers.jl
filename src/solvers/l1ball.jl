@@ -3,9 +3,10 @@
 # `feasibility = NumericalFeasibility(...)` overrides the tolerances. The gate is _check_numerical_l1 (src/solve.jl).
 # The route runs the engine of the other penalties (_solve_gradient!, PGD's update_state! and backtrack!, APG's
 # update_state!, restart and certified bound) with this file's methods of trial!, search!, _prox_grad_step!,
-# convergence_assessment, _stationary! and the result hooks. The arithmetic of the decision, the budgets and the full
-# check is that of research/issue-515/b1.jl at d58b9099 and of the B0 helpers it imports (research/issue-514), with the
-# same reductions, loops and Float64 conversions in the same order, plus the underflow allowance (FP-05).
+# convergence_assessment, _stationary!, _stop_on_gradient_increase and the result hooks. The arithmetic of the
+# decision, the budgets and the full check is that of research/issue-515/b1.jl at d58b9099 and of the B0 helpers it
+# imports (research/issue-514), with the same reductions, loops and Float64 conversions in the same order, plus the
+# underflow allowance (FP-05).
 #
 # Within a completed step only trials write state.x; each trial that projects into state.x stores the decision of that
 # vector in `decision`, and a trial with a nonfinite xhat writes neither, so `decision` describes state.x after every
@@ -25,8 +26,9 @@ end
 
 # The route's working constraint, built once per solve after the gate: the private ball, the data and loss scale, the
 # budgets, the decision of the vector last projected into state.x (initially the start's), the full-check workspace,
-# whether the last assessment passed its full check at a point not classified inside, and the trials from the current
-# base point.
+# whether the last assessment passed its full check at a point not classified inside, the trials from the current
+# base point, whether the current assessment ran the full check, and the resolved objective and mapping tolerances of
+# B1's progress proposals.
 mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   ball::IndBallL1{T}
   X::Matrix{T}
@@ -47,17 +49,21 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   projected::Vector{T}
   approximate::Bool
   trials::Int
+  checked::Bool
+  objective_rtol::Float64
+  mapping_rtol::Float64
 end
 
 # The penalty value that initial_state and the trials store (g_x = 0). A start that passes the cap can lie outside the
 # ball, where the indicator is Inf; the route does not evaluate it, and _composite_minimum reports the membership.
 (g::_NumericalL1Ball{T})(x) where T = zero(T)
 
-function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha::Float64, b,
+function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha::Float64, b, tolerances,
                           decision::_L1Decision) where T
   n, p = size(X)
   _NumericalL1Ball{T}(ball, X, y, alpha, b.cap, b.gap, b.mapping, b.curvature, b.col, b.frob, b.ynorm, decision,
-                      zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p), false, 0)
+                      zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p), false, 0, false,
+                      tolerances.objective_rtol, tolerances.mapping_rtol)
 end
 
 # ---- B1's arithmetic (FP-05) -------------------------------------------------------------------------------------------
@@ -243,14 +249,23 @@ LineSearches.search!(state::ProximalGradientDescentState, ls::LineSearches.BackT
 _prox_grad_step!(f, g::_NumericalL1Ball, state::AccProxGradDescentState{T}, β::T) where T =
   (g.trials = 0; invoke(_prox_grad_step!, Tuple{Any, Any, AccProxGradDescentState{T}, T}, f, g, state, β))
 
-# The engine's three proposals and, when one fires, the full check below (once), through the method of the other
-# penalties. A passing check counts as convergence only at a point classified :inside; at a point classified :outside
-# or :unknown it clears the proposals and stops the solve as an approximate solution (_approximate_solution).
+# The engine's three proposals and, when one fires, the full check below, through the method of the other penalties.
+# When that method ran no check, B1's unchanged-iterate and progress proposals (‖x - x_previous‖∞ at most
+# √mapping_rtol ‖x‖∞, or the relative change of the loss at most objective_rtol) trigger it; a pass then reports
+# x_converged. So the check runs at most once per assessment, and a proposal is only a trigger. A passing check counts
+# as convergence only at a point classified :inside; at a point classified :outside or :unknown it clears the
+# proposals and stops the solve as an approximate solution (_approximate_solution).
 function convergence_assessment(state::Union{ProximalGradientDescentState, AccProxGradDescentState},
                                 f, g::_NumericalL1Ball, options::ProximalOptions)
+  g.checked = false
   x_converged, f_converged, grad_converged, passed, f_increased =
     invoke(convergence_assessment, Tuple{Union{ProximalGradientDescentState, AccProxGradDescentState}, Any, Any,
                                          ProximalOptions}, state, f, g, options)
+  if !g.checked && (_unchanged(state.x, state.x_previous) ||
+                    maximum(abs, state.delta_x) <= sqrt(g.mapping_rtol) * maximum(abs, state.x) ||
+                    f_residual(state.f_x, state.f_x_previous, g.objective_rtol) <= g.objective_rtol)
+    passed = x_converged = _stationary!(state, f, g, options)
+  end
   inside = g.decision.membership === :inside
   g.approximate = passed && !inside
   converged = passed && inside
@@ -262,8 +277,10 @@ end
 # Otherwise: the radial witness from the cached s and noise; the residual and gradient at the witness in Float64, times
 # α; the support gap and the fixed-step mapping at the inverse step T(curvature) through PB's projection, each with its
 # noise and underflow allowance; the check passes when the four values are finite, gap + gap noise ≤ gap budget and
-# mapping + map noise ≤ mapping budget. It counts one gradient and one prox call and writes no other field of state.
+# mapping + map noise ≤ mapping budget. It counts one gradient and one prox call, writes no other field of state and
+# records in g.checked that the assessment ran it.
 function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions) where T
+  g.checked = true
   dec = g.decision
   dec.code === :pass || return false
   x = state.x
@@ -297,6 +314,9 @@ function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions
   finite && gap + gap_noise <= g.gap_budget && mapping + map_noise <= g.mapping_budget
 end
 
+# An objective increase does not end the solve on this route; f_increased still reports it (IN-12).
+_stop_on_gradient_increase(state, ::_NumericalL1Ball, options) = false
+
 # The result hooks of _solve_gradient!, from g.decision, the decision of the returned point when callbacks leave x
 # unchanged: minimum is the loss inside the ball, Inf outside and NaN when the point is not classified.
 _approximate_solution(g::_NumericalL1Ball) = g.approximate
@@ -316,7 +336,8 @@ function _solve_numerical_l1!(x, f, g::IndBallL1, feasibility, method, options, 
   t0 = time()
   T = eltype(x)
   d = checked.data
-  route = _NumericalL1Ball(IndBallL1{T}(g.r), d.X, d.Y, checked.alpha, checked.budgets, checked.decision)
+  route = _NumericalL1Ball(IndBallL1{T}(g.r), d.X, d.Y, checked.alpha, checked.budgets, checked.tolerances,
+                           checked.decision)
   state = initial_state(method, options, f, route, x)
   _solve_gradient!(state, f, route, method, options, t0)
 end

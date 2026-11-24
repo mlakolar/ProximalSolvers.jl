@@ -330,9 +330,10 @@ end
   X, y, alpha, r = reshape([1e-155], 1, 1), [0.0], 1e300, 1e-14
   f = alpha * LeastSquaresLoss(y, X)
   # the full check at the start: the computed gradient is exactly zero, and the check fails
-  b = PS._l1_budgets(X, y, alpha, r, PS._feasibility_tolerances(NumericalFeasibility(), Float64))
+  tol = PS._feasibility_tolerances(NumericalFeasibility(), Float64)
+  b = PS._l1_budgets(X, y, alpha, r, tol)
   ball = IndBallL1(r)
-  route = PS._NumericalL1Ball(ball, X, y, alpha, b, PS._l1_decision([1e-15], ball, b.cap))
+  route = PS._NumericalL1Ball(ball, X, y, alpha, b, tol, PS._l1_decision([1e-15], ball, b.cap))
   stub = CheckStub([1e-15], 0, 0)
   @test !PS._stationary!(stub, f, route, OPTIONS)
   @test all(iszero, route.gradient)
@@ -370,18 +371,71 @@ end
   end
 end
 
-# ---- the objective-increase stop ----------------------------------------------------------------------------------------
+# ---- B1's progress proposals and objective increases -------------------------------------------------------------------
+
+# The engine of _solve_gradient! driven by hand: per iteration, the gradient and prox calls of convergence_assessment,
+# which are those of the full checks it runs (one each per check), until a success.
+function checks_per_iteration(d::Fixture, method, options, a)
+  x, f = copy(d.start), loss(d)
+  c = PS._check_numerical_l1(x, f, IndBallL1(d.r), a, method, :gradient)
+  route = PS._NumericalL1Ball(IndBallL1(d.r), c.data.X, c.data.Y, c.alpha, c.budgets, c.tolerances, c.decision)
+  state = PS.initial_state(method, options, f, route, x)
+  counts, objective_proposal = Int[], Bool[]
+  for _ in 1:options.maxiter
+    PS._gradient_step!(state, f, route, method, options, time())
+    grad0, prox0 = state.grad_calls, state.prox_calls
+    converged = PS.convergence_assessment(state, f, route, options)[4]
+    push!(counts, state.grad_calls - grad0)
+    push!(objective_proposal, PS.f_residual(state.f_x, state.f_x_previous, options.ftol) < options.ftol)
+    @test state.prox_calls - prox0 == counts[end]
+    (converged || route.approximate) && break
+  end
+  counts, objective_proposal
+end
+
+# At most one full check per iteration. With a mapping tolerance far below the rounding allowance every check fails,
+# and objective_rtol = 1e-3 makes B1's objective proposal hold whenever the engine's objective test (ftol = 1e-6) does:
+# such an iteration still runs one check, and an iteration with no proposal runs none.
+@testset "at most one full check per iteration ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+  for d in fixtures(T; big = false)
+    counts, _ = checks_per_iteration(d, method, OPTIONS, NumericalFeasibility())
+    @test all(<=(1), counts)
+  end
+  d = fixture(T, "l1_correlated_active")
+  counts, proposal = checks_per_iteration(d, method, ProximalOptions(maxiter = 100),
+                                          NumericalFeasibility(mapping_rtol = 1e-30, objective_rtol = 1e-3))
+  @test length(counts) == 100 && all(<=(1), counts) && 0 in counts
+  @test any(proposal) && all(==(1), counts[proposal])
+end
+
+# Solves that the engine's tests do not stop (ftol = 0): B1's unchanged-iterate and progress proposals trigger the
+# full check at the first iteration, and each success passes the independent MPFR check.
+@testset "progress proposals stop at the first iteration ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+  I2 = Matrix{T}(I, 2, 2)
+  for d in (fixture(T, "rounded_zero_predictor"), fixture(T, "stationary_tail_0.25_eps"),
+            Fixture{T}("l1_exact_boundary_stop", I2, T[0.75, 0.75], T(1.5), T[0.75, 0.75], one(T)))
+    x, res = solve_fixture(d, method; options = ProximalOptions(maxiter = 320, ftol = 0))
+    @test res.iterations == 1 && (res.converged || res.approximate_solution)
+    check_result_fields(x, res, loss(d), d.r)
+    @test acceptable(d.X, d.y, d.alpha, d.r, x)
+  end
+end
 
 # x0 = [1, 2 eps] with y = x0 and r = 1: the start has a zero loss, and the first projection moves it to the boundary,
-# which raises the loss. A mapping tolerance far below the rounding allowance keeps the full check from passing.
-@testset "an objective increase stops the solve as for the other penalties ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+# which raises the loss. A mapping tolerance far below the rounding allowance keeps the full check from passing. With
+# allow_f_increases = false the increase is reported in f_increased and the solve continues.
+@testset "an objective increase is reported and does not end the solve ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   x0 = T[1, 2eps(T)]
   f, g = LeastSquaresLoss(copy(x0), Matrix{T}(I, 2, 2)), IndBallL1(one(T))
   a = NumericalFeasibility(mapping_rtol = 1e-30)
-  res = solve!(copy(x0), f, g, method, ProximalOptions(maxiter = 6); feasibility = a)
+  res = solve!(copy(x0), f, g, method, ProximalOptions(maxiter = 1); feasibility = a)
   @test res.iterations == 1 && res.f_increased && !res.converged && !res.approximate_solution
-  res = solve!(copy(x0), f, g, method, ProximalOptions(maxiter = 6, allow_f_increases = true); feasibility = a)
+  x1, x2 = copy(x0), copy(x0)
+  res = solve!(x1, f, g, method, ProximalOptions(maxiter = 6, store_trace = true); feasibility = a)
   @test res.iterations == 6 && res.iteration_converged && !res.converged && !res.approximate_solution
+  @test res.trace[1].fg_x > f(x0)
+  res2 = solve!(x2, f, g, method, ProximalOptions(maxiter = 6, allow_f_increases = true); feasibility = a)
+  @test reinterpret(UInt8, x1) == reinterpret(UInt8, x2) && res.f_increased == res2.f_increased
 end
 
 # ---- line-search errors and rollback ----------------------------------------------------------------------------------------
