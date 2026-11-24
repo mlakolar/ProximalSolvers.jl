@@ -568,9 +568,10 @@ with an explicit `MaxIterations`. The comparison uses the values stored in
 
 A nonnegative `Int` iteration budget counts accepted updates.
 `MaxIterations(0)` validates the configuration and returns the unchanged start
-before solver oracle initialization or rule evaluation. A positive budget
-initializes the loss and penalty value and requires a finite starting composite
-objective. PGD also initializes its gradient. Allocate the column workspace of
+before solver oracle initialization or rule evaluation. With a positive
+iteration cap and no zero evaluation cap ([STOP-23](@ref)), the solver
+initializes the loss and penalty value and requires a finite starting
+composite objective. PGD also initializes its gradient. Allocate the column workspace of
 [STOP-21](@ref) for rule trees containing `ScaledKKT`. The solve checks the initial
 point and then checks each completed update once, after the finite objective
 check and after any APG restart under [APG-03](@ref). Rejected or discarded

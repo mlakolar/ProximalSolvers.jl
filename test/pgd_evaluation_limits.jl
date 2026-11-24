@@ -138,6 +138,16 @@ end
                        backtrack_steps=1, rejected_trials=1)
 end
 
+@testset "A failed trial takes precedence over a reached budget" begin
+    # Reducing the curvature by α rounds it to zero in Float32. The trial
+    # consumes its loss evaluation before the search detects the failed retry.
+    method = ProximalGradientDescent(ls=PS.LineSearches.BackTracking(α=1e-50))
+    x = Float32[0]
+    @test_throws r"curvature estimate cannot increase finitely" solve!(
+        x, scalar_loss(Float32, 1), NormL1(0f0), method; limits=MaxObjectiveEvaluations(2))
+    @test x == Float32[0]
+end
+
 @testset "Interruption preserves the accepted checkpoint ($T)" for T in (Float32, Float64)
     f, g, method = scalar_loss(T, 2), NormL1(zero(T)), pgd(0.125)
     options = ProximalOptions(store_trace=true, extended_trace=true)
