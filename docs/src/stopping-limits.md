@@ -69,6 +69,30 @@ point because completing the second update needs one more smooth value as
 part of a fused gradient call. The report counts work on both trials.
 See [STOP-23](@ref) for admission and [RES-04](@ref) for the report fields.
 
+## [Cap the evaluations in dense least-squares APG](@id apg-evaluation-limits)
+
+`AccProxGradDescent` accepts the same hard call limits. A line search can
+reuse its last gradient for several proximal trials. If acceleration requires a
+restart, APG checks the remaining budget before evaluating the restart gradient.
+
+~~~@example apg_evaluation_limits
+using ProximalBase, ProximalSolvers
+
+x = zeros(1)
+f = LeastSquaresLoss([1.0], ones(1, 1))
+r = solve!(x, f, NormL1(0.0), AccProxGradDescent(α=0.75, β=0.375);
+           limits=(MaxGradientEvaluations(1), MaxProximalEvaluations(2)))
+@assert x == [0.5] && r.iterations == 1
+@assert termination(r).counts.grad_calls == 1
+@assert termination(r).counts.prox_calls == 2
+termination(r)
+~~~
+
+The search evaluates one gradient and takes two trials. It accepts the
+second and reports both caps. If you add a `ScaledKKT` rule, evaluating
+stationarity at the accepted point can require its own smooth value and
+gradient. See [STOP-24](@ref) for when that work is allowed.
+
 ## [Select stopping conditions in scalar coordinate descent](@id cd-select-stopping)
 
 For dense vector least-squares lasso with unweighted `NormL1`, turn momentum off

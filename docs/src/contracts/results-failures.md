@@ -222,7 +222,7 @@ the reason names the satisfied expression and `limit_reached` is true.
 leaf. The result display reports convergence, policy satisfaction and the stop
 reason. Fatal solver failures throw as specified in [RES-03](@ref).
 
-For [STOP-23](@ref), `evaluation_limits` lists the resolved call caps in the
+For [STOP-23](@ref) and [STOP-24](@ref), `evaluation_limits` lists the resolved call caps in the
 supplied order, and `reached_evaluation_limits` lists those whose counts equal
 their capacities. These tuples are empty when no call caps are set.
 `limit_reached` includes either an iteration or an evaluation cap. The
@@ -249,7 +249,7 @@ counts penalty values, including the value at initialization. `prox_calls`
 counts penalty value/prox trials including rejections. Each contributes to both
 counters, and `rejected_trials`
 is the trial count minus accepted iterations, including APG prox trials
-discarded by restart and PGD trials whose completion an evaluation limit
+discarded by restart and trials whose completion an evaluation limit
 prevented. PGD uses the line-search convention in [RES-02](@ref).
 PGD initialization contributes one smooth value and gradient and no prox
 trial. APG work and initialization follow [APG-04](@ref). A zero-cap result

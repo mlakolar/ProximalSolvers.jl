@@ -29,7 +29,6 @@ budget_types() = (MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEv
     @test_throws ArgumentError solve!(x, f, g, method;
         stopping=AnyOf(UserStop(_ -> true), AllOf(ObjectiveChange(), cap)),
         limits=MaxIterations(0))
-    @test_throws ArgumentError solve!(x, f, g, AccProxGradDescent(); limits=cap)
     @test_throws ArgumentError solve!(x, f, g, CDSolver(order=:cyclic, momentum=false); limits=cap)
     @test_throws ArgumentError solve!(x, SqrNormL2(1.0, [1.0]), g, ADMMSolver(); limits=cap)
     @test_throws ArgumentError solve!(x, LogisticLoss([1.0], ones(1, 1)), g, method; limits=cap)

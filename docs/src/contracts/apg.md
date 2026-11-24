@@ -51,6 +51,8 @@ The image `X y` is formed by the same linear combination of cached `X x` and `X 
 **Statement.** If an extrapolated step raises the computed objective (the smooth value plus the monitored penalty, [IN-08](@ref)), repeat it once without momentum from `y = x_previous`, copy the cached image of that point, and reset `k` to zero. The next iteration then extrapolates with `1/4`. An accepted step that used momentum does not increase the computed objective. A first or restarted step without momentum can increase it through rounding, invoking the default objective-increase exit unless `allow_f_increases=true`. Under explicit stopping the selected policy governs the exit under [STOP-22](@ref).
 
 A nonfinite value or gradient at the extrapolated point is treated the same way: restart when momentum was used, otherwise fail. A nonfinite smooth trial value is rejected, raising `L` through `next_curvature` rather than immediately accepting or silently ending. If `L/β` cannot increase finitely, the search errors; [RES-01](@ref) specifies restoration of the last accepted iterate and rethrow. A trial with a nonfinite smooth value is never accepted. The monitored penalty of an `IndBallL2` trial is specified in [IN-08](@ref).
+An explicit evaluation limit can prevent the restart or interrupt a search
+under [STOP-24](@ref).
 
 **Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
@@ -88,11 +90,14 @@ f_calls = 1 + grad_calls + backtrack_steps - C
 
 For a dedicated KKT check, including the `NormL2` check of [STOP-17](@ref), `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). Errors do not transactionally restore these counters.
 
-For explicit stopping under [STOP-22](@ref) with a positive cap, initialization
+For explicit stopping under [STOP-22](@ref) when initialization runs, it
 counts one smooth value and one penalty value. Each application of the fused
 oracle at an accepted point counts one smooth value and one gradient. At most
 one such application is counted per checkpoint, including the initial point.
-Here `grad_calls = iterations + restarts + C`, `backtrack_steps = prox_calls`
+The gradient count is the number of fused evaluations started by searches
+plus `C`, including any search from an interrupted iteration under [STOP-24](@ref).
+For a solve that ends at a completed checkpoint or at initialization this is
+`grad_calls = iterations + restarts + C`. In either case `backtrack_steps = prox_calls`
 and `f_calls = 1 + grad_calls + backtrack_steps`. The trial total includes
 candidates discarded by a restart. A failed extrapolated oracle contributes
 to the value and gradient counts and contributes no prox trial when none ran.
@@ -103,6 +108,7 @@ to the value and gradient counts and contributes no prox trial when none ran.
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!; src/utils.jl: _gradient_at_x!, _stationary!`.
 
 **Tests.** test/accelerated_pgd.jl: image-cache counters, explicit restart accounting and trace/limits; test/pgd_stopping_policy.jl: explicit initialization, cap and shared diagnostic work; test/linf.jl: one extra prox for a proposed stop; test/norml2_pgd.jl: `backtrack_steps == prox_calls` with a dedicated `NormL2` check.
+`test/apg_evaluation_limits.jl` covers counts when a cap interrupts the update.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L320`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docstring:src/types.jl:L75`.
 

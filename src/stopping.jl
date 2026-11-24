@@ -4,8 +4,9 @@
 Explicit stopping conditions, composition and budgets for supported dense-vector solves.
 Pass conditions as `stopping` and work budgets as `limits`
 to [`solve!`](@ref ProximalSolvers.solve!).
-See [STOP-22](@ref) and [STOP-23](@ref) for PGD and APG, [CD-10](@ref) for coordinate descent,
-and [ADM-06](@ref) for consensus ADMM.
+See [STOP-22](@ref) for PGD and APG stopping and [STOP-23](@ref) and
+[STOP-24](@ref) for their evaluation budgets. See [CD-10](@ref) for
+coordinate descent and [ADM-06](@ref) for consensus ADMM.
 """
 module Stopping
 
@@ -144,9 +145,9 @@ end
 """
     MaxObjectiveEvaluations(n)
 
-Hard limit of `n` smooth loss values for dense vector least-squares PGD.
+Hard limit of `n` smooth loss values for dense vector least-squares PGD and APG.
 A fused loss and gradient evaluation uses one unit. Pass the limit through
-`limits`, alone or in a tuple of distinct limits. See [STOP-23](@ref).
+`limits`, alone or in a tuple of distinct limits. See [STOP-23](@ref) and [STOP-24](@ref).
 """
 struct MaxObjectiveEvaluations
     n::Int
@@ -156,9 +157,9 @@ end
 """
     MaxGradientEvaluations(n)
 
-Hard limit of `n` full smooth gradients for dense vector least-squares PGD.
+Hard limit of `n` full smooth gradients for dense vector least-squares PGD and APG.
 Pass the limit through `limits`, alone or in a tuple of distinct limits.
-See [STOP-23](@ref).
+See [STOP-23](@ref) and [STOP-24](@ref).
 """
 struct MaxGradientEvaluations
     n::Int
@@ -168,9 +169,9 @@ end
 """
     MaxProximalEvaluations(n)
 
-Hard limit of `n` penalty proximal calls for dense vector least-squares PGD.
+Hard limit of `n` penalty proximal calls for dense vector least-squares PGD and APG.
 Pass the limit through `limits`, alone or in a tuple of distinct limits.
-See [STOP-23](@ref).
+See [STOP-23](@ref) and [STOP-24](@ref).
 """
 struct MaxProximalEvaluations
     n::Int
@@ -330,8 +331,13 @@ function assess(rule::ObjectiveChange, point, monitor, at_limit)
 end
 
 function assess(rule::ScaledKKT, point, monitor, at_limit)
-    at_limit && return unchecked
-    boolean_observation(stationarity!(monitor.stationarity, point, rule.rtol))
+    cache = monitor.stationarity
+    if at_limit
+        cache.iteration == point.iteration || return unchecked
+        decision = get(cache.decisions, reinterpret(UInt64, rule.rtol), nothing)
+        return decision === nothing ? unchecked : boolean_observation(decision)
+    end
+    boolean_observation(stationarity!(cache, point, rule.rtol))
 end
 
 function assess(rule::UserStop, point, monitor, at_limit)
@@ -351,8 +357,12 @@ evidence(::ScaledKKT) = :stationarity
 evidence(::UserStop) = :user
 evidence(::ResidualLeaves) = :residual
 
+checkpoint_evaluation_limit_reached(monitor, point) = false
+
 evaluate!(::Nothing, point, monitor, at_limit) = :continue
 function evaluate!(state::RuleState, point, monitor, at_limit)
+    # An accepted-point APG gradient can exhaust a budget during this checkpoint.
+    at_limit = at_limit || checkpoint_evaluation_limit_reached(monitor, point)
     observation = assess(state.rule, point, monitor, at_limit)
     state.iteration = point.iteration
     state.observation = observation
@@ -376,13 +386,13 @@ end
 evaluate!(tree::AnyOf, point, monitor, at_limit) = any_pass!(tree.rules, point, monitor, at_limit)
 evaluate!(tree::AllOf, point, monitor, at_limit) = all_pass!(tree.rules, point, monitor, at_limit, :user)
 
-function check!(monitor, point, evaluation_cap_reached=false)
+function check!(monitor, point)
     monitor.movement.distance = nothing
     monitor.movement.scale = nothing
     monitor.movement.unchanged = nothing
-    at_limit = point.iteration == monitor.limit.n || evaluation_cap_reached
+    at_limit = point.iteration == monitor.limit.n
     reason = evaluate!(monitor.root, point, monitor, at_limit)
-    reason === :continue && at_limit ? :limit : reason
+    reason === :continue && (at_limit || checkpoint_evaluation_limit_reached(monitor, point)) ? :limit : reason
 end
 
 observation_at(state, k) = state.iteration == k ? state.observation : unchecked

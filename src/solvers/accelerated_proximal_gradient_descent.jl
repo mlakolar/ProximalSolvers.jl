@@ -193,7 +193,12 @@ function update_state!(
     state::AccProxGradDescentState{T},
     method::AccProxGradDescent
     ) where T
+    _update_apg_state!(f, g, state, method, ())
+    state
+end
 
+function _update_apg_state!(f, g, state::AccProxGradDescentState{T},
+                            method::AccProxGradDescent, evaluation_limits::Tuple) where T
     ω = T(state.k / (state.k + 3))
     state.L *= T(method.α)
     # norms of the accepted x (x_a) and of the one before it (x_b), kept from the trials
@@ -216,7 +221,7 @@ function update_state!(
     state.z_previous, state.z_x = state.z_x, state.z_previous
 
     while true
-      _prox_grad_step!(f, g, state, T(method.β))
+      _prox_grad_step!(f, g, state, T(method.β), evaluation_limits) || return false
       # The restart sets ω = 0, so it happens at most once per iteration. An exact
       # proximal step from y = x_previous that satisfies the certified bound (with its
       # 4eps slack) does not increase the exact objective; rounding of the computed step
@@ -236,6 +241,11 @@ function update_state!(
 
     state.k += 1
     _sub!(state.delta_x, state.x, state.x_previous)
+    true
+end
+
+function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
+    _prox_grad_step!(f, g, state, β, ())
     state
 end
 
@@ -246,7 +256,8 @@ end
 # from the product X y, and the derivative buffer state.dz receives the observation derivative at z_y when the oracle runs.
 # In exact arithmetic the image inequality is, for least squares, equivalent to
 # f(x) ≤ f(y) + ⟨∇f(y), x - y⟩ + (1 + 4eps)² L/2 ‖x - y‖²; for a logistic loss (α = ¼) it implies that inequality (APG-08).
-function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where T
+function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T, evaluation_limits::Tuple) where T
+    Stopping.evaluation_limit_reached(evaluation_limits, state) && return false
     f_y = _value_and_gradient!(state.grad_f_y, state.y, f, state.z_y, state.dz)
     state.f_calls += 1
     state.grad_calls += 1
@@ -254,9 +265,12 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
     # makes the caller restart from x_previous, or, without momentum, fail with rollback.
     if !(isfinite(f_y) && _allfinite(state.grad_f_y))
       state.f_x = T(Inf)
-      return state
+      return true
     end
     while true
+      # This search can use the gradient it already evaluated at y for every trial.
+      any(limit -> !(limit isa MaxGradientEvaluations) && Stopping.evaluation_limit_reached(limit, state),
+          evaluation_limits) && return false
       _step!(state.xhat, state.y, state.grad_f_y, state.L)
       v = convert(T, value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
       state.g_x = _trial_penalty_value(g, v, state.x)
@@ -293,7 +307,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
       # beyond floatmax(T) ends in that error and the engine's rollback.
       state.L = LineSearches.next_curvature(state.L, β)
     end
-    state
+    true
 end
 
 # β and α are used in the precision of the iterate.
@@ -358,7 +372,8 @@ matrix coefficients and unweighted `NormL1` under
 [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
 
 Dense vector least squares supports explicit stopping conditions and an
-independent iteration budget under [STOP-22](@ref).
+independent iteration budget under [STOP-22](@ref). It also accepts hard
+evaluation budgets under [STOP-24](@ref).
 
 # Extended help
 
