@@ -52,6 +52,7 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   checked::Bool
   objective_rtol::Float64
   mapping_rtol::Float64
+  underflow::@NamedTuple{np::Float64, n::Float64, p1::Float64, p::Float64, pT::Float64}  # _l1_underflow_terms(T, n, p)
 end
 
 # The penalty value that initial_state and the trials store (g_x = 0). A start that passes the cap can lie outside the
@@ -63,7 +64,7 @@ function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha:
   n, p = size(X)
   _NumericalL1Ball{T}(ball, X, y, alpha, b.cap, b.gap, b.mapping, b.curvature, b.col, b.frob, b.ynorm, decision,
                       zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p), false, 0, false,
-                      tolerances.objective_rtol, tolerances.mapping_rtol)
+                      tolerances.objective_rtol, tolerances.mapping_rtol, _l1_underflow_terms(T, n, p))
 end
 
 # ---- B1's arithmetic (FP-05) -------------------------------------------------------------------------------------------
@@ -180,33 +181,40 @@ _mulup(a::Float64, b::Float64) = (iszero(a) || iszero(b)) ? 0.0 : (c = a * b; c 
 # sw = ‖w‖₁ and winf = ‖w‖∞ of the witness, dual = ‖g‖∞ of the scaled gradient, L the inverse step as Float64, tinf
 # the largest magnitude of the mapping's trial point in T and the computed mapping. Each term is min(k η, a product of
 # magnitudes), so a term is 0 when its products are exact zeros. Both are Inf (the check fails) when the growth factor
-# 2 of the argument does not hold, (n + p + 2) eps(Float64) > 1.
-function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, alpha::Float64, ρ::Float64, C::Float64, rnorm::Float64,
+# 2 of the argument does not hold, (n + p + 2) eps(Float64) > 1. k holds the terms k η of the allowance that depend only
+# on n, p and T (_l1_underflow_terms), formed once per solve in the route object.
+function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, ρ::Float64, C::Float64, rnorm::Float64,
                                  sw::Float64, winf::Float64, dual::Float64, L::Float64, tinf::Float64,
                                  mapping::Float64) where T
   η, ηT = _ETA64, Float64(nextfloat(zero(T)))
   (n + p + 2) * eps(Float64) <= 1 || return Inf, Inf
   # the residual X w - y: one product (or fused multiply-add) per entry of X; the subtraction of y adds no absolute
   # error under gradual underflow. ‖Δr‖₂ ≤ ‖Δr‖₁ ≤ Σᵢⱼ min(η, |Xᵢⱼ wⱼ|) ≤ min(n p η, √n C ‖w‖₁)
-  A_r = min(Float64(n) * Float64(p) * η, _mulup(_mulup(sqrt(Float64(n)), C), sw))
+  A_r = min(k.np, _mulup(_mulup(sqrt(Float64(n)), C), sw))
   # Xᵀ r, per coordinate: Σᵢ min(η, |Xᵢⱼ rᵢ|) ≤ min(n η, C ‖r‖₂), plus the residual error carried through, ‖Xⱼ‖₂ ‖Δr‖₂ ≤ C A_r
-  A_s = min(Float64(n) * η, _mulup(C, rnorm))
+  A_s = min(k.n, _mulup(C, rnorm))
   # the multiplication by α scales both and adds one product error, at most min(η, α |Xⱼᵀ r|) ≤ min(η, 2 α C ‖r‖₂)
   E_g = _mulup(alpha, _mulup(C, A_r) + A_s) + min(η, _mulup(2alpha, _mulup(C, rnorm)))
   # the support gap: the gradient error through δ and the sum, 2 max(ρ, ‖w‖₁) E_g; the p + 1 products of its Float64
   # sum, min((p + 1) η, δ (ρ + 2 ‖w‖₁)); the witness entries' product errors through the ρ δ term, min(p η, ‖w‖₁) δ
-  gap_abs = _mulup(2 * max(ρ, sw), E_g) + min(Float64(p + 1) * η, _mulup(dual, ρ + 2sw)) + _mulup(min(Float64(p) * η, sw), dual)
+  gap_abs = _mulup(2 * max(ρ, sw), E_g) + min(k.p1, _mulup(dual, ρ + 2sw)) + _mulup(min(k.p, sw), dual)
   # the mapping L (v - P(v - g/L)) at v = T(w). The projection P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0) moves each output by
   # at most |Δzᵢ| + |Δτ| ≤ 2 ‖Δz‖∞ (the level τ moves by at most ‖Δz‖∞), so an error of the projection input enters
   # the mapping with the factor 2: the gradient error, 2 E_g; for Float32, the conversion of w, which also enters
   # directly (3L), and that of g (2); the division by L (2L). The projection's own underflow in T and the final
   # product by L in Float64 enter after the projection, with the factor 1.
   conv = T === Float64 ? 0.0 : _mulup(3L, min(ηT, winf)) + 2 * min(ηT, dual)
-  map_abs = 2 * E_g + conv + _mulup(2L, min(ηT, dual / L)) + _mulup(L, min(Float64(p) * ηT, tinf)) + min(η, mapping)
+  map_abs = 2 * E_g + conv + _mulup(2L, min(ηT, dual / L)) + _mulup(L, min(k.pT, tinf)) + min(η, mapping)
   # the factor 4: 2 for the growth (1 + u)^k ≤ 2 of an absolute error through the later roundings, k ≤ n + p + 2, and
   # 2 for the computed magnitudes in place of the exact ones
   4 * gap_abs, 4 * map_abs
 end
+
+# The terms n p η, n η, (p + 1) η, p η and p η_T of _l1_underflow_allowance, η = nextfloat(0.0) and η_T =
+# nextfloat(zero(T)), each formed with the expression that the allowance used before they were stored.
+_l1_underflow_terms(::Type{T}, n::Int, p::Int) where T =
+  (; np = Float64(n) * Float64(p) * _ETA64, n = Float64(n) * _ETA64, p1 = Float64(p + 1) * _ETA64,
+     p = Float64(p) * _ETA64, pT = Float64(p) * Float64(nextfloat(zero(T))))
 
 # ---- the hooks ----------------------------------------------------------------------------------------------------------
 
@@ -304,8 +312,11 @@ function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions
   dual = maximum(abs, grad)
   n, p = size(g.X)
   alpha = g.alpha
+  # ‖res‖₂ and ‖w‖∞ are formed once; the noise terms and the allowance reuse them
+  rnorm = _norm2_64(res)
+  winf = maximum(abs, w)
   residual_noise = _gamma64(p+2) * (g.frob * _norm2_64(w) + g.ynorm)
-  score_noise = alpha * (residual_noise + _gamma64(n+2) * _norm2_64(res))
+  score_noise = alpha * (residual_noise + _gamma64(n+2) * rnorm)
   gap_noise = 2r * g.col * score_noise +
               _gamma64(2p+12) * (2r * dual) + _l1_noise(length(w), r, r) * dual
   gap = _l1_support_gap(w, grad, r, dual)
@@ -317,10 +328,10 @@ function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions
   state.prox_calls += 1
   _allfinite(projected) || return false
   mapping = Float64(L) * maximum(j -> abs(Float64(T(w[j])) - Float64(projected[j])), eachindex(w))
-  map_noise = g.col * score_noise + Float64(eps(T)) * (Float64(L) * maximum(abs, w) + maximum(abs, grad))
+  map_noise = g.col * score_noise + Float64(eps(T)) * (Float64(L) * winf + maximum(abs, grad))
   # the absolute allowance for gradual underflow, added after B1's noise terms
-  gap_abs, map_abs = _l1_underflow_allowance(T, n, p, alpha, r, g.col, _norm2_64(res), _l1_mass64(w),
-                                             maximum(abs, w), dual, Float64(L), Float64(maximum(abs, trial)), mapping)
+  gap_abs, map_abs = _l1_underflow_allowance(T, n, p, g.underflow, alpha, r, g.col, rnorm, _l1_mass64(w),
+                                             winf, dual, Float64(L), Float64(maximum(abs, trial)), mapping)
   gap_noise = gap_noise + gap_abs
   map_noise = map_noise + map_abs
   finite = all(isfinite, (gap, gap_noise, mapping, map_noise))
