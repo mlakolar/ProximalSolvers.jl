@@ -8,6 +8,9 @@ lasso `LeastSquaresLoss(y, X) + NormL1(τ)` on dense `Float64` data with `n ≥ 
 and relative tolerances control the primal and dual residual tests. Set
 `adaptive=true` to rebalance the penalty between iterations.
 
+The centered vector problem with a fixed penalty also accepts explicit residual
+conditions and iteration limits in [`solve!`](@ref). See [ADM-06](@ref).
+
 With a dense `Matrix{Float32}` or `Matrix{Float64}` start, it applies to the
 graphical lasso `LogDetLoss(S) + NormL1(λ₀, Λ)` under the input rules of ADM-04,
 which include finite, nonnegative, exactly symmetric full matrix weights `Λ`
@@ -108,6 +111,42 @@ function Base.show(io::IO, r::ADMMResults)
   return nothing
 end
 
+"""
+    ProximalSolvers.ADMMStoppingResult
+
+Result of an explicit stopping or iteration-budget solve with [`ADMMSolver`](@ref).
+`minimizer` and `u` hold the returned consensus iterate and scaled dual at `ρ`.
+The minimum is `missing` at a zero cap. `converged` requires both residual kinds
+in the winning branch of [`termination`](@ref). See [RES-06](@ref).
+"""
+struct ADMMStoppingResult{T,D}
+  minimizer::Vector{T}
+  minimum::Union{Missing,T}
+  iterations::Int
+  converged::Bool
+  u::Vector{T}
+  ρ::T
+  decision::D
+end
+
+Base.summary(::ADMMStoppingResult) = "ADMM"
+minimizer(r::ADMMStoppingResult) = r.minimizer
+minimum(r::ADMMStoppingResult) = r.minimum
+iterations(r::ADMMStoppingResult) = r.iterations
+converged(r::ADMMStoppingResult) = r.converged
+Stopping.termination(r::ADMMStoppingResult) = r.decision
+f_calls(r::ADMMStoppingResult) = r.decision.counts.f_calls
+grad_calls(::ADMMStoppingResult) = 0
+prox_calls(r::ADMMStoppingResult) = r.decision.counts.prox_calls
+iteration_limit_reached(r::ADMMStoppingResult) = r.decision.limit_reached
+stagnated(r::ADMMStoppingResult) = r.decision.reason === :stalled
+
+function Base.show(io::IO, r::ADMMStoppingResult)
+  print(io, summary(r), " stopping result (iterations=", r.iterations, ", minimum=", r.minimum,
+        ", converged=", r.converged, ", satisfied=", r.decision.satisfied,
+        ", reason=", r.decision.reason, ")")
+end
+
 function _check_admm_options(options)
   defaults = ProximalOptions()
   (options.ftol == defaults.ftol && options.xtol == defaults.xtol && options.gradtol == defaults.gradtol &&
@@ -125,8 +164,30 @@ function _admm_level(level, ::Type{T}, name; positive=false) where T
   native
 end
 
+function _admm_policy_limit(options, limits)
+  defaults = ProximalOptions()
+  options.prox_calls_limit == defaults.prox_calls_limit && options.time_limit == defaults.time_limit ||
+    throw(ArgumentError("prox_calls_limit and time_limit must have their default values with explicit ADMM stopping or limits"))
+  limits === nothing && return MaxIterations(options.maxiter)
+  limits isa MaxIterations || throw(ArgumentError("explicit ADMM stopping requires limits=MaxIterations(n)"))
+  (options.maxiter == defaults.maxiter || options.maxiter == limits.n) ||
+    throw(ArgumentError("ProximalOptions.maxiter conflicts with limits=MaxIterations($(limits.n))"))
+  limits
+end
+
+function _admm_policy_result(z, u, objective, iterations, ρ, monitor, reason, calls)
+  f_calls = g_calls = ismissing(objective) ? 0 : 1
+  counts = (; f_calls, g_calls, prox_calls=calls)
+  decision = Stopping.report(monitor, reason, iterations, counts)
+  residuals = (nameof(PrimalResidual), nameof(DualResidual))
+  converged = decision.satisfied &&
+    all(name -> any(o -> o.name === name && o.path in decision.winning_branch,
+                    decision.observations), residuals)
+  ADMMStoppingResult(z, objective, iterations, converged, u, ρ, decision)
+end
+
 """
-    solve!(z, f, g, method::ADMMSolver, options=ProximalOptions(); u=nothing)
+    solve!(z, f, g, method::ADMMSolver, options=ProximalOptions(); u=nothing, stopping=nothing, limits=nothing)
 
 Minimize `f(z) + g(z)` and store the returned consensus iterate in `z`.
 Use `f = SqrNormL2(λ, c)` with a finite positive level and an unweighted
@@ -137,6 +198,9 @@ buffer as `u` to start from its entries. Caller buffers are committed on
 normal return. Pass the returned iterate, scaled dual and penalty together to
 restart a solve. See [`ADMMResults`](@ref) and the
 [ADMM input and result contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01).
+For this centered vector problem with `adaptive=false`, pass residual conditions
+as `stopping` or a `MaxIterations` budget as `limits` to obtain an
+[`ADMMStoppingResult`](@ref). [ADM-06](@ref) specifies the residual checkpoints.
 A dense `Matrix{Float32}` or `Matrix{Float64}` start selects the graphical lasso
 of ADM-04; Extended help summarizes its inputs.
 
@@ -157,7 +221,8 @@ factorization succeeds in `T`, `f = LogDetLoss(S)` with weight one, and
 [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04)
 for the complete conditions, including the method settings.
 """
-function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = ProximalOptions(); u=nothing, kwargs...)
+function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = ProximalOptions();
+                u=nothing, stopping=nothing, limits=nothing, kwargs...)
   _check_keywords(kwargs)
   _check_admm_options(options)
   # a logistic loss, raw or in a Scaled wrapper, with any z: the predictor-splitting method is a solver of its own (LA-01)
@@ -166,12 +231,19 @@ function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = Proximal
                         "with NormL1 on a dense Vector{Float64}"))
   z isa Union{Vector{Float32}, Vector{Float64}, Matrix{Float32}, Matrix{Float64}} ||
     throw(ArgumentError("z must be a dense Float32 or Float64 vector, or a dense Float32 or Float64 matrix for the graphical lasso"))
+  if stopping !== nothing || limits !== nothing
+    z isa Vector && f isa SqrNormL2 && !method.adaptive ||
+      throw(ArgumentError("explicit ADMM stopping requires a dense vector, centered SqrNormL2 and adaptive=false"))
+    limit = _admm_policy_limit(options, limits)
+    monitor = Stopping.prepare(stopping, limit, eltype(z), Stopping.ResidualLeaves)
+    return _solve_admm!(z, f, g, method, options, u, monitor)
+  end
   _solve_admm!(z, f, g, method, options, u)
 end
 
 const _ADMMLeastSquares = LeastSquaresLoss{Float64, Vector{Float64}, Matrix{Float64}, 1, Vector{Float64}}
 
-function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) where T
+function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u, monitor=nothing) where T
   f isa LeastSquaresLoss && return _solve_admm_lasso!(initial_z, f, g, method, options, initial_u)
   f isa SqrNormL2{<:Real, Vector{T}} || throw(ArgumentError("ADMM requires SqrNormL2 with a same-type dense vector center"))
   g isa NormL1{<:Real, Nothing} || throw(ArgumentError("ADMM requires an unweighted NormL1 penalty"))
@@ -193,7 +265,7 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u) wh
   settings = _admm_working_settings(T, method)
 
   # Use native levels for the two oracles and the fixed-point check.
-  _admm_vector!(initial_z, initial_u, SqrNormL2(λ, c), NormL1(τ), method.adaptive, settings, options)
+  _admm_vector!(initial_z, initial_u, SqrNormL2(λ, c), NormL1(τ), method.adaptive, settings, options, monitor)
 end
 
 # The lasso LeastSquaresLoss(y, X) + NormL1(τ) with n ≥ p ≥ 1 on dense Float64 data (ADM-05).
@@ -238,10 +310,14 @@ end
 
 # The recurrence of ADM-02 on validated native data, for f a centered SqrNormL2 or a
 # LeastSquaresLoss and g = NormL1(τ). The caller's buffers change only on normal return.
-function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings, options) where T
+function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings, options, monitor=nothing) where T
   ρ, α, abstol, reltol, abstol_dual = settings
+  if monitor !== nothing && monitor.limit.n == 0
+    u = initial_u === nothing ? zeros(T, length(initial_z)) : initial_u
+    return _admm_policy_result(initial_z, u, missing, 0, ρ, monitor, :limit, 0)
+  end
   γ = inv(ρ)
-  t0 = time_ns()
+  t0 = monitor === nothing ? time_ns() : zero(UInt64)
   z = copy(initial_z)
   next_z = similar(z)
   x = similar(z)
@@ -249,18 +325,21 @@ function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings
   tmp = similar(z)
   sqrt_n = sqrt(T(length(z)))
   abs_pri, abs_dual = sqrt_n * abstol, sqrt_n * abstol_dual
+  maxiter = monitor === nothing ? options.maxiter : monitor.limit.n
   max_prox_pairs = options.prox_calls_limit == 0 ? typemax(Int) : options.prox_calls_limit ÷ 2
 
   iterations = penalty_changes = 0
   r_norm = s_norm = eps_pri = eps_dual = T(NaN)
-  status = :iteration_limit
-  while iterations < options.maxiter
-    if iterations == max_prox_pairs
-      status = :prox_calls_limit
-      break
-    elseif options.time_limit < Inf && (time_ns() - t0) * 1e-9 >= options.time_limit
-      status = :time_limit
-      break
+  status = monitor === nothing ? :iteration_limit : :limit
+  while iterations < maxiter
+    if monitor === nothing
+      if iterations == max_prox_pairs
+        status = :prox_calls_limit
+        break
+      elseif options.time_limit < Inf && (time_ns() - t0) * 1e-9 >= options.time_limit
+        status = :time_limit
+        break
+      end
     end
 
     # Apply a change only when an iteration can use it. On exit ρ, u and
@@ -296,26 +375,38 @@ function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings
     iterations += 1
     z, next_z = next_z, z
 
-    if r_norm <= eps_pri && s_norm <= eps_dual
-      status = if iszero(r_norm) && iszero(s_norm) && !_admm_stationary!(tmp, f, g.λ0, z, eps_dual)
-        :stagnated
-      else
-        :converged
+    if monitor === nothing
+      if r_norm <= eps_pri && s_norm <= eps_dual
+        status = _admm_zero_residual_stall!(tmp, f, g.λ0, z, r_norm, s_norm, eps_dual) ? :stagnated : :converged
+        break
       end
-      break
+    elseif monitor.root !== nothing
+      if _admm_zero_residual_stall!(tmp, f, g.λ0, z, r_norm, s_norm, eps_dual)
+        status = :stalled
+        break
+      end
+      point = (; iteration=iterations, r_norm, s_norm, eps_pri, eps_dual)
+      reason = Stopping.check!(monitor, point)
+      if reason !== :continue
+        status = reason
+        break
+      end
     end
   end
 
   objective = f(z) + g(z)
   isfinite(objective) || error("ADMM produced a nonfinite objective at the return point")
   calls = Base.checked_mul(2, iterations)
-  copyto!(initial_z, z)
-  if initial_u !== nothing
-    copyto!(initial_u, u)
-    u = initial_u
+  returned_u = initial_u === nothing ? u : initial_u
+  result = if monitor === nothing
+    ADMMResults(initial_z, objective, iterations, status === :converged,
+                r_norm, s_norm, eps_pri, eps_dual, returned_u, ρ, calls, status)
+  else
+    _admm_policy_result(initial_z, returned_u, objective, iterations, ρ, monitor, status, calls)
   end
-  ADMMResults(initial_z, objective, iterations, status === :converged,
-              r_norm, s_norm, eps_pri, eps_dual, u, ρ, calls, status)
+  copyto!(initial_z, z)
+  initial_u === nothing || copyto!(initial_u, u)
+  result
 end
 
 # The graphical lasso LogDetLoss(S) + NormL1(λ₀, Λ) on a dense matrix (ADM-04).
@@ -513,6 +604,9 @@ end
 # Rounded proximal updates can yield two zero residuals away from a stationary
 # point. Check the stationarity violation of the loss plus ℓ₁ penalty on that exit.
 # The score of gradient entry q at zᵢ is |q + τ sign(zᵢ)|, or max(|q| - τ, 0) at zero.
+@inline _admm_zero_residual_stall!(tmp, f, τ, z, r_norm, s_norm, eps_dual) =
+  iszero(r_norm) && iszero(s_norm) && !_admm_stationary!(tmp, f, τ, z, eps_dual)
+
 function _admm_violation(q, zi, τ)
   violation = iszero(zi) ? max(abs(q) - τ, zero(τ)) : abs(q + copysign(τ, zi))
   isfinite(violation) || error("ADMM produced a nonfinite stationarity diagnostic")

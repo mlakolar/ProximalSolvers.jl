@@ -103,7 +103,8 @@ Limits return `:iteration_limit`, `:prox_calls_limit` or `:time_limit` in
 outputs, updated dual entries, residuals, tolerances or the final objective,
 raises an error before committing either caller buffer.
 
-**Applies to.** Every `ADMMSolver` solve and the `ADMMResults` it returns. For the graphical
+**Applies to.** `ADMMSolver` solves with default stopping and their `ADMMResults`. The
+explicit route uses this recurrence and its diagnostics under [ADM-06](@ref). For the graphical
 lasso on a dense matrix, [ADM-04](@ref) replaces the stationarity score, requires
 a stored `α` equal to 1 and adds the symmetry and Cholesky rules. For the least-squares
 lasso, [ADM-05](@ref) replaces only the stationarity score.
@@ -326,3 +327,50 @@ the data.
 
 **Sources.** [Issue #467](https://github.com/mlakolar/ProximalSolvers.jl/issues/467) and
 [issue #458](https://github.com/mlakolar/ProximalSolvers.jl/issues/458).
+
+## [ADM-06 Explicit residual stopping for centered consensus ADMM](@id ADM-06)
+
+**Statement.** Supply `stopping`, `limits` or both to select explicit stopping
+on the centered dense-vector route of [ADM-01](@ref) with `adaptive=false`.
+The supported leaves are `PrimalResidual()` and `DualResidual()`, alone or
+in `AnyOf` and `AllOf`. The hard limit is `MaxIterations`, resolved from
+`options.maxiter` if omitted. An explicit cap may replace the stored default
+or equal a nondefault `maxiter`. A conflicting nondefault value is refused.
+Nondefault call and time limits and the other nondefault options refused
+under [ADM-02](@ref) are also refused here. The full rule tree and the route,
+settings and buffers are validated before solving, even at a zero cap.
+
+Use the recurrence, residuals and thresholds of [ADM-02](@ref), with the
+fixed working-precision penalty and the selected relaxation and tolerances.
+Neither residual is checked at initialization. After both proximal updates
+and the scaled dual update, each evaluated leaf compares its stored residual
+with the corresponding threshold in working precision, using `<=`.
+A completed iteration with two zero residuals runs the stationarity guard of
+[ADM-02](@ref) before a nonempty rule is assessed. A failed finite guard
+returns `:stalled` with the leaves unchecked. An iteration-cap-only solve
+skips this guard and takes the requested number of complete iterations
+subject to the numerical failure checks of [ADM-02](@ref).
+
+At the cap the stored residuals can still satisfy the rule. A passing rule
+keeps the reason `:rule` and records that the cap was also reached. The
+finite stationarity-guard failure keeps `:stalled` at a cap tie. With a zero
+cap, the solve performs no proximal or objective evaluations and returns
+the initial consensus variable and scaled dual. After a positive number of
+iterations, the solve evaluates the original objective `f(z)+g(z)` once.
+The result and its report are prepared before the caller buffers are updated
+under [ADM-01](@ref). A numerical failure raises before either buffer is
+updated. See [RES-06](@ref) for the returned fields and counts.
+
+**Applies to.** The fixed-penalty `ADMMSolver` route for centered
+`SqrNormL2` and unweighted `NormL1`, with dense `Vector{Float32}` or
+`Vector{Float64}` storage. The explicit route refuses least-squares loss,
+matrix storage and adaptive penalties.
+
+**Code.** `src/solvers/admm.jl` and `src/stopping.jl`.
+
+**Tests.** `test/admm_stopping.jl` checks both working precisions, the
+completed-iteration comparisons and cap ties, relaxation, the stationarity
+guard, zero-budget and unsupported inputs, warm starts and failure before
+either caller buffer is updated.
+
+**Sources.** [#523, solver rollout B4](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).

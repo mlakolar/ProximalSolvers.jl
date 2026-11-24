@@ -24,8 +24,10 @@ Every solver reports `minimizer`, `minimum` and `converged`.
 Coordinate descent provides `passes`. Its default result also provides
 `maxchange` and `tolerance`.
 PGD and APG provide `iterations`, more detailed stopping residuals and
-an optional iteration `trace`. ADMM provides `iterations`, `status`, and
-primal and dual residuals with their tolerances. `ProxNewton` provides `iterations`,
+an optional iteration `trace`. Consensus ADMM provides `iterations`. Its
+default result includes `status` and both residuals with their tolerances.
+The explicit result reports stopping evidence through `termination(r)`.
+`ProxNewton` provides `iterations`,
 `passes`, the largest KKT score `kkt` of the returned point, its `tolerance` and a
 `stop_reason` (`:converged`, `:maxiter` or `:stalled`). `LogisticADMM` provides the same, the
 steps of its scalar roots, its primal and dual residuals with their thresholds, two diagnostics of
@@ -44,7 +46,8 @@ A convergence flag reports the solver's implemented stopping criterion;
 | `ProxNewton` (logistic regression) | The largest KKT score of the returned point is finite and at most `tol`; see [PN-05](@ref) |
 | `LogisticADMM` (logistic regression) | The primal and dual residual tests passed and the largest KKT score of the returned point is at most `tol`; see [LA-04](@ref) |
 | Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |
-| Consensus ADMM | The primal and dual residual tests and any required stagnation check passed. See [ADM-02](@ref) |
+| Consensus ADMM with default stopping | The primal and dual residual tests and any required stagnation check passed. See [ADM-02](@ref) |
+| Consensus ADMM with explicit stopping | Passing primal and dual residual leaves are both in the winning branch. See [RES-06](@ref) |
 
 Use an [independent KKT check](@ref learn-02) or an appropriate
 [duality gap](@ref learn-07) when assessing a fit. An unavailable `gap` is `NaN`,

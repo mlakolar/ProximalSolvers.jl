@@ -286,6 +286,38 @@ objective counters, cap and user exits, and winning evidence.
 
 **Sources.** [#523, solver rollout B3](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
+## [RES-06 Explicit consensus ADMM stopping result](@id RES-06)
+
+**Statement.** [ADM-06](@ref) returns an `ADMMStoppingResult`. Its
+`minimizer` aliases the caller's consensus variable. Its `u` aliases an
+explicit scaled dual or holds the solver's dual when no buffer was supplied.
+`ρ` is the fixed working penalty. `minimum` holds the computed objective
+or `missing` at a zero cap, and `iterations` counts completed iterations.
+
+`termination(result).satisfied` reports rule satisfaction. `converged` is
+true when the winning branch contains a passing leaf of each residual kind
+at the reported iteration. The residual comparisons and any stationarity
+guard are the computed tests of [ADM-06](@ref).
+
+The report uses the reasons and winning paths in [RES-04](@ref). The
+`iteration` is the number of completed iterations, `limit` is the resolved
+`MaxIterations`, and `limit_reached` is true when the count equals the cap.
+Each checked leaf reports `evidence=:residual`, its native residual and
+threshold as `Float64`, and `scale=missing`. Skipped leaves are marked
+`:not_checked`. The counts `f_calls` and `g_calls` are each one after a
+positive number of iterations and zero otherwise. `prox_calls` is twice
+`iterations`, and the `grad_calls` accessor returns zero. Accessors and
+display perform no solver evaluations.
+
+**Applies to.** Explicit consensus `ADMMSolver` solves under [ADM-06](@ref).
+
+**Code.** `src/solvers/admm.jl` and `src/stopping.jl`.
+
+**Tests.** `test/admm_stopping.jl` checks aliases, objective, reports, counts,
+convergence and display.
+
+**Sources.** [#523, solver rollout B4](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
+
 ## [RES-UNRECONCILED Retired: historical normalized-residual guarantee](@id RES-UNRECONCILED)
 
 **Retired by [issue #416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416).** The authoritative arithmetic and guards

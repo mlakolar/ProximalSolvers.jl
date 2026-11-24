@@ -72,6 +72,32 @@ full passes, active passes, visits, and objective evaluations. Check
 [full-point stationarity](@ref learn-02) when accuracy matters.
 [CD-10](@ref) specifies the checkpoints and their cost.
 
+## [Select stopping conditions in consensus ADMM](@id admm-select-stopping)
+
+For a centered quadratic with an unweighted L1 penalty, use a fixed-penalty
+`ADMMSolver` and select either or both native residual tests. The solver
+checks them after a complete iteration. The thresholds come from the
+solver's `abstol`, `abstol_dual` and `reltol` settings.
+
+~~~@example explicit_admm_stopping
+using ProximalBase, ProximalSolvers
+
+z = zeros(1)
+f = SqrNormL2(1.0, [3.0])
+g = NormL1(1.0)
+r = solve!(z, f, g, ADMMSolver(abstol=1e-8, reltol=0.0);
+           stopping=AllOf(PrimalResidual(), DualResidual()), limits=MaxIterations(100))
+@assert isapprox(z, [2.0]; atol=1e-7, rtol=0.0)
+@assert r.converged
+termination(r)
+~~~
+
+`AllOf` requires both tests to pass. The report gives the residuals and
+thresholds for the evaluated leaves, and records any iteration-cap tie.
+For a warm start, keep the returned consensus variable, scaled dual `r.u`
+and penalty `r.ρ` together. See [ADM-06](@ref) for when the tests run and
+[RES-06](@ref) for the result fields.
+
 ## The criterion and a certificate
 
 See the [current section](@ref RES-01). For PGD and APG on least squares with a
