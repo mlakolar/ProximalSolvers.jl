@@ -206,9 +206,8 @@ not finite.
 
 *Decision.* For `x` with `p` entries and the cap `c`, the widened mass is
 `σ = sum(a -> abs(Float64(a)), x)`, the margin `m = σ - ρ` and the noise `ν = γ(p+2) max(σ, ρ)`. The
-membership is `:outside` when `m > ν`, `:inside` when `m < -ν` or `σ = 0 < ρ`, and `:unknown`
-otherwise. The code is `:pass` when `m - c < -ν`, `:over` when `m - c > ν`, and `:unresolved`
-otherwise. A margin that is not finite gives `:unresolved` and `:unknown`, with noise `NaN`.
+code is `:pass` when `m - c < -ν`, `:over` when `m - c > ν`, and `:unresolved` otherwise. A margin that
+is not finite gives `:unresolved`, with noise `NaN`. The decision classifies no membership in the ball.
 
 *Budgets*, once per solve, from `C = maxⱼ ‖Xⱼ‖₂` over the columns, `F = ‖X‖₂` over all entries,
 `‖y‖₂`, `M = √a C`, `ŷ = √a ‖y‖₂` and the scale `S = max(ŷ, √a C ρ)² / 2`:
@@ -253,8 +252,8 @@ computed allowances, and a passing check compares computed quantities with compu
 is an exact-arithmetic certificate, and a margin within the cap does not bound the distance to the
 exact constrained minimizer. Apart from the underflow allowance, the arithmetic formulas and the
 reduction order, for comparable finite inputs, are those of the research reference B1 (`norm2_64`,
-`budgets`, `norm_decision`, `numerical_witness!`, `stop_scores!`) and of the B0 helpers it imports
-(`gamma64`, `residual_score64!`, `estimate_gap`).
+`budgets`, `norm_decision` without its membership class, `numerical_witness!`, `stop_scores!`) and of
+the B0 helpers it imports (`gamma64`, `residual_score64!`, `estimate_gap`).
 
 *Underflow allowance.* Under gradual underflow a nonzero product can round to a subnormal number or
 to zero, and the computed gap and mapping can then be zero at a point that is not stationary. The gate
@@ -335,18 +334,17 @@ assumption.
 LinearAlgebra's `norm` (relative difference at most `1e-12`). It scores each reported success on the
 #508 fixtures with an independent 256-bit MPFR evaluation of the violation of the ball, the support
 gap at a feasible radial witness, the fixed-step mapping with a sorted-threshold projection and the
-change of the loss. It checks the membership classes `:inside`, `:outside` and `:unknown` on analytic
-fixtures and each accepted iterate's decision. For the scaled case
+change of the loss. It checks each accepted iterate's decision. For the scaled case
 `1e300 * LeastSquaresLoss([0.0], reshape([1e-155], 1, 1))`, `x = [1e-15]`, `r = 1e-14`, which the gate
-admits and whose computed gradient is exactly zero, the full check fails, neither method reports a
-success flag, and the returned point misses the budgets in MPFR. For a `Float32` case with a tolerance
+admits and whose computed gradient is exactly zero, the full check fails, neither method reports
+`converged`, and the returned point misses the budgets in MPFR. For a `Float32` case with a tolerance
 override whose mapping trial overflows in its first entry (projecting it, as the check did before
-this guard, gives a finite vertex; the guarded check skips that projection), neither method reports a
-success flag, the MPFR mapping at the returned point exceeds its budget, and a direct call of the
+this guard, gives a finite vertex; the guarded check skips that projection), neither method reports
+`converged`, the MPFR mapping at the returned point exceeds its budget, and a direct call of the
 check fails with one gradient call and no prox call. For a `Float64` case with a tolerance override
 whose curvature exceeds `floatmax(Float64) / 2` (`X = 1e154`, `y = 1e-171`, `r = 1e-150`, start `0`,
 APG with `β = 1 / 10^(308.1 / 60)`), where `2L` overflows and the computed `δ / L` is zero, neither
-method reports a success flag, the MPFR mapping at the returned point exceeds its budget, and a direct
+method reports `converged`, the MPFR mapping at the returned point exceeds its budget, and a direct
 call of the check fails after one gradient call and one prox call. It also checks
 the expansion example of term 5 with ProximalBase's projection in both precisions.
 

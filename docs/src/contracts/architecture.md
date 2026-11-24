@@ -31,7 +31,7 @@ types. The source snapshot reconciled in [issue #416](https://github.com/mlakola
 guarantee. The superseded thirteen-file list is preserved as
 [retired historical evidence](@ref ARCH-UNRECONCILED). Among later additions,
 `src/solvers/l1ball.jl` holds the ℓ1-ball route of PGD and APG ([IN-12](@ref)): its
-working constraint and its methods of the engine's trial, stopping and result hooks.
+working constraint and its methods of the engine's trial and stopping hooks.
 
 ProximalBase supplies losses, L1 proximal operations and sparse coefficient
 storage; ProximalSolvers owns orchestration and algorithm-specific results. CD

@@ -807,7 +807,7 @@ search, extrapolation, certified bound and restart. Each trial from the gradient
 
 A trial with `f(x) = Inf` takes the nonfinite branch of PGD's line search ([LS-02](@ref)) and, in
 APG, raises `L` through `next_curvature`; an accepted trial has a finite loss, so its decision passed
-the cap. That decision can pass at a point classified outside the ball, whose computed widened mass
+the cap. That decision can pass at a point outside the ball whose computed widened mass
 exceeds `r` by less than the cap; this is a computed comparison, not an exact bound on the violation.
 A search from one base point (PGD's line search, each call of APG's step) allows 64 trials; at the
 start of the would-be 65th, the route raises `ErrorException("line search failed: 64 trials from one
@@ -833,39 +833,38 @@ for that error contribution.
 prox calls that the check counts. When they run no check, B1's unchanged-iterate proposal (`x` equal to
 `x_previous` elementwise, also with `ftol = 0`) and its two progress proposals
 (`maximum(abs, x - x_previous) <= sqrt(mapping_rtol) * maximum(abs, x)`, or `f_residual` of the loss
-at most `objective_rtol`, with the resolved tolerances) run it, and a pass at a point classified `:inside` sets `x_converged`. These
+at most `objective_rtol`, with the resolved tolerances) run it, and a pass sets `x_converged`. These
 proposals are triggers for the full check, not success criteria, and an accepted iteration runs the
-full check at most once. When the check passes at a point classified `:inside`, `converged = true`.
-When it passes at a point classified `:outside` or `:unknown`, the solve stops with
-`approximate_solution = true`, `converged = false` and the three proposal flags cleared. When it fails,
-the flags are cleared and the solve continues unless another exit applies.
+full check at most once. `converged` means that the full check passed at an admitted returned point,
+whose decision passed the cap. The check measures stationarity at the radial witness, a point scaled
+into the ball, so a pass concerns that feasible point within the cap of the returned one. When the
+check fails, the three proposal flags are cleared and the solve continues unless another exit applies.
 
 *Objective increases.* `allow_f_increases = false` is not enforced on this route: a computed increase
 of the loss is reported in `f_increased` when it occurs at the last iteration, and in the trace's
 `fg_x`, but does not end the solve, unlike [STOP-09](@ref). The configurable stopping of
 [#523](https://github.com/mlakolar/ProximalSolvers.jl/issues/523) may revisit this. The stagnation,
-limit and callback exits apply as for the other penalties; after them both success flags are false
-unless a check passed at that iteration.
+limit and callback exits apply as for the other penalties; after them `converged` is false unless a
+check passed at that iteration.
 
-*Result.* `converged` and `approximate_solution` are not both true. The reported `minimum` is the
-numerical composite objective monitored at the returned point, as for `IndBallL2` in [IN-08](@ref):
-the cached loss plus the monitored penalty, which is `0` on this route. So `minimum` can be finite at an
+*Result.* The reported `minimum` is the numerical composite objective monitored at the returned
+point, as for `IndBallL2` in [IN-08](@ref): the cached loss plus the monitored penalty, which is `0` on
+this route. So `minimum` can be finite at an
 admitted point that ProximalBase's strict indicator evaluates as `Inf`. The exact extended-valued composite is `+Inf` at a mathematically exterior point,
-while the monitored objective can be finite. Neither `minimum` nor `converged` certifies exact
-feasibility; `g(result.minimizer)` is ProximalBase's standalone decision in working precision, without the
-route's cap. `gap` is `NaN`. `show` prints a line when
-`approximate_solution` is true. A membership and a passing check are computed comparisons, not
-exact-arithmetic certificates. These statements about the returned point assume that callbacks leave
+while the monitored objective can be finite. Neither `converged` nor `minimum` certifies exact
+membership of the returned point in the ball; `g(result.minimizer)` is ProximalBase's standalone decision
+in working precision, without the route's cap. `gap` is `NaN`. A cap decision and a passing check are
+computed comparisons, not exact-arithmetic certificates. These statements about the returned point assume that callbacks leave
 the coefficients and the data unchanged; the solver does not detect such a change.
 
 **Applies to.** `ProximalGradientDescent` and `AccProxGradDescent` with `IndBallL1` on dense
 `Vector{Float32}` or `Vector{Float64}` least squares.
 
 **Code.** `src/solve.jl`: `_numerical_route`, `_feasibility_tolerances`, `_feasibility_tolerance`,
-`_normal_positive`, `_check_numerical_l1`, `_stop_on_gradient_increase`, `_approximate_solution`,
+`_normal_positive`, `_check_numerical_l1`, `_stop_on_gradient_increase`,
 `_solve_gradient!`; `src/solvers/l1ball.jl`: `_NumericalL1Ball`,
 `LineSearches.trial!`, `LineSearches.search!`, `_prox_grad_step!`, `convergence_assessment`,
-`_stationary!`, `_stop_on_gradient_increase`, `_approximate_solution`,
+`_stationary!`, `_stop_on_gradient_increase`,
 `_solve_numerical_l1!`; `src/utils.jl`:
 `LineSearches.trial!`, `_trial_step!` (the trial of the other penalties); `src/line_searches.jl`:
 `search!`; `src/solvers/proximal_gradient_descent.jl` and
@@ -880,11 +879,12 @@ the coefficients and the data unchanged; the solver does not detect such a chang
   subnormal `Float32` problem included;
 - the route without the keyword equals the route with `NumericalFeasibility()` bitwise, and the
   override with zero coefficient tolerances refuses a boundary start that the default accepts;
-- every success on the #508 fixtures passes the independent MPFR evaluation of [FP-05](@ref), the
-  flags follow the recomputed membership, and `minimum` equals the last traced or callback objective and agrees
-  with the standalone loss; analytic fixtures pin an approximate solution outside the ball, one on the
-  rounding boundary and an interior convergence, each with `minimum` equal to the last traced
-  objective, the cached loss;
+- every success on the #508 fixtures passes the independent MPFR evaluation of [FP-05](@ref), a
+  success has a proposal flag, and `minimum` equals the last traced or callback objective and agrees
+  with the standalone loss; analytic fixtures pin convergence at a point exactly outside the ball whose
+  widened mass exceeds `r` (`Float32`), at one exactly outside whose widened mass rounds to `r`
+  (`Float64`) and at an interior point, each passing the MPFR evaluation, with `minimum` equal to the
+  last traced objective, the cached loss;
 - the decision of each accepted iterate, recomputed from the callback's vector, passes the cap;
 - at most one full check per iteration, counted by the gradient and projection calls of
   `convergence_assessment`, also where the engine's objective test and B1's objective proposal both
@@ -898,8 +898,7 @@ the coefficients and the data unchanged; the solver does not detect such a chang
   `r = 4e-170`), whose squared norm underflows, raises the underflowed-step error and restores the
   start bitwise, and the smooth majorization condition fails at that step in MPFR; APG raises the
   64-trial error on the same problem; an unchanged first step is accepted and converges;
-- the refusals of data of the other precision and of a matrix response with a vector start, and the
-  positional result constructor of the earlier field count, which sets `approximate_solution = false`.
+- the refusals of data of the other precision and of a matrix response with a vector start.
 
 **Sources.** [Issue #457, Phase B](https://github.com/mlakolar/ProximalSolvers.jl/issues/457);
 [the approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919);
@@ -911,5 +910,8 @@ which restored B1's unchanged-iterate and progress proposals as triggers and con
 objective increase with a truthful `f_increased`;
 [the maintainer's decision on the round 4 blockers](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7119424286),
 which added the underflowed-step error;
+[the maintainer's decision on `converged`](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7123901128),
+which made `converged` the result of the full check at an admitted point, as in #538, and removed the
+membership requirement and `approximate_solution`;
 [the #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);
 the research reference [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).

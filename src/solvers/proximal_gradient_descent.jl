@@ -74,8 +74,8 @@ require a feasible start and use the generic proximal-gradient check, as does
 supported for dense `Vector{Float32}` or `Vector{Float64}` least squares on a
 numerical route: an accepted iterate can lie outside the ball when its computed
 widened ℓ1 norm passes a computed cap decision (not an exact bound on the
-violation), and `converged` (a passing check at a point classified inside the ball) is
-distinguished from `approximate_solution`; see
+violation), and `converged` reports a passing check at the returned point, which
+does not certify exact membership; see
 [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12). Assess fits with an
 independent diagnostic, particularly for Float32 or ill-conditioned designs.
 An error in an iteration restores the last accepted coefficients and
@@ -384,8 +384,9 @@ with a same-type dense design, response and radius ([IN-12](https://mlakolar.git
 A non-`nothing` `feasibility = NumericalFeasibility(...)` overrides the route's tolerances. With
 any other penalty, PGD and APG treat `feasibility = nothing` as omitted and refuse a non-`nothing`
 value; graphical-lasso PGD and the other solvers refuse the keyword in any form.
-On the route, read `converged` and `approximate_solution`; `minimum` is the monitored numerical
-objective, the cached loss, which can be finite where ProximalBase's strict indicator is `Inf`.
+On the route, `converged` means the full check passed at the returned point, and `minimum` is the
+monitored numerical objective, the cached loss, which can be finite where ProximalBase's strict
+indicator is `Inf`; neither certifies exact membership of the returned point.
 
 Use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares and
 unweighted `NormL1Nonneg(lambda)` for nonnegative lasso. These penalties are accepted

@@ -797,8 +797,6 @@ _strict_gradient_limits(state) = false
 _stop_on_gradient_increase(state, options) = !options.allow_f_increases
 # The IndBallL1 route has a method of this three-argument form that returns false (IN-12).
 _stop_on_gradient_increase(state, g, options) = _stop_on_gradient_increase(state, options)
-# The approximate-solution stop of the IndBallL1 route (IN-12); the other penalties have none.
-_approximate_solution(g) = false
 _gradient_tolerance(state, options) = options.gradtol
 _gradient_tracing(state, options) =
   options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
@@ -860,8 +858,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
     stagnated = _stagnated(state, options)
 
     increased = f_increased && _stop_on_gradient_increase(state, g, options)
-    stopped = increased || stagnated || stopped_by_callback || stopped_by_time_limit || call_limit_reached ||
-              _approximate_solution(g)
+    stopped = increased || stagnated || stopped_by_callback || stopped_by_time_limit || call_limit_reached
   end # while
   # the residuals are stored as Float64, like the tolerances, whatever the element type
   return OptimizationResults{typeof(method), typeof(state.f_x), ndims(state.x), typeof(method), typeof(state.x)}(
@@ -888,7 +885,6 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
                 state.prox_calls,
                 call_limit_reached,
                 stagnated,
-                NaN,           # gap sentinel, never computed
-                _approximate_solution(g))
+                NaN)           # gap sentinel, never computed
 
 end

@@ -1,8 +1,8 @@
 module L1BallNumericalTest
 
 # The IndBallL1 route of PGD and APG (IN-12, FP-05): the gate, the default route and the tolerance override, an
-# independent MPFR check of each reported success on the #508 fixtures, converged against approximate_solution and the
-# reported minimum, false stationarity under underflow and overflow, the cap at each accepted iterate, rollback and the
+# independent MPFR check of each reported success on the #508 fixtures, converged at points exactly outside and inside
+# the ball and the reported minimum, false stationarity under underflow and overflow, the cap at each accepted iterate, rollback and the
 # line-search errors, including a nonzero step whose squared norm underflows.
 
 using Test, LinearAlgebra, ProximalBase, ProximalSolvers
@@ -147,28 +147,15 @@ function acceptable(X, y, alpha, r, x)
   end
 end
 
-# The membership of x recomputed from its definition in FP-05 (the widened mass with the same reduction)
-function membership(x, r)
-  s = sum(a -> abs(Float64(a)), x)
-  m = s - Float64(r)
-  c = (length(x) + 2) * (eps(Float64) / 2)
-  noise = c / (1 - c) * max(s, Float64(r))
-  m > noise ? :outside : m < -noise ? :inside : iszero(s) && r > 0 ? :inside : :unknown
-end
-
-# The result of a route solve with loss f and radius r: the reported minimum is the monitored objective f_x + g_x, the
-# cached loss (g_x = 0), whatever the recomputed membership of the returned point: it equals fg, the last traced or
-# callback objective, when given, and agrees with the standalone loss. The two success flags are checked against each
-# other, against the membership and against the proposal flags.
-function check_result_fields(x, res, f, r; fg = nothing)
+# The result of a route solve with loss f: the reported minimum is the monitored objective f_x + g_x, the cached loss
+# (g_x = 0), inside or outside the ball: it equals fg, the last traced or callback objective, when given, and agrees
+# with the standalone loss. converged is the OR of the proposal flags.
+function check_result_fields(x, res, f; fg = nothing)
   T = eltype(x)
   @test res.minimizer === x
-  side = membership(x, r)
   fg === nothing || @test res.minimum == fg
   @test isfinite(res.minimum) && isapprox(res.minimum, f(x); rtol = 64eps(T), atol = 64floatmin(T))
-  @test !(res.converged && res.approximate_solution)
-  res.converged && @test side === :inside && (res.x_converged || res.f_converged || res.grad_converged)
-  res.approximate_solution && @test side !== :inside && !res.x_converged && !res.f_converged && !res.grad_converged
+  @test res.converged == (res.x_converged || res.f_converged || res.grad_converged)
   @test isnan(res.gap)
 end
 
@@ -257,8 +244,8 @@ end
   r1 = solve!(x1, f, IndBallL1(T(0.6)), method, OPTIONS)
   r2 = solve!(x2, f, IndBallL1(T(0.6)), method, OPTIONS; feasibility = NumericalFeasibility())
   @test reinterpret(UInt8, x1) == reinterpret(UInt8, x2)
-  @test (r1.converged, r1.approximate_solution, r1.iterations) == (r2.converged, r2.approximate_solution, r2.iterations)
-  check_result_fields(x1, r1, f, T(0.6))
+  @test (r1.converged, r1.iterations) == (r2.converged, r2.iterations)
+  check_result_fields(x1, r1, f)
   # the override changes the tolerances: a start on the boundary passes the default cap and is unresolved with a zero cap
   x0 = T[0.125, -0.0625, 0.0, 0.03125]
   g = IndBallL1(T(sum(abs, x0)))
@@ -267,27 +254,19 @@ end
   msg = refusal_message(() -> solve!(x, f, g, method, OPTIONS;
                                      feasibility = NumericalFeasibility(coefficient_rtol = 0, coefficient_atol = 0)))
   @test occursin("unresolved", msg) && x == x0
-  # the other penalties report no approximate solution and the composite minimum
-  x = zeros(T, 4)
-  res = solve!(x, f, NormL1(T(0.1)), method)
-  @test !res.approximate_solution && isapprox(res.minimum, f(x) + NormL1(T(0.1))(x); rtol = 64eps(T))
-  @test !occursin("Approximate solution", sprint(show, res))
-  # the field list before approximate_solution leaves it false
-  old = typeof(res)((getfield(res, k) for k in 1:fieldcount(typeof(res)) - 1)...)
-  @test !old.approximate_solution && old.minimizer === res.minimizer && old.converged == res.converged
 end
 
 # ---- accepted-point accuracy on the #508 fixtures ---------------------------------------------------------------------------
 
 # Every reported success meets the #514 targets against the independent MPFR quantities, and the minimum is the last
-# traced objective. The success class of a fixture is pinned only by the analytic cases below.
+# traced objective. Which fixtures succeed is pinned only by the analytic cases below.
 @testset "#508 fixtures: independent MPFR check of each success ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   successes = 0
   for d in fixtures(T)
     @testset "$(d.name)" begin
       x, res = solve_fixture(d, method; options = ProximalOptions(maxiter = 320, store_trace = true))
-      check_result_fields(x, res, loss(d), d.r; fg = isempty(res.trace) ? nothing : res.trace[end].fg_x)
-      if res.converged || res.approximate_solution
+      check_result_fields(x, res, loss(d); fg = isempty(res.trace) ? nothing : res.trace[end].fg_x)
+      if res.converged
         successes += 1
         @test acceptable(d.X, d.y, d.alpha, d.r, x)
       end
@@ -296,29 +275,27 @@ end
   @test successes > 0
 end
 
-@testset "converged, approximate_solution and the minimum on analytic fixtures ($(mname(method)))" for method in METHODS
-  # Float32 [1, eps/4] at r = 1, with y = x: a zero gradient and ProximalBase's Float32 sum 1, so the projection copies
-  # the point, whose widened mass 1 + 2⁻²⁵ exceeds r by more than the rounding allowance. The check passes outside the
-  # ball: an approximate solution, not converged, whose minimum is the monitored objective f_x + g_x, the cached loss 0,
-  # which the trace also reports.
+@testset "converged and the minimum on analytic fixtures ($(mname(method)))" for method in METHODS
+  # [1, eps/4] at r = 1, with y = x: a zero gradient at a point exactly outside the ball, whose widened mass exceeds r
+  # in Float32 (1 + 2⁻²⁵, and ProximalBase's projection copies the point) and rounds to r in Float64. The full check
+  # passes at the radial witness, so converged is true (IN-12), and the minimum is the monitored objective f_x + g_x,
+  # the cached loss, which the trace also reports.
   traced = ProximalOptions(maxiter = 320, store_trace = true)
-  d = fixture(Float32, "stationary_tail_0.25_eps")
-  x, res = solve_fixture(d, method; options = traced)
-  @test res.approximate_solution && !res.converged && x == d.start
-  @test membership(x, d.r) === :outside
-  @test res.minimum == res.trace[end].fg_x == 0
-  @test occursin("Approximate solution", sprint(show, res))
-  # Float64 [1, eps/4] at r = 1: the widened mass rounds to 1, so the point is not classified; minimum is the cached loss
-  d = fixture(Float64, "stationary_tail_0.25_eps")
-  x, res = solve_fixture(d, method; options = traced)
-  @test res.approximate_solution && !res.converged && membership(x, d.r) === :unknown
-  @test res.minimum == res.trace[end].fg_x
-  @test isapprox(res.minimum, loss(d)(x); rtol = 64eps(Float64), atol = 64floatmin(Float64))
-  # an interior solution converges inside the ball, with the cached loss as its minimum
+  for T in (Float32, Float64)
+    d = fixture(T, "stationary_tail_0.25_eps")
+    x, res = solve_fixture(d, method; options = traced)
+    @test res.converged && sum(big, x) > d.r
+    @test sum(a -> abs(Float64(a)), x) == (T === Float32 ? 1 + 2.0^-25 : 1.0)
+    T === Float32 && @test x == d.start && res.minimum == 0
+    @test res.minimum == res.trace[end].fg_x
+    @test isapprox(res.minimum, loss(d)(x); rtol = 64eps(T), atol = 64floatmin(T))
+    @test acceptable(d.X, d.y, d.alpha, d.r, x)
+  end
+  # an interior solution converges, with the cached loss as its minimum
   for T in (Float32, Float64)
     d = fixture(T, "l1_correlated_interior")
     x, res = solve_fixture(d, method; options = traced)
-    @test res.converged && !res.approximate_solution && membership(x, d.r) === :inside
+    @test res.converged && sum(big, x) < d.r
     @test res.minimum == res.trace[end].fg_x && isapprox(res.minimum, loss(d)(x); rtol = 64eps(T))
     @test acceptable(d.X, d.y, d.alpha, d.r, x)
   end
@@ -349,10 +326,10 @@ end
   @test all(iszero, route.gradient)
   # one full check counts one gradient and one projection (STOP-08)
   @test stub.grad_calls == 1 && stub.prox_calls == 1
-  # the solve reports neither success, and the returned point misses the budgets in MPFR
+  # the solve does not report converged, and the returned point misses the budgets in MPFR
   x = [1e-15]
   res = solve!(x, f, IndBallL1(r), method, OPTIONS)
-  @test !res.converged && !res.approximate_solution
+  @test !res.converged
   @test !acceptable(X, y, alpha, r, x)
 end
 
@@ -380,7 +357,7 @@ end
   r = 3b
   x = Float32[3b, 0, 0, 0]
   res = solve!(x, f, IndBallL1(r), method, ProximalOptions(maxiter = 2, callback = _ -> true); feasibility = a)
-  @test !res.converged && !res.approximate_solution
+  @test !res.converged
   # the exact mapping at the returned point exceeds its budget in MPFR, so a success would be false
   tol = PS._feasibility_tolerances(a, Float32)
   bud = PS._l1_budgets(X, y, Float64(alpha), Float64(r), tol)
@@ -410,7 +387,7 @@ end
   a = NumericalFeasibility(mapping_rtol = 1e-180)
   x = [0.0]
   res = solve!(x, f, IndBallL1(r), method, ProximalOptions(maxiter = 2, callback = _ -> true); feasibility = a)
-  @test !res.converged && !res.approximate_solution
+  @test !res.converged
   tol = PS._feasibility_tolerances(a, Float64)
   bud = PS._l1_budgets(X, y, 1.0, r, tol)
   @test isinf(2 * bud.curvature)
@@ -446,7 +423,7 @@ end
     end
     res = solve!(x, loss(d), IndBallL1(d.r), method, ProximalOptions(maxiter = 320, callback = record))
     @test length(passed) == res.iterations && all(passed)
-    check_result_fields(x, res, loss(d), d.r; fg = isempty(objectives) ? nothing : objectives[end])
+    check_result_fields(x, res, loss(d); fg = isempty(objectives) ? nothing : objectives[end])
   end
 end
 
@@ -467,7 +444,7 @@ function checks_per_iteration(d::Fixture, method, options, a)
     push!(counts, state.grad_calls - grad0)
     push!(objective_proposal, PS.f_residual(state.f_x, state.f_x_previous, options.ftol) < options.ftol)
     @test state.prox_calls - prox0 == counts[end]
-    (converged || route.approximate) && break
+    converged && break
   end
   counts, objective_proposal
 end
@@ -494,8 +471,8 @@ end
   for d in (fixture(T, "rounded_zero_predictor"), fixture(T, "stationary_tail_0.25_eps"),
             Fixture{T}("l1_exact_boundary_stop", I2, T[0.75, 0.75], T(1.5), T[0.75, 0.75], one(T)))
     x, res = solve_fixture(d, method; options = ProximalOptions(maxiter = 320, ftol = 0))
-    @test res.iterations == 1 && (res.converged || res.approximate_solution)
-    check_result_fields(x, res, loss(d), d.r)
+    @test res.iterations == 1 && res.converged
+    check_result_fields(x, res, loss(d))
     @test acceptable(d.X, d.y, d.alpha, d.r, x)
   end
 end
@@ -509,10 +486,10 @@ end
   a = NumericalFeasibility(mapping_rtol = 1e-30)
   # a callback stop after the first iteration reports that iteration's increase
   res = solve!(copy(x0), f, g, method, ProximalOptions(maxiter = 6, callback = _ -> true); feasibility = a)
-  @test res.iterations == 1 && res.f_increased && !res.converged && !res.approximate_solution
+  @test res.iterations == 1 && res.f_increased && !res.converged
   x1, x2 = copy(x0), copy(x0)
   res = solve!(x1, f, g, method, ProximalOptions(maxiter = 6, store_trace = true); feasibility = a)
-  @test res.iterations == 6 && res.iteration_converged && !res.converged && !res.approximate_solution
+  @test res.iterations == 6 && res.iteration_converged && !res.converged
   @test res.trace[1].fg_x > f(x0)
   res2 = solve!(x2, f, g, method, ProximalOptions(maxiter = 6, allow_f_increases = true); feasibility = a)
   @test reinterpret(UInt8, x1) == reinterpret(UInt8, x2) && res.f_increased == res2.f_increased

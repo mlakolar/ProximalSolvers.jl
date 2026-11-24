@@ -3,10 +3,10 @@
 # `feasibility = NumericalFeasibility(...)` overrides the tolerances. The gate is _check_numerical_l1 (src/solve.jl).
 # The route runs the engine of the other penalties (_solve_gradient!, PGD's update_state! and backtrack!, APG's
 # update_state!, restart and certified bound) with this file's methods of trial!, search!, _prox_grad_step!,
-# convergence_assessment, _stationary!, _stop_on_gradient_increase and the result hooks. The arithmetic of the
-# decision, the budgets and the full check is that of research/issue-515/b1.jl at d58b9099 and of the B0 helpers it
-# imports (research/issue-514), with the same reductions, loops and Float64 conversions in the same order, plus the
-# underflow allowance (FP-05).
+# convergence_assessment, _stationary! and _stop_on_gradient_increase. The arithmetic of the decision (without its
+# membership class), the budgets and the full check is that of research/issue-515/b1.jl at d58b9099 and of the B0
+# helpers it imports (research/issue-514), with the same reductions, loops and Float64 conversions in the same order,
+# plus the underflow allowance (FP-05).
 #
 # Within a completed step only trials write state.x; each trial that projects into state.x stores the decision of that
 # vector in `decision`, and a trial with a nonfinite xhat writes neither, so `decision` describes state.x after every
@@ -16,19 +16,17 @@
 # The trials from one base point after which the next trial raises the line-search error
 const _L1_TRIAL_LIMIT = 64
 
-# The decision of a vector (_l1_decision): the code against the cap, the membership, the widened mass s and its noise
+# The decision of a vector (_l1_decision): the code against the cap, the widened mass s and its noise
 struct _L1Decision
   code::Symbol         # :pass, :over or :unresolved
-  membership::Symbol   # :inside, :outside or :unknown
   s::Float64
   noise::Float64
 end
 
 # The route's working constraint, built once per solve after the gate: the private ball, the data and loss scale, the
 # budgets, the decision of the vector last projected into state.x (initially the start's), the full-check workspace,
-# whether the last assessment passed its full check at a point not classified inside, the trials from the current
-# base point, whether the current assessment ran the full check, and the resolved objective and mapping tolerances of
-# B1's progress proposals.
+# the trials from the current base point, whether the current assessment ran the full check, and the resolved
+# objective and mapping tolerances of B1's progress proposals.
 mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   ball::IndBallL1{T}
   X::Matrix{T}
@@ -47,7 +45,6 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   gradient::Vector{Float64}
   trial::Vector{T}
   projected::Vector{T}
-  approximate::Bool
   trials::Int
   checked::Bool
   objective_rtol::Float64
@@ -66,7 +63,7 @@ function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha:
                           decision::_L1Decision) where T
   n, p = size(X)
   _NumericalL1Ball{T}(ball, X, y, alpha, b.cap, b.gap, b.mapping, b.curvature, b.col, b.frob, b.ynorm, decision,
-                      zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p), false, 0, false,
+                      zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p), 0, false,
                       tolerances.objective_rtol, tolerances.mapping_rtol,
                       _l1_underflow_terms(T, n, p, alpha, b.col, Float64(T(b.curvature))))
 end
@@ -90,21 +87,18 @@ _gamma64(k) = (c = k * (eps(Float64) / 2); c / (1 - c))
 # The noise of a widened mass s of a vector with `len` entries against the radius r (B1's norm_noise)
 _l1_noise(len, s, r) = _gamma64(len + 2) * max(s, r)
 
-# The decision of x against the radius of `ball` and the cap (B1's norm_decision): m = s - r; with noise
-# ν = γ(p+2) max(s, r), membership :outside when m > ν, :inside when m < -ν or s = 0 < r, :unknown otherwise, and
-# code :pass when m - cap < -ν, :over when m - cap > ν, :unresolved otherwise; a nonfinite m is :unresolved and
-# :unknown with noise NaN.
+# The decision of x against the radius of `ball` and the cap (B1's norm_decision without its membership class, which
+# the route does not read): m = s - r; with noise ν = γ(p+2) max(s, r), code :pass when m - cap < -ν, :over when
+# m - cap > ν, :unresolved otherwise; a nonfinite m is :unresolved with noise NaN.
 function _l1_decision(x, ball::IndBallL1, cap::Float64)
   s = _l1_mass64(x)
   r = Float64(ball.r)
   m = s - r
-  isfinite(m) || return _L1Decision(:unresolved, :unknown, s, NaN)
+  isfinite(m) || return _L1Decision(:unresolved, s, NaN)
   noise = _l1_noise(length(x), s, r)
-  membership = m > noise ? :outside : m < -noise ? :inside :
-               iszero(s) && r > 0 ? :inside : :unknown
   separation = m - cap
   code = separation < -noise ? :pass : separation > noise ? :over : :unresolved
-  _L1Decision(code, membership, s, noise)
+  _L1Decision(code, s, noise)
 end
 
 # The budgets of a solve (B1's budgets for the ℓ1 ball), from the Float64 loss scale α, the Float64 radius r and the
@@ -291,9 +285,8 @@ _prox_grad_step!(f, g::_NumericalL1Ball, state::AccProxGradDescentState{T}, β::
 # The engine's three proposals and, when one fires, the full check below, through the method of the other penalties.
 # When that method ran no check, B1's unchanged-iterate and progress proposals (‖x - x_previous‖∞ at most
 # √mapping_rtol ‖x‖∞, or the relative change of the loss at most objective_rtol) trigger it; a pass then reports
-# x_converged. So the check runs at most once per assessment, and a proposal is only a trigger. A passing check counts
-# as convergence only at a point classified :inside; at a point classified :outside or :unknown it clears the
-# proposals and stops the solve as an approximate solution (_approximate_solution).
+# x_converged. So the check runs at most once per assessment, and a proposal is only a trigger. converged is the
+# result of the check; when it is false, the three proposal flags are cleared, as in the method of the other penalties.
 function convergence_assessment(state::Union{ProximalGradientDescentState, AccProxGradDescentState},
                                 f, g::_NumericalL1Ball, options::ProximalOptions)
   g.checked = false
@@ -305,11 +298,8 @@ function convergence_assessment(state::Union{ProximalGradientDescentState, AccPr
                     f_residual(state.f_x, state.f_x_previous, g.objective_rtol) <= g.objective_rtol)
     passed = x_converged = _stationary!(state, f, g, options)
   end
-  inside = g.decision.membership === :inside
-  g.approximate = passed && !inside
-  converged = passed && inside
-  converged || (x_converged = f_converged = grad_converged = false)
-  return x_converged, f_converged, grad_converged, converged, f_increased
+  passed || (x_converged = f_converged = grad_converged = false)
+  return x_converged, f_converged, grad_converged, passed, f_increased
 end
 
 # The full check (FP-05) at state.x with the cached decision g.decision. A decision other than :pass returns false.
@@ -367,9 +357,6 @@ end
 
 # An objective increase does not end the solve on this route; f_increased still reports it (IN-12).
 _stop_on_gradient_increase(state, ::_NumericalL1Ball, options) = false
-
-# The approximate-solution stop of _solve_gradient!: the last full check passed at a point not classified inside.
-_approximate_solution(g::_NumericalL1Ball) = g.approximate
 
 # The route's solve after the keyword check of solve!: the gate (before any write to x), then the clock, the route
 # object with a private ball of the same radius (a projection can use a buffer stored in the ball), the state and the

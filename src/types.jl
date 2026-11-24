@@ -223,7 +223,7 @@ y = [1.0, -0.5, 0.25]
 beta = zeros(2)
 result = solve!(beta, LeastSquaresLoss(y, X), IndBallL1(0.5), ProximalGradientDescent();
                 feasibility = NumericalFeasibility(objective_rtol = 1e-8))
-result.converged, result.approximate_solution
+result.converged, result.minimum
 ```
 
 The tolerances set the numerical feasibility cap on `‖x‖₁ - r` and the support-gap and
@@ -284,9 +284,6 @@ optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.
 - `stagnated`: the documented Float32 PGD stagnation exit; this is not a
   convergence or accuracy certificate, and other exit flags can also be true.
 - `gap`: `NaN`, because this result type does not compute a certified duality gap.
-- `approximate_solution`: on the `IndBallL1` route, the full stopping check passed at a point
-  classified outside the ball or not classified, and `converged` is `false`; `false` on the other
-  routes.
 
 On the `IndBallL1` route, `minimum` is the monitored numerical objective: the cached loss
 plus the route's monitored penalty `0`, which the trace and callback objectives also report. It
@@ -328,11 +325,8 @@ mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{
     call_limit_reached::Bool
     stagnated::Bool
     gap::Float64
-    approximate_solution::Bool
 
-    # The field list before approximate_solution (24 values) sets it to false.
-    OptimizationResults{O, T, N, M, X}(fields...) where {O, T, N, M, X} =
-        length(fields) == 24 ? new{O, T, N, M, X}(fields..., false) : new{O, T, N, M, X}(fields...)
+    OptimizationResults{O, T, N, M, X}(fields...) where {O, T, N, M, X} = new{O, T, N, M, X}(fields...)
 end
 
 Base.summary(r::OptimizationResults) = summary(r.method)
@@ -358,7 +352,6 @@ grad_calls(r::OptimizationResults) = r.grad_calls
 prox_calls(r::OptimizationResults) = r.prox_calls
 call_limit_reached(r::OptimizationResults) = r.call_limit_reached
 stagnated(r::OptimizationResults) = r.stagnated
-approximate_solution(r::OptimizationResults) = r.approximate_solution
 
 
 function _show_minimizer(io::IO, x::AbstractArray)
@@ -387,7 +380,6 @@ function Base.show(io::IO, r::OptimizationResults)
     @printf io "   * Reached a limit on the number of calls: %s\n" call_limit_reached(r)
     @printf io "   * Stopped at numerical stagnation: %s\n" stagnated(r)
     isnan(r.gap) || @printf io "   * relative duality gap %.2e\n" r.gap
-    approximate_solution(r) && @printf io "   * Approximate solution (check passed, not classified inside the ball): true\n"
     @printf io " * Backtracking steps: %d\n" backtrack_steps(r)
     @printf io " * f(x) calls: %d\n" f_calls(r)
     @printf io " * ∇f(x) calls: %d\n" grad_calls(r)

@@ -144,10 +144,10 @@ end
 # numerical route ([IN-12](@ref)): an accepted point can lie outside the ball
 # when its computed ℓ1 norm passes a numerical cap decision, a computed
 # comparison rather than an exact bound. `converged = true` means the stopping
-# check passed at a point classified inside the ball; `approximate_solution =
-# true` means it passed at a point classified outside or on the rounding
-# boundary. `minimum` is the monitored numerical objective, the cached loss,
-# which can be finite where ProximalBase's strict indicator is `Inf`.
+# check passed at the returned point. `minimum` is the monitored numerical
+# objective, the cached loss, which can be finite where ProximalBase's strict
+# indicator is `Inf`. Neither certifies that the returned point lies exactly
+# inside the ball.
 #
 # For the orthogonal control the minimizer is the projection of `a`, whose ℓ1
 # norm is 5.25, onto the ball of radius 2.5: the threshold 5/6 gives
@@ -155,10 +155,9 @@ end
 l1_beta = zeros(4)
 l1_fit = solve!(l1_beta, inv(4.0) * LeastSquaresLoss(X_exact * a, X_exact), IndBallL1(2.5),
   ProximalGradientDescent())
-@assert l1_fit.converged || l1_fit.approximate_solution
+@assert l1_fit.converged
 @assert norm(l1_beta - [7/6, -7/6, 0, 1/6], Inf) <= 1e-8
-@printf("ℓ1 ball | converged %s | approximate %s | ‖β‖₁ - r %.1e\n",
-  l1_fit.converged, l1_fit.approximate_solution, sum(abs, l1_beta) - 2.5)
+@printf("ℓ1 ball | converged %s | ‖β‖₁ - r %.1e\n", l1_fit.converged, sum(abs, l1_beta) - 2.5)
 
 #!jl using Plots
 #!jl p = bar(1:4, hcat(X \ y_box, clipped, box_beta);
