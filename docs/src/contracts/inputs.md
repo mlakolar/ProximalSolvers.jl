@@ -779,14 +779,19 @@ exceeds `r` by less than the cap; this is a computed comparison, not an exact bo
 A search from one base point (PGD's line search, each call of APG's step) allows 64 trials; at the
 start of the would-be 65th, the route raises `ErrorException("line search failed: 64 trials from one
 base point were not accepted (…)")`, unless `next_curvature` or PGD's curvature update raised a
-line-search error earlier. After PGD's search, a nonfinite entry of the gradient at the accepted trial
-raises an `ErrorException` inside the step. In each case the engine restores the last accepted `x`
+line-search error earlier. After PGD's search, an accepted trial that differs from `x_previous`
+elementwise while the computed squared norm of `x - x_previous` is zero raises
+`ErrorException("line search failed: the step is nonzero but its squared norm underflows (…)")`, since
+[LS-02](@ref) accepts such a step as a zero step without its test and the route reserves that exit for
+an unchanged `x` (APG has no zero-step exit). After PGD's search, a nonfinite entry of the gradient at
+the accepted trial raises an `ErrorException` inside the step. In each case the engine restores the last accepted `x`
 and rethrows ([RES-03](@ref)). The state's penalty value is `0` throughout, so the trace's `fg_x`, the
 callback's objective, `f_residual` and `f_increased` use the loss.
 
 *Stopping.* The engine's three proposals ([STOP-01](@ref), with [STOP-10](@ref)) run the full check
 of [FP-05](@ref) at the accepted `x` with the decision cached by its trial; a cached code other than
-`:pass` fails the check. When they run no check, B1's unchanged-iterate proposal (`x` equal to
+`:pass` fails the check, as does a nonfinite intermediate, and the check counts the gradient and prox
+calls it evaluates ([FP-05](@ref)). When they run no check, B1's unchanged-iterate proposal (`x` equal to
 `x_previous` elementwise, also with `ftol = 0`) and its two progress proposals
 (`maximum(abs, x - x_previous) <= sqrt(mapping_rtol) * maximum(abs, x)`, or `f_residual` of the loss
 at most `objective_rtol`, with the resolved tolerances) run it, and a pass sets `x_converged`. These
@@ -837,7 +842,7 @@ the coefficients and the data unchanged; the solver does not detect such a chang
   `minimum` and the flags follow the recomputed membership; analytic fixtures pin an approximate
   solution outside the ball (`minimum = Inf`), one on the rounding boundary (`NaN`) and an interior
   convergence;
-- the decision of each accepted iterate passes the cap;
+- the decision of each accepted iterate, recomputed from the callback's vector, passes the cap;
 - at most one full check per iteration, counted by the gradient and projection calls of
   `convergence_assessment`, also where the engine's objective test and B1's objective proposal both
   hold and the check fails; with `ftol = 0`, B1's proposals stop three fixtures at the first iteration
@@ -845,14 +850,23 @@ the coefficients and the data unchanged; the solver does not detect such a chang
 - with `allow_f_increases = false`, an increase at the first iteration sets `f_increased` and the
   solve continues, as with `allow_f_increases = true`;
 - a callback stop returns the iterate of its iteration; the 64-trial error and the `Float32` PGD
-  nonfinite accepted gradient each restore the start bitwise.
+  nonfinite accepted gradient each restore the start bitwise;
+- a `Float64` PGD step from `5e-171` to `4e-170` (`X = 1`, `y = 1e-170`, loss scale `1e150`,
+  `r = 4e-170`), whose squared norm underflows, raises the underflowed-step error and restores the
+  start bitwise, and the smooth majorization condition fails at that step in MPFR; APG raises the
+  64-trial error on the same problem; an unchanged first step is accepted and converges;
+- the refusals of data of the other precision and of a matrix response with a vector start, and the
+  positional result constructor of the earlier field count, which sets `approximate_solution = false`.
 
 **Sources.** [Issue #457, Phase B](https://github.com/mlakolar/ProximalSolvers.jl/issues/457);
 [the approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919);
 [the maintainer's review of the shrink round](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7116783858),
-which made the route the default and removed the result report and the extra stopping proposals;
+which made the route the default and removed the result report; the shrink commit also removed B1's
+stopping proposals for a time;
 [the maintainer's decision on Variant C](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7118027244),
 which restored B1's unchanged-iterate and progress proposals as triggers and continuation after an
 objective increase with a truthful `f_increased`;
+[the maintainer's decision on the round 4 blockers](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7119424286),
+which added the underflowed-step error;
 [the #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);
 the research reference [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).

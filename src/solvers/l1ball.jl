@@ -239,13 +239,21 @@ function LineSearches.trial!(state::Union{ProximalGradientDescentState, AccProxG
   nothing
 end
 
-# Each search from one base point starts with no trials. After PGD's search, a nonfinite entry of the gradient at the
-# accepted trial raises an error inside the step, so the engine restores x_previous and rethrows.
+# Each search from one base point starts with no trials. After PGD's search, two cases raise an error inside the step,
+# so the engine restores x_previous and rethrows: an accepted trial that differs from x_previous while the squared norm
+# of x - x_previous (state.delta_x after an acceptance) is zero, which backtrack! accepted as a zero step without its
+# test (IN-12), and a nonfinite entry of the gradient at the accepted trial.
+@noinline _l1_underflowed_step_error() =
+  error("line search failed: the step is nonzero but its squared norm underflows (IndBallL1 numerical route, IN-12)")
 @noinline _l1_gradient_error() =
   error("the gradient at the accepted trial has a nonfinite entry (IndBallL1 numerical route, IN-12)")
-LineSearches.search!(state::ProximalGradientDescentState, ls::LineSearches.BackTracking, f, g::_NumericalL1Ball) =
-  (g.trials = 0; invoke(LineSearches.search!, Tuple{Any, LineSearches.BackTracking, Any, Any}, state, ls, f, g);
-   _allfinite(state.grad_f_x) || _l1_gradient_error())
+function LineSearches.search!(state::ProximalGradientDescentState, ls::LineSearches.BackTracking, f,
+                              g::_NumericalL1Ball)
+  g.trials = 0
+  invoke(LineSearches.search!, Tuple{Any, LineSearches.BackTracking, Any, Any}, state, ls, f, g)
+  iszero(_norm(state.delta_x)^2) && !_unchanged(state.x, state.x_previous) && _l1_underflowed_step_error()
+  _allfinite(state.grad_f_x) || _l1_gradient_error()
+end
 _prox_grad_step!(f, g::_NumericalL1Ball, state::AccProxGradDescentState{T}, β::T) where T =
   (g.trials = 0; invoke(_prox_grad_step!, Tuple{Any, Any, AccProxGradDescentState{T}, T}, f, g, state, β))
 
@@ -277,8 +285,10 @@ end
 # Otherwise: the radial witness from the cached s and noise; the residual and gradient at the witness in Float64, times
 # α; the support gap and the fixed-step mapping at the inverse step T(curvature) through PB's projection, each with its
 # noise and underflow allowance; the check passes when the four values are finite, gap + gap noise ≤ gap budget and
-# mapping + map noise ≤ mapping budget. It counts one gradient and one prox call, writes no other field of state and
-# records in g.checked that the assessment ran it.
+# mapping + map noise ≤ mapping budget. It fails as soon as the witness, residual, gradient, mapping trial point or
+# projection has a nonfinite entry, so a nonfinite trial point is never projected. It counts the gradient and the prox
+# call that it evaluates (one each when it reaches the projection), writes no other field of state and records in
+# g.checked that the assessment ran it.
 function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions) where T
   g.checked = true
   dec = g.decision
@@ -289,6 +299,8 @@ function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions
   _l1_witness!(w, x, r, dec.s, dec.noise)
   _residual_score64!(grad, res, g.X, g.y, w)
   grad .*= g.alpha
+  state.grad_calls += 1
+  _allfinite(w) && _allfinite(res) && _allfinite(grad) || return false
   dual = maximum(abs, grad)
   n, p = size(g.X)
   alpha = g.alpha
@@ -300,7 +312,10 @@ function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions
   L = T(g.curvature)
   trial, projected = g.trial, g.projected
   @. trial = T(w) - T(grad) / L
+  _allfinite(trial) || return false
   prox!(projected, g.ball, trial, one(T)/L)
+  state.prox_calls += 1
+  _allfinite(projected) || return false
   mapping = Float64(L) * maximum(j -> abs(Float64(T(w[j])) - Float64(projected[j])), eachindex(w))
   map_noise = g.col * score_noise + Float64(eps(T)) * (Float64(L) * maximum(abs, w) + maximum(abs, grad))
   # the absolute allowance for gradual underflow, added after B1's noise terms
@@ -309,8 +324,6 @@ function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions
   gap_noise = gap_noise + gap_abs
   map_noise = map_noise + map_abs
   finite = all(isfinite, (gap, gap_noise, mapping, map_noise))
-  state.grad_calls += 1
-  state.prox_calls += 1
   finite && gap + gap_noise <= g.gap_budget && mapping + map_noise <= g.mapping_budget
 end
 

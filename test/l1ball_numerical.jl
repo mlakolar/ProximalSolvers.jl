@@ -2,7 +2,8 @@ module L1BallNumericalTest
 
 # The IndBallL1 route of PGD and APG (IN-12, FP-05): the gate, the default route and the tolerance override, an
 # independent MPFR check of each reported success on the #508 fixtures, converged against approximate_solution and the
-# reported minimum, false stationarity under underflow, the cached decision, rollback and the line-search errors.
+# reported minimum, false stationarity under underflow and overflow, the cap at each accepted iterate, rollback and the
+# line-search errors, including a nonzero step whose squared norm underflows.
 
 using Test, LinearAlgebra, ProximalBase, ProximalSolvers
 const PS = ProximalSolvers
@@ -204,6 +205,10 @@ end
   @test occursin("dense Vector", refused(IndBallL1(T(0.6)), LeastSquaresLoss(T[1 0; 0 1; 1 1; 0 0], X), zeros(T, 4, 2)))
   @test occursin("dimensions", refused(IndBallL1(T(0.6)), f, zeros(T, 3)))
   T === Float64 && @test occursin("LogisticLoss", refused(IndBallL1(0.6), LogisticLoss([1.0, 0.0, 1.0, 0.0], X)))
+  # data of the other precision, and a matrix response with a vector start
+  S = T === Float32 ? Float64 : Float32
+  @test occursin("mixed array types", refused(IndBallL1(T(0.6)), LeastSquaresLoss(S.(y), S.(X))))
+  @test occursin("mixed array types", refused(IndBallL1(T(0.6)), LeastSquaresLoss(hcat(y, y), X)))
   # the radius: zero, infinite, of another type
   for g in (IndBallL1(zero(T)), IndBallL1(T(Inf)), IndBallL1(T === Float32 ? 0.6 : 0.6f0), IndBallL1(1))
     @test occursin("radius", refused(g))
@@ -270,6 +275,9 @@ end
   res = solve!(x, f, NormL1(T(0.1)), method)
   @test !res.approximate_solution && isapprox(res.minimum, f(x) + NormL1(T(0.1))(x); rtol = 64eps(T))
   @test !occursin("Approximate solution", sprint(show, res))
+  # the field list before approximate_solution leaves it false
+  old = typeof(res)((getfield(res, k) for k in 1:fieldcount(typeof(res)) - 1)...)
+  @test !old.approximate_solution && old.minimizer === res.minimizer && old.converged == res.converged
 end
 
 # ---- accepted-point accuracy on the #508 fixtures ---------------------------------------------------------------------------
@@ -355,11 +363,43 @@ end
   @test 1 < ratio <= 2 && isapprox(ratio, 4 / 3; rtol = 64eps(T))
 end
 
-# ---- boundary rounding: the cached decision -------------------------------------------------------------------------------
+# The overflow reproducer (Float32, with a tolerance override): the Hessian is exactly 2⁻¹²⁶ I, so the mapping's trial
+# point is y/d = b [4.5, 1.75, 0, 0] (b = 2¹²⁶) for any witness, and its first entry overflows to Inf in Float32.
+# ProximalBase projects that entry to a finite vertex, so the computed mapping is finite and within its budget, while
+# the exact mapping is not. The full check fails before the projection (FP-05).
+@testset "false stationarity: an overflowed mapping trial point ($(mname(method)))" for method in METHODS
+  d, b = ldexp(1f0, -70), ldexp(1f0, 126)
+  X = Matrix(Diagonal(fill(d, 4)))
+  y = ldexp(1f0, 56) .* Float32[4.5, 1.75, 0, 0]
+  alpha = ldexp(1f0, 14)
+  f = alpha * LeastSquaresLoss(y, X)
+  a = NumericalFeasibility(objective_rtol = 0.15, mapping_rtol = 0.01)
+  r = 3b
+  x = Float32[3b, 0, 0, 0]
+  res = solve!(x, f, IndBallL1(r), method, ProximalOptions(maxiter = 2, callback = _ -> true); feasibility = a)
+  @test !res.converged && !res.approximate_solution
+  # the exact mapping at the returned point exceeds its budget in MPFR, so a success would be false
+  tol = PS._feasibility_tolerances(a, Float32)
+  bud = PS._l1_budgets(X, y, Float64(alpha), Float64(r), tol)
+  ind = independent(X, y, alpha, r, x, bud.curvature)
+  @test ind.mapping > BigFloat(bud.mapping)
+  # the full check at that point fails, after one gradient and without a projection
+  ball = IndBallL1(r)
+  dec = PS._l1_decision(x, ball, bud.cap)
+  @test dec.code === :pass
+  route = PS._NumericalL1Ball(ball, X, y, Float64(alpha), bud, tol, dec)
+  stub = CheckStub(copy(x), 0, 0)
+  @test !PS._stationary!(stub, f, route, OPTIONS)
+  @test route.checked && !all(isfinite, route.trial)
+  @test stub.grad_calls == 1 && stub.prox_calls == 0
+end
 
-# Every accepted iterate passes the cap, and the reported minimum follows the decision of the returned point; on the
-# active_transition fixtures the radius sits one ulp below, at and one ulp above the projection's threshold.
-@testset "cached decision at each accepted iterate ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+# ---- boundary rounding: the cap at each accepted iterate ---------------------------------------------------------------------
+
+# Every accepted iterate passes the cap, recomputed from the callback's vector, and the reported minimum follows the
+# decision of the returned point; on the active_transition fixtures the radius sits one ulp below, at and one ulp above
+# the projection's threshold.
+@testset "each accepted iterate passes the recomputed cap decision ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   for d in fixtures(T; big = false)
     cap = route_budgets(d.X, d.y, d.alpha, d.r).cap
     passed = Bool[]
@@ -459,6 +499,60 @@ end
   @test err isa ErrorException && occursin("nonfinite", err.msg) && occursin("gradient", err.msg)
   @test reinterpret(UInt8, x) == reinterpret(UInt8, x0)
   @test calls[] == 0
+end
+
+# The underflow reproducer (Float64, default options): X = 1, y = 1e-170, loss scale 1e150, radius 4e-170, start 5e-171.
+# At L = 0.9 the projected trial 4e-170 differs from the start, but the squared norm of the step, about 1.2e-339,
+# underflows to zero, and the shared backtrack! accepts it as a zero step without its test (LS-02). The route raises
+# the line-search error instead, and the engine restores the start (IN-12). APG declines the trial and raises the
+# 64-trial error.
+@testset "a nonzero step whose squared norm underflows ($(mname(method)))" for method in METHODS
+  X, y, alpha, r, x0 = reshape([1.0], 1, 1), [1e-170], 1e150, 4e-170, [5e-171]
+  f = alpha * LeastSquaresLoss(y, X)
+  x = copy(x0)
+  err = try
+    solve!(x, f, IndBallL1(r), method, ProximalOptions(maxiter = 5, store_trace = true))
+    nothing
+  catch e
+    e
+  end
+  expected = method isa ProximalGradientDescent ? "squared norm underflows" : "64 trials"
+  @test err isa ErrorException && occursin("line search failed", err.msg) && occursin(expected, err.msg)
+  @test reinterpret(UInt8, x) == reinterpret(UInt8, x0)
+  if method isa ProximalGradientDescent
+    # PGD's step driven by hand: the error leaves the accepted trial in state.x (the engine's rollback is outside the
+    # step), with no counted backtracking step; the smooth majorization condition fails there in MPFR
+    x = copy(x0)
+    c = PS._check_numerical_l1(x, f, IndBallL1(r), NumericalFeasibility(), method, :gradient)
+    route = PS._NumericalL1Ball(IndBallL1(r), c.data.X, c.data.Y, c.alpha, c.budgets, c.tolerances, c.decision)
+    state = PS.initial_state(method, OPTIONS, f, route, x)
+    err = try
+      PS._gradient_step!(state, f, route, method, OPTIONS, time())
+      nothing
+    catch e
+      e
+    end
+    @test err isa ErrorException && occursin("squared norm underflows", err.msg)
+    @test state.x_previous == x0 && state.x != x0 && state.backtrack_steps == 0
+    @test iszero(norm(state.x - state.x_previous)^2)
+    setprecision(BigFloat, 256) do
+      loss_big(v) = BigFloat(alpha) / 2 * (BigFloat(v) - BigFloat(y[1]))^2
+      v0, v1 = BigFloat(x0[1]), BigFloat(state.x[1])
+      grad0 = BigFloat(alpha) * (v0 - BigFloat(y[1]))
+      @test loss_big(v1) > loss_big(v0) + grad0 * (v1 - v0) + BigFloat(state.L) / 2 * (v1 - v0)^2
+      @test loss_big(v1) > 30 * loss_big(v0)
+    end
+  end
+end
+
+# A truly unchanged step (x == x_previous) is still accepted as a zero step: X = 1, y = x = 0.5, radius 1 has a zero
+# gradient, so the first trial returns the start, and the unchanged-iterate proposal's check passes inside the ball.
+@testset "an unchanged step is accepted ($(mname(method)))" for method in METHODS
+  x0 = [0.5]
+  x = copy(x0)
+  res = solve!(x, LeastSquaresLoss([0.5], reshape([1.0], 1, 1)), IndBallL1(1.0), method,
+               ProximalOptions(maxiter = 5, ftol = 0))
+  @test res.converged && res.iterations == 1 && reinterpret(UInt8, x) == reinterpret(UInt8, x0)
 end
 
 @testset "rollback and the 64-trial error ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS

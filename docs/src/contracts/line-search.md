@@ -32,9 +32,9 @@ A PGD trial applies the penalty prox after a least-squares gradient step of leng
 
 **Statement.** The backtracking policy follows TFOCS's reference routine `private/tfocs_backtrack.m`. Each iteration starts with `L ← α L`. TFOCS's local estimate `L̂` uses function values until they are too close for the floating-point comparison, then gradients. A finite trial is accepted when that estimate is no larger than `L`, or when `L ≥ Lexact`. Ordinary rejected trials retry with `L ← min(Lexact, max(L̂, L/β))`, except when the separate rejection check in [LS-03](@ref) accepts or replaces `L̂`.
 
-A nonfinite trial image or loss value supplies no estimate and is never accepted. The search retries with `L ← L/β`, beyond `Lexact` if necessary. On the ℓ1-ball route, a trial that does not pass the numerical cap carries `f(x) = Inf` and takes this branch, and a 64-trial limit applies ([IN-12](@ref)). The zero-step exit accepts a finite-value trial whose computed displacement norm squared is zero, including a nonzero step lost by squaring; in gradient mode it refreshes the gradient so that a previous rejected trial cannot leave a stale one.
+A nonfinite trial image or loss value supplies no estimate and is never accepted. The search retries with `L ← L/β`, beyond `Lexact` if necessary. On the ℓ1-ball route, a trial that does not pass the numerical cap carries `f(x) = Inf` and takes this branch, and a 64-trial limit applies ([IN-12](@ref)). The zero-step exit accepts a finite-value trial whose computed displacement norm squared is zero, including a nonzero step lost by squaring; in gradient mode it refreshes the gradient so that a previous rejected trial cannot leave a stale one. On the ℓ1-ball route, an accepted nonzero step lost by squaring raises a line-search error instead ([IN-12](@ref)).
 
-Accepted trials are not checked again. In particular, a rounding-decided estimate that accepts below the true curvature remains accepted, as do the finite-value `Lexact` and zero-step exits.
+The curvature of an accepted trial is not checked again. In particular, a rounding-decided estimate that accepts below the true curvature remains accepted, as do the finite-value `Lexact` and zero-step exits. The ℓ1-ball route also checks the gradient at the accepted trial ([IN-12](@ref)).
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
@@ -72,7 +72,7 @@ A line-search acceptance is an iteration decision. Convergence, exact stalls and
 
 ### [LS-09 Failure and restoration boundary](@id LS-09)
 
-**Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`, or on the ℓ1-ball route at its 64-trial limit ([IN-12](@ref)). The gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first. Full ownership and exception semantics are [RES-01](@ref).
+**Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`, or on the ℓ1-ball route at its 64-trial limit or at an accepted nonzero step whose squared norm underflows ([IN-12](@ref)). The gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first. Full ownership and exception semantics are [RES-01](@ref).
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
@@ -187,6 +187,6 @@ None beyond the support and stopping-wording conflicts recorded in [PGD](pg-iter
 
 ## Change log
 
-[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: [LS-02](@ref) and [LS-09](@ref) point to the trials and the 64-trial limit of the ℓ1-ball route ([IN-12](@ref)); the policy for the other penalties is unchanged.
+[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: [LS-02](@ref) and [LS-09](@ref) point to the trials, the 64-trial limit and the underflowed-step error of the ℓ1-ball route ([IN-12](@ref)); the policy for the other penalties is unchanged.
 
 The overflow-scaling migration retains the deferred underflow limitation recorded in [issue #317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317). APG failure and certified-bound details are authoritative in [APG-03](@ref) and [APG-06](@ref).

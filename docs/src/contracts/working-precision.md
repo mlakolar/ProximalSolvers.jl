@@ -235,7 +235,11 @@ other than `:pass` runs no check:
    `C ζ + Float64(eps(T)) (Float64(L) maxⱼ |wⱼ| + δ)`.
 5. Each noise then gains the underflow allowance below. The check passes when the support gap, the
    mapping and both noises are finite, `support gap + its noise ≤ G` and `mapping + its noise ≤ H`.
-   It counts one gradient call and one prox call.
+
+The check fails as soon as an entry of `w`, `e` or `g` (after item 2) or of the trial (before its
+projection, which therefore never sees a nonfinite input) or of `q` is not finite. It counts the
+gradient call of item 2 and the prox call of item 4 when it evaluates them: one each when it reaches
+the projection, and one gradient call and no prox call when it fails before it.
 
 The noises of items 3 and 4 are model estimates of the rounding of these sums and products, without
 directed rounding; they are not interval enclosures. The decision compares the computed margin with
@@ -253,9 +257,11 @@ gap budget or mapping budget is not a normal positive number; the allowance cove
 inside the full check's products. These are the route's only provisions for underflow. With
 subnormals flushed to zero on the solving thread, the decisions are unspecified, as in [FP-01](@ref).
 
-The model: each product, quotient and fused multiply-add of the check obeys
-`fl(a ∘ b) = (a ∘ b)(1 + δ) + ε` with `|δ| ≤ u` and `|ε| ≤ min(η, |a ∘ b|)`, where `η = nextfloat(0.0)`
-in `Float64` and `η_T = nextfloat(zero(T))` in `T`, and `ε = 0` when a factor is an exact zero.
+The model, per precision: each product, quotient and fused multiply-add of the check obeys
+`fl(a ∘ b) = (a ∘ b)(1 + δ) + ε` with `|ε| ≤ min(η, |a ∘ b|)` and `ε = 0` when a factor is an exact
+zero; in `Float64` (the residual, the gradient, the support gap, the mapping's differences and its
+final product), `|δ| ≤ u` and `η = nextfloat(0.0)`; in `T` (the conversions of `w` and `g`, the
+division by `L` and the projection), `|δ| ≤ eps(T)/2` and `η_T = nextfloat(zero(T))`.
 Additions and subtractions add no absolute error. The relative terms above account for the `δ`; the
 allowance bounds the `ε` and their propagation. With `n × p` the design, `α` the loss scale, the
 witness `w`, the computed residual `r`, `δ = ‖g‖∞`, `L = T(κ)`, `t` the mapping's trial point in `T`
@@ -275,11 +281,18 @@ and the computed mapping `m`:
    adds `L min(p η_T, ‖t‖∞)` and the final product by `L` adds `min(η, m)`.
 
 The gap allowance is `4 × (term 4)` and the mapping allowance `4 × (term 5)`: a factor 2 for the
-growth `(1 + u)^k ≤ 2` through at most `k = n + p + 2` later roundings, which needs
-`(n + p + 2) eps(Float64) ≤ 1`, times 2 for computed magnitudes in place of exact ones. Each product
-inside the allowance is an upper bound: `0` when a factor is `0`, otherwise `fl(a b)(1 + 4 eps) + η`.
-When `(n + p + 2) eps(Float64) > 1` both allowances are `Inf`; an overflowing term is `Inf` and a
-`NaN` mapping gives a `NaN` allowance; in each case the check fails.
+growth `(1 + u)^k ≤ 2` through at most `k = n + p + 2` later `Float64` roundings, which needs
+`(n + p + 2) eps(Float64) ≤ 1`, times 2 for computed magnitudes in place of exact ones. That
+condition gives `(1 + u)^k ≤ exp(1/2)`, which leaves room for the at most four roundings in `T` of each
+trial entry (two conversions, the division and the subtraction), `(1 + eps(T)/2)^4 < 2 / exp(1/2)`; the projection in `T` enters only through the
+assumption below. Each product inside the allowance is an
+upper bound: `0` when a factor is `0`, otherwise `fl(a b)(1 + 4 eps) + η`. When
+`(n + p + 2) eps(Float64) > 1` both allowances are `Inf`; an overflowing term is `Inf` and a `NaN`
+mapping gives a `NaN` allowance; in each case the check fails. These bound and fail-closed statements
+concern the values the check tests: the entries of `w`, `e`, `g`, the trial and `q`, and the four final
+values. A norm or product inside the allowance that overflows from finite entries is `Inf`; it reaches
+the allowance, which fails the check, or a `min` whose other arm is a bound by itself, or an exact
+zero factor, whose product is exact.
 
 The projection's own term assumes that ProximalBase's ℓ1 projection at the pinned revision `bc9e888d`
 (`src/functions/indballl1.jl`), which soft-thresholds at a level formed from sums, power-of-two
@@ -304,12 +317,17 @@ change of the loss. It checks the membership classes `:inside`, `:outside` and `
 fixtures and each accepted iterate's decision. For the scaled case
 `1e300 * LeastSquaresLoss([0.0], reshape([1e-155], 1, 1))`, `x = [1e-15]`, `r = 1e-14`, which the gate
 admits and whose computed gradient is exactly zero, the full check fails, neither method reports a
-success flag, and the returned point misses the budgets in MPFR. It also checks the expansion example
-of term 5 with ProximalBase's projection in both precisions.
+success flag, and the returned point misses the budgets in MPFR. For a `Float32` case with a tolerance
+override whose mapping trial overflows in its first entry (which ProximalBase projects to a finite
+vertex), neither method reports a success flag, the MPFR mapping at the returned point exceeds its
+budget, and a direct call of the check fails with one gradient call and no prox call. It also checks
+the expansion example of term 5 with ProximalBase's projection in both precisions.
 
 **Sources.** [The #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);
 [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl)
 and the [#514 B0 helpers](https://github.com/mlakolar/ProximalSolvers.jl/tree/d58b9099c5837230212496766a721972b98d83f3/research/issue-514);
 [the maintainer's decision 2 on the underflow escalation](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7081753480);
 [ProximalBase at bc9e888d, `src/functions/indballl1.jl`](https://github.com/mlakolar/ProximalBase.jl/blob/bc9e888d09e5fc3c3feb35905dd7a14e70657fa5/src/functions/indballl1.jl);
-[the maintainer's review of the shrink round](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7116783858).
+[the maintainer's review of the shrink round](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7116783858);
+[the maintainer's decision on the round 4 blockers](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7119424286),
+which made a nonfinite intermediate fail the check.

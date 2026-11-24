@@ -323,7 +323,9 @@ mutable struct OptimizationResults{O<:ProximalSolver, T, N, M, X<:AbstractArray{
     gap::Float64
     approximate_solution::Bool
 
-    OptimizationResults{O, T, N, M, X}(fields...) where {O, T, N, M, X} = new{O, T, N, M, X}(fields...)
+    # The field list before approximate_solution (24 values) sets it to false.
+    OptimizationResults{O, T, N, M, X}(fields...) where {O, T, N, M, X} =
+        length(fields) == 24 ? new{O, T, N, M, X}(fields..., false) : new{O, T, N, M, X}(fields...)
 end
 
 Base.summary(r::OptimizationResults) = summary(r.method)
@@ -378,7 +380,7 @@ function Base.show(io::IO, r::OptimizationResults)
     @printf io "   * Reached a limit on the number of calls: %s\n" call_limit_reached(r)
     @printf io "   * Stopped at numerical stagnation: %s\n" stagnated(r)
     isnan(r.gap) || @printf io "   * relative duality gap %.2e\n" r.gap
-    r.approximate_solution && @printf io "   * Approximate solution (check passed, not classified inside the ball): true\n"
+    approximate_solution(r) && @printf io "   * Approximate solution (check passed, not classified inside the ball): true\n"
     @printf io " * Backtracking steps: %d\n" backtrack_steps(r)
     @printf io " * f(x) calls: %d\n" f_calls(r)
     @printf io " * ∇f(x) calls: %d\n" grad_calls(r)
