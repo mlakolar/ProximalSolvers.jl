@@ -37,6 +37,8 @@ UserStop
 AnyOf
 AllOf
 MaxIterations
+MaxPasses
 termination
 ProximalSolvers.ProximalGradientStoppingResult
+ProximalSolvers.CoordinateDescentStoppingResult
 ```

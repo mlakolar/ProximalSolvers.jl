@@ -161,9 +161,10 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
 | --- | --- | --- |
 | PGD or APG with dense vector-response least squares, raw or with one supported positive scale, and the solver’s supported penalties apart from box and ball indicators | `Vector{Float32}` or `Vector{Float64}` | `IterateChange`, `ObjectiveChange`, `UserStop`, `AnyOf`, `AllOf` and `MaxIterations` |
 | These PGD and APG routes with `NormL1` or `ElasticNet`, with or without supported weights | `Vector{Float32}` or `Vector{Float64}` | Also `ScaledKKT(rtol=...)` |
+| `CDSolver` with dense vector-response least squares, unweighted `NormL1`, and momentum off | `Vector{Float32}` or `Vector{Float64}` | `ObjectiveChange`, `UserStop`, `AnyOf`, `AllOf` and `MaxPasses`. See the [example](@ref cd-select-stopping) |
 
 Other solver and problem routes use their existing stopping options. See
-[the explicit-policy contract](@ref STOP-22) for the input and option rules.
+[STOP-22](@ref) for PGD and APG and [CD-10](@ref) for CD.
 
 ### Statistical applications
 

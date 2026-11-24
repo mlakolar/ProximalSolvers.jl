@@ -86,8 +86,9 @@ or `false`, and rejects `momentum = true`. The deterministic tutorial configurat
 `CDSolver(order = :cyclic, momentum = false)`.
 
 A full pass visits all coordinates and admits new active coordinates. Active passes
-refine the active coordinates. Only a full pass whose largest change is strictly below
-the effective tolerance can converge. Once the active passes since the last full pass
+refine the active coordinates. With default stopping, only a full pass whose largest
+change is strictly below the effective tolerance can converge. The explicit route uses
+the same pass schedule and applies [CD-10](@ref) for stopping. Once the active passes since the last full pass
 have together visited 20 times as many coordinates as a full pass, the next pass is full,
 even if the active changes are still above the threshold. Random least-squares momentum
 can extrapolate active passes and restart when the active set changes; residual refresh
@@ -135,8 +136,9 @@ infinite scale raises `ArgumentError` with `a coordinate step or its stopping sc
 not finite`; the caller's iterate is unchanged.
 
 Multiplying `tol` by a normal response scale can produce a subnormal threshold or zero.
-`change < threshold` cannot hold for a zero threshold, including `tol = 0`: the run
-ends at `maxpasses` with a warning unless another numerical failure raises an error.
+`change < threshold` cannot hold for a zero threshold, including `tol = 0`. With
+default stopping the run ends at `maxpasses` with a warning unless a numerical
+failure raises an error. Explicit stopping uses the threshold for scheduling under [CD-10](@ref).
 Float32 rounding can keep every full pass's largest scaled change at or above the
 threshold, also ending at `maxpasses`. A tolerance above that rounding level avoids
 this particular stall; Float64 has a much lower rounding level. No bound on the KKT
@@ -463,8 +465,9 @@ mixed-precision guarantee.
 
 The loss part of the reported objective is
 `ProximalBase.value_from_residual(f, r)` of the cached residual, with the
-original loss `f` passed to `loss_value` from `_run_cd!` (once per solve; `f` is
-not stored in `LSModel`). ProximalBase forms the sum of squares and its product
+original loss `f` passed to `loss_value`. `LSModel` stores the residual. Default
+scalar least-squares CD evaluates the objective once at return. [CD-10](@ref)
+specifies the explicit cadence. ProximalBase forms the sum of squares and its product
 with the scale, and recomputes exceptional values under the conditions that its
 guide states ("Least squares at a predictor or residual that the caller holds",
 "Value and rounding"). The
@@ -488,3 +491,54 @@ in the objective's product), and for `Float64` data both are `Float64`.
 **Tests.** `test/cd_numerics.jl`: oracle residual values, reported objective boundaries, underflow and nonfinite-objective refusals.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L7`.
+
+## [CD-10 Explicit stopping after completed coordinate passes](@id CD-10)
+
+**Statement.** Pass `stopping=rule`, `limits=MaxPasses(n)`, or both to
+`solve!` with `CDSolver`. A limit alone selects a pass-budget solve. A rule
+without a limit uses `CDSolver.maxpasses`. If a supplied limit disagrees with
+`maxpasses`, the limit can override the default value of `maxpasses` (100,000).
+A nondefault disagreement is refused. Omitting both keywords uses default stopping.
+
+Validate the problem through [CD-01](@ref), the momentum setting, the resolved
+limit and the complete rule tree before initialization. Supported leaves are
+`ObjectiveChange` and `UserStop`, including trees composed with `AnyOf` and
+`AllOf`. Limits are supplied through `limits`. `MaxPasses(0)` returns the starting
+coefficients with a missing objective and zero work counts after validation.
+
+On a positive budget, run the plain CD pass schedule in [CD-02](@ref). The
+change test in [CD-03](@ref) selects the next pass. An explicit rule and the
+pass limit decide when the run ends. The budget counts each completed full or
+active pass once, including an empty active pass. Coordinate visits count the
+candidate coordinates at the start of the sweep, before compaction.
+
+With a rule, evaluate the composite objective at initialization and after each
+completed pass from the cached residual and the penalty in [CD-09](@ref).
+The two adjacent computed values and their arithmetic are those of
+`ObjectiveChange` in [STOP-22](@ref). The initial observation has no predecessor.
+Evaluate `UserStop` with `(; iteration, objective)` under the predicate rules
+of [STOP-22](@ref), with `iteration` the number of completed passes. Both leaves
+share each checkpoint's objective. Composition uses the same ordered short
+circuiting as [STOP-22](@ref). At the cap the required final objective and its
+predecessor can settle an objective tie. `UserStop` is unchecked at the cap.
+A positive limit-only solve evaluates the objective once at return.
+
+A required nonfinite objective raises an error. A numerical or predicate
+exception can escape before a completed result and before the private iterate
+is copied back to the caller, as in [RES-03](@ref). [RES-05](@ref) specifies the
+explicit result.
+
+**Applies to.** `CDSolver`, dense `Vector{Float32}` or `Vector{Float64}` with
+matching dense vector-response least squares, unweighted `NormL1`, and momentum
+off. A raw loss or a supported positive scale is accepted. Both coordinate
+orders are supported with `momentum=false`. Cyclic order also accepts the
+default `momentum=nothing`.
+
+**Code.** `src/cd/solver.jl` and `src/stopping.jl`.
+
+**Tests.** `test/cd_stopping.jl` checks analytic full and active passes, including
+zero visits, composition, counts, preflight, rollback and default trajectory
+agreement with a fixed budget and matched RNG state.
+
+**Sources.** [#523, solver rollout B3](https://github.com/mlakolar/ProximalSolvers.jl/issues/523)
+and [the shared stopping design](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).

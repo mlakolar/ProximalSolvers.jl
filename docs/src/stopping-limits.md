@@ -42,6 +42,30 @@ A solve using `ScaledKKT` alone reports `reason = :limit` and
 uses the gradient at the accepted point and includes its cost in the
 [oracle counts](@ref APG-04).
 
+## [Select stopping conditions in scalar coordinate descent](@id cd-select-stopping)
+
+For dense vector least-squares lasso with unweighted `NormL1`, turn momentum off
+and pass a rule, a pass budget, or both. A full sweep visits all coefficients.
+An active sweep revisits the active coordinates. Both count toward `MaxPasses`.
+
+```julia
+using ProximalBase, ProximalSolvers
+
+X = [1.0 1.0; 0.0 1.0]
+y = [0.0, 2.5]
+x = zeros(2)
+r = solve!(x, LeastSquaresLoss(y, X), NormL1(0.5),
+           CDSolver(order=:cyclic, momentum=false);
+           stopping=ObjectiveChange(), limits=MaxPasses(2))
+termination(r)
+```
+
+This stops when the objective stays at `2.125` on the second sweep. Read
+`termination(r).satisfied` for progress and `termination(r).counts` for full
+passes, active passes, visits, and objective evaluations. The explicit rule
+selects the endpoint while the usual CD change threshold schedules full and
+active sweeps. [CD-10](@ref) specifies the options and checkpoint costs.
+
 ## The criterion and a certificate
 
 See the [current section](@ref RES-01). For PGD and APG on least squares with a

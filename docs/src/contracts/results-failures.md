@@ -13,7 +13,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 
 | Solver | A stop is proposed by | Vetoed by | `converged = true` means | Kind of evidence |
 | --- | --- | --- | --- | --- |
-| `CDSolver`, least squares with `NormL1`, `ElasticNet`, `IndNonnegative()` or unweighted `NormL1Nonneg` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
+| `CDSolver`, least squares with default stopping and `NormL1`, `ElasticNet`, `IndNonnegative()` or unweighted `NormL1Nonneg` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
 | `ProximalGradientDescent`, `AccProxGradDescent` on the regression routes with a dedicated KKT check | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and, for least squares with `NormL1` or `ElasticNet` on a dense vector, every coordinate's computed score passed the rule of [STOP-21](@ref) (below its threshold, or at most `0` at an exact zero scale, where no threshold is formed); otherwise the computed residual passed [STOP-04](@ref) and any applicable entry or group checks for [the logistic and matrix-response lasso](@ref STOP-03), [group lasso](@ref STOP-05), [the Euclidean norm](@ref STOP-17), or [the nonnegative penalties](@ref STOP-16) | a comparison in `T` of computed scores and thresholds, formed as stated below; for least squares with `NormL1` or `ElasticNet` on a dense vector, its exact-arithmetic analogue is approximate coordinatewise stationarity relative to the smooth part of the model that the check scores (the objective of the solve when their coefficients agree), with no general error bound ([STOP-21](@ref)) |
 | `ProximalGradientDescent`, `AccProxGradDescent` with a generic stationarity check | the same | the generic check | a test proposed a stop and the proximal-gradient residual passed the threshold comparison and guards in [STOP-07](@ref) | a working-precision indication that can be weaker when the accepted `L` is small |
@@ -252,6 +252,32 @@ identity, display and counter totals including rejected trials. `test/accelerate
 checks counters through APG restarts.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
+
+## [RES-05 Explicit coordinate descent stopping result](@id RES-05)
+
+**Statement.** [CD-10](@ref) returns a `CoordinateDescentStoppingResult`.
+Its `minimizer` aliases the caller's coefficients, `minimum` holds the computed
+objective or `missing` at a zero cap, and `passes` counts completed sweeps.
+`converged` is false on this route. A fulfilled objective or user condition is
+recorded in `termination(result).satisfied`.
+
+The report uses the rule reasons, leaf observations and winning paths in
+[RES-04](@ref). Its `iteration` is the completed pass count, its `limit` is the
+resolved `MaxPasses`, and `limit_reached` reports whether that count equals the
+cap. At a tie with a passing objective rule the reason is `:rule` and the
+limit flag is true. The `counts` fields are `full_passes`, `active_passes`,
+`coordinate_visits` and `objective_evaluations`. The two pass counts sum to
+`passes`. Visits and composite objective evaluations count the work specified
+in [CD-10](@ref). Display and result accessors perform no solver evaluations.
+
+**Applies to.** Explicit `CDSolver` solves under [CD-10](@ref).
+
+**Code.** `src/cd/solver.jl` and `src/stopping.jl`.
+
+**Tests.** `test/cd_stopping.jl` checks the result accessors, alias, pass and
+objective counters, cap and user exits, and winning evidence.
+
+**Sources.** [#523, solver rollout B3](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
 ## [RES-UNRECONCILED Retired: historical normalized-residual guarantee](@id RES-UNRECONCILED)
 
