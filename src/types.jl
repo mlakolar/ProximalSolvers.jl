@@ -41,7 +41,8 @@ and [limit checks](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/p
 - `gradtol=1e-5`: gradient/proximal-residual tolerance; the final stationarity
   check has its own working-precision floor.
 - `allow_f_increases=false`: stop on a computed objective increase;
-  `true` removes that exit without certifying the result.
+  `true` removes that exit without certifying the result. The `IndBallL1` route of PGD and APG
+  does not stop on an increase either way (IN-12).
 - `store_trace=false`: retain iteration states in the returned `trace`.
 - `show_trace=false`: print the iteration trace.
 - `extended_trace=false`: include copied iterates and gradients in trace metadata.

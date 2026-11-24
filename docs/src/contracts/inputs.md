@@ -782,17 +782,26 @@ base point were not accepted (…)")`, unless `next_curvature` or PGD's curvatur
 line-search error earlier. After PGD's search, a nonfinite entry of the gradient at the accepted trial
 raises an `ErrorException` inside the step. In each case the engine restores the last accepted `x`
 and rethrows ([RES-03](@ref)). The state's penalty value is `0` throughout, so the trace's `fg_x`, the
-callback's objective, `f_residual`, `f_increased` and the objective-increase exit of [STOP-09](@ref)
-use the loss.
+callback's objective, `f_residual` and `f_increased` use the loss.
 
 *Stopping.* The engine's three proposals ([STOP-01](@ref), with [STOP-10](@ref)) run the full check
-of [FP-05](@ref) once, at the accepted `x` with the decision cached by its trial; a cached code other
-than `:pass` fails the check. When the check passes at a point classified `:inside`,
-`converged = true`. When it passes at a point classified `:outside` or `:unknown`, the solve stops with
+of [FP-05](@ref) at the accepted `x` with the decision cached by its trial; a cached code other than
+`:pass` fails the check. When they run no check, B1's unchanged-iterate proposal (`x` equal to
+`x_previous` elementwise, also with `ftol = 0`) and its two progress proposals
+(`maximum(abs, x - x_previous) <= sqrt(mapping_rtol) * maximum(abs, x)`, or `f_residual` of the loss
+at most `objective_rtol`, with the resolved tolerances) run it, and a pass sets `x_converged`. These
+proposals are triggers for the full check, not success criteria, and an accepted iteration runs the
+full check at most once. When the check passes at a point classified `:inside`, `converged = true`.
+When it passes at a point classified `:outside` or `:unknown`, the solve stops with
 `approximate_solution = true`, `converged = false` and the three proposal flags cleared. When it fails,
-the flags are cleared and the solve continues unless another exit applies. The objective-increase,
-stagnation, limit and callback exits apply as for the other penalties; after them both success flags
-are false unless a check passed at that iteration.
+the flags are cleared and the solve continues unless another exit applies.
+
+*Objective increases.* `allow_f_increases = false` is not enforced on this route: a computed increase
+of the loss is reported in `f_increased` when it occurs at the last iteration, and in the trace's
+`fg_x`, but does not end the solve, unlike [STOP-09](@ref). The configurable stopping of
+[#523](https://github.com/mlakolar/ProximalSolvers.jl/issues/523) may revisit this. The stagnation,
+limit and callback exits apply as for the other penalties; after them both success flags are false
+unless a check passed at that iteration.
 
 *Result.* `converged` and `approximate_solution` are not both true. `minimum` follows the membership
 of the returned point: the computed loss when it is classified `:inside`, `Inf` when `:outside` and
@@ -806,10 +815,11 @@ the coefficients and the data unchanged; the solver does not detect such a chang
 `Vector{Float32}` or `Vector{Float64}` least squares.
 
 **Code.** `src/solve.jl`: `_numerical_route`, `_feasibility_tolerances`, `_feasibility_tolerance`,
-`_normal_positive`, `_check_numerical_l1`, `_approximate_solution`, `_composite_minimum`,
-`_solve_gradient!`; `src/solvers/l1ball.jl`: `_NumericalL1Ball`, `LineSearches.trial!`,
-`LineSearches.search!`, `_prox_grad_step!`, `convergence_assessment`, `_stationary!`,
-`_approximate_solution`, `_composite_minimum`, `_solve_numerical_l1!`; `src/utils.jl`:
+`_normal_positive`, `_check_numerical_l1`, `_stop_on_gradient_increase`, `_approximate_solution`,
+`_composite_minimum`, `_solve_gradient!`; `src/solvers/l1ball.jl`: `_NumericalL1Ball`,
+`LineSearches.trial!`, `LineSearches.search!`, `_prox_grad_step!`, `convergence_assessment`,
+`_stationary!`, `_stop_on_gradient_increase`, `_approximate_solution`, `_composite_minimum`,
+`_solve_numerical_l1!`; `src/utils.jl`:
 `LineSearches.trial!`, `_trial_step!` (the trial of the other penalties); `src/line_searches.jl`:
 `search!`; `src/solvers/proximal_gradient_descent.jl` and
 `src/solvers/accelerated_proximal_gradient_descent.jl`: `solve!`; `src/types.jl`:
@@ -828,7 +838,12 @@ the coefficients and the data unchanged; the solver does not detect such a chang
   solution outside the ball (`minimum = Inf`), one on the rounding boundary (`NaN`) and an interior
   convergence;
 - the decision of each accepted iterate passes the cap;
-- an objective increase at the first iteration ends the solve with `allow_f_increases = false`;
+- at most one full check per iteration, counted by the gradient and projection calls of
+  `convergence_assessment`, also where the engine's objective test and B1's objective proposal both
+  hold and the check fails; with `ftol = 0`, B1's proposals stop three fixtures at the first iteration
+  with successes that pass the MPFR evaluation;
+- with `allow_f_increases = false`, an increase at the first iteration sets `f_increased` and the
+  solve continues, as with `allow_f_increases = true`;
 - a callback stop returns the iterate of its iteration; the 64-trial error and the `Float32` PGD
   nonfinite accepted gradient each restore the start bitwise.
 
@@ -836,5 +851,8 @@ the coefficients and the data unchanged; the solver does not detect such a chang
 [the approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919);
 [the maintainer's review of the shrink round](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7116783858),
 which made the route the default and removed the result report and the extra stopping proposals;
+[the maintainer's decision on Variant C](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7118027244),
+which restored B1's unchanged-iterate and progress proposals as triggers and continuation after an
+objective increase with a truthful `f_increased`;
 [the #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);
 the research reference [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).

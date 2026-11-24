@@ -123,8 +123,8 @@ line-search trials; APG counts every trial, including the accepted one. Detailed
 APG accounting is in [APG-04](@ref).
 
 `f_increased` records `F > F_previous` for the last computed objectives. An increase
-ends the solve only if `allow_f_increases = false`; the result does not store that
-option. `f_residual` is `abs(F-F_previous)/abs(F)`, with `0.0` when both values are
+ends the solve only if `allow_f_increases = false`, and never on the ℓ1-ball route of
+[IN-12](@ref); the result does not store that option. `f_residual` is `abs(F-F_previous)/abs(F)`, with `0.0` when both values are
 zero and `Inf` when `F = 0` but the previous value is nonzero. With `ftol > 0`, this
 is the quantity compared with `ftol`. With `ftol = 0`, the objective test is off:
 `f_tol = 0.0`, `f_converged = false`, and `f_residual` is reported without deciding
