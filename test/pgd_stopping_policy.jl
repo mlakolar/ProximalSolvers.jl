@@ -19,6 +19,7 @@ unit_step() = ProximalGradientDescent(ls=PS.LineSearches.BackTracking(α=1.0))
     legacy = solve!(T[1], f, g, method, options)
     pilot = solve!(T[1], f, g, method; stopping=IterateChange(), limits=MaxIterations(3))
     @test legacy.iterations == 3 && !legacy.converged
+    @test pilot isa PS.ProximalGradientStoppingResult
     @test pilot.iterations == 1 && termination(pilot).satisfied && !pilot.converged
     @test legacy.minimizer == pilot.minimizer == T[1]
 end
@@ -110,7 +111,7 @@ end
     try
         if set_zero_subnormals(true)
             state = (; x=[0.0], x_previous=[tiny])
-            point = PS.ProximalGradientDescentStoppingPoint(state, 1, 0.0, 0.0)
+            point = PS.ProximalGradientStoppingPoint(state, 1, 0.0, 0.0)
             @test !PS.Stopping.same_iterate(point)
             state.x_previous[1] = -0.0
             @test PS.Stopping.same_iterate(point)
@@ -302,6 +303,7 @@ end
     x = T[1, 0]
     r = solve!(x, f, g, method, options; stopping=rule, limits=MaxIterations(2))
     t = termination(r)
+    @test r isa PS.ProximalGradientStoppingResult
     @test r.minimizer === x && x == T[0, 0] && r.minimum == T(0.5)
     @test r.converged && t.reason === :rule && t.winning_branch == ((1,), (2,), (3,))
     @test r.trace[1].metadata["grad_f(y)"] == T[0.765625, 0]

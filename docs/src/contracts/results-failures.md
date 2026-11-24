@@ -197,7 +197,7 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 ## [RES-04 Explicit gradient stopping result](@id RES-04)
 
-**Statement.** [STOP-22](@ref) returns a `ProximalGradientDescentStoppingResult`
+**Statement.** [STOP-22](@ref) returns a `ProximalGradientStoppingResult`
 whose `minimizer` aliases the caller's coefficient vector. `minimum` is the
 objective at the returned point, or `missing` if a zero iteration cap prevented
 initialization.
@@ -244,7 +244,7 @@ has zero counts.
 
 **Applies to.** The dense vector least-squares PGD and APG routes in [STOP-22](@ref).
 
-**Code.** `src/solvers/pgd_stopping.jl` and `src/stopping.jl`.
+**Code.** `src/solvers/gradient_stopping.jl` and `src/stopping.jl`.
 
 **Tests.** `test/pgd_stopping_policy.jl` checks the winning paths, observation
 states, limit, convergence and satisfaction flags, objective and coefficient

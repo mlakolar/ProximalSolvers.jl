@@ -1,30 +1,30 @@
-struct ProximalGradientDescentStoppingPoint{T,S}
+struct ProximalGradientStoppingPoint{T,S}
     state::S
     iteration::Int
     objective::T
     previous_objective::T
 end
 
-function ProximalGradientDescentStoppingPoint(state, k)
-    ProximalGradientDescentStoppingPoint(state, k, state.f_x + state.g_x,
-                                        state.f_x_previous + state.g_x_previous)
+function ProximalGradientStoppingPoint(state, k)
+    ProximalGradientStoppingPoint(state, k, state.f_x + state.g_x,
+                                  state.f_x_previous + state.g_x_previous)
 end
 
-function Stopping.same_iterate(point::ProximalGradientDescentStoppingPoint{T}) where {T}
+function Stopping.same_iterate(point::ProximalGradientStoppingPoint{T}) where {T}
     U = Stopping.bit_type(T)
     x = reinterpret(U, point.state.x)
     previous = reinterpret(U, point.state.x_previous)
     all(i -> Stopping.equal_bits(x[i], previous[i]), eachindex(x, previous))
 end
 
-Stopping.movement_distance(point::ProximalGradientDescentStoppingPoint{Float64}) =
+Stopping.movement_distance(point::ProximalGradientStoppingPoint{Float64}) =
     norm(point.state.delta_x)
 _gradient_policy_norm(x::Vector{Float64}) = norm(x)
 _gradient_policy_norm(x::Vector{Float32}) = sqrt(sum(v -> abs2(Float64(v)), x))
-Stopping.movement_scale(point::ProximalGradientDescentStoppingPoint) =
+Stopping.movement_scale(point::ProximalGradientStoppingPoint) =
     max(_gradient_policy_norm(point.state.x), _gradient_policy_norm(point.state.x_previous))
 
-function Stopping.movement_distance(point::ProximalGradientDescentStoppingPoint{Float32})
+function Stopping.movement_distance(point::ProximalGradientStoppingPoint{Float32})
     state = point.state
     dx2 = 0.0
     @inbounds @simd for i in eachindex(state.x, state.x_previous)
@@ -34,14 +34,14 @@ function Stopping.movement_distance(point::ProximalGradientDescentStoppingPoint{
 end
 
 """
-    ProximalSolvers.ProximalGradientDescentStoppingResult
+    ProximalSolvers.ProximalGradientStoppingResult
 
 Result of an explicit PGD or APG stopping-policy solve. `minimizer` aliases the supplied
 coefficient vector. `minimum` holds the computed objective or `missing` when
 the iteration budget was zero. Use [`termination`](@ref) to inspect the reason
 and the observations at the returned point.
 """
-struct ProximalGradientDescentStoppingResult{M,T,D}
+struct ProximalGradientStoppingResult{M,T,D}
     method::M
     minimizer::Vector{T}
     minimum::Union{Missing,T}
@@ -58,21 +58,21 @@ struct ProximalGradientDescentStoppingResult{M,T,D}
     decision::D
 end
 
-Stopping.termination(r::ProximalGradientDescentStoppingResult) = r.decision
-Base.summary(r::ProximalGradientDescentStoppingResult) = summary(r.method)
-minimizer(r::ProximalGradientDescentStoppingResult) = r.minimizer
-minimum(r::ProximalGradientDescentStoppingResult) = r.minimum
-iterations(r::ProximalGradientDescentStoppingResult) = r.iterations
-converged(r::ProximalGradientDescentStoppingResult) = r.converged
-iteration_limit_reached(r::ProximalGradientDescentStoppingResult) = r.iteration_converged
-f_increased(r::ProximalGradientDescentStoppingResult) = r.f_increased
-stagnated(r::ProximalGradientDescentStoppingResult) = r.stagnated
-backtrack_steps(r::ProximalGradientDescentStoppingResult) = r.backtrack_steps
-f_calls(r::ProximalGradientDescentStoppingResult) = r.f_calls
-grad_calls(r::ProximalGradientDescentStoppingResult) = r.grad_calls
-prox_calls(r::ProximalGradientDescentStoppingResult) = r.prox_calls
+Stopping.termination(r::ProximalGradientStoppingResult) = r.decision
+Base.summary(r::ProximalGradientStoppingResult) = summary(r.method)
+minimizer(r::ProximalGradientStoppingResult) = r.minimizer
+minimum(r::ProximalGradientStoppingResult) = r.minimum
+iterations(r::ProximalGradientStoppingResult) = r.iterations
+converged(r::ProximalGradientStoppingResult) = r.converged
+iteration_limit_reached(r::ProximalGradientStoppingResult) = r.iteration_converged
+f_increased(r::ProximalGradientStoppingResult) = r.f_increased
+stagnated(r::ProximalGradientStoppingResult) = r.stagnated
+backtrack_steps(r::ProximalGradientStoppingResult) = r.backtrack_steps
+f_calls(r::ProximalGradientStoppingResult) = r.f_calls
+grad_calls(r::ProximalGradientStoppingResult) = r.grad_calls
+prox_calls(r::ProximalGradientStoppingResult) = r.prox_calls
 
-function Base.show(io::IO, r::ProximalGradientDescentStoppingResult)
+function Base.show(io::IO, r::ProximalGradientStoppingResult)
     println(io, summary(r), " (explicit stopping policy)")
     _show_minimizer(io, minimizer(r))
     println(io, " * Minimum: ", minimum(r))
@@ -107,7 +107,7 @@ function _gradient_policy_result(method, x, objective, increased, trace, monitor
     converged = monitor.stationarity !== nothing && decision.satisfied &&
         any(o -> o.evidence === :stationarity && o.status === :pass &&
                o.path in decision.winning_branch, decision.observations)
-    ProximalGradientDescentStoppingResult(
+    ProximalGradientStoppingResult(
         method, x, objective, k, converged, decision.limit_reached, increased, reason === :stalled,
         trace, backtrack_steps, f_calls, grad_calls, prox_calls, decision)
 end
@@ -167,14 +167,14 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
 end
 
 function _initial_gradient_decision(monitor::Stopping.Monitor, state, options, t0)
-    point = ProximalGradientDescentStoppingPoint(state, 0)
+    point = ProximalGradientStoppingPoint(state, 0)
     isfinite(point.objective) || throw(ArgumentError("start from a point where the composite objective is finite"))
     reason = Stopping.check!(monitor, point)
     (; reason, stop=reason !== :continue, point)
 end
 
 function _assess_gradient_step(monitor::Stopping.Monitor, state, f, g, options, iteration)
-    point = ProximalGradientDescentStoppingPoint(state, iteration)
+    point = ProximalGradientStoppingPoint(state, iteration)
     reason = Stopping.check!(monitor, point)
     if reason === :continue && _verified_pgd_stall(state)
         reason = :stalled

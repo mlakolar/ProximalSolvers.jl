@@ -38,5 +38,5 @@ AnyOf
 AllOf
 MaxIterations
 termination
-ProximalSolvers.ProximalGradientDescentStoppingResult
+ProximalSolvers.ProximalGradientStoppingResult
 ```
