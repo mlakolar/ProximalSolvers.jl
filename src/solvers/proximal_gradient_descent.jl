@@ -415,7 +415,7 @@ function solve!(x, f, g, method::ProximalGradientDescent,
                 options::ProximalOptions = ProximalOptions(); stopping=nothing, limits=nothing, kwargs...)
   _check_keywords(kwargs)
   if stopping !== nothing || limits !== nothing
-    return _solve_pgd_policy!(x, f, g, method, options, stopping, limits)
+    return _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
   end
   _check_gradient_problem(x, f, g, :pgd)
   t0 = time()

@@ -252,6 +252,20 @@ image_error(z, X, v) = Float64(norm(big_(z) - big_(X) * big_(v)))
     @test rejected >= 1
     @test restarts >= 1
     @test st.L > 0 && isfinite(st.L)
+
+    # Request a KKT check at every uncapped checkpoint and record the accepted
+    # iteration sequence even when a restart discards a trial.
+    visited = Int[]
+    keep_going = UserStop(c -> (push!(visited, c.iteration); false))
+    rule = AllOf(AnyOf(ScaledKKT(rtol=1e-5), UserStop(_ -> true)), keep_going)
+    r = solve!(zeros(T, p), f, g, m; stopping=rule, limits=MaxIterations(300))
+    t = termination(r)
+    @test visited == collect(0:299)
+    @test t.reason === :limit && t.iteration == 300 && r.minimizer == st.x && r.minimum === Fprev
+    @test t.counts == (f_calls=st.f_calls + 300, grad_calls=st.grad_calls + 300,
+                       g_calls=st.prox_calls + 1, prox_calls=st.prox_calls,
+                       backtrack_steps=st.backtrack_steps, rejected_trials=st.prox_calls - 300)
+
     # On this ill-conditioned fixture the accelerated solve stops after fewer iterations
     # than PGD with the same options (a fixture check of the acceleration, with a wide
     # margin; not a matched-accuracy performance claim).

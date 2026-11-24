@@ -19,10 +19,10 @@ end
 
 Stopping.movement_distance(point::ProximalGradientDescentStoppingPoint{Float64}) =
     norm(point.state.delta_x)
-_pgd_policy_norm(x::Vector{Float64}) = norm(x)
-_pgd_policy_norm(x::Vector{Float32}) = sqrt(sum(v -> abs2(Float64(v)), x))
+_gradient_policy_norm(x::Vector{Float64}) = norm(x)
+_gradient_policy_norm(x::Vector{Float32}) = sqrt(sum(v -> abs2(Float64(v)), x))
 Stopping.movement_scale(point::ProximalGradientDescentStoppingPoint) =
-    max(_pgd_policy_norm(point.state.x), _pgd_policy_norm(point.state.x_previous))
+    max(_gradient_policy_norm(point.state.x), _gradient_policy_norm(point.state.x_previous))
 
 function Stopping.movement_distance(point::ProximalGradientDescentStoppingPoint{Float32})
     state = point.state
@@ -36,7 +36,7 @@ end
 """
     ProximalSolvers.ProximalGradientDescentStoppingResult
 
-Result of an explicit stopping-policy solve. `minimizer` aliases the supplied
+Result of an explicit PGD or APG stopping-policy solve. `minimizer` aliases the supplied
 coefficient vector. `minimum` holds the computed objective or `missing` when
 the iteration budget was zero. Use [`termination`](@ref) to inspect the reason
 and the observations at the returned point.
@@ -83,7 +83,7 @@ function Base.show(io::IO, r::ProximalGradientDescentStoppingResult)
     print(io, " * Stop reason: ", decision.reason)
 end
 
-function _pgd_policy_limit(options, limits)
+function _gradient_policy_limit(options, limits)
     defaults = ProximalOptions()
     options.callback === nothing ||
         throw(ArgumentError("ProximalOptions.callback must be nothing with explicit stopping or limits. Use UserStop for a predicate."))
@@ -93,14 +93,14 @@ function _pgd_policy_limit(options, limits)
             throw(ArgumentError("ProximalOptions.$name must have its default value with explicit stopping or limits"))
     end
     limits === nothing && return MaxIterations(options.maxiter)
-    limits isa MaxIterations || throw(ArgumentError("limits must be MaxIterations(n) for this PGD route"))
+    limits isa MaxIterations || throw(ArgumentError("explicit gradient stopping requires limits=MaxIterations(n)"))
     (options.maxiter == defaults.maxiter || options.maxiter == limits.n) ||
         throw(ArgumentError("ProximalOptions.maxiter conflicts with limits=MaxIterations($(limits.n))"))
     limits
 end
 
-function _pgd_policy_result(method, x, objective, increased, trace, monitor, reason, k,
-                            f_calls, grad_calls, prox_calls, backtrack_steps)
+function _gradient_policy_result(method, x, objective, increased, trace, monitor, reason, k,
+                                 f_calls, grad_calls, prox_calls, backtrack_steps)
     g_calls = ismissing(objective) ? 0 : prox_calls + 1
     counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials=prox_calls-k)
     decision = Stopping.report(monitor, reason, k, counts)
@@ -112,29 +112,56 @@ function _pgd_policy_result(method, x, objective, increased, trace, monitor, rea
         trace, backtrack_steps, f_calls, grad_calls, prox_calls, decision)
 end
 
-function _solve_pgd_policy!(x, f, g, method, options, stopping, limits)
+_check_gradient_policy_problem(x, f, g, ::ProximalGradientDescent) =
+    _check_gradient_problem(x, f, g, :pgd)
+_check_gradient_policy_problem(x, f, g, method::AccProxGradDescent) =
+    _check_apg_problem(x, f, g, method)
+
+_gradient_stationarity_provider(::ProximalGradientDescent, f, g) =
+    (point, rtol) -> _coordinatewise_stationary!(point.state, point.state.grad_f_x, g, rtol)
+
+# Between evaluations in one checkpoint, xhat holds the accepted gradient.
+# APG overwrites the scratch when the next update starts.
+mutable struct APGStationarityProvider{F,G}
+    loss::F
+    penalty::G
+    iteration::Int
+end
+
+_gradient_stationarity_provider(::AccProxGradDescent, f, g) = APGStationarityProvider(f, g, -1)
+
+function (provider::APGStationarityProvider)(point, rtol)
+    state = point.state
+    if provider.iteration != point.iteration
+        _gradient_at_x!(state, provider.loss)
+        state.f_calls += 1
+        provider.iteration = point.iteration
+    end
+    _coordinatewise_stationary!(state, state.xhat, provider.penalty, rtol)
+end
+
+function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
     base = f isa Scaled ? f.f : f
     (x isa Vector && base isa LeastSquaresLoss && base.Y isa Vector &&
      !(g isa Union{IndBox,IndBallL2})) ||
-        throw(ArgumentError("explicit stopping and limits require dense vector least-squares PGD with a supported pilot penalty (excluding box and ball indicators)"))
-    _check_gradient_problem(x, f, g, :pgd)
-    limit = _pgd_policy_limit(options, limits)
+        throw(ArgumentError("explicit stopping and limits require dense vector least-squares PGD or APG with a supported penalty (excluding box and ball indicators)"))
+    _check_gradient_policy_problem(x, f, g, method)
+    limit = _gradient_policy_limit(options, limits)
     monitor = Stopping.prepare(stopping, limit, eltype(x))
     use_stationarity = Stopping.needs_stationarity(monitor)
     if use_stationarity && !(g isa Union{NormL1,ElasticNet})
-        throw(ArgumentError("ScaledKKT requires NormL1 or ElasticNet for dense vector least-squares PGD"))
+        throw(ArgumentError("ScaledKKT requires NormL1 or ElasticNet for dense vector least-squares PGD or APG"))
     end
     if iszero(limit.n)
         trace = OptimizationTrace{typeof(method)}()
-        return _pgd_policy_result(method, x, missing, false, trace, monitor, :limit, 0, 0, 0, 0, 0)
+        return _gradient_policy_result(method, x, missing, false, trace, monitor, :limit, 0, 0, 0, 0, 0)
     end
     g_work = _working_gradient_penalty(g, eltype(x))
     state = initial_state(method, options, f, g_work, x, Val(use_stationarity))
     if use_stationarity
-        monitor = Stopping.with_stationarity(monitor, (point, rtol) ->
-            _coordinatewise_stationary!(point.state, point.state.grad_f_x, g_work, rtol))
+        monitor = Stopping.with_stationarity(monitor, _gradient_stationarity_provider(method, f, g_work))
     end
-    # Vector PGD completes each update or throws. An interruptible route
+    # These vector methods complete each update or throw. An interruptible route
     # needs an _interrupted_gradient_decision method for its stopping decision.
     _solve_gradient!(state, f, g_work, method, options, nothing, monitor)
 end
@@ -162,7 +189,7 @@ _gradient_decision_after_trace(::Stopping.Monitor, previous, assessment, state, 
 function _gradient_result(monitor::Stopping.Monitor, decision, state, method, options, trace, iteration)
     point = decision.point
     increased = point.objective > point.previous_objective
-    _pgd_policy_result(method, state.x, point.objective, increased, trace, monitor, decision.reason,
-                       iteration, state.f_calls, state.grad_calls, state.prox_calls,
-                       state.backtrack_steps)
+    _gradient_policy_result(method, state.x, point.objective, increased, trace, monitor,
+                            decision.reason, iteration, state.f_calls, state.grad_calls,
+                            state.prox_calls, state.backtrack_steps)
 end

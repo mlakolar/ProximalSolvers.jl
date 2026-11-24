@@ -291,6 +291,62 @@ end
                        backtrack_steps=3, rejected_trials=2)
 end
 
+@testset "APG checks the returned point and shares gradient work ($T)" for T in (Float32, Float64)
+    # The extrapolated point has gradient [0.765625, 0]. The first proximal
+    # step reaches zero, where the gradient is zero and the residual is nonzero.
+    f = LeastSquaresLoss(T[0, 0, 1], T[0.875 0; 0 1; 0 0])
+    g, method = NormL1(T(0.5)), AccProxGradDescent(α=1.0)
+    kkt = ScaledKKT(rtol=1e-5)
+    options = ProximalOptions(store_trace=true, extended_trace=true)
+    rule = AllOf(UserStop(c -> c.iteration == 1), kkt, ScaledKKT(rtol=1e-4))
+    x = T[1, 0]
+    r = solve!(x, f, g, method, options; stopping=rule, limits=MaxIterations(2))
+    t = termination(r)
+    @test r.minimizer === x && x == T[0, 0] && r.minimum == T(0.5)
+    @test r.converged && t.reason === :rule && t.winning_branch == ((1,), (2,), (3,))
+    @test r.trace[1].metadata["grad_f(y)"] == T[0.765625, 0]
+    @test t.counts == (f_calls=4, grad_calls=2, g_calls=2, prox_calls=1,
+                       backtrack_steps=1, rejected_trials=0)
+
+    r = solve!(T[0, 0], f, g, method; stopping=kkt)
+    @test r.converged && r.iterations == 0
+    @test termination(r).counts == (f_calls=2, grad_calls=1, g_calls=1, prox_calls=0,
+                                    backtrack_steps=0, rejected_trials=0)
+    r = solve!(T[1, 0], f, g, method; stopping=UserStop(_ -> true))
+    @test !r.converged && r.iterations == 0 && termination(r).reason === :user
+    @test termination(r).counts == (f_calls=1, grad_calls=0, g_calls=1, prox_calls=0,
+                                    backtrack_steps=0, rejected_trials=0)
+
+    r = solve!(T[1, 0], f, g, method;
+               stopping=AnyOf(kkt, IterateChange(atol=2), ObjectiveChange(atol=1)),
+               limits=MaxIterations(1))
+    t = termination(r)
+    @test r.minimizer == T[0, 0] && !r.converged && t.limit_reached && t.reason === :rule
+    @test t.winning_branch == ((3,),)
+    @test map(o -> o.status, t.observations) == (:not_checked, :not_checked, :pass)
+    @test t.counts == (f_calls=4, grad_calls=2, g_calls=2, prox_calls=1,
+                       backtrack_steps=1, rejected_trials=0)
+
+    x = T[1, 0]
+    r = solve!(x, f, g, method; stopping=kkt, limits=MaxIterations(0))
+    @test r.minimizer === x && x == T[1, 0] && r.minimum === missing
+    @test all(iszero, values(termination(r).counts))
+    @test_throws ArgumentError solve!(x, f, NormL2(zero(T)), method;
+        stopping=AnyOf(UserStop(_ -> true), kkt), limits=MaxIterations(0))
+    @test x == T[1, 0]
+end
+
+@testset "APG preflight and explicit rollback" begin
+    x = Float32[0]
+    f, g = unit_loss(Float32), NormL1(0f0)
+    @test_throws ArgumentError solve!(x, f, g, AccProxGradDescent(α=1e-50);
+                                      limits=MaxIterations(0))
+    unrepresentable = LeastSquaresLoss(Float32[1f-20], reshape(Float32[1f20], 1, 1))
+    @test_throws r"cannot increase finitely" solve!(x, unrepresentable, g,
+        AccProxGradDescent(); limits=MaxIterations(1))
+    @test x == Float32[0]
+end
+
 @testset "Absolute movement requires a finite distance" begin
     # The two unobserved coefficients stay fixed. Their Euclidean norm
     # overflows, but the displacement is exactly 1 in the first coordinate.
@@ -334,7 +390,7 @@ end
     refuses(f, g, method; stopping=UserStop(() -> true))
     refuses(f, g, method; stopping=UserStop(_ -> 1))
     refuses(f, g, method; limits=(time=0,))
-    refuses(f, g, AccProxGradDescent(); stopping=IterateChange())
+    refuses(LogisticLoss([1.0], ones(1, 1)), g, AccProxGradDescent(); stopping=IterateChange())
     refuses(LogisticLoss([1.0], ones(1, 1)), g, method; stopping=IterateChange())
     @test_throws ArgumentError solve!(zeros(1, 1), LeastSquaresLoss(ones(1, 1), ones(1, 1)),
                                      g, method; limits=MaxIterations(0))

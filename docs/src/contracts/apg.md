@@ -36,7 +36,7 @@ For one response the error bounds require `max(n, p) + 4 < 1/(4 eps(T))` and `n*
 
 Form `y = x + k/(k+3) * (x - x_previous)` from the two accepted iterates, then take a gradient and proximal step from `y`. The first iteration has no momentum. Before each iteration use `L ← α L`, allowing the step to grow again; `α = 1` keeps this estimate from decreasing. A rejected trial uses `L ← L/β`; a `β` near one makes growth slow. Initial curvature is [PGD-02](@ref).
 
-The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. Each trial uses `value_and_prox!` and a fresh image of its candidate. The unweighted lasso level follows [IN-02](@ref). Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its value is finite. The shared engine then applies [STOP-01](@ref).
+The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. Each trial uses `value_and_prox!` and a fresh image of its candidate. The unweighted lasso level follows [IN-02](@ref). Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its value is finite. The shared engine then applies the default checks in [STOP-01](@ref) or the explicit policy in [STOP-22](@ref).
 
 **Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
@@ -48,7 +48,7 @@ The image `X y` is formed by the same linear combination of cached `X x` and `X 
 
 ### [APG-03 Restart and failure boundary](@id APG-03)
 
-**Statement.** If an extrapolated step raises the computed objective, repeat it once without momentum from `y = x_previous`, copy the cached image of that point, and reset `k` to zero. The next iteration then extrapolates with `1/4`. An accepted step that used momentum does not increase the computed objective. A first or restarted step without momentum can increase it through rounding, invoking the common objective-increase exit unless `allow_f_increases=true`.
+**Statement.** If an extrapolated step raises the computed objective, repeat it once without momentum from `y = x_previous`, copy the cached image of that point, and reset `k` to zero. The next iteration then extrapolates with `1/4`. An accepted step that used momentum does not increase the computed objective. A first or restarted step without momentum can increase it through rounding, invoking the default objective-increase exit unless `allow_f_increases=true`. Under explicit stopping the selected policy governs the exit under [STOP-22](@ref).
 
 A nonfinite value or gradient at the extrapolated point is treated the same way: restart when momentum was used, otherwise fail. A nonfinite trial value is rejected, raising `L` through `next_curvature` rather than immediately accepting or silently ending. If `L/β` cannot increase finitely, the search errors; [RES-01](@ref) specifies restoration of the last accepted iterate and rethrow. A trial with a nonfinite value is never accepted.
 
@@ -78,7 +78,7 @@ A nonfinite value or gradient at the extrapolated point is treated the same way:
 
 ### [APG-04 Trial and oracle counts](@id APG-04)
 
-**Statement.** `backtrack_steps` counts every APG trial, including accepted trials. Let `C` count stationarity checks that evaluate the gradient at accepted `x`, and `C_prox` count additional proximal evaluations by the generic check. On a completed solve,
+**Statement.** `backtrack_steps` counts every APG trial, including accepted trials. Let `C` count stationarity checks that evaluate the gradient at accepted `x`, and `C_prox` count additional proximal evaluations by the generic check. On a completed solve with default stopping,
 
 ```
 grad_calls = iterations + restarts + C
@@ -86,13 +86,23 @@ prox_calls = backtrack_steps + C_prox
 f_calls = 1 + grad_calls + backtrack_steps - C
 ```
 
-For a dedicated KKT check, including the `NormL2` check of [STOP-17](@ref), `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). These counters describe the existing implementation; errors do not transactionally restore them.
+For a dedicated KKT check, including the `NormL2` check of [STOP-17](@ref), `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). Errors do not transactionally restore these counters.
+
+For explicit stopping under [STOP-22](@ref) with a positive cap, initialization
+counts one smooth value and one penalty value. Each application of the fused
+oracle at an accepted point counts one smooth value and one gradient. At most
+one such application is counted per checkpoint, including the initial point.
+Here `grad_calls = iterations + restarts + C`, `backtrack_steps = prox_calls`
+and `f_calls = 1 + grad_calls + backtrack_steps`. The trial total includes
+candidates discarded by a restart. A failed extrapolated oracle contributes
+to the value and gradient counts and contributes no prox trial when none ran.
+[RES-04](@ref) specifies the remaining result counters and the zero-cap return.
 
 **Applies to.** Completed AccProxGradDescent solves.
 
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!; src/utils.jl: _gradient_at_x!, _stationary!`.
 
-**Tests.** test/accelerated_pgd.jl: image-cache counters and trace/limits; test/linf.jl: one extra prox for a proposed stop; test/norml2_pgd.jl: `backtrack_steps == prox_calls` with a dedicated `NormL2` check.
+**Tests.** test/accelerated_pgd.jl: image-cache counters, explicit restart accounting and trace/limits; test/pgd_stopping_policy.jl: explicit initialization, cap and shared diagnostic work; test/linf.jl: one extra prox for a proposed stop; test/norml2_pgd.jl: `backtrack_steps == prox_calls` with a dedicated `NormL2` check.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L320`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docstring:src/types.jl:L75`.
 

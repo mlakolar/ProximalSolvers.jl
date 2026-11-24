@@ -195,7 +195,7 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 **Sources.** `docs/src/numerics.md:L921`, `docs/src/numerics.md:L923`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/developer/implementation-notes.md:L205`, `docstring:src/solvers/proximal_gradient_descent.jl:L334`. The later caught-stage refusal follows [the fallback at f573224f](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/sqrtlasso.jl#L602-L665) and its unchanged outer finite-objective commit boundary.
 
-## [RES-04 Explicit-policy PGD result](@id RES-04)
+## [RES-04 Explicit gradient stopping result](@id RES-04)
 
 **Statement.** [STOP-22](@ref) returns a `ProximalGradientDescentStoppingResult`
 whose `minimizer` aliases the caller's coefficient vector. `minimum` is the
@@ -236,17 +236,20 @@ computations, respectively. A fused computation increments both. `g_calls`
 counts penalty values, including the value at initialization. `prox_calls`
 counts penalty value/prox trials including rejections. Each contributes to both
 counters, and `rejected_trials`
-is the trial count minus accepted iterations. `backtrack_steps` keeps the
-PGD line-search convention of [RES-02](@ref). Initialization contributes one
-smooth value and gradient and no prox trial. A zero-cap result has zero counts.
+is the trial count minus accepted iterations, including any APG prox trials
+discarded by restart. PGD uses the line-search convention in [RES-02](@ref).
+PGD initialization contributes one smooth value and gradient and no prox
+trial. APG work and initialization follow [APG-04](@ref). A zero-cap result
+has zero counts.
 
-**Applies to.** The dense vector least-squares PGD pilot in [STOP-22](@ref).
+**Applies to.** The dense vector least-squares PGD and APG routes in [STOP-22](@ref).
 
 **Code.** `src/solvers/pgd_stopping.jl` and `src/stopping.jl`.
 
 **Tests.** `test/pgd_stopping_policy.jl` checks the winning paths, observation
 states, limit, convergence and satisfaction flags, objective and coefficient
-identity, display and counter totals including rejected trials.
+identity, display and counter totals including rejected trials. `test/accelerated_pgd.jl`
+checks counters through APG restarts.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
 

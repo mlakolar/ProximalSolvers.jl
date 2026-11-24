@@ -7,7 +7,8 @@ See the [current section](@ref evidence-stopping-352).
 ## Select stopping conditions in dense least-squares PGD
 
 Use `stopping` to choose a condition and `limits=MaxIterations(n)` to cap the
-number of accepted updates. `AnyOf` accepts the first passing condition.
+number of accepted updates. These keywords also apply to `AccProxGradDescent`
+on the supported dense least-squares route. `AnyOf` accepts the first passing condition.
 `AllOf` needs its conditions to pass at the same checkpoint. `IterateChange`
 and `ObjectiveChange` measure progress between accepted points. `UserStop`
 accepts a predicate over scalar checkpoint metadata. With `NormL1` or
@@ -32,12 +33,14 @@ termination(r)
 `r.converged` is true when the winning branch includes a passing `ScaledKKT`.
 The [result contract](@ref RES-04)
 describes the stop reason, winning leaves, observations and counts. Omit both
-keywords to use the default PGD stopping policy.
+keywords to use the solver’s default stopping policy.
 
 At the [iteration cap](@ref STOP-22), a tie can use stored objective values.
 `ScaledKKT`, `IterateChange` and `UserStop` are marked `:not_checked` there.
 A solve using `ScaledKKT` alone reports `reason = :limit` and
-`converged = false` if it reaches the cap.
+`converged = false` if it reaches the cap. In APG, an evaluated KKT check
+uses the gradient at the accepted point and includes its cost in the
+[oracle counts](@ref APG-04).
 
 ## The criterion and a certificate
 

@@ -38,7 +38,7 @@ A convergence flag reports the solver's implemented stopping criterion;
 | --- | --- |
 | Least-squares CD, including group and multi-response fits | The pass-change test succeeded; it is not an independent optimality check |
 | PGD/APG with default stopping | A stopping proposal passed the applicable computed stationarity check |
-| PGD with an explicit policy | Inspect `termination(r).satisfied` and `termination(r).reason`. The pilot's progress and user rules leave `converged` false. See [RES-04](@ref) |
+| PGD/APG with an explicit policy | A passing `ScaledKKT` leaf in the winning branch sets `converged`. Inspect `termination(r).satisfied` and `termination(r).reason` for the policy outcome. See [RES-04](@ref) |
 | `ProxNewton` (logistic regression) | The largest KKT score of the returned point is finite and at most `tol`; see [PN-05](@ref) |
 | `LogisticADMM` (logistic regression) | The primal and dual residual tests passed and the largest KKT score of the returned point is at most `tol`; see [LA-04](@ref) |
 | Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |

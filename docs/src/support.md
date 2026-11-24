@@ -159,8 +159,8 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
 
 | Solver and problem | Coefficient storage | Available conditions and limit |
 | --- | --- | --- |
-| PGD with dense vector-response least squares, raw or with one supported positive scale, and its supported penalties apart from box and ball indicators | `Vector{Float32}` or `Vector{Float64}` | `IterateChange`, `ObjectiveChange`, `UserStop`, `AnyOf`, `AllOf` and `MaxIterations` |
-| The same PGD route with `NormL1` or `ElasticNet`, with or without supported weights | `Vector{Float32}` or `Vector{Float64}` | Also `ScaledKKT(rtol=...)` |
+| PGD or APG with dense vector-response least squares, raw or with one supported positive scale, and the solver’s supported penalties apart from box and ball indicators | `Vector{Float32}` or `Vector{Float64}` | `IterateChange`, `ObjectiveChange`, `UserStop`, `AnyOf`, `AllOf` and `MaxIterations` |
+| These PGD and APG routes with `NormL1` or `ElasticNet`, with or without supported weights | `Vector{Float32}` or `Vector{Float64}` | Also `ScaledKKT(rtol=...)` |
 
 Other solver and problem routes use their existing stopping options. See
 [the explicit-policy contract](@ref STOP-22) for the input and option rules.
