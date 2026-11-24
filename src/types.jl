@@ -164,7 +164,8 @@ end
 """
     OptimizationState{T<:ProximalSolver}
 
-One iteration of a trace: `iteration`, the objective `fg_x = f(x) + g(x)`,
+One iteration of a trace: `iteration`, the monitored composite objective `fg_x` (the smooth value plus the
+monitored penalty; see [IN-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-08)),
 the relative change `dxx = ‖x - x'‖ / ‖x‖`, the inverse step size `L`, and a
 `metadata` dictionary that holds the iterate and gradient when
 `extended_trace = true`.
