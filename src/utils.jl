@@ -80,10 +80,12 @@ end
 
 # One trial at state.L (PGD's search!, APG's _prox_grad_step!): the step into xhat from the base point (PGD: x_previous,
 # APG: y) and its gradient, the proximal image x of xhat at step 1/L, the penalty value, the image and loss value of x,
-# then the two counts. The IndBallL1 route has its own method (src/solvers/l1ball.jl, IN-12).
+# then the two counts. The penalty value is the monitored one of _trial_penalty_value (IN-08). The IndBallL1 route has
+# its own method (src/solvers/l1ball.jl, IN-12).
 @inline function LineSearches.trial!(state::Union{ProximalGradientDescentState, AccProxGradDescentState}, f, g)
   _trial_step!(state)
-  state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
+  v = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
+  state.g_x = _trial_penalty_value(g, v, state.x)
   state.f_x = _value!(state.x, f, state.model, state.z_x)
   state.prox_calls += 1
   state.f_calls += 1

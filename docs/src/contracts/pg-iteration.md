@@ -41,13 +41,13 @@ At an iteration it saves the last accepted point, objective components and gradi
 3. Form the trial's least-squares image and value.
 4. Apply the line-search decision, refreshing the gradient when its mode requires it.
 
-The accepted point's gradient is refreshed if the line search did not already update it, including a zero-step exit in gradient mode. The gradient engine then checks the accepted objective for finiteness, assesses stopping, traces/calls back, and checks limits and separate exits in that order.
+The accepted point's gradient is refreshed if the line search did not already update it, including a zero-step exit in gradient mode. The gradient engine then checks the accepted objective for finiteness (for an `IndBallL2` trial, the monitored composite of [IN-08](@ref)), assesses stopping, traces/calls back, and checks limits and separate exits in that order.
 
 The prox is soft thresholding for `NormL1`, with entry level `λ wⱼ` for weights; soft thresholding followed by the ridge weight for `ElasticNet`; the point minus its projection onto the ℓ1 ball of radius `λ/L` for `NormLinf` (a common clipping level); and block soft thresholding for `GroupNormL2`, scaling a block `v_G` by `max(0, 1 - γ λ wₖ/‖v_G‖₂)` at step `γ`, with a zero block left zero. For `NormL2(λ)`, the exact-arithmetic formula at step `γ` is zero when `‖v‖₂ ≤ γ λ` and `(1 - γ λ/‖v‖₂) v` otherwise. The solver delegates the evaluation to ProximalBase, which can round the cutoff comparison. The working-precision conventions for these oracles are [FP-01](@ref). The level of `NormL2` is the working level of [IN-02](@ref), and its stop check is [STOP-17](@ref).
 
 For unweighted `NormL1Nonneg(λ)`, the prox is componentwise `max(v - λ/L, 0)`. For `IndNonnegative()`, ProximalBase projects componentwise with `max(v, 0)`. Both operators enforce nonnegativity at each step. The feasible-start and input requirements are [IN-07](@ref), and the dedicated constrained stationarity check is [STOP-16](@ref).
 
-For the box and ball indicators in [IN-08](@ref), the proximal step projects onto the corresponding set using ProximalBase. The generic stationarity check is [STOP-07](@ref).
+For the box and ball indicators in [IN-08](@ref), the proximal step uses ProximalBase's rounded projection onto the corresponding set. The generic stationarity check is [STOP-07](@ref). For `IndBallL2`, ProximalBase's rounded projection can store a point with fused value `Inf` that is admitted with monitored penalty `0`, and the reported `minimum` is the monitored objective ([IN-08](@ref)).
 
 For matrix-response entrywise lasso, the same sequence carries coefficient,
 gradient and displacement buffers of size `p × K` and predictor and residual
@@ -60,7 +60,7 @@ For a raw `LogisticLoss` with `NormL1`, the same sequence forms the logistic ima
 
 **Applies to.** ProximalGradientDescent; dense vectors and the matrices in [IN-10](@ref).
 
-**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/line_searches.jl: search!; src/utils.jl: LineSearches.trial!; src/solve.jl: _solve_gradient!`.
+**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/line_searches.jl: search!; src/utils.jl: LineSearches.trial!` (the shared trial of PGD and APG); `src/solve.jl: _trial_penalty_value, _solve_gradient!`.
 
 **Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix buffer shapes, values, gradients and traces. test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/norml2_pgd.jl: PGD and APG solutions against the orthogonal closed form; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
 
@@ -151,5 +151,7 @@ Existing tests listed at each clause cover image order, fused prox, counts, cons
 ## Change log
 
 [#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: PGD accepts `IndBallL1` on the route of [IN-12](@ref); the trial of the other penalties is unchanged.
+
+[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): the monitored penalty of a four-coefficient `IndBallL2` trial is specified in [IN-08](@ref). Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
 
 The shared image engine and scalar APIs are retained. The historical support wording above was retired under [#416](https://github.com/mlakolar/ProximalSolvers.jl/issues/416) and remains only as provenance; no numerical restoration is inferred.

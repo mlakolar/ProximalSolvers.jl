@@ -38,7 +38,7 @@ The curvature of an accepted trial is not checked again. In particular, a roundi
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
-**Code.** `src/line_searches.jl: backtrack!, has_updated_gradient, search!, trial!; src/solvers/proximal_gradient_descent.jl: update_state!; src/utils.jl: LineSearches.trial!`.
+**Code.** `src/line_searches.jl: backtrack!, has_updated_gradient, search!, trial!; src/solvers/proximal_gradient_descent.jl: update_state!; src/utils.jl: LineSearches.trial!` (the shared trial of PGD and APG); `src/solve.jl: _trial_penalty_value`.
 
 **Tests.** test/minimal_core_characterization.jl: recorded trials, both modes and zero-step refresh; test/core_regressions.jl: checked rejection testsets.
 

@@ -40,7 +40,7 @@ The image `X y` is formed by the same linear combination of cached `X x` and `X 
 
 **Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
-**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: initial_state, update_state!, _prox_grad_step!`.
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: initial_state, update_state!, _prox_grad_step!; src/utils.jl: LineSearches.trial!` (the shared trial of PGD and APG); `src/solve.jl: _trial_penalty_value`.
 
 **Tests.** test/accelerated_pgd.jl: momentum, backtracking rejection, restart and image caches.
 
@@ -48,9 +48,9 @@ The image `X y` is formed by the same linear combination of cached `X x` and `X 
 
 ### [APG-03 Restart and failure boundary](@id APG-03)
 
-**Statement.** If an extrapolated step raises the computed objective, repeat it once without momentum from `y = x_previous`, copy the cached image of that point, and reset `k` to zero. The next iteration then extrapolates with `1/4`. An accepted step that used momentum does not increase the computed objective. A first or restarted step without momentum can increase it through rounding, invoking the common objective-increase exit unless `allow_f_increases=true`.
+**Statement.** If an extrapolated step raises the computed objective (the smooth value plus the monitored penalty, [IN-08](@ref)), repeat it once without momentum from `y = x_previous`, copy the cached image of that point, and reset `k` to zero. The next iteration then extrapolates with `1/4`. An accepted step that used momentum does not increase the computed objective. A first or restarted step without momentum can increase it through rounding, invoking the common objective-increase exit unless `allow_f_increases=true`.
 
-A nonfinite value or gradient at the extrapolated point is treated the same way: restart when momentum was used, otherwise fail. A nonfinite trial value is rejected, raising `L` through `next_curvature` rather than immediately accepting or silently ending. If `L/β` cannot increase finitely, the search errors; [RES-01](@ref) specifies restoration of the last accepted iterate and rethrow. A trial with a nonfinite value is never accepted.
+A nonfinite value or gradient at the extrapolated point is treated the same way: restart when momentum was used, otherwise fail. A nonfinite smooth trial value is rejected, raising `L` through `next_curvature` rather than immediately accepting or silently ending. If `L/β` cannot increase finitely, the search errors; [RES-01](@ref) specifies restoration of the last accepted iterate and rethrow. A trial with a nonfinite smooth value is never accepted. The monitored penalty of an `IndBallL2` trial is specified in [IN-08](@ref).
 
 **Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
@@ -299,5 +299,7 @@ The retired normalized-KKT shorthand remains separately available as [historical
 ## Change log
 
 [#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: APG accepts `IndBallL1` on the route of [IN-12](@ref); [APG-04](@ref) excludes that route from its counter identities. APG on the other penalties is unchanged.
+
+[#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): the monitored penalty of a four-coefficient `IndBallL2` trial is specified in [IN-08](@ref).
 
 Relative to `legacy/full`, the dense method removed metric, tuple, owner and generic smooth-loss paths; validates its factors in `T`; retries a nonfinite trial through finite curvature growth; replaces the old rounded-square/8eps cached-image allowance by the proof above; and accepts a finite-value point with `x == y`, where the legacy path raised. A nonfinite extrapolated gradient follows the same restart/failure path as a nonfinite value. These are baseline differences, not changes introduced by this migration.
