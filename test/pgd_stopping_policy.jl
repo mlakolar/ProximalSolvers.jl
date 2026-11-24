@@ -169,6 +169,7 @@ end
     @test visited == [(0, 0.5), (1, 0.0)]
     @test t.iteration == 1 && t.reason == :rule && t.satisfied && !r.converged
     @test t.counts == (f_calls=5, grad_calls=2, g_calls=4, prox_calls=3, backtrack_steps=3, rejected_trials=2)
+    @test PS.backtrack_steps(r) == t.counts.backtrack_steps
     @test t.observations[2].value == t.observations[2].threshold == 0.5
     @test x == [1.0] && r.minimum == (x[1] - 1)^2 / 2
     @test length(r.trace) == 1
@@ -371,7 +372,7 @@ end
     f, g = LeastSquaresLoss([1.0], fill(2.0, 1, 1)), NormL1(0.0)
     x = [0.0]
     r = solve!(x, f, g, method; stopping=UserStop(c -> c.iteration == 2), limits=MaxIterations(3))
-    @test r.iterations == 2 && r.f_increased && x == [-4.0] && r.minimum == 40.5
+    @test r.iterations == 2 && PS.f_increased(r) && x == [-4.0] && r.minimum == 40.5
     @test termination(r).reason == :user && !r.converged
 end
 
