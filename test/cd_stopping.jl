@@ -19,16 +19,35 @@ end
     @test r isa PS.CoordinateDescentStoppingResult
     @test PS.minimizer(r) === x && x == T[0, 1] && PS.minimum(r) === T(2.125)
     @test PS.iterations(r) == r.passes == t.iteration == 2
-    @test !PS.converged(r) && !r.converged && t.satisfied && t.reason === :rule
+    @test !PS.converged(r) && !r.converged && !t.satisfied && t.reason === :limit
     @test t.limit isa MaxPasses && t.limit.n == 2 && t.limit_reached
-    @test t.winning_branch == ((2,),)
-    @test map(o -> o.status, t.observations) == (:not_checked, :pass)
+    @test t.winning_branch === nothing
+    @test map(o -> o.status, t.observations) == (:not_checked, :not_checked)
     @test checkpoints == [(0, T(3.125)), (1, T(2.125))]
     @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=3)
     # At the returned point the inactive first coordinate has |X₁'r| = 1 > 0.5.
     @test abs((f.Y - f.X * x)[1]) == one(T)
     @test occursin("Coordinate Descent", summary(r))
-    @test occursin("rule", sprint(show, r))
+    @test occursin("reason=limit", sprint(show, r))
+
+    r = solve!(zeros(T, 2), f, g, method; stopping=ObjectiveChange(), limits=MaxPasses(2))
+    t = termination(r)
+    @test t.reason === :limit && t.observations[1].status === :not_checked
+    @test r.minimum === T(2.125) && t.counts.objective_evaluations == 2
+
+    r = solve!(zeros(T, 2), f, g, method;
+               stopping=ObjectiveChange(atol=100), limits=MaxPasses(1))
+    t = termination(r)
+    @test t.reason === :limit && t.observations[1].status === :not_checked
+    @test r.minimum === T(2.125) && t.counts.objective_evaluations == 1
+
+    r = solve!(zeros(T, 2), f, g, method;
+               stopping=ObjectiveChange(atol=3/16), limits=MaxPasses(3))
+    t = termination(r)
+    @test r.minimizer == T[-0.5, 1.25] && r.minimum === T(1.9375)
+    @test t.reason === :rule && t.satisfied && t.limit_reached && t.iteration == 3
+    @test t.winning_branch == ((),) && t.observations[1].value == 3/16
+    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=2)
 
     r = solve!(zeros(T, 2), f, g, method; limits=MaxPasses(3))
     t = termination(r)
@@ -40,12 +59,19 @@ end
 
 @testset "Composition and the initial checkpoint ($T)" for T in (Float32, Float64)
     f, g, method = example(T)
-    rule = AllOf(UserStop(c -> c.iteration == 1), ObjectiveChange(atol=1))
+    rule = AllOf(UserStop(c -> c.iteration == 3), ObjectiveChange(atol=3/16))
     r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxPasses(4))
     t = termination(r)
     @test t.reason === :rule && !t.limit_reached && t.winning_branch == ((1,), (2,))
-    @test t.counts == (full_passes=1, active_passes=0, coordinate_visits=2, objective_evaluations=2)
-    @test (t.observations[2].value, t.observations[2].threshold) == (1.0, 1.0)
+    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=4)
+    @test (t.observations[2].value, t.observations[2].threshold) == (3/16, 3/16)
+
+    rule = AnyOf(ObjectiveChange(atol=100), UserStop(c -> c.iteration == 2))
+    r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxPasses(3))
+    t = termination(r)
+    @test r.passes == 2 && t.reason === :user && t.winning_branch == ((2,),)
+    @test map(o -> o.status, t.observations) == (:not_checked, :pass)
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=3)
 
     user = UserStop(c -> c.iteration == 0 && c.objective === T(3.125))
     r = solve!(zeros(T, 2), f, g, method; stopping=AnyOf(ObjectiveChange(), user))
@@ -54,10 +80,27 @@ end
     @test map(o -> o.status, t.observations) == (:not_checked, :pass)
     @test t.counts == (full_passes=0, active_passes=0, coordinate_visits=0, objective_evaluations=1)
 
-    equal = CDSolver(order=:cyclic, maxpasses=2)
+    equal = CDSolver(order=:cyclic, maxpasses=3)
     r = solve!(zeros(T, 2), T(2) * f, NormL1(one(T)), equal;
-               stopping=ObjectiveChange(), limits=MaxPasses(2))
-    @test r.minimum === T(4.25) && termination(r).limit_reached && termination(r).satisfied
+               stopping=ObjectiveChange(atol=3/8), limits=MaxPasses(3))
+    @test r.minimum === T(3.875) && termination(r).limit_reached && termination(r).satisfied
+end
+
+@testset "An active objective cannot replace the full-sweep predecessor ($T)" for T in (Float32, Float64)
+    f = LeastSquaresLoss(T[2, 1], T[1 1; 0 1])
+    g = NormL1(T(0.5))
+    method = CDSolver(order=:cyclic, relative=false, tol=1)
+    seen = Tuple{Int,T}[]
+    observe(c) = (push!(seen, (c.iteration, c.objective)); false)
+    rule = AnyOf(ObjectiveChange(atol=1/16), UserStop(observe))
+    r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxPasses(3))
+    t = termination(r)
+    @test seen == [(0, T(2.5)), (1, T(1.125)), (2, T(0.9375))]
+    @test r.minimizer == T[0.75, 0.875] && r.minimum === T(0.890625)
+    @test t.reason === :limit && t.limit_reached && !t.satisfied
+    @test map(o -> o.status, t.observations) == (:fail, :not_checked)
+    @test t.observations[1].value == 15/64 && t.observations[1].threshold == 1/16
+    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=6, objective_evaluations=4)
 end
 
 @testset "Zero cap, conflicts and all-leaf preflight" begin
@@ -105,7 +148,7 @@ end
     @test_throws ArgumentError solve!(x, f, g, method; stopping=UserStop(_ -> 1))
     @test x == [2, 0]
     x = [floatmax(Float64) / 2, 0.0]
-    @test_throws ArgumentError solve!(x, f, g, method; stopping=ObjectiveChange())
+    @test_throws ArgumentError solve!(x, f, g, method; stopping=UserStop(_ -> false))
     @test x == [floatmax(Float64) / 2, 0]
 
     f = LeastSquaresLoss([0.0], ones(1, 1))

@@ -260,14 +260,15 @@ Its `minimizer` aliases the caller's coefficients, `minimum` holds the computed
 objective or `missing` at a zero cap, and `passes` counts completed sweeps.
 `converged` is false on this route. A fulfilled objective or user condition is
 recorded in `termination(result).satisfied`. A fulfilled `ObjectiveChange`
-leaf records progress evidence. See [CD-10](@ref) for the risk from inactive
-coordinates and [stationarity checks](@ref learn-02) for assessing the fit.
+leaf records progress between two completed full sweeps. See [CD-10](@ref) for
+the checkpoint schedule and [stationarity checks](@ref learn-02) for assessing the fit.
 
 The report uses the rule reasons, leaf observations and winning paths in
 [RES-04](@ref). Its `iteration` is the completed pass count, its `limit` is the
 resolved `MaxPasses`, and `limit_reached` reports whether that count equals the
-cap. At a tie with a passing objective rule the reason is `:rule` and the
-limit flag is true. The `counts` fields are `full_passes`, `active_passes`,
+cap. At a full-pass tie with a passing objective rule the reason is `:rule`
+and the limit flag is true. At an active-pass cap the reason is `:limit` and
+the observations are unchecked. The `counts` fields are `full_passes`, `active_passes`,
 `coordinate_visits` and `objective_evaluations`. The two pass counts sum to
 `passes`. Visits and composite objective evaluations count the work specified
 in [CD-10](@ref). Display and result accessors perform no solver evaluations.

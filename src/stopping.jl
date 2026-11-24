@@ -49,9 +49,11 @@ end
     ObjectiveChange(; atol=0.0, rtol=0.0)
 
 Check the absolute change in the original composite objective between successive
-accepted iterates or completed coordinate passes. Two zero tolerances select
-equality of the computed objectives. See [STOP-22](@ref) for the scale and
-arithmetic and [CD-10](@ref) for coordinate-descent checkpoints.
+accepted iterates for PGD and APG, or successive completed full sweeps for
+coordinate descent. The first full sweep has no predecessor, and the rule is
+unchecked on active sweeps. Two zero tolerances select equality of the computed
+objectives. See [STOP-22](@ref) for the scale and arithmetic and [CD-10](@ref)
+for coordinate-descent checkpoints.
 """
 struct ObjectiveChange
     atol::Float64
@@ -78,6 +80,7 @@ end
 Stop when `predicate(context)` returns `true`. The immutable context has
 `iteration` and `objective` fields and is available from the initial point.
 For coordinate descent, `iteration` counts completed passes.
+Both full and active passes supply checkpoints before the cap.
 See [STOP-22](@ref) and [CD-10](@ref) for evaluation order and budget ties.
 """
 struct UserStop{F}
@@ -191,6 +194,10 @@ needs_stationarity(::Union{Nothing,RuleState}) = false
 needs_stationarity(::RuleState{ScaledKKT}) = true
 needs_stationarity(tree::Union{AnyOf,AllOf}) = any(needs_stationarity, tree.rules)
 
+needs_user_stop(::Union{Nothing,RuleState}) = false
+needs_user_stop(::RuleState{<:UserStop}) = true
+needs_user_stop(tree::Union{AnyOf,AllOf}) = any(needs_user_stop, tree.rules)
+
 with_stationarity(monitor, provider) =
     Monitor(monitor.root, monitor.limit, monitor.movement,
             StationarityCache(provider, -1, Dict{UInt64,Bool}()))
@@ -240,10 +247,12 @@ end
 
 function assess(rule::ObjectiveChange, point, monitor, at_limit)
     point.iteration == 0 && return unchecked
+    previous = point.previous_objective
+    previous === nothing && return unchecked
     if stored_zero(rule.atol) && stored_zero(rule.rtol)
-        return boolean_observation(stored_equal(point.objective, point.previous_objective))
+        return boolean_observation(stored_equal(point.objective, previous))
     end
-    current, previous = Float64(point.objective), Float64(point.previous_objective)
+    current, previous = Float64(point.objective), Float64(previous)
     atmost(abs(current - previous), rule.atol, rule.rtol, max(abs(current), abs(previous)))
 end
 

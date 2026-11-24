@@ -512,21 +512,27 @@ pass limit decide when the run ends. The budget counts each completed full or
 active pass once, including an empty active pass. Coordinate visits count the
 candidate coordinates at the start of the sweep, before compaction.
 
-With a rule, evaluate the composite objective at initialization and after each
-completed pass from the cached residual and the penalty in [CD-09](@ref).
-The two adjacent computed values and their arithmetic are those of
-`ObjectiveChange` in [STOP-22](@ref). The initial observation has no predecessor.
-Evaluate `UserStop` with `(; iteration, objective)` under the predicate rules
-of [STOP-22](@ref), with `iteration` the number of completed passes. Both leaves
-share each checkpoint's objective. Composition uses the same ordered short
-circuiting as [STOP-22](@ref). At the cap the required final objective and its
-predecessor can settle an objective tie. `UserStop` is unchecked at the cap.
-A positive limit-only solve evaluates the objective once at return.
+`ObjectiveChange` compares objectives from two successive completed full
+sweeps, using the arithmetic in [STOP-22](@ref). The first full sweep supplies
+the first value, even if composition skips an objective leaf at that checkpoint.
+The change observation is unchecked at initialization, on the first full sweep,
+and on active sweeps. An active objective never replaces the full-sweep history.
+At the cap, a full sweep can settle a tie when there is an earlier full objective.
+
+Evaluate the composite objective from the cached residual and penalty in
+[CD-09](@ref). With only objective conditions, evaluate once per full sweep
+and at the returned endpoint if the cap ends on an active sweep. A positive
+limit-only solve evaluates once at return. A tree containing `UserStop` uses
+one evaluation at initialization and after each completed sweep. At each of
+those checkpoints share the value among conditions and reuse it at return.
+Evaluate the predicate with `(; iteration, objective)`, with `iteration` the
+number of completed passes. Composition uses the ordered short circuiting in
+[STOP-22](@ref). `UserStop` is unchecked at the cap.
 
 An active sweep can leave the objective unchanged while an omitted coordinate
-still violates the full problem's KKT conditions. `ObjectiveChange` supplies
-progress evidence at its two endpoints. [RES-05](@ref) specifies how that
-evidence appears in the result.
+still violates the full problem's KKT conditions. Sampling full sweeps avoids
+that active-only exit. `ObjectiveChange` supplies progress evidence at its two
+endpoints. [RES-05](@ref) specifies how that evidence appears in the result.
 
 A required nonfinite objective raises an error. A numerical or predicate
 exception can escape before a completed result and before the private iterate
@@ -541,10 +547,11 @@ default `momentum=nothing`.
 
 **Code.** `src/cd/solver.jl` and `src/stopping.jl`.
 
-**Tests.** `test/cd_stopping.jl` checks analytic full and active passes, including
-an unchanged active pass with an inactive-coordinate KKT violation. It also
-checks zero visits, composition, counts, preflight, rollback and default
-trajectory agreement with a fixed budget and matched RNG state.
+**Tests.** `test/cd_stopping.jl` checks analytic full and active passes,
+including an unchecked active pass with an inactive-coordinate KKT violation,
+the first full sweep, a full-sweep tie at the cap, and a measured active objective
+between full sweeps. It also checks composition, counts, preflight, rollback and
+default trajectory agreement at a fixed budget and matched RNG state.
 
 **Sources.** [#523, solver rollout B3](https://github.com/mlakolar/ProximalSolvers.jl/issues/523)
 and [the shared stopping design](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).

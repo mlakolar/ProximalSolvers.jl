@@ -25,8 +25,9 @@ With default stopping, `converged` reports a change test and square-root lasso
 also requires a certificate. See [RES-01](@ref).
 
 Dense vector least-squares lasso with an unweighted `NormL1` and momentum off
-also accepts `stopping` and `limits` in [`solve!`](@ref). See [CD-10](@ref) for
-conditions, pass budgets and the role of the change tolerance in scheduling.
+also accepts `stopping` and `limits` in [`solve!`](@ref). `ObjectiveChange`
+compares consecutive full sweeps. Both full and active sweeps count toward
+`MaxPasses`. See [CD-10](@ref) for checkpoints and scheduling.
 
 ## Keywords
 
@@ -552,8 +553,10 @@ end
 
 mutable struct _CDStoppingObserver{T,M,F}
   objective::T
+  previous_full_objective::Union{Nothing,T}
   monitor::M
   loss::F
+  has_user_stop::Bool
   reason::Symbol
   full_passes::Int
   active_passes::Int
@@ -569,9 +572,10 @@ function _measure_cd_objective!(observer, m, g, x)
   observer.objective = objective
 end
 
-function _check_cd_checkpoint!(observer, m, g, x, pass)
-  previous_objective = observer.objective
+function _check_cd_checkpoint!(observer, m, g, x, pass, full)
+  previous_objective = full ? observer.previous_full_objective : nothing
   objective = _measure_cd_objective!(observer, m, g, x)
+  full && (observer.previous_full_objective = objective)
   point = (; iteration=pass, objective, previous_objective)
   observer.reason = Stopping.check!(observer.monitor, point)
 end
@@ -585,7 +589,10 @@ function _observe_cd_pass!(observer::_CDStoppingObserver, m, g, x, pass, full, a
     observer.coordinate_visits += active
   end
   observer.monitor.root === nothing && return false
-  _check_cd_checkpoint!(observer, m, g, x, pass) !== :continue
+  # Full sweeps define objective history. User predicates need the current value,
+  # and the capped endpoint needs its value for the result.
+  (full || observer.has_user_stop || pass == observer.monitor.limit.n) || return false
+  _check_cd_checkpoint!(observer, m, g, x, pass, full) !== :continue
 end
 
 _check_cd_rule(rule) = throw(ArgumentError("unsupported coordinate descent stopping condition $(typeof(rule))"))
@@ -618,12 +625,13 @@ function _solve_cd_policy!(x, f, g, method, stopping, limits)
   limit = _cd_policy_limit(method, limits)
   stopping === nothing || _check_cd_rule(stopping)
   monitor = Stopping.prepare(stopping, limit, eltype(x))
-  observer = _CDStoppingObserver(zero(eltype(x)), monitor, f, :continue, 0, 0, 0, 0)
+  has_user_stop = Stopping.needs_user_stop(monitor.root)
+  observer = _CDStoppingObserver(zero(eltype(x)), nothing, monitor, f, has_user_stop, :continue, 0, 0, 0, 0)
   limit.n == 0 && return _cd_policy_result(x, missing, observer, 0, :limit)
 
   work = SparseIterate(x)
   m = _initialize_cd_model!(work, f, g, true)
-  if stopping !== nothing && _check_cd_checkpoint!(observer, m, g, work, 0) !== :continue
+  if has_user_stop && _check_cd_checkpoint!(observer, m, g, work, 0, false) !== :continue
     return _cd_policy_result(x, observer.objective, observer, 0, observer.reason)
   end
 
