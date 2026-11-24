@@ -604,6 +604,100 @@ _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
 
+# The penalty value that a gradient step monitors for a trial point x, with v the value that
+# ProximalBase's value_and_prox! returned for it (IN-08).
+#
+# For IndBallL2, ProximalBase stores a rounded projection and evaluates that stored point strictly, so v can be Inf for a
+# point within rounding of the ball. This can occur for a radius below 2sqrt(4floatmin(T) / eps(T)) and for entries
+# whose sum of squares leaves the normal range of T, where the projection takes ProximalBase's general route. The
+# IndBallL2 method returns zero, the value of a clipped IndBox trial, when v == Inf and _within_ball_tolerance
+# accepts x. Otherwise it returns v: an unadmitted Inf stays Inf, and 0 and NaN are returned unchanged without a scan
+# of x. Backtracking or an APG momentum restart can supersede a trial that carries Inf before the step returns. The
+# finiteness guard of _solve_gradient! sees the trial that the step returns, and raises and restores the last accepted
+# point when its monitored composite is not finite. The generic method returns v for any other penalty, and for an
+# IndBallL2 whose radius or coefficient array does not have the element type T (the gates refuse that problem).
+@inline _trial_penalty_value(g, v, x) = v
+
+@inline function _trial_penalty_value(g::IndBallL2{T}, v, x::Vector{T}) where {T<:Union{Float32, Float64}}
+  v == T(Inf) && _within_ball_tolerance(x, g.r) ? zero(T) : v
+end
+
+# Whether the stored point x of an IndBallL2(r) trial is within the numerical tolerance of the Euclidean ball, so that
+# the trial is admitted (IN-08); the caller supplies the condition that the
+# fused value is Inf, which this function does not read. It requires r finite and positive, every entry finite, and
+# the computed norm of x at most the computed threshold r (1 + 8eps(T)). The error bounds below assume round-to-nearest
+# with gradual underflow (flushing subnormals to zero can erase an entry), hold to first order in u = eps(T) / 2, and are
+# for the n = 4 entries of the supported IndBallL2.
+#
+# Projection. Suppose the quotient r / n̂ and the stored products are normal numbers. Its general route can then store
+# y_i = fl(fl(r / n̂) x_i) with n̂ = fl(sqrt(fl(x_1² + ... + x_4²))). The sum of four squares has relative error at most
+# 4u, so n̂ has at most 3u, the quotient adds u and the product adds u: ‖y‖ ≤ r (1 + 5u) = r (1 + 2.5 eps(T)). The scaled
+# route, which sums compensated in Float64, counts at most 4u: two for the norm, one for the quotient and one for the
+# entry. Under these assumptions a stored point with fused value Inf violates the ball by at most 2.5 eps(T). Outside
+# them the relative estimate can fail, for example when the quotient is outside the normal range; and the final rounding of
+# a product that falls in the subnormal range has an absolute error of at most nextfloat(zero(T)) / 2 (the recovered route
+# can round the significand before that step), which relative to the radius is not bounded by u. For r = nextfloat(zero(T)) and x = (1, 1, 0, 0) the projection stores two entries equal to r, so
+# ‖y‖ = sqrt(2) r, and the check rejects that point.
+#
+# Check, Float64. The entries and the radius are scaled by two normal powers of two, 2^k1 and 2^(k - k1), with
+# k = -exponent(m) for the largest magnitude m and k1 = clamp(k, -1022, 1023). ProximalBase's `_normal_power` builds each
+# factor from exponent bits over the normal range, and `_scale_value` applies them as two multiplications, so that the
+# scaled maximum lies in [1, 2) and no square overflows. Both factors are exact for the largest entry. `_power_factors` is
+# not used: for k = -1023 (m at least 2^1023) its single factor 2^-1023 is subnormal and can be treated as zero when
+# subnormals are flushed.
+# A scaled entry or square in the subnormal range is rounded, or lost to zero, with
+# an absolute error (an entry can also round up to floatmin(Float64): prevfloat(2floatmin) beside a largest entry 2).
+# Each affected scaled entry changes by at most 2^-1074 and each affected square by at most 2^-1075, so before the
+# rounding of the sum the sum of squares changes by less than 2^-1072, against a sum of at least 1. This error is
+# negligible in the bound below; the other operations contribute the relative errors accounted for there. It does not
+# leave the correctly rounded norm unchanged: at a rounding tie, losing such a term can change it (the helper decides with
+# its computed norm).
+# The sum of squares is formed in order by ProximalBase's `_ball_l2_sum4`, ((a² + b²) + c²) + d², and not by its
+# `_square_scaled_sum`, whose compensated sum can change decisions near the admission cutoff. The ordered sum has relative
+# error at most 4u (the first two squares go through four roundings),
+# so the computed norm has at most 3u; the threshold (r 2^k)(1 + 8eps) adds u. The computed norm is at most the computed
+# threshold, so an admitted point has ‖y‖ ≤ r (1 + 8eps + 4u) = r (1 + 10 eps). The scaled radius r 2^k can overflow:
+# it is then Inf, while the scaled norm is below 2sqrt(n) = 4, so the point is far inside the ball and is admitted. It can
+# also underflow or be subnormal: it is then below 2^-1022, while the scaled norm is at least 1, so the point is
+# rejected, as it is far outside.
+# Check, Float32. The finite entries are widened to Float64 and summed in the same order by `_ball_l2_sum4`; the
+# compensated `_square_scaled_sum` is not used, for the reason above. Float64 holds the exact square of every finite Float32, which neither overflows nor underflows, so
+# there is no scaling, and under gradual underflow no entry or square is lost. The sum has relative error at most
+# 3·2^-53, and the square root and the product with the radius add at most 2^-53 each, below 7e-16 in all. An admitted point has
+# ‖y‖ ≤ r (1 + 8eps(Float32) + 7e-16).
+# The decision compares computed values, not the exact test ‖y‖ ≤ r (1 + 8eps); the bound of 10 eps(T) covers the
+# roundings. Under the assumptions of the projection estimate, a stored point of the general route violates by at most
+# 2.5 eps(T), so in Float64 its computed norm is at most r (1 + 5u)(1 + 3u), about r (1 + 4 eps(T)), below the threshold
+# r (1 + 8eps(T))(1 - u), and the point is admitted.
+# In the Float64 method, once the radius is validated as positive and finite and the length is four, an all-zero x is
+# admitted before any exponent is taken, because exponent(0.0) throws. Through the public solve! route the function is
+# reached only for the four-coefficient IndBallL2 that solve! gates; a vector of another length returns false, so the trial
+# keeps the value Inf.
+function _within_ball_tolerance(x::Vector{Float32}, r::Float32)
+  (isfinite(r) && r > 0 && length(x) == 4) || return false
+  for xi in x
+    isfinite(xi) || return false
+  end
+  s = ProximalBase._ball_l2_sum4(Float64(x[1]), Float64(x[2]), Float64(x[3]), Float64(x[4]))
+  sqrt(s) <= Float64(r) * (1 + 8 * Float64(eps(Float32)))
+end
+
+function _within_ball_tolerance(x::Vector{Float64}, r::Float64)
+  (isfinite(r) && r > 0 && length(x) == 4) || return false
+  m = 0.0
+  for xi in x
+    isfinite(xi) || return false
+    m = max(m, abs(xi))
+  end
+  iszero(m) && return true
+  k = -exponent(m)
+  k1 = clamp(k, -1022, 1023)
+  p = (ProximalBase._normal_power(Float64, k1), ProximalBase._normal_power(Float64, k - k1))
+  s = ProximalBase._ball_l2_sum4(ProximalBase._scale_value(x[1], p), ProximalBase._scale_value(x[2], p),
+                                 ProximalBase._scale_value(x[3], p), ProximalBase._scale_value(x[4], p))
+  sqrt(s) <= ProximalBase._scale_value(r, p) * (1 + 8 * eps(Float64))
+end
+
 _gradient_call_limit(state, options) =
   (0 < options.f_calls_limit <= state.f_calls ||
    0 < options.grad_calls_limit <= state.grad_calls ||
