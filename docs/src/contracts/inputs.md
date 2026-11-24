@@ -827,7 +827,8 @@ of [FP-05](@ref) at the accepted `x` with the decision cached by its trial; a ca
 `:pass` fails the check. So does a nonfinite entry of the witness, the residual or the gradient, of the
 mapping's trial point or of its projection, a nonfinite support gap, mapping or noise, and an infinite product
 in a selected term of the underflow allowance, which makes that allowance `Inf`. A `min` with an independent
-finite cap can replace an infinite inner product, which is safe because no positive term is dropped to zero.
+finite cap can replace an infinite inner product; this is safe because the cap is independently an upper bound
+for that error contribution.
 [FP-05](@ref) names the guarded vectors and final values, gives the order of these tests and the gradient and
 prox calls that the check counts. When they run no check, B1's unchanged-iterate proposal (`x` equal to
 `x_previous` elementwise, also with `ftol = 0`) and its two progress proposals
@@ -846,10 +847,13 @@ of the loss is reported in `f_increased` when it occurs at the last iteration, a
 limit and callback exits apply as for the other penalties; after them both success flags are false
 unless a check passed at that iteration.
 
-*Result.* `converged` and `approximate_solution` are not both true. `minimum` follows the membership
-of the returned point: the computed loss when it is classified `:inside`, `Inf` when `:outside` and
-`NaN` when `:unknown`, the route's convention for the loss plus the indicator of the ball, which can
-differ from ProximalBase's indicator. `gap` is `NaN`. `show` prints a line when
+*Result.* `converged` and `approximate_solution` are not both true. The reported `minimum` is the
+numerical composite objective monitored at the returned point, as for `IndBallL2` in [IN-08](@ref):
+the cached loss plus the monitored penalty, which is `0` on this route. So `minimum` can be finite at an
+admitted point that ProximalBase's strict indicator evaluates as `Inf`. The exact extended-valued composite is `+Inf` at a mathematically exterior point,
+while the monitored objective can be finite. Neither `minimum` nor `converged` certifies exact
+feasibility; `g(result.minimizer)` is ProximalBase's standalone decision in working precision, without the
+route's cap. `gap` is `NaN`. `show` prints a line when
 `approximate_solution` is true. A membership and a passing check are computed comparisons, not
 exact-arithmetic certificates. These statements about the returned point assume that callbacks leave
 the coefficients and the data unchanged; the solver does not detect such a change.
@@ -859,9 +863,9 @@ the coefficients and the data unchanged; the solver does not detect such a chang
 
 **Code.** `src/solve.jl`: `_numerical_route`, `_feasibility_tolerances`, `_feasibility_tolerance`,
 `_normal_positive`, `_check_numerical_l1`, `_stop_on_gradient_increase`, `_approximate_solution`,
-`_composite_minimum`, `_solve_gradient!`; `src/solvers/l1ball.jl`: `_NumericalL1Ball`,
+`_solve_gradient!`; `src/solvers/l1ball.jl`: `_NumericalL1Ball`,
 `LineSearches.trial!`, `LineSearches.search!`, `_prox_grad_step!`, `convergence_assessment`,
-`_stationary!`, `_stop_on_gradient_increase`, `_approximate_solution`, `_composite_minimum`,
+`_stationary!`, `_stop_on_gradient_increase`, `_approximate_solution`,
 `_solve_numerical_l1!`; `src/utils.jl`:
 `LineSearches.trial!`, `_trial_step!` (the trial of the other penalties); `src/line_searches.jl`:
 `search!`; `src/solvers/proximal_gradient_descent.jl` and
@@ -876,10 +880,11 @@ the coefficients and the data unchanged; the solver does not detect such a chang
   subnormal `Float32` problem included;
 - the route without the keyword equals the route with `NumericalFeasibility()` bitwise, and the
   override with zero coefficient tolerances refuses a boundary start that the default accepts;
-- every success on the #508 fixtures passes the independent MPFR evaluation of [FP-05](@ref), and
-  `minimum` and the flags follow the recomputed membership; analytic fixtures pin an approximate
-  solution outside the ball (`minimum = Inf`), one on the rounding boundary (`NaN`) and an interior
-  convergence;
+- every success on the #508 fixtures passes the independent MPFR evaluation of [FP-05](@ref), the
+  flags follow the recomputed membership, and `minimum` equals the last traced or callback objective and agrees
+  with the standalone loss; analytic fixtures pin an approximate solution outside the ball, one on the
+  rounding boundary and an interior convergence, each with `minimum` equal to the last traced
+  objective, the cached loss;
 - the decision of each accepted iterate, recomputed from the callback's vector, passes the cap;
 - at most one full check per iteration, counted by the gradient and projection calls of
   `convergence_assessment`, also where the engine's objective test and B1's objective proposal both

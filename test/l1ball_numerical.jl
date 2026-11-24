@@ -156,19 +156,16 @@ function membership(x, r)
   m > noise ? :outside : m < -noise ? :inside : iszero(s) && r > 0 ? :inside : :unknown
 end
 
-# The result of a route solve with loss f and radius r: the reported minimum against the recomputed membership of the
-# returned point, and the two success flags against each other and against the proposal flags
-function check_result_fields(x, res, f, r)
+# The result of a route solve with loss f and radius r: the reported minimum is the monitored objective f_x + g_x, the
+# cached loss (g_x = 0), whatever the recomputed membership of the returned point: it equals fg, the last traced or
+# callback objective, when given, and agrees with the standalone loss. The two success flags are checked against each
+# other, against the membership and against the proposal flags.
+function check_result_fields(x, res, f, r; fg = nothing)
   T = eltype(x)
   @test res.minimizer === x
   side = membership(x, r)
-  if side === :inside
-    @test isapprox(res.minimum, f(x); rtol = 64eps(T), atol = 64floatmin(T))
-  elseif side === :outside
-    @test res.minimum == Inf
-  else
-    @test isnan(res.minimum)
-  end
+  fg === nothing || @test res.minimum == fg
+  @test isfinite(res.minimum) && isapprox(res.minimum, f(x); rtol = 64eps(T), atol = 64floatmin(T))
   @test !(res.converged && res.approximate_solution)
   res.converged && @test side === :inside && (res.x_converged || res.f_converged || res.grad_converged)
   res.approximate_solution && @test side !== :inside && !res.x_converged && !res.f_converged && !res.grad_converged
@@ -282,14 +279,14 @@ end
 
 # ---- accepted-point accuracy on the #508 fixtures ---------------------------------------------------------------------------
 
-# Every reported success meets the #514 targets against the independent MPFR quantities, and the minimum follows the
-# recomputed membership. The success class of a fixture is pinned only by the analytic cases below.
+# Every reported success meets the #514 targets against the independent MPFR quantities, and the minimum is the last
+# traced objective. The success class of a fixture is pinned only by the analytic cases below.
 @testset "#508 fixtures: independent MPFR check of each success ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   successes = 0
   for d in fixtures(T)
     @testset "$(d.name)" begin
-      x, res = solve_fixture(d, method)
-      check_result_fields(x, res, loss(d), d.r)
+      x, res = solve_fixture(d, method; options = ProximalOptions(maxiter = 320, store_trace = true))
+      check_result_fields(x, res, loss(d), d.r; fg = isempty(res.trace) ? nothing : res.trace[end].fg_x)
       if res.converged || res.approximate_solution
         successes += 1
         @test acceptable(d.X, d.y, d.alpha, d.r, x)
@@ -302,22 +299,27 @@ end
 @testset "converged, approximate_solution and the minimum on analytic fixtures ($(mname(method)))" for method in METHODS
   # Float32 [1, eps/4] at r = 1, with y = x: a zero gradient and ProximalBase's Float32 sum 1, so the projection copies
   # the point, whose widened mass 1 + 2⁻²⁵ exceeds r by more than the rounding allowance. The check passes outside the
-  # ball: an approximate solution, not converged, with minimum Inf; the trace's objective is the loss 0.
+  # ball: an approximate solution, not converged, whose minimum is the monitored objective f_x + g_x, the cached loss 0,
+  # which the trace also reports.
+  traced = ProximalOptions(maxiter = 320, store_trace = true)
   d = fixture(Float32, "stationary_tail_0.25_eps")
-  x, res = solve_fixture(d, method; options = ProximalOptions(maxiter = 320, store_trace = true))
+  x, res = solve_fixture(d, method; options = traced)
   @test res.approximate_solution && !res.converged && x == d.start
-  @test membership(x, d.r) === :outside && res.minimum == Inf && res.trace[end].fg_x == 0
+  @test membership(x, d.r) === :outside
+  @test res.minimum == res.trace[end].fg_x == 0
   @test occursin("Approximate solution", sprint(show, res))
-  # Float64 [1, eps/4] at r = 1: the widened mass rounds to 1, so the point is not classified: minimum NaN
+  # Float64 [1, eps/4] at r = 1: the widened mass rounds to 1, so the point is not classified; minimum is the cached loss
   d = fixture(Float64, "stationary_tail_0.25_eps")
-  x, res = solve_fixture(d, method)
-  @test res.approximate_solution && !res.converged && membership(x, d.r) === :unknown && isnan(res.minimum)
-  # an interior solution converges inside the ball, with the loss as its minimum
+  x, res = solve_fixture(d, method; options = traced)
+  @test res.approximate_solution && !res.converged && membership(x, d.r) === :unknown
+  @test res.minimum == res.trace[end].fg_x
+  @test isapprox(res.minimum, loss(d)(x); rtol = 64eps(Float64), atol = 64floatmin(Float64))
+  # an interior solution converges inside the ball, with the cached loss as its minimum
   for T in (Float32, Float64)
     d = fixture(T, "l1_correlated_interior")
-    x, res = solve_fixture(d, method)
+    x, res = solve_fixture(d, method; options = traced)
     @test res.converged && !res.approximate_solution && membership(x, d.r) === :inside
-    @test isapprox(res.minimum, loss(d)(x); rtol = 64eps(T))
+    @test res.minimum == res.trace[end].fg_x && isapprox(res.minimum, loss(d)(x); rtol = 64eps(T))
     @test acceptable(d.X, d.y, d.alpha, d.r, x)
   end
 end
@@ -429,18 +431,22 @@ end
 
 # ---- boundary rounding: the cap at each accepted iterate ---------------------------------------------------------------------
 
-# Every accepted iterate passes the cap, recomputed from the callback's vector, and the reported minimum follows the
-# decision of the returned point; on the active_transition fixtures the radius sits one ulp below, at and one ulp above
+# Every accepted iterate passes the cap, recomputed from the callback's vector, and the reported minimum is the last
+# callback objective; on the active_transition fixtures the radius sits one ulp below, at and one ulp above
 # the projection's threshold.
 @testset "each accepted iterate passes the recomputed cap decision ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   for d in fixtures(T; big = false)
     cap = route_budgets(d.X, d.y, d.alpha, d.r).cap
-    passed = Bool[]
+    passed, objectives = Bool[], Float64[]
     x = copy(d.start)
-    record(_) = (push!(passed, PS._l1_decision(x, IndBallL1(d.r), cap).code === :pass); false)
+    function record(os)
+      push!(passed, PS._l1_decision(x, IndBallL1(d.r), cap).code === :pass)
+      push!(objectives, os.fg_x)
+      false
+    end
     res = solve!(x, loss(d), IndBallL1(d.r), method, ProximalOptions(maxiter = 320, callback = record))
     @test length(passed) == res.iterations && all(passed)
-    check_result_fields(x, res, loss(d), d.r)
+    check_result_fields(x, res, loss(d), d.r; fg = isempty(objectives) ? nothing : objectives[end])
   end
 end
 

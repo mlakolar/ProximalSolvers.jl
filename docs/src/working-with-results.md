@@ -37,7 +37,7 @@ A convergence flag reports the solver's implemented stopping criterion;
 | Solver/problem | Meaning of `converged=true` |
 | --- | --- |
 | Least-squares CD, including group and multi-response fits | The pass-change test succeeded; it is not an independent optimality check |
-| PGD/APG | A stopping proposal passed the applicable computed stationarity check; with `IndBallL1`, at a point classified inside the ball, and `approximate_solution` marks a passing check elsewhere ([IN-12](@ref)) |
+| PGD/APG | A stopping proposal passed the applicable computed stationarity check; with `IndBallL1`, at a point classified inside the ball, and `approximate_solution` marks a passing check elsewhere; `minimum` is the monitored loss, which can be finite where ProximalBase's indicator is `Inf` ([IN-12](@ref)) |
 | `ProxNewton` (logistic regression) | The largest KKT score of the returned point is finite and at most `tol`; see [PN-05](@ref) |
 | `LogisticADMM` (logistic regression) | The primal and dual residual tests passed and the largest KKT score of the returned point is at most `tol`; see [LA-04](@ref) |
 | Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |

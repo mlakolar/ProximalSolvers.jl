@@ -384,7 +384,8 @@ with a same-type dense design, response and radius ([IN-12](https://mlakolar.git
 A non-`nothing` `feasibility = NumericalFeasibility(...)` overrides the route's tolerances. With
 any other penalty, PGD and APG treat `feasibility = nothing` as omitted and refuse a non-`nothing`
 value; graphical-lasso PGD and the other solvers refuse the keyword in any form.
-On the route, read `converged` and `approximate_solution`; `minimum` can be `Inf` or `NaN`.
+On the route, read `converged` and `approximate_solution`; `minimum` is the monitored numerical
+objective, the cached loss, which can be finite where ProximalBase's strict indicator is `Inf`.
 
 Use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares and
 unweighted `NormL1Nonneg(lambda)` for nonnegative lasso. These penalties are accepted

@@ -230,10 +230,15 @@ The tolerances set the numerical feasibility cap on `‖x‖₁ - r` and the sup
 mapping budgets of the stopping check. A `nothing` takes the default for the coefficient type
 `T`: `coefficient_rtol = 1e-5`, `objective_rtol = 1e-5` and `mapping_rtol = 1e-4` for
 `Float32`, and `1e-10`, `1e-9` and `1e-8` for `Float64`; `coefficient_atol` defaults to `0`.
+
+# Extended help
+
 Before writing to `x`, `solve!` refuses with an `ArgumentError` a tolerance that is not a real
 number or `nothing`, coefficient tolerances that are not finite and nonnegative, and objective
 or mapping tolerances that are not finite and positive, each judged as given and after
-conversion to `Float64`. The route is specified in
+conversion to `Float64`. The result's `minimum` is the monitored numerical objective, the
+cached loss at the returned point, so it can be finite where ProximalBase's strict indicator
+evaluates that point as `Inf`. The route is specified in
 [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12) and
 [FP-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/working-precision/#FP-05).
 """
@@ -283,9 +288,10 @@ optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.
   classified outside the ball or not classified, and `converged` is `false`; `false` on the other
   routes.
 
-On the `IndBallL1` route, `minimum` is the computed loss when the returned point is classified
-inside the ball, `Inf` when it is classified outside and `NaN` when it is not classified, and
-the trace and callback objectives are the loss; see
+On the `IndBallL1` route, `minimum` is the monitored numerical objective: the cached loss
+plus the route's monitored penalty `0`, which the trace and callback objectives also report. It
+can be finite at an admitted point that ProximalBase's strict indicator evaluates as `Inf`, and
+neither `minimum` nor `converged` certifies exact feasibility; see
 [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12).
 
 For `NormL1`, `ElasticNet` and `GroupNormL2`, the stop check uses the applicable

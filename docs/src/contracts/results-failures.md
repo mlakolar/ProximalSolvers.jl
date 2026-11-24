@@ -111,7 +111,7 @@ This clause describes `OptimizationResults` for PGD and APG with regression
 coefficients, including [IN-10](@ref). See [PGD-08](@ref) for graphical-lasso PGD.
 `minimizer` aliases the caller's coefficient storage and `minimum` is the reported
 objective at that iterate. It is the solver's numerical objective, the cached smooth value plus the monitored
-penalty, except on the ℓ1-ball route, where [IN-12](@ref) specifies it; for a four-coefficient `IndBallL2` it can be finite at a point that ProximalBase's strict indicator
+penalty. For a four-coefficient `IndBallL2` ([IN-08](@ref)) and on the ℓ1-ball route, whose monitored penalty is `0` ([IN-12](@ref)), it can be finite at a point that ProximalBase's strict indicator
 evaluates as `Inf`. Neither `minimum` nor `converged` (the computed stopping check) certifies exact
 feasibility; `g(result.minimizer)` is ProximalBase's standalone check in working precision ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.
@@ -149,13 +149,13 @@ flag combinations. [STOP-18](@ref) classifies a return by these flags, and
 notes that the result has no dedicated field for a callback or time-limit stop.
 
 `approximate_solution` follows `gap`; it is `false` except on the ℓ1-ball route, where
-[IN-12](@ref) specifies it and the route's `minimum`, which can be `Inf` or `NaN`.
+[IN-12](@ref) specifies it.
 
 **Applies to.** `OptimizationResults` from PGD or APG, including nonconverged finite returns.
 
 **Code.** `src/types.jl`: `OptimizationResults`; `src/solve.jl`: stopping/result construction; gradient solver iteration state.
 
-**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/accelerated_pgd.jl`, `test/stopping_scale.jl`; `test/l1ball_numerical.jl` checks `approximate_solution` of `NormL1` solves.
+**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/accelerated_pgd.jl`, `test/stopping_scale.jl`; `test/l1ball_numerical.jl` checks `approximate_solution` of `NormL1` solves and, on the ℓ1-ball route, that `minimum` equals the last traced or callback objective.
 
 **Sources.** `docstring:src/solvers/proximal_gradient_descent.jl:L334`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`, `docstring:src/types.jl:L313`, `docstring:src/types.jl:L323`, `docstring:src/types.jl:L335`.
 

@@ -59,7 +59,7 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
 end
 
 # The penalty value that initial_state and the trials store (g_x = 0). A start that passes the cap can lie outside the
-# ball, where the indicator is Inf; the route does not evaluate it, and _composite_minimum reports the membership.
+# ball, where the indicator is Inf; the route does not evaluate it, and minimum is the monitored f_x + g_x (IN-12).
 (g::_NumericalL1Ball{T})(x) where T = zero(T)
 
 function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha::Float64, b, tolerances,
@@ -178,7 +178,8 @@ const _ETA64 = nextfloat(0.0)
 # An upper bound of the exact product of two nonnegative upper bounds a and b under the model fl(a b) = a b (1 + δ) + ε,
 # |δ| ≤ u, |ε| ≤ nextfloat(0.0): Inf when a factor is not finite, so that a selected term is Inf and the check fails (a factor
 # that overflowed, such as 2L, can meet a factor that underflowed to zero, such as δ/L, whose exact value is
-# positive; a min with an independent finite cap can replace the Inf, which drops no positive term); otherwise 0
+# positive; a min with an independent finite cap, itself an upper bound for that error contribution, can replace the
+# Inf); otherwise 0
 # when a factor is 0, and fl(a b) (1 + 4 eps) + η, which covers a product that rounds to a subnormal number or to zero,
 # and is Inf when the product overflows.
 _mulup(a::Float64, b::Float64) =
@@ -319,7 +320,8 @@ end
 # evaluated and counted; then the mapping trial point before its projection, so a nonfinite trial point is never
 # projected, and then the projection. A nonfinite entry in any of them (the guarded vectors w, e, g, the trial and q) fails
 # the check, as does an infinite product in a selected allowance term (the allowance is then Inf; a min with an
-# independent finite cap can replace an infinite inner product, which drops no positive term to zero). It counts the gradient and the prox call that it evaluates (one
+# independent finite cap, itself an upper bound for that error contribution, can replace an infinite inner product).
+# It counts the gradient and the prox call that it evaluates (one
 # each when it reaches the projection), writes no other field of state and records in g.checked that the assessment
 # ran it.
 function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions) where T
@@ -366,13 +368,8 @@ end
 # An objective increase does not end the solve on this route; f_increased still reports it (IN-12).
 _stop_on_gradient_increase(state, ::_NumericalL1Ball, options) = false
 
-# The result hooks of _solve_gradient!, from g.decision, the decision of the returned point when callbacks leave x
-# unchanged: minimum is the loss inside the ball, Inf outside and NaN when the point is not classified.
+# The approximate-solution stop of _solve_gradient!: the last full check passed at a point not classified inside.
 _approximate_solution(g::_NumericalL1Ball) = g.approximate
-function _composite_minimum(state, g::_NumericalL1Ball)
-  membership = g.decision.membership
-  membership === :inside ? state.f_x : membership === :outside ? oftype(state.f_x, Inf) : oftype(state.f_x, NaN)
-end
 
 # The route's solve after the keyword check of solve!: the gate (before any write to x), then the clock, the route
 # object with a private ball of the same radius (a projection can use a buffer stored in the ball), the state and the

@@ -146,7 +146,8 @@ end
 # comparison rather than an exact bound. `converged = true` means the stopping
 # check passed at a point classified inside the ball; `approximate_solution =
 # true` means it passed at a point classified outside or on the rounding
-# boundary, where `minimum` is `Inf` or `NaN`.
+# boundary. `minimum` is the monitored numerical objective, the cached loss,
+# which can be finite where ProximalBase's strict indicator is `Inf`.
 #
 # For the orthogonal control the minimizer is the projection of `a`, whose ℓ1
 # norm is 5.25, onto the ball of radius 2.5: the threshold 5/6 gives

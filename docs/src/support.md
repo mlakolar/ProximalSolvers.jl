@@ -153,7 +153,9 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
   point can lie outside the ball: its computed widened ℓ1 norm passed that decision, which is a
   computed comparison, not an exact bound on the violation. `converged = true` requires a passing
   check at a point classified inside the ball; a passing check elsewhere sets
-  `approximate_solution = true`, with `minimum` `Inf` or `NaN`. A non-`nothing`
+  `approximate_solution = true`. `minimum` is the monitored numerical objective, the cached loss,
+  so it can be finite at an admitted point that ProximalBase's strict indicator evaluates as `Inf`;
+  neither `minimum` nor `converged` certifies exact feasibility. A non-`nothing`
   `feasibility = NumericalFeasibility(...)` overrides the tolerances. With other penalties, PGD and
   APG treat `feasibility = nothing` as omitted and refuse a non-`nothing` value; graphical-lasso PGD
   refuses the keyword in any form.

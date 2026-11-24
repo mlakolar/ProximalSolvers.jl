@@ -241,8 +241,8 @@ it tests the entries of `w`, `e` and `g` together; then the entries of the trial
 which therefore never sees a nonfinite input; then those of `q`. A nonfinite entry in any group fails
 the check, and so does a nonfinite support gap, mapping or noise in item 5. An infinite product in a
 selected term of the underflow allowance (below) makes that allowance `Inf` and fails the check; a `min`
-with an independent finite cap can replace an infinite inner product, which is safe because no positive
-term is dropped to zero. The guarded vectors are `w`, `e`, `g`, the mapping's trial point and `q`; the
+with an independent finite cap can replace an infinite inner product, which is safe because the cap is
+independently an upper bound for that error contribution. The guarded vectors are `w`, `e`, `g`, the mapping's trial point and `q`; the
 final values are the support gap, the mapping and their two noises. The check counts the gradient call of item 2 and the
 prox call of item 4 when it evaluates them: one each when it reaches the projection, and one gradient
 call and no prox call when it fails before it.
@@ -271,7 +271,11 @@ zero, where `η_P` is the least positive subnormal number of `P`; in `Float64` (
 gradient, the support gap, the mapping's differences and its final product), `|δ| ≤ u` and
 `η_P = η = nextfloat(0.0)`; in `T` (the conversions of `w` and `g`, the division by `L` and the
 projection), `|δ| ≤ eps(T)/2` and `η_P = η_T = nextfloat(zero(T))`. An overflow is outside the
-model; the fail-closed rules below cover it, with the independent-cap exception at their end.
+model. The fail-closed rules below cover an overflow in the guarded quantities (the mapping's trial
+point, the returned projection `q`, the other guarded vectors and the final values) and in the selected
+allowance terms, with the independent-cap exception at their end; they make no statement about the
+intermediates of ProximalBase's projection, which can recover internally, for example from an
+overflowing unscaled norm sum, and return a finite projection that the check then tests.
 Additions and subtractions add no absolute error. The relative terms above account for the `δ`; the
 allowance bounds the `ε` and their propagation. With `n × p` the design, `α` the loss scale, the
 witness `w`, the computed residual `r`, `δ = ‖g‖∞`, `L = T(κ)`, `t` the mapping's trial point in `T`
@@ -308,8 +312,8 @@ selects makes that term, and so its allowance, `Inf`, and a `NaN` mapping gives 
 case the check fails. These bound and fail-closed statements concern the values the check tests: the
 entries of the guarded vectors `w`, `e`, `g`, the trial and `q`, and the four final values (the support
 gap, the mapping and their noises). An overflowed `_mulup` result inside a `min` whose other arm is an
-independent finite cap, one that is a bound by itself, leaves that cap and the check can pass; no
-positive term is dropped to zero. For example, with a zero start and response, `X = 1e-100`, `α = 1e308`
+independent finite cap, one that is a bound by itself, leaves that cap and the check can pass: the cap is
+independently an upper bound for that error contribution. For example, with a zero start and response, `X = 1e-100`, `α = 1e308`
 and `r = 1e-55`, `2α = Inf`, the scaling-error arm is clipped to `η` and the exact gradient is zero.
 
 The projection's own term assumes that ProximalBase's ℓ1 projection at the pinned revision `bc9e888d`

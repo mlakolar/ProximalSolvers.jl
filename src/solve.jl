@@ -797,10 +797,8 @@ _strict_gradient_limits(state) = false
 _stop_on_gradient_increase(state, options) = !options.allow_f_increases
 # The IndBallL1 route has a method of this three-argument form that returns false (IN-12).
 _stop_on_gradient_increase(state, g, options) = _stop_on_gradient_increase(state, options)
-# The result hooks of the IndBallL1 route (IN-12). Here, for the other penalties: no approximate-solution stop and the
-# reported minimum f(x) + g(x).
+# The approximate-solution stop of the IndBallL1 route (IN-12); the other penalties have none.
 _approximate_solution(g) = false
-_composite_minimum(state, g) = state.f_x + state.g_x
 _gradient_tolerance(state, options) = options.gradtol
 _gradient_tracing(state, options) =
   options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
@@ -869,7 +867,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
   return OptimizationResults{typeof(method), typeof(state.f_x), ndims(state.x), typeof(method), typeof(state.x)}(
                 method,
                 state.x,
-                _composite_minimum(state, g),
+                state.f_x + state.g_x,
                 iteration,
                 iteration == options.maxiter,
                 converged,
