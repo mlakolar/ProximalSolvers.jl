@@ -239,8 +239,11 @@ other than `:pass` runs no check:
 The check tests its intermediates in groups. After item 2 has evaluated, and counted, the gradient,
 it tests the entries of `w`, `e` and `g` together; then the entries of the trial, before its projection,
 which therefore never sees a nonfinite input; then those of `q`. A nonfinite entry in any group fails
-the check, as does a product of the underflow allowance with a nonfinite factor (below), and so does a
-nonfinite support gap, mapping or noise in item 5. The check counts the gradient call of item 2 and the
+the check, and so does a nonfinite support gap, mapping or noise in item 5. An infinite product in a
+selected term of the underflow allowance (below) makes that allowance `Inf` and fails the check; a `min`
+with an independent finite cap can replace an infinite inner product, which is safe because no positive
+term is dropped to zero. The guarded vectors are `w`, `e`, `g`, the mapping's trial point and `q`; the
+final values are the support gap, the mapping and their two noises. The check counts the gradient call of item 2 and the
 prox call of item 4 when it evaluates them: one each when it reaches the projection, and one gradient
 call and no prox call when it fails before it.
 
@@ -248,17 +251,17 @@ The noises of items 3 and 4 are model estimates of the rounding of these sums an
 directed rounding; they are not interval enclosures. The decision compares the computed margin with
 computed allowances, and a passing check compares computed quantities with computed budgets: neither
 is an exact-arithmetic certificate, and a margin within the cap does not bound the distance to the
-exact constrained minimizer. Apart from the underflow allowance, the operations, reductions and
-conversions, and their order, are those of the research reference B1 (`norm2_64`, `budgets`,
-`norm_decision`, `numerical_witness!`, `stop_scores!`) and of the B0 helpers it imports (`gamma64`,
-`residual_score64!`, `estimate_gap`).
+exact constrained minimizer. Apart from the underflow allowance, the arithmetic formulas and the
+reduction order, for comparable finite inputs, are those of the research reference B1 (`norm2_64`,
+`budgets`, `norm_decision`, `numerical_witness!`, `stop_scores!`) and of the B0 helpers it imports
+(`gamma64`, `residual_score64!`, `estimate_gap`).
 
 *Underflow allowance.* Under gradual underflow a nonzero product can round to a subnormal number or
 to zero, and the computed gap and mapping can then be zero at a point that is not stationary. The gate
 of [IN-12](@ref) refuses a design with a nonzero column whose curvature (in `Float64` and in `T`),
 gap budget or mapping budget is not a normal positive number; the allowance covers the underflow
 inside the full check's products. Besides these, PGD's step raises at an accepted nonzero step whose
-squared norm underflows ([IN-12](@ref)); these are the route's only provisions for underflow. With
+squared norm is computed as zero ([IN-12](@ref)); these are the route's only provisions for underflow. With
 subnormals flushed to zero on the solving thread, the decisions are unspecified, as in [FP-01](@ref).
 
 The model, per precision `P` of the operation, for finite operands and a finite result:
@@ -268,7 +271,7 @@ zero, where `η_P` is the least positive subnormal number of `P`; in `Float64` (
 gradient, the support gap, the mapping's differences and its final product), `|δ| ≤ u` and
 `η_P = η = nextfloat(0.0)`; in `T` (the conversions of `w` and `g`, the division by `L` and the
 projection), `|δ| ≤ eps(T)/2` and `η_P = η_T = nextfloat(zero(T))`. An overflow is outside the
-model; the fail-closed rules below cover it.
+model; the fail-closed rules below cover it, with the independent-cap exception at their end.
 Additions and subtractions add no absolute error. The relative terms above account for the `δ`; the
 allowance bounds the `ε` and their propagation. With `n × p` the design, `α` the loss scale, the
 witness `w`, the computed residual `r`, `δ = ‖g‖∞`, `L = T(κ)`, `t` the mapping's trial point in `T`
@@ -300,11 +303,14 @@ factor is not finite, whatever the other factor: a factor that overflowed, such 
 positive, such as the computed `δ / L`, and an exact-zero rule would then drop a positive term. The
 remaining operations of the allowance (sums, `min`, `max` and the products by 2, 3 and 4) are
 evaluated in round-to-nearest without that inflation. When
-`(n + p + 2) eps(Float64) > 1` both allowances are `Inf`; a term that is `Inf` makes its allowance `Inf`
-and a `NaN` mapping gives a `NaN` allowance; in each case the check fails. These bound and fail-closed
-statements concern the values the check tests: the entries of `w`, `e`, `g`, the trial and `q`, and the
-four final values. An overflowed `_mulup` result inside a `min` whose other arm is a bound by itself
-leaves that bound.
+`(n + p + 2) eps(Float64) > 1` both allowances are `Inf`; an infinite product in a term that its `min`
+selects makes that term, and so its allowance, `Inf`, and a `NaN` mapping gives a `NaN` allowance; in each
+case the check fails. These bound and fail-closed statements concern the values the check tests: the
+entries of the guarded vectors `w`, `e`, `g`, the trial and `q`, and the four final values (the support
+gap, the mapping and their noises). An overflowed `_mulup` result inside a `min` whose other arm is an
+independent finite cap, one that is a bound by itself, leaves that cap and the check can pass; no
+positive term is dropped to zero. For example, with a zero start and response, `X = 1e-100`, `α = 1e308`
+and `r = 1e-55`, `2α = Inf`, the scaling-error arm is clipped to `η` and the exact gradient is zero.
 
 The projection's own term assumes that ProximalBase's ℓ1 projection at the pinned revision `bc9e888d`
 (`src/functions/indballl1.jl`), which soft-thresholds at a level formed from sums, power-of-two

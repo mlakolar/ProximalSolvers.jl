@@ -52,8 +52,10 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   checked::Bool
   objective_rtol::Float64
   mapping_rtol::Float64
-  underflow::@NamedTuple{np::Float64, n::Float64, p1::Float64, p::Float64, pT::Float64, sqnC::Float64, Eg1::Float64,
-                         twoL::Float64, LpT::Float64}  # _l1_underflow_terms(T, n, p, α, C, L)
+  underflow::@NamedTuple{n_p_eta::Float64, n_eta::Float64, p1_eta::Float64, p_eta::Float64, p_eta_t::Float64,
+                         sqrt_n_col_product::Float64, gradient_error_product::Float64,
+                         division_cap_product::Float64, curvature_p_eta_t_product::Float64}
+  # (underflow: _l1_underflow_terms(T, n, p, α, C, L))
 end
 
 # The penalty value that initial_state and the trials store (g_x = 0). A start that passes the cap can lie outside the
@@ -174,8 +176,9 @@ end
 const _ETA64 = nextfloat(0.0)
 
 # An upper bound of the exact product of two nonnegative upper bounds a and b under the model fl(a b) = a b (1 + δ) + ε,
-# |δ| ≤ u, |ε| ≤ nextfloat(0.0): Inf when a factor is not finite, so that the check fails (a factor that overflowed,
-# such as 2L, can meet a factor that underflowed to zero, such as δ/L, whose exact value is positive); otherwise 0
+# |δ| ≤ u, |ε| ≤ nextfloat(0.0): Inf when a factor is not finite, so that a selected term is Inf and the check fails (a factor
+# that overflowed, such as 2L, can meet a factor that underflowed to zero, such as δ/L, whose exact value is
+# positive; a min with an independent finite cap can replace the Inf, which drops no positive term); otherwise 0
 # when a factor is 0, and fl(a b) (1 + 4 eps) + η, which covers a product that rounds to a subnormal number or to zero,
 # and is Inf when the product overflows.
 _mulup(a::Float64, b::Float64) =
@@ -195,25 +198,29 @@ function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, �
   (n + p + 2) * eps(Float64) <= 1 || return Inf, Inf
   # the residual X w - y: one product (or fused multiply-add) per entry of X; the subtraction of y adds no absolute
   # error under gradual underflow. ‖Δr‖₂ ≤ ‖Δr‖₁ ≤ Σᵢⱼ min(η, |Xᵢⱼ wⱼ|) ≤ min(n p η, √n C ‖w‖₁)
-  A_r = min(k.np, _mulup(k.sqnC, sw))
+  A_r = min(k.n_p_eta, _mulup(k.sqrt_n_col_product, sw))
   # Xᵀ r, per coordinate: Σᵢ min(η, |Xᵢⱼ rᵢ|) ≤ min(n η, C ‖r‖₂), plus the residual error carried through, ‖Xⱼ‖₂ ‖Δr‖₂ ≤ C A_r
   u = _mulup(C, rnorm)
-  A_s = min(k.n, u)
+  A_s = min(k.n_eta, u)
   # the multiplication by α scales both and adds one product error, at most min(η, α |Xⱼᵀ r|) ≤ min(η, 2 α C ‖r‖₂); when
-  # both minima select their k η term, the first product is the stored k.Eg1
-  E_g = (A_r == k.np && A_s == k.n ? k.Eg1 : _mulup(alpha, _mulup(C, A_r) + A_s)) + min(η, _mulup(2alpha, u))
+  # both minima select their k η term, the first product is the stored k.gradient_error_product
+  E_g1 = A_r == k.n_p_eta && A_s == k.n_eta ? k.gradient_error_product : _mulup(alpha, _mulup(C, A_r) + A_s)
+  E_g = E_g1 + min(η, _mulup(2alpha, u))
   # the support gap: the gradient error through δ and the sum, 2 max(ρ, ‖w‖₁) E_g; the p + 1 products of its Float64
   # sum, min((p + 1) η, δ (ρ + 2 ‖w‖₁)); the witness entries' product errors through the ρ δ term, min(p η, ‖w‖₁) δ
-  gap_abs = _mulup(2 * max(ρ, sw), E_g) + min(k.p1, _mulup(dual, ρ + 2sw)) + _mulup(min(k.p, sw), dual)
+  gap_abs = _mulup(2 * max(ρ, sw), E_g) + min(k.p1_eta, _mulup(dual, ρ + 2sw)) + _mulup(min(k.p_eta, sw), dual)
   # the mapping L (v - P(v - g/L)) at v = T(w). The projection P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0) moves each output by
   # at most |Δzᵢ| + |Δτ| ≤ 2 ‖Δz‖∞ (the level τ moves by at most ‖Δz‖∞), so an error of the projection input enters
   # the mapping with the factor 2: the gradient error, 2 E_g; for Float32, the conversion of w, which also enters
   # directly (3L), and that of g (2); the division by L (2L). The projection's own underflow in T and the final
   # product by L in Float64 enter after the projection, with the factor 1.
   conv = T === Float64 ? 0.0 : _mulup(3L, min(ηT, winf)) + 2 * min(ηT, dual)
-  # (a minimum that selects its per-solve term η_T or p η_T uses the stored product k.twoL or k.LpT)
-  d, q = min(ηT, dual / L), min(k.pT, tinf)
-  map_abs = 2 * E_g + conv + (d == ηT ? k.twoL : _mulup(2L, d)) + (q == k.pT ? k.LpT : _mulup(L, q)) + min(η, mapping)
+  # (a minimum that selects its per-solve term η_T or p η_T uses the stored product k.division_cap_product or
+  # k.curvature_p_eta_t_product)
+  d, q = min(ηT, dual / L), min(k.p_eta_t, tinf)
+  cap_d = d == ηT ? k.division_cap_product : _mulup(2L, d)
+  cap_q = q == k.p_eta_t ? k.curvature_p_eta_t_product : _mulup(L, q)
+  map_abs = 2 * E_g + conv + cap_d + cap_q + min(η, mapping)
   # the factor 4: 2 for the growth (1 + u)^k ≤ 2 of an absolute error through the later roundings, k ≤ n + p + 2, and
   # 2 for the computed magnitudes in place of the exact ones
   4 * gap_abs, 4 * map_abs
@@ -226,8 +233,9 @@ end
 # selects the same inputs, so each stored value is the one that the same _mulup call returns there.
 function _l1_underflow_terms(::Type{T}, n::Int, p::Int, alpha::Float64, C::Float64, L::Float64) where T
   np, nη, pT = Float64(n) * Float64(p) * _ETA64, Float64(n) * _ETA64, Float64(p) * Float64(nextfloat(zero(T)))
-  (; np, n = nη, p1 = Float64(p + 1) * _ETA64, p = Float64(p) * _ETA64, pT, sqnC = _mulup(sqrt(Float64(n)), C),
-     Eg1 = _mulup(alpha, _mulup(C, np) + nη), twoL = _mulup(2L, Float64(nextfloat(zero(T)))), LpT = _mulup(L, pT))
+  (; n_p_eta = np, n_eta = nη, p1_eta = Float64(p + 1) * _ETA64, p_eta = Float64(p) * _ETA64, p_eta_t = pT,
+     sqrt_n_col_product = _mulup(sqrt(Float64(n)), C), gradient_error_product = _mulup(alpha, _mulup(C, np) + nη),
+     division_cap_product = _mulup(2L, Float64(nextfloat(zero(T)))), curvature_p_eta_t_product = _mulup(L, pT))
 end
 
 # ---- the hooks ----------------------------------------------------------------------------------------------------------
@@ -309,8 +317,9 @@ end
 # noise and underflow allowance; the check passes when the four values are finite, gap + gap noise ≤ gap budget and
 # mapping + map noise ≤ mapping budget. The witness, residual and gradient are tested together after the gradient is
 # evaluated and counted; then the mapping trial point before its projection, so a nonfinite trial point is never
-# projected, and then the projection. A nonfinite entry in any of them fails the check, as does an allowance product
-# with a nonfinite factor (the allowance is then Inf). It counts the gradient and the prox call that it evaluates (one
+# projected, and then the projection. A nonfinite entry in any of them (the guarded vectors w, e, g, the trial and q) fails
+# the check, as does an infinite product in a selected allowance term (the allowance is then Inf; a min with an
+# independent finite cap can replace an infinite inner product, which drops no positive term to zero). It counts the gradient and the prox call that it evaluates (one
 # each when it reaches the projection), writes no other field of state and records in g.checked that the assessment
 # ran it.
 function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions) where T

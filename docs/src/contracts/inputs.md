@@ -825,12 +825,14 @@ callback's objective, `f_residual` and `f_increased` use the loss.
 *Stopping.* The engine's three proposals ([STOP-01](@ref), with [STOP-10](@ref)) run the full check
 of [FP-05](@ref) at the accepted `x` with the decision cached by its trial; a cached code other than
 `:pass` fails the check. So does a nonfinite entry of the witness, the residual or the gradient, of the
-mapping's trial point or of its projection, a nonfinite support gap, mapping or noise, and a product of the
-underflow allowance with a nonfinite factor, which makes the allowance `Inf`. [FP-05](@ref) gives the order
-of these tests and the gradient and prox calls that the check counts. When they run no check, B1's unchanged-iterate proposal (`x` equal to
+mapping's trial point or of its projection, a nonfinite support gap, mapping or noise, and an infinite product
+in a selected term of the underflow allowance, which makes that allowance `Inf`. A `min` with an independent
+finite cap can replace an infinite inner product, which is safe because no positive term is dropped to zero.
+[FP-05](@ref) names the guarded vectors and final values, gives the order of these tests and the gradient and
+prox calls that the check counts. When they run no check, B1's unchanged-iterate proposal (`x` equal to
 `x_previous` elementwise, also with `ftol = 0`) and its two progress proposals
 (`maximum(abs, x - x_previous) <= sqrt(mapping_rtol) * maximum(abs, x)`, or `f_residual` of the loss
-at most `objective_rtol`, with the resolved tolerances) run it, and a pass sets `x_converged`. These
+at most `objective_rtol`, with the resolved tolerances) run it, and a pass at a point classified `:inside` sets `x_converged`. These
 proposals are triggers for the full check, not success criteria, and an accepted iteration runs the
 full check at most once. When the check passes at a point classified `:inside`, `converged = true`.
 When it passes at a point classified `:outside` or `:unknown`, the solve stops with
