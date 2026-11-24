@@ -45,12 +45,12 @@ outputs, computed in BigFloat.
 ## [evidence-ball-rounding-sweep Check against ProximalBase and BigFloat](@id evidence-ball-rounding-sweep)
 
 **Statement.** Measured at commit `c0878e5b` of pull request [#538](https://github.com/mlakolar/ProximalSolvers.jl/pull/538)
-(the check is the code of `f2465717`, which introduces `_ball_rounding_admissible`), Julia 1.13.3 and 1.10.12 on a cluster
+(the check is the code of `f2465717`, which introduces the check), Julia 1.13.3 and 1.10.12 on a cluster
 (Slurm), ProximalBase `bc9e888d`. The tables are from Julia 1.13.3. Julia 1.10.12 gave zero rejections as well
 (183,530 Float32 and 114,505 Float64 `Inf` outputs), with the largest violation of an admitted synthetic point
 8.0 eps (Float32) and 9.01 eps (Float64).
 Each sample is a random four-entry point projected by `value_and_prox!` onto `IndBallL2(r)`, whose stored output `y`
-is then given to `_ball_rounding_admissible(y, r)`. The violation of `y` is computed in 256-bit BigFloat.
+is then given to `_within_ball_tolerance(y, r)`. The violation of `y` is computed in 256-bit BigFloat.
 
 The regimes cover an ordinary radius `r = 1`; a radius below ProximalBase's four-entry floor and near `floatmin`;
 coefficients of magnitude around 1e154 to 1e159 (Float64) and 1e18.3 to 1e19.5 (Float32), whose sums of squares can
@@ -88,7 +88,7 @@ with independent signed multipliers whose log10 magnitudes are drawn from [-20, 
 | Total | 114312 | 0 | | |
 
 In the regimes above the check admitted all `Inf` outputs of ProximalBase. The largest violation of an `Inf` output was
-below the 2.5 eps estimate in the comment of `_ball_rounding_admissible`, which states its range assumptions. The value returned by
+below the 2.5 eps estimate in the comment of `_within_ball_tolerance`, which states its range assumptions. The value returned by
 `value_and_prox!` equalled `g(y)` in all the samples.
 
 Synthetic points test the tolerance. A direction is drawn (Gaussian, entries spanning magnitudes, or one dominant
@@ -140,7 +140,7 @@ unchanged.
 ## [evidence-ball-rounding-rounding Rounding observations](@id evidence-ball-rounding-rounding)
 
 **Statement.** Julia 1.10.12 and 1.13.3 gave the same results, on a cluster (Slurm), at ProximalBase `bc9e888d`. They are
-observations that accompany the comment of `_ball_rounding_admissible`, not guarantees.
+observations that accompany the comment of `_within_ball_tolerance`, not guarantees.
 
 - **Least positive radius.** For `r = nextfloat(zero(T))` and the trial `(a, a, 0, -0.0)`, ProximalBase stores `(r, r, 0, -0.0)` for
   `a = 1`, `(-r, -r, 0, -0.0)` for `a = -1`, with fused value `Inf` and a relative violation of `sqrt(2) - 1`, in Float32 and
@@ -156,6 +156,27 @@ observations that accompany the comment of `_ball_rounding_admissible`, not guar
 - **An exterior point with value zero.** The point `(1, sqrt(eps(T))/4, 0, -0.0)` at radius one has `g(x) == 0` in Float32 and
   Float64, with true violations of 3.7e-9 and 6.9e-18. The point passes the indicator's feasibility check, and a PGD solve with `X = 2I`
 accepted it as a start.
+
+## [evidence-ball-rounding-kernels Reuse of ProximalBase kernels](@id evidence-ball-rounding-kernels)
+
+**Statement.** The Float64 check scales the entries and the radius with ProximalBase's `_power_factors(Float64, -exponent(m))` and
+`_scale_value`, in place of a local split into two normal powers of two. A differential test compared the decisions of the
+previous implementation, the current one and a variant that forms the sum of squares with ProximalBase's `_square_scaled_sum`
+(a compensated sum). Julia 1.10.12 and 1.13.3 gave the same counts, at ProximalBase `bc9e888d`. The cases are four-entry Float64
+points with signs and zeros, in four groups of 100,000 points each (maximum in `[2^1023, floatmax]` with other entries down to the
+subnormal range, subnormal maximum, maximum near `2^-1022` and `2^1022`, ordinary scales), and for each point 13 radii around the
+computed threshold (the threshold radius and its 6 neighbours on each side) and 3 random radii, about 6.2 million decisions, plus 501
+constructed ones (the tie example above, scaled by powers of two, and axis points at the rounded threshold).
+
+| Variant | Decisions that differ from the previous implementation |
+|---|---|
+| `_power_factors` and `_scale_value`, plain sum (current) | 0 |
+| plus `_square_scaled_sum` (compensated sum) | 12,820 (Julia 1.10.12) and 13,104 (Julia 1.13.3), in each of the four groups |
+
+The factors have product exactly `2^k` for every `k` from -1074 to 1074, and `ldexp(1.0, -1023)` is the subnormal `2^-1023` on both
+versions. At `k = -1023` the previous implementation used `2^-1022` and `2^-1`; the 100,000 points with maximum at least `2^1023` showed
+no difference in decisions. For Float32 data, 1,300,056 decisions through the compensated Float64 kernel also agreed with the plain
+Float64 sum of exact squares; that kernel scales and sums compensated, so it is not the same computation, and the Float32 check is unchanged.
 
 ## [evidence-ball-rounding-minimum Smooth term of the reported minimum](@id evidence-ball-rounding-minimum)
 

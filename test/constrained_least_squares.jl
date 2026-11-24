@@ -35,8 +35,8 @@ function monitored_minimum(result, x, loss)
 end
 
 # function barriers: the call gets concrete argument types, which the loop variable T of a testset does not
-alloc_admissible(x, r) = @allocated ProximalSolvers._ball_rounding_admissible(x, r)
-alloc_admitted(g, v, x) = @allocated ProximalSolvers._admitted_penalty_value(g, v, x)
+alloc_within_tolerance(x, r) = @allocated ProximalSolvers._within_ball_tolerance(x, r)
+alloc_trial_penalty(g, v, x) = @allocated ProximalSolvers._trial_penalty_value(g, v, x)
 
 # Trial points for which ProximalBase's value of the stored projection onto IndBallL2(r) is Inf although the point is
 # within rounding of the ball. The vectors came from a search over one-iteration solves of both methods (offline). The
@@ -376,8 +376,8 @@ end
 end
 
 @testset "Admission of a rounded ball trial $T" for T in (Float32, Float64)
-  admissible = ProximalSolvers._ball_rounding_admissible
-  admitted = ProximalSolvers._admitted_penalty_value
+  admissible = ProximalSolvers._within_ball_tolerance
+  admitted = ProximalSolvers._trial_penalty_value
   u = [0.2, 0.4, 0.4, 0.8]    # a direction; `point` divides it by its norm
   radii = T === Float64 ? (1.0, 1e-150, 1e157) : (1f0, 1f-16, 1f19)
   # The stored point (1 + δ eps) r u / ‖u‖, rounded to T, lies about δ eps outside the ball (δ is a nominal offset before the entries are rounded).
@@ -424,9 +424,9 @@ end
   box = IndBox(-one(T), one(T))
   for y in (inside, outside)
     admitted(g, T(Inf), y); admissible(y, one(T)); admitted(box, T(Inf), y)
-    @test alloc_admitted(g, T(Inf), y) == 0
-    @test alloc_admissible(y, one(T)) == 0
-    @test alloc_admitted(box, T(Inf), y) == 0
+    @test alloc_trial_penalty(g, T(Inf), y) == 0
+    @test alloc_within_tolerance(y, one(T)) == 0
+    @test alloc_trial_penalty(box, T(Inf), y) == 0
   end
 end
 end

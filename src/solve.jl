@@ -1,6 +1,7 @@
 # Once-per-solve validation; no numeric solver arithmetic or conversion changes. `_allfinite` is also called on
 # the image of each logistic trial (src/solvers/image_models.jl).
 using ProximalBase: leastsquares_data
+import ProximalBase
 function _allfinite(A::Array)
   finite = true
   @inbounds @simd for i in eachindex(A)
@@ -604,25 +605,26 @@ _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
 
-# The penalty value that a gradient step monitors for a trial whose stored point is x, with v the value that
+# The penalty value that a gradient step monitors for a trial point x, with v the value that
 # ProximalBase's value_and_prox! returned for it (IN-08).
 #
 # For IndBallL2, ProximalBase stores a rounded projection and evaluates that stored point strictly, so v can be Inf for a
 # point within rounding of the ball. This can occur for a radius below 2sqrt(4floatmin(T) / eps(T)) and for entries
 # whose sum of squares leaves the normal range of T, where the projection takes ProximalBase's general route. The
-# IndBallL2 method returns zero, the value of a clipped IndBox trial, when v == Inf and _ball_rounding_admissible
+# IndBallL2 method returns zero, the value of a clipped IndBox trial, when v == Inf and _within_ball_tolerance
 # accepts x. Otherwise it returns v: an unadmitted Inf stays Inf, and 0 and NaN are returned unchanged without a scan
 # of x. Backtracking or an APG momentum restart can supersede a trial that carries Inf before the step returns. The
 # finiteness guard of _solve_gradient! sees the trial that the step returns, and raises and restores the last accepted
 # point when its monitored composite is not finite. The generic method returns v for any other penalty, and for an
 # IndBallL2 whose radius or coefficient array does not have the element type T (the gates refuse that problem).
-@inline _admitted_penalty_value(g, v, x) = v
+@inline _trial_penalty_value(g, v, x) = v
 
-@inline function _admitted_penalty_value(g::IndBallL2{T}, v, x::Vector{T}) where {T<:Union{Float32, Float64}}
-  v == T(Inf) && _ball_rounding_admissible(x, g.r) ? zero(T) : v
+@inline function _trial_penalty_value(g::IndBallL2{T}, v, x::Vector{T}) where {T<:Union{Float32, Float64}}
+  v == T(Inf) && _within_ball_tolerance(x, g.r) ? zero(T) : v
 end
 
-# Whether the stored point x of an IndBallL2(r) trial is admitted (IN-08); the caller supplies the condition that the
+# Whether the stored point x of an IndBallL2(r) trial is within the numerical tolerance of the Euclidean ball, so that
+# the trial is admitted (IN-08); the caller supplies the condition that the
 # fused value is Inf, which this function does not read. It requires r finite and positive, every entry finite, and
 # the computed norm of x at most the computed threshold r (1 + 8eps(T)). The error bounds below assume round-to-nearest
 # with gradual underflow (flushing subnormals to zero can erase an entry), hold to first order in u = eps(T) / 2, and are
@@ -638,25 +640,27 @@ end
 # can round the significand before that step), which relative to the radius is not bounded by u. For r = nextfloat(zero(T)) and x = (1, 1, 0, 0) the projection stores two entries equal to r, so
 # ‖y‖ = sqrt(2) r, and the check rejects that point.
 #
-# Check, Float64. The entries are multiplied by a power of two 2^k with k = -exponent(m) for the largest magnitude m, so
-# that the scaled maximum lies in [1, 2) and no square overflows. The k lies outside the normal range of exponents
-# (-1022 to 1023) for m below 2^-1023 or at least 2^1023, so the factor is the product of two normal powers of two 2^k1
-# and 2^(k - k1), k1 = clamp(k, -1022, 1023), applied as two multiplications; both are exact for the largest entry.
-# ldexp is not used on the entries or the radius, because Julia 1.10's ldexp can return zero in the binade that
-# straddles the subnormal threshold. A scaled entry or square in the subnormal range is rounded, or lost to zero, with
+# Check, Float64. The entries and the radius are scaled by ProximalBase's power factors for 2^k with
+# k = -exponent(m) for the largest magnitude m (`_power_factors` and `_scale_value`: two factors with product 2^k, applied
+# as two multiplications), so that the scaled maximum lies in [1, 2) and no square overflows. For -1022 <= k <= 1023 the
+# factors are 2^k and 1. For k = -1023 (m at least 2^1023) the single factor 2^-1023 is subnormal and exact, and for
+# k > 1023 (m below 2^-1023) the factors are 2^1023 and 2^(k - 1023). ProximalBase builds them with ldexp(1.0, k1) of a
+# power of two, which is exact, and both multiplications are exact for the largest entry. A scaled entry or square in the subnormal range is rounded, or lost to zero, with
 # an absolute error (an entry can also round up to floatmin(Float64): prevfloat(2floatmin) beside a largest entry 2).
 # Each affected scaled entry changes by at most 2^-1074 and each affected square by at most 2^-1075, so before the
 # rounding of the sum the sum of squares changes by less than 2^-1072, against a sum of at least 1. This error is
 # negligible in the bound below; the other operations contribute the relative errors accounted for there. It does not
 # leave the correctly rounded norm unchanged: at a rounding tie, losing such a term can change it (the helper decides with
 # its computed norm).
-# The sum of squares, taken in order, has relative error at most 4u (the first two squares go through four roundings),
+# The sum of squares is formed here in order, not by ProximalBase's `_square_scaled_sum`, whose compensated sum rounds
+# differently and changes decisions at rounding ties. It has relative error at most 4u (the first two squares go through four roundings),
 # so the computed norm has at most 3u; the threshold (r 2^k)(1 + 8eps) adds u. The computed norm is at most the computed
 # threshold, so an admitted point has ‖y‖ ≤ r (1 + 8eps + 4u) = r (1 + 10 eps). The scaled radius r 2^k can overflow:
 # it is then Inf, while the scaled norm is below 2sqrt(n) = 4, so the point is far inside the ball and is admitted. It can
 # also underflow or be subnormal: it is then below 2^-1022, while the scaled norm is at least 1, so the point is
 # rejected, as it is far outside.
-# Check, Float32. Float64 holds the exact square of every finite Float32, which neither overflows nor underflows, so
+# Check, Float32. No ProximalBase kernel forms the plain Float64 sum of exact squares used here (its scaled sum is
+# compensated). Float64 holds the exact square of every finite Float32, which neither overflows nor underflows, so
 # there is no scaling, and under gradual underflow no entry or square is lost. The sum has relative error at most
 # 3·2^-53, and the square root and the product with the radius add at most 2^-53 each, below 7e-16 in all. An admitted point has
 # ‖y‖ ≤ r (1 + 8eps(Float32) + 7e-16).
@@ -666,7 +670,7 @@ end
 # r (1 + 8eps(T))(1 - u), and the point is admitted.
 # In the Float64 method, once the radius is validated as positive and finite, an all-zero x is admitted before any
 # exponent is taken, because exponent(0.0) throws.
-function _ball_rounding_admissible(x::Vector{Float32}, r::Float32)
+function _within_ball_tolerance(x::Vector{Float32}, r::Float32)
   (isfinite(r) && r > 0) || return false
   s = 0.0
   for xi in x
@@ -676,10 +680,7 @@ function _ball_rounding_admissible(x::Vector{Float32}, r::Float32)
   sqrt(s) <= Float64(r) * (1 + 8 * Float64(eps(Float32)))
 end
 
-# 2^k from its bit pattern, for an integer k from -1022 to 1023, the normal exponents of Float64
-_power_of_two(k::Int) = reinterpret(Float64, UInt64(k + 1023) << 52)
-
-function _ball_rounding_admissible(x::Vector{Float64}, r::Float64)
+function _within_ball_tolerance(x::Vector{Float64}, r::Float64)
   (isfinite(r) && r > 0) || return false
   m = 0.0
   for xi in x
@@ -687,14 +688,12 @@ function _ball_rounding_admissible(x::Vector{Float64}, r::Float64)
     m = max(m, abs(xi))
   end
   iszero(m) && return true
-  k = -exponent(m)
-  k1 = clamp(k, -1022, 1023)
-  p1, p2 = _power_of_two(k1), _power_of_two(k - k1)
+  p = ProximalBase._power_factors(Float64, -exponent(m))
   s = 0.0
   for xi in x
-    s += abs2((xi * p1) * p2)
+    s += abs2(ProximalBase._scale_value(xi, p))
   end
-  sqrt(s) <= ((r * p1) * p2) * (1 + 8 * eps(Float64))
+  sqrt(s) <= ProximalBase._scale_value(r, p) * (1 + 8 * eps(Float64))
 end
 
 _gradient_call_limit(state, options) =

@@ -409,7 +409,7 @@ one power-of-two scaling, with the largest nonzero magnitude scaled into `[1, 2)
 carries monitored penalty value `0` in the iteration state. To first order in `eps(T)`,
 under round-to-nearest with gradual underflow, an admitted point violates the ball by
 at most about `10eps(T)` relative to `r`; the derivation is in the comment of
-`_ball_rounding_admissible`. A fused value other than `Inf` is left unchanged without a scan
+`_within_ball_tolerance`. A fused value other than `Inf` is left unchanged without a scan
 of the entries, and an unadmitted `Inf` keeps its value. If the step returns a
 trial whose monitored composite is not finite, the finiteness guard raises
 `ErrorException("the gradient step did not produce a finite objective")` and the last
@@ -442,7 +442,7 @@ The coordinate-descent solver and coefficient storage other than a dense
 
 **Applies to.** Dense Float32 and Float64 PGD and APG with a least-squares loss and the concrete indicators above.
 
-**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`, `_admitted_penalty_value`, `_ball_rounding_admissible`, `_solve_gradient!`. The admission is called from `update_state!` of PGD and `_prox_grad_step!` of APG.
+**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`, `_trial_penalty_value`, `_within_ball_tolerance`, `_solve_gradient!`. The admission is called from `update_state!` of PGD and `_prox_grad_step!` of APG.
 
 **Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions. For PGD and APG in both precisions, from hard-coded trial points: "Admitted exterior trial: radius below the four-entry range" checks the fused value `Inf` of the first trial; a one-iteration solve whose returned point has standalone `g(x) = Inf`, with a finite `minimum` that equals the last stored trace objective and agrees with the standalone loss under `isapprox` at `rtol = sqrt(eps(T))`; violation within `10eps(T)` (computed in 256-bit arithmetic, then rounded to `Float64`); the refusal of the returned point as a start; and a default-options solve whose `minimum` agrees with the standalone loss in the same way and whose `converged` flag agrees with the independent residual-versus-threshold comparison; "Admitted exterior trial: sum of squares beyond the range of T" checks that the standalone indicator at the one-iteration returned point is `Inf` (the fused value is not asserted there), the violation, and on that return a finite `minimum` equal to the last stored trace objective and agreeing with the loss, and, in its default-options run, which stores no trace, a finite `minimum` agreeing with the loss; "Admitted exterior trial: monitored trace and residual" checks that `minimum` is finite and equals the last traced objective, and that the trace values and `f_residual` are finite. "Reported minimum: smooth term and penalty term" runs in `Float32` only: for a scaled loss whose cached and standalone values differ by one unit in the last place, `minimum` equals the last traced objective and the value with an `IndBox` penalty. "Exceptional Euclidean projection rolls back" keeps a rejected trial (radius `nextfloat(zero(T))`) raising and restoring. "Admission of a rounded ball trial" checks the helper at points nominally `2eps(T)` and `12eps(T)` outside the ball (offsets before the entries are rounded), nonfinite entries, zero, `NaN`, other penalties and zero allocations. The measurements are in the [evidence page](evidence/ball-rounding-537.md).
 

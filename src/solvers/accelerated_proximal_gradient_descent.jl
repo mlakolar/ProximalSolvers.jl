@@ -257,7 +257,7 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T) where 
     while true
       _step!(state.xhat, state.y, state.grad_f_y, state.L)
       v = convert(T, value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      state.g_x = _admitted_penalty_value(g, v, state.x)
+      state.g_x = _trial_penalty_value(g, v, state.x)
       state.f_x = _value!(state.x, f, state.model, state.z_x)
       state.prox_calls += 1
       state.f_calls += 1
