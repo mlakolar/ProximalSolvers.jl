@@ -399,9 +399,42 @@ Use `IndBallL2(r)` for four coefficients and a finite nonnegative radius
 of the same type `T`. At the pinned ProximalBase revision, the rounded
 projection is checked and corrected for ordinary trial sums of squares and
 positive radii of at least `2sqrt(4floatmin(T) / eps(T))`. Zero radius gives
-the singleton at zero. At exceptional scales the upstream oracle can
-return `Inf` after projection. In that case an iteration with a nonfinite
-objective raises and restores the last accepted point.
+the singleton at zero.
+
+A trial of an `IndBallL2{T}` whose fused ProximalBase value is `Inf` is *admitted*
+when `r` is finite and positive, every stored entry is finite, and the computed norm
+of the stored point is at most the computed threshold `r(1 + 8eps(T))`. For `Float32` data
+both sides are computed in `Float64`; for `Float64` data the radius and the entries share
+one power-of-two scaling, with the largest nonzero magnitude scaled into `[1, 2)`. An admitted trial
+carries monitored penalty value `0` in the iteration state. To first order in `eps(T)`,
+under round-to-nearest with gradual underflow, an admitted point violates the ball by
+at most about `10eps(T)` relative to `r`; the derivation is in the comment of
+`_within_ball_tolerance`. A fused value other than `Inf` is left unchanged without a scan
+of the entries, and an unadmitted `Inf` keeps its value. If the step returns a
+trial whose monitored composite is not finite, the finiteness guard raises
+`ErrorException("the gradient step did not produce a finite objective")` and the last
+accepted point is restored ([RES-03](@ref), [LS-09](@ref), [APG-03](@ref)). The APG
+restart test, the finiteness guard, the objective and increase tests, the trace and
+`f_residual` read the monitored value.
+
+The reported `minimum` is the numerical composite objective monitored at the returned
+point: the cached smooth value plus the monitored penalty. For a four-coefficient
+`IndBallL2` trial admitted within the rounding tolerance above, the monitored penalty
+is `0`, so `minimum` can be finite when ProximalBase's strict indicator evaluates the
+stored point as `Inf`. The exact extended-valued composite is `+Inf` at a mathematically
+exterior point, while the monitored objective can be finite. Neither `minimum` nor
+`converged` certifies exact feasibility. `g(result.minimizer)` is ProximalBase's
+standalone decision in working precision, without the solver's admission tolerance; a
+mathematically exterior point can have `g(x) == 0`. The stopping rules are unchanged: the proposal flags `x_converged`, `f_converged` and
+`grad_converged` are set by the tests of [STOP-02](@ref), the check of [STOP-07](@ref)
+can clear them, and `converged` is their OR after it ([STOP-01](@ref)); the other flags
+keep their clauses ([STOP-09](@ref)), and `f_increased` compares monitored objectives. A returned or restored point with `g(x) == Inf` fails the
+indicator's feasibility check as a start; a point with `g(x) == 0` passes that check,
+and the other start checks still apply.
+
+In earlier releases a solve raised when the step returned such a trial, or APG
+restarted on it, so `restarts`, the iterates and `minimum` can differ from earlier
+releases in those cases.
 
 The coordinate-descent solver and coefficient storage other than a dense
 `Vector{T}` are unsupported for this indicator. Stopping proposals use the
@@ -409,11 +442,11 @@ The coordinate-descent solver and coefficient storage other than a dense
 
 **Applies to.** Dense Float32 and Float64 PGD and APG with a least-squares loss and the concrete indicators above.
 
-**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`.
+**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`, `_trial_penalty_value`, `_within_ball_tolerance`, `_solve_gradient!`. The admission is called from `update_state!` of PGD and `_prox_grad_step!` of APG.
 
-**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions.
+**Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions. For PGD and APG in both precisions, from hard-coded trial points: "Admitted exterior trial: radius below the four-entry range" checks the fused value `Inf` of the first trial; a one-iteration solve whose returned point has standalone `g(x) = Inf`, with a finite `minimum` that equals the last stored trace objective and agrees with the standalone loss under `isapprox` at `rtol = sqrt(eps(T))`; violation within `10eps(T)` (computed in 256-bit arithmetic, then rounded to `Float64`); the refusal of the returned point as a start; and a default-options solve whose `minimum` agrees with the standalone loss in the same way and whose `converged` flag agrees with the independent residual-versus-threshold comparison; "Admitted exterior trial: sum of squares beyond the range of T" checks that the standalone indicator at the one-iteration returned point is `Inf` (the fused value is not asserted there), the violation, and on that return a finite `minimum` equal to the last stored trace objective and agreeing with the loss, and, in its default-options run, which stores no trace, a finite `minimum` agreeing with the loss; "Admitted exterior trial: monitored trace and residual" checks that `minimum` is finite and equals the last traced objective, and that the trace values and `f_residual` are finite. "Reported minimum: smooth term and penalty term" runs in `Float32` only: for a scaled loss whose cached and standalone values differ by one unit in the last place, `minimum` equals the last traced objective and the value with an `IndBox` penalty. "Exceptional Euclidean projection rolls back" keeps a rejected trial (radius `nextfloat(zero(T))`) raising and restoring. "Admission of a rounded ball trial" checks the helper at points nominally `2eps(T)` and `12eps(T)` outside the ball (offsets before the entries are rounded), nonfinite entries, zero, `NaN`, other penalties and zero allocations. The measurements are in the [evidence page](evidence/ball-rounding-537.md).
 
-**Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/docs/src/numerics.md#L176-L187).
+**Sources.** [Approved scope](https://github.com/mlakolar/ProximalSolvers.jl/issues/422#issuecomment-7001542566) and [ProximalBase numerical contract](https://github.com/mlakolar/ProximalBase.jl/blob/4a737a521d1028228da41e25c16cf963769cd891/docs/src/numerics.md#L176-L187). The admission of an `Inf` value is [issue #537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537).
 
 ## [IN-09 Sparse logistic regression with proximal gradient methods](@id IN-09)
 
