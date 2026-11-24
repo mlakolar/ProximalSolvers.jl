@@ -1,7 +1,6 @@
 # Once-per-solve validation; no numeric solver arithmetic or conversion changes. `_allfinite` is also called on
 # the image of each logistic trial (src/solvers/image_models.jl).
 using ProximalBase: leastsquares_data
-import ProximalBase
 function _allfinite(A::Array)
   finite = true
   @inbounds @simd for i in eachindex(A)
@@ -640,27 +639,29 @@ end
 # can round the significand before that step), which relative to the radius is not bounded by u. For r = nextfloat(zero(T)) and x = (1, 1, 0, 0) the projection stores two entries equal to r, so
 # ‖y‖ = sqrt(2) r, and the check rejects that point.
 #
-# Check, Float64. The entries and the radius are scaled by ProximalBase's power factors for 2^k with
-# k = -exponent(m) for the largest magnitude m (`_power_factors` and `_scale_value`: two factors with product 2^k, applied
-# as two multiplications), so that the scaled maximum lies in [1, 2) and no square overflows. For -1022 <= k <= 1023 the
-# factors are 2^k and 1. For k = -1023 (m at least 2^1023) the single factor 2^-1023 is subnormal and exact, and for
-# k > 1023 (m below 2^-1023) the factors are 2^1023 and 2^(k - 1023). ProximalBase builds them with ldexp(1.0, k1) of a
-# power of two, which is exact, and both multiplications are exact for the largest entry. A scaled entry or square in the subnormal range is rounded, or lost to zero, with
+# Check, Float64. The entries and the radius are scaled by two normal powers of two, 2^k1 and 2^(k - k1), with
+# k = -exponent(m) for the largest magnitude m and k1 = clamp(k, -1022, 1023). ProximalBase's `_normal_power` builds each
+# factor from exponent bits over the normal range, and `_scale_value` applies them as two multiplications, so that the
+# scaled maximum lies in [1, 2) and no square overflows. Both factors are exact for the largest entry. `_power_factors` is
+# not used: for k = -1023 (m at least 2^1023) its single factor 2^-1023 is subnormal and flushes to zero when subnormals
+# are flushed.
+# A scaled entry or square in the subnormal range is rounded, or lost to zero, with
 # an absolute error (an entry can also round up to floatmin(Float64): prevfloat(2floatmin) beside a largest entry 2).
 # Each affected scaled entry changes by at most 2^-1074 and each affected square by at most 2^-1075, so before the
 # rounding of the sum the sum of squares changes by less than 2^-1072, against a sum of at least 1. This error is
 # negligible in the bound below; the other operations contribute the relative errors accounted for there. It does not
 # leave the correctly rounded norm unchanged: at a rounding tie, losing such a term can change it (the helper decides with
 # its computed norm).
-# The sum of squares is formed here in order, not by ProximalBase's `_square_scaled_sum`, whose compensated sum rounds
-# differently and changes decisions at rounding ties. It has relative error at most 4u (the first two squares go through four roundings),
+# The sum of squares is formed in order by ProximalBase's `_ball_l2_sum4`, ((a² + b²) + c²) + d², and not by its
+# `_square_scaled_sum`, whose compensated sum can change decisions near the admission cutoff. The ordered sum has relative
+# error at most 4u (the first two squares go through four roundings),
 # so the computed norm has at most 3u; the threshold (r 2^k)(1 + 8eps) adds u. The computed norm is at most the computed
 # threshold, so an admitted point has ‖y‖ ≤ r (1 + 8eps + 4u) = r (1 + 10 eps). The scaled radius r 2^k can overflow:
 # it is then Inf, while the scaled norm is below 2sqrt(n) = 4, so the point is far inside the ball and is admitted. It can
 # also underflow or be subnormal: it is then below 2^-1022, while the scaled norm is at least 1, so the point is
 # rejected, as it is far outside.
-# Check, Float32. No ProximalBase kernel forms the plain Float64 sum of exact squares used here (its scaled sum is
-# compensated). Float64 holds the exact square of every finite Float32, which neither overflows nor underflows, so
+# Check, Float32. The finite entries are widened to Float64 and summed in the same order by `_ball_l2_sum4`; the
+# compensated `_square_scaled_sum` is not used, for the reason above. Float64 holds the exact square of every finite Float32, which neither overflows nor underflows, so
 # there is no scaling, and under gradual underflow no entry or square is lost. The sum has relative error at most
 # 3·2^-53, and the square root and the product with the radius add at most 2^-53 each, below 7e-16 in all. An admitted point has
 # ‖y‖ ≤ r (1 + 8eps(Float32) + 7e-16).
@@ -669,30 +670,30 @@ end
 # 2.5 eps(T), so in Float64 its computed norm is at most r (1 + 5u)(1 + 3u), about r (1 + 4 eps(T)), below the threshold
 # r (1 + 8eps(T))(1 - u), and the point is admitted.
 # In the Float64 method, once the radius is validated as positive and finite, an all-zero x is admitted before any
-# exponent is taken, because exponent(0.0) throws.
+# exponent is taken, because exponent(0.0) throws. The function is reached only for the four-coefficient IndBallL2 that
+# solve! gates; a vector of another length returns false, so the trial keeps the value Inf.
 function _within_ball_tolerance(x::Vector{Float32}, r::Float32)
-  (isfinite(r) && r > 0) || return false
-  s = 0.0
+  (isfinite(r) && r > 0 && length(x) == 4) || return false
   for xi in x
     isfinite(xi) || return false
-    s += abs2(Float64(xi))
   end
+  s = ProximalBase._ball_l2_sum4(Float64(x[1]), Float64(x[2]), Float64(x[3]), Float64(x[4]))
   sqrt(s) <= Float64(r) * (1 + 8 * Float64(eps(Float32)))
 end
 
 function _within_ball_tolerance(x::Vector{Float64}, r::Float64)
-  (isfinite(r) && r > 0) || return false
+  (isfinite(r) && r > 0 && length(x) == 4) || return false
   m = 0.0
   for xi in x
     isfinite(xi) || return false
     m = max(m, abs(xi))
   end
   iszero(m) && return true
-  p = ProximalBase._power_factors(Float64, -exponent(m))
-  s = 0.0
-  for xi in x
-    s += abs2(ProximalBase._scale_value(xi, p))
-  end
+  k = -exponent(m)
+  k1 = clamp(k, -1022, 1023)
+  p = (ProximalBase._normal_power(Float64, k1), ProximalBase._normal_power(Float64, k - k1))
+  s = ProximalBase._ball_l2_sum4(ProximalBase._scale_value(x[1], p), ProximalBase._scale_value(x[2], p),
+                                 ProximalBase._scale_value(x[3], p), ProximalBase._scale_value(x[4], p))
   sqrt(s) <= ProximalBase._scale_value(r, p) * (1 + 8 * eps(Float64))
 end
 

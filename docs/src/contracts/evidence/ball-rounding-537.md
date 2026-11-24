@@ -45,12 +45,12 @@ outputs, computed in BigFloat.
 ## [evidence-ball-rounding-sweep Check against ProximalBase and BigFloat](@id evidence-ball-rounding-sweep)
 
 **Statement.** Measured at commit `c0878e5b` of pull request [#538](https://github.com/mlakolar/ProximalSolvers.jl/pull/538)
-(the check is the code of `f2465717`, which introduces the check), Julia 1.13.3 and 1.10.12 on a cluster
+(the check now called `_within_ball_tolerance`, in the form of `f2465717`), Julia 1.13.3 and 1.10.12 on a cluster
 (Slurm), ProximalBase `bc9e888d`. The tables are from Julia 1.13.3. Julia 1.10.12 gave zero rejections as well
 (183,530 Float32 and 114,505 Float64 `Inf` outputs), with the largest violation of an admitted synthetic point
 8.0 eps (Float32) and 9.01 eps (Float64).
 Each sample is a random four-entry point projected by `value_and_prox!` onto `IndBallL2(r)`, whose stored output `y`
-is then given to `_within_ball_tolerance(y, r)`. The violation of `y` is computed in 256-bit BigFloat.
+is then given to the check. The violation of `y` is computed in 256-bit BigFloat.
 
 The regimes cover an ordinary radius `r = 1`; a radius below ProximalBase's four-entry floor and near `floatmin`;
 coefficients of magnitude around 1e154 to 1e159 (Float64) and 1e18.3 to 1e19.5 (Float32), whose sums of squares can
@@ -159,24 +159,42 @@ accepted it as a start.
 
 ## [evidence-ball-rounding-kernels Reuse of ProximalBase kernels](@id evidence-ball-rounding-kernels)
 
-**Statement.** The Float64 check scales the entries and the radius with ProximalBase's `_power_factors(Float64, -exponent(m))` and
-`_scale_value`, in place of a local split into two normal powers of two. A differential test compared the decisions of the
-previous implementation, the current one and a variant that forms the sum of squares with ProximalBase's `_square_scaled_sum`
-(a compensated sum). Julia 1.10.12 and 1.13.3 gave the same counts, at ProximalBase `bc9e888d`. The cases are four-entry Float64
-points with signs and zeros, in four groups of 100,000 points each (maximum in `[2^1023, floatmax]` with other entries down to the
-subnormal range, subnormal maximum, maximum near `2^-1022` and `2^1022`, ordinary scales), and for each point 13 radii around the
-computed threshold (the threshold radius and its 6 neighbours on each side) and 3 random radii, about 6.2 million decisions, plus 501
-constructed ones (the tie example above, scaled by powers of two, and axis points at the rounded threshold).
+**Statement.** The Float64 check scales the entries and the radius by two normal powers of two built with ProximalBase's
+`_normal_power` and applied with `_scale_value`, and both precisions sum the four squares with ProximalBase's `_ball_l2_sum4`. A
+differential test compared the final implementation, a variant that uses `_power_factors` (the single factor `2^-1023` at
+`k = -1023`, as at `4a6df100`) and a variant that sums with `_square_scaled_sum` (a compensated sum) against the implementation of
+`a490f020`, which used a local split into `2^k1` and `2^(k - k1)` and a plain loop sum. It ran on Julia 1.10.12 and 1.13.3, at ProximalBase
+`bc9e888d`, under gradual underflow and under `set_zero_subnormals(true)`.
 
-| Variant | Decisions that differ from the previous implementation |
-|---|---|
-| `_power_factors` and `_scale_value`, plain sum (current) | 0 |
-| plus `_square_scaled_sum` (compensated sum) | 12,820 (Julia 1.10.12) and 13,104 (Julia 1.13.3), in each of the four groups |
+The generated cases are four-entry Float64 points with signs and zeros, in four groups of 100,000 points each (maximum in
+`[2^1023, floatmax]` with other entries down to the subnormal range; subnormal maximum, which can include `floatmin(Float64)`; maximum near
+`2^-1022` and `2^1022`; ordinary scales). For each point the radii are the threshold radius, centred at the BigFloat norm divided by
+`1 + 8eps` and rounded to Float64, its 6 neighbours on each side and 3 random radii around it, when that centre is finite and positive;
+unusable random radii are omitted. The constructed cases are 549: the tie example, scaled by powers of two, with its neighbouring radii;
+axis points at the rounded threshold with signs and zeros; and largest entries at and above `2^1023` with radii around `2^1022`.
 
-The factors have product exactly `2^k` for every `k` from -1074 to 1074, and `ldexp(1.0, -1023)` is the subnormal `2^-1023` on both
-versions. At `k = -1023` the previous implementation used `2^-1022` and `2^-1`; the 100,000 points with maximum at least `2^1023` showed
-no difference in decisions. For Float32 data, 1,300,056 decisions through the compensated Float64 kernel also agreed with the plain
-Float64 sum of exact squares; that kernel scales and sums compensated, so it is not the same computation, and the Float32 check is unchanged.
+| Decisions that differ from `a490f020` | Julia 1.10.12 | Julia 1.13.3 |
+|---|---|---|
+| generated decisions | 6,219,306 | 6,218,986 |
+| final implementation, gradual underflow | 0 | 0 |
+| `_power_factors` variant, gradual underflow | 0 | 0 |
+| `_square_scaled_sum` variant, gradual underflow | 12,820 (each group has some: 1,338, 3,921, 3,885, 3,676) | 13,104 (1,384, 4,039, 3,908, 3,773) |
+| final implementation, flushed subnormals | 0 | 0 |
+| `_power_factors` variant, flushed subnormals | 741,796, all in the group with maximum at least `2^1023` | 741,754, same group |
+| `_square_scaled_sum` variant, flushed subnormals (its kernel scales with `_power_factors`) | 747,590 | 747,600 |
+| constructed decisions (549): final; `_power_factors`; `_square_scaled_sum` | 0; 0; 0 gradual, 0; 44; 44 flushed | same |
+
+For `x = [2^1023, nextfloat(2^-52), 0, -0]` and `r = 2^1022`, `a490f020` and the final implementation reject in both modes, and the
+`_power_factors` variant admits under flushing, where its subnormal factor `2^-1023` becomes zero. Under gradual underflow the
+factors of `_power_factors` have product exactly `2^k` for every `k` from -1074 to 1074, and `ldexp(1.0, -1023)` is the subnormal `2^-1023`
+on both versions.
+
+The compensated sum changes decisions near the cutoff, with no exact tie needed. For Float64 `x = [1.0, 2^-26, 1.25 * 2^-27, 1.25 * 2^-27]` and
+`r = 1 - 8eps`, `a490f020` and the final implementation admit and the compensated variant rejects. The Float32 counterpart
+`x = [1 + 2^-20, 2^-26, 1.25 * 2^-27, 1.25 * 2^-27]`, `r = 1` behaves the same way. The tie example above gives the same decision in all three variants.
+Over 1,300,000 generated Float32 decisions, the final implementation agreed with the plain Float64 loop and the compensated kernel also gave no
+difference, so the generated Float32 points did not reach such a case. `_ball_l2_sum4` and the loop `s = 0.0; s += abs2(...)` gave bitwise equal sums
+on 2,000,000 random four-entry vectors.
 
 ## [evidence-ball-rounding-minimum Smooth term of the reported minimum](@id evidence-ball-rounding-minimum)
 
