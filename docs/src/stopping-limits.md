@@ -34,6 +34,11 @@ The [result contract](@ref RES-04)
 describes the stop reason, winning leaves, observations and counts. Omit both
 keywords to use the default PGD stopping policy.
 
+At the [iteration cap](@ref STOP-22), a tie can use stored objective values.
+`ScaledKKT`, `IterateChange` and `UserStop` are marked `:not_checked` there.
+A solve using `ScaledKKT` alone reports `reason = :limit` and
+`converged = false` if it reaches the cap.
+
 ## The criterion and a certificate
 
 See the [current section](@ref RES-01). For PGD and APG on least squares with a

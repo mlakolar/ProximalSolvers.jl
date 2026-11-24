@@ -215,7 +215,8 @@ with the expression unfulfilled, and `:stalled` for numerical stagnation with th
 expression unfulfilled. `satisfied` is true for `:rule` and `:user`. At a tie,
 the reason names the satisfied expression and `limit_reached` is true.
 `converged` is true when the winning branch includes a passing `ScaledKKT`
-leaf. Fatal solver failures throw as specified in [RES-03](@ref).
+leaf. The result display reports convergence, policy satisfaction and the stop
+reason. Fatal solver failures throw as specified in [RES-03](@ref).
 
 `observations` records each leaf in tree order, with its one-based child
 `path` from the root (empty for a root leaf), rule type `name`, `evidence`

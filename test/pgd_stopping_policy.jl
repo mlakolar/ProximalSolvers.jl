@@ -47,7 +47,10 @@ end
     @test t.winning_branch === nothing && t.observations[1].status == :not_checked
     @test PS.minimum(r) === missing && PS.iterations(r) == 0 && PS.minimizer(r) === x
     @test all(iszero, values(t.counts)) && isempty(calls) && x == T[0]
-    @test PS.iteration_limit_reached(r) && occursin("Minimum: missing", sprint(show, r))
+    printed = sprint(show, r)
+    @test PS.iteration_limit_reached(r) && occursin("Minimum: missing", printed)
+    @test occursin(" * Convergence: false", printed)
+    @test occursin(" * Stopping condition satisfied: false", printed)
 
     r = solve!(x, f, g, method; limits=MaxIterations(4))
     t = termination(r)
@@ -228,6 +231,9 @@ end
         @test r.iterations == 0 && r.converged == converged && t.satisfied
         @test t.reason === reason && t.winning_branch == branches
         @test map(o -> o.status, t.observations) == statuses
+        printed = sprint(show, r)
+        @test occursin(" * Convergence: $converged", printed)
+        @test occursin(" * Stopping condition satisfied: true", printed)
     end
     for (rule, reason, statuses) in (
         (kkt, :limit, (:not_checked,)),
