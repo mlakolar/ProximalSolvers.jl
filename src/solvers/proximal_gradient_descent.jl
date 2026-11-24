@@ -224,7 +224,8 @@ function update_state!(
     while true
       # find next point
       _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
-      state.g_x = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
+      v = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
+      state.g_x = _trial_penalty_value(g, v, state.x)
       state.f_x = _value!(state.x, f, state.model, state.z_x)
       state.prox_calls += 1
       state.f_calls += 1
