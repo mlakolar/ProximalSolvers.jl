@@ -186,7 +186,8 @@ _mulup(a::Float64, b::Float64) =
 # the largest magnitude of the mapping's trial point in T, m0 the largest computed difference of the mapping before
 # its product by L, and the computed mapping. The allowance is a sum of terms: the underflow terms are min(k η, a
 # product of magnitudes), the propagated terms are products of magnitudes (_mulup), and each term is 0 when its
-# magnitudes are exact zeros. Both are Inf (the check fails) when the growth factor 2 of the argument does not hold,
+# magnitudes are exact zeros. The one exception is the final product by L of the mapping, which adds η whenever
+# m0 > 0 and the mapping is finite, also when the exact product is below η. Both are Inf (the check fails) when the growth factor 2 of the argument does not hold,
 # (n + p + 2) eps(Float64) > 1. k holds the terms of the allowance that depend only on the solve (_l1_underflow_terms
 # for the same n, p, T, α, C and L), formed once per solve in the route object.
 function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, ρ::Float64, C::Float64, rnorm::Float64,
@@ -210,10 +211,15 @@ function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, �
   # the mapping L (v - P(v - g/L)) at v = T(w). For the exact projection P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0), each
   # output moves by at most |Δzᵢ| + |Δτ| ≤ 2 ‖Δz‖∞ (the level τ moves by at most ‖Δz‖∞), so an error of the projection
   # input enters the mapping with the factor 2: the gradient error, 2 E_g; for Float32, the conversion of w, which also
-  # enters directly (3L), and that of g (2); the division g/L, whose error is at most min(η_T, δ/L), so 2L min(η_T,
-  # δ/L) = 2 min(L η_T, δ), formed without the quotient δ/L, which can round to zero. The computed projection's own
+  # enters directly (3L), and that of g (2); the division of the converted T(g) by L, which loses at most min(η_T,
+  # |T(g)|/L) in its absolute component. The code's term before the inflation is 2 min(L η_T, δ), with δ the Float64
+  # gradient; the factor two of FP-05 for computed magnitudes covers the difference for a finite conversion under
+  # gradual underflow. It is formed without the quotient δ/L, which can round to zero: the stored double of L η_T
+  # (times 2) when that arm wins, _mulup(2.0, δ) when δ wins. The computed projection's own
   # underflow in T and the final product by L in Float64 enter after the projection, with the factor 1. The final
-  # product L m0 is exact when m0 = 0; when m0 > 0 its error is at most η, also when the computed mapping is 0.
+  # product L m0 is exact when m0 = 0; when m0 > 0 the term η bounds the absolute underflow component of that
+  # product's error, in FP-05's relative-plus-absolute model, not its full rounding error; it is added also when the
+  # computed mapping is 0.
   conv = T === Float64 ? 0.0 : _mulup(3L, min(ηT, winf)) + 2 * min(ηT, dual)
   # (a minimum that selects its per-solve term L η_T or p η_T uses the stored product k.division_cap_product or
   # k.curvature_p_eta_t_product)

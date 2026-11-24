@@ -844,8 +844,9 @@ in [FP-05](@ref); admission is the computed cap decision on the widened mass. Ne
 *Objective increases.* `allow_f_increases = false` is not enforced on this route: unlike
 [STOP-09](@ref), a computed increase of the loss does not by itself end the solve, though another
 exit can still end it at that iteration, as in [APG-03](@ref). `f_increased` reports the comparison
-at the last iteration, at the first iteration against the starting value; the trace's `fg_x`, when
-stored, records the objective values, from which an increase can be read. The configurable stopping of
+at the last iteration, at the first iteration against the starting value; a stored
+trace records the objectives of completed iterations, so it shows changes between recorded iterations only; the
+first comparison is against the starting objective, which the trace does not contain. The configurable stopping of
 [#523](https://github.com/mlakolar/ProximalSolvers.jl/issues/523) may revisit this. The stagnation,
 limit and callback exits apply as for the other penalties; after them `converged` is false unless a
 check passed at that iteration.

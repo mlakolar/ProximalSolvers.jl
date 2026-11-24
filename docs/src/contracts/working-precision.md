@@ -297,9 +297,13 @@ computed `maxⱼ |Float64(T(wⱼ)) - Float64(qⱼ)|` and the computed mapping `m
    2-Lipschitz in the ∞-norm (for `r = 3`, `z = [3, 3, 3]` and `z' = [3.125, 2.875, 2.875]` the
    ratio is `4/3`), and an error of the projection input enters with the factor 2: the gradient
    error adds `2 E_g`; for `Float32` data the conversion of `w` adds `3L min(η_T, ‖w‖∞)` and that of
-   `g` adds `2 min(η_T, δ)`; the division by `L`, whose error is at most `min(η_T, δ / L)`, adds
-   `2L min(η_T, δ / L) = 2 min(L η_T, δ)`, which the check forms as the second expression, from the
-   products `L η_T` and `2 (L η_T)`, so that a quotient `δ / L` that rounds to zero does not erase it.
+   `g` adds `2 min(η_T, δ)`; the division of the converted operand `T(g)` by `L` loses at most `min(η_T, |T(g)| / L)` in its
+   absolute component, besides its relative rounding. The code's term before the inflation is
+   `2 min(L η_T, δ)`, with `δ` the `Float64` gradient magnitude rather than `|T(g)|`; FP-05's factor
+   of two for computed magnitudes covers the difference for a finite conversion under gradual
+   underflow. The check forms it without the quotient `δ / L`, which can round to zero: when the
+   `L η_T` arm wins it uses the stored double of `L η_T` and its product by 2, and when `δ` wins it
+   uses `_mulup(2.0, δ)`.
    The computed projection in `T` enters through its own assumption below, not through this factor
    2: it adds `L min(p η_T, ‖t‖∞)`. The final product by `L` adds `0` when `m₀ = 0`, where the
    product is exact, and `η` when `m₀ > 0`, also when `m` rounds to zero (the check evaluates this as
@@ -366,7 +370,7 @@ curvature exceeds `floatmax(Float64) / 2`, so that `2L` overflows (`X = 1e154`, 
 `2L min(η_T, δ / L)` evaluated with the quotient was zero and the check passed. In each, neither
 method reports `converged`, the MPFR mapping at the returned point exceeds its budget, and a direct
 call of the check fails after one gradient call and one prox call. A zero design with a zero
-response, whose budgets are zero, passes the check at the exactly stationary start `0` and
+response, whose stopping budgets (gap and mapping) are zero, passes the check at the exactly stationary start `0` and
 converges at the first iteration, so the final-product term adds nothing when `m₀ = 0`. It also
 checks one expansion example of the projection in term 5, with ProximalBase's projection in both
 precisions.

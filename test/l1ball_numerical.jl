@@ -342,7 +342,8 @@ end
 end
 
 # One example for the factor 2 of the mapping's underflow allowance (FP-05): the exact ℓ1-ball projection is
-# 2-Lipschitz in the ∞-norm, not nonexpansive; with ProximalBase's projection this pair expands by 4/3
+# 2-Lipschitz in the ∞-norm, not nonexpansive; the exact expansion ratio of this pair is 4/3, and ProximalBase's computed ratio is
+# approximately 4/3 (the test compares it approximately)
 @testset "an ∞-norm expansion example of the ℓ1-ball projection, ratio 4/3 ($T)" for T in (Float32, Float64)
   ball = IndBallL1(T(3))
   z, z2 = T[3, 3, 3], T[3.125, 2.875, 2.875]
@@ -445,9 +446,9 @@ end
   @test stub.grad_calls == 1 && stub.prox_calls == 1
 end
 
-# A zero design with a zero response: the budgets are zero, the start 0 is exactly stationary, and every term of the
+# A zero design with a zero response: the stopping budgets (gap and mapping) are zero, the start 0 is exactly stationary, and every term of the
 # allowance is an exact zero, including the final product by L of a zero difference (FP-05), so the full check passes.
-@testset "a zero design: zero budgets and an exactly stationary start ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+@testset "a zero design: zero stopping budgets (gap and mapping) and an exactly stationary start ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   X, y, r = zeros(T, 2, 2), zeros(T, 2), one(T)
   f = LeastSquaresLoss(y, X)
   tol = PS._feasibility_tolerances(NumericalFeasibility(), T)
