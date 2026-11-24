@@ -526,8 +526,8 @@ limit-only solve evaluates once at return. A tree containing `UserStop` uses
 one evaluation at initialization and after each completed sweep. At each of
 those checkpoints share the value among conditions and reuse it at return.
 Evaluate the predicate with `(; iteration, objective)`, with `iteration` the
-number of completed passes. Composition uses the ordered short circuiting in
-[STOP-22](@ref). `UserStop` is unchecked at the cap.
+number of completed passes. Predicate validation and ordered short circuiting
+follow [STOP-22](@ref). `UserStop` is unchecked at the cap.
 
 An active sweep can leave the objective unchanged while an omitted coordinate
 still violates the full problem's KKT conditions. Sampling full sweeps avoids

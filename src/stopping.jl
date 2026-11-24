@@ -194,10 +194,6 @@ needs_stationarity(::Union{Nothing,RuleState}) = false
 needs_stationarity(::RuleState{ScaledKKT}) = true
 needs_stationarity(tree::Union{AnyOf,AllOf}) = any(needs_stationarity, tree.rules)
 
-needs_user_stop(::Union{Nothing,RuleState}) = false
-needs_user_stop(::RuleState{<:UserStop}) = true
-needs_user_stop(tree::Union{AnyOf,AllOf}) = any(needs_user_stop, tree.rules)
-
 with_stationarity(monitor, provider) =
     Monitor(monitor.root, monitor.limit, monitor.movement,
             StationarityCache(provider, -1, Dict{UInt64,Bool}()))

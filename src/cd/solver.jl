@@ -595,9 +595,15 @@ function _observe_cd_pass!(observer::_CDStoppingObserver, m, g, x, pass, full, a
   _check_cd_checkpoint!(observer, m, g, x, pass, full) !== :continue
 end
 
-_check_cd_rule(rule) = throw(ArgumentError("unsupported coordinate descent stopping condition $(typeof(rule))"))
-_check_cd_rule(::Union{ObjectiveChange,UserStop}) = nothing
-_check_cd_rule(rule::Union{AnyOf,AllOf}) = foreach(_check_cd_rule, rule.rules)
+function _cd_rule_needs_user_context(rule)
+  if rule isa Union{ObjectiveChange,UserStop}
+    return rule isa UserStop
+  elseif rule isa Union{AnyOf,AllOf}
+    # Validate each child even if an earlier one already needs the context.
+    return any(map(_cd_rule_needs_user_context, rule.rules))
+  end
+  throw(ArgumentError("unsupported coordinate descent stopping condition $(typeof(rule))"))
+end
 
 function _cd_policy_limit(method, limits)
   limits === nothing && return MaxPasses(method.maxpasses)
@@ -623,9 +629,8 @@ function _solve_cd_policy!(x, f, g, method, stopping, limits)
     throw(ArgumentError("explicit coordinate descent stopping requires momentum off"))
   _check_problem(x, f, g, :cd)
   limit = _cd_policy_limit(method, limits)
-  stopping === nothing || _check_cd_rule(stopping)
+  has_user_stop = stopping === nothing ? false : _cd_rule_needs_user_context(stopping)
   monitor = Stopping.prepare(stopping, limit, eltype(x))
-  has_user_stop = Stopping.needs_user_stop(monitor.root)
   observer = _CDStoppingObserver(zero(eltype(x)), nothing, monitor, f, has_user_stop, :continue, 0, 0, 0, 0)
   limit.n == 0 && return _cd_policy_result(x, missing, observer, 0, :limit)
 
