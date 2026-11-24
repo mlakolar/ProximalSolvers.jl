@@ -59,6 +59,7 @@ include("stopping.jl")
 using .Stopping
 export Stopping, IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
 export PrimalResidual, DualResidual
+export MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEvaluations
 include("solve.jl")
 include("solvers/image_models.jl")
 include("solvers/proximal_gradient_descent.jl")

@@ -40,6 +40,9 @@ AnyOf
 AllOf
 MaxIterations
 MaxPasses
+MaxObjectiveEvaluations
+MaxGradientEvaluations
+MaxProximalEvaluations
 termination
 ProximalSolvers.ProximalGradientStoppingResult
 ProximalSolvers.CoordinateDescentStoppingResult

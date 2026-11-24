@@ -38,7 +38,7 @@ end
 
 Result of an explicit PGD or APG stopping-policy solve. `minimizer` aliases the supplied
 coefficient vector. `minimum` holds the computed objective or `missing` when
-the iteration budget was zero. Use [`termination`](@ref) to inspect the reason
+a budget of zero prevented initialization. Use [`termination`](@ref) to inspect the reason
 and the observations at the returned point.
 """
 struct ProximalGradientStoppingResult{M,T,D}
@@ -65,6 +65,7 @@ minimum(r::ProximalGradientStoppingResult) = r.minimum
 iterations(r::ProximalGradientStoppingResult) = r.iterations
 converged(r::ProximalGradientStoppingResult) = r.converged
 iteration_limit_reached(r::ProximalGradientStoppingResult) = r.iteration_converged
+call_limit_reached(r::ProximalGradientStoppingResult) = !isempty(r.decision.reached_evaluation_limits)
 f_increased(r::ProximalGradientStoppingResult) = r.f_increased
 stagnated(r::ProximalGradientStoppingResult) = r.stagnated
 backtrack_steps(r::ProximalGradientStoppingResult) = r.backtrack_steps
@@ -83,7 +84,7 @@ function Base.show(io::IO, r::ProximalGradientStoppingResult)
     print(io, " * Stop reason: ", decision.reason)
 end
 
-function _gradient_policy_limit(options, limits)
+function _gradient_policy_limits(options, method, limits)
     defaults = ProximalOptions()
     options.callback === nothing ||
         throw(ArgumentError("ProximalOptions.callback must be nothing with explicit stopping or limits. Use UserStop for a predicate."))
@@ -92,23 +93,34 @@ function _gradient_policy_limit(options, limits)
         getproperty(options, name) == getproperty(defaults, name) ||
             throw(ArgumentError("ProximalOptions.$name must have its default value with explicit stopping or limits"))
     end
-    limits === nothing && return MaxIterations(options.maxiter)
-    limits isa MaxIterations || throw(ArgumentError("explicit gradient stopping requires limits=MaxIterations(n)"))
-    (options.maxiter == defaults.maxiter || options.maxiter == limits.n) ||
-        throw(ArgumentError("ProximalOptions.maxiter conflicts with limits=MaxIterations($(limits.n))"))
-    limits
+    limits === nothing && return MaxIterations(options.maxiter), ()
+    (method isa ProximalGradientDescent || limits isa MaxIterations) ||
+        throw(ArgumentError("explicit APG stopping requires limits=MaxIterations(n)"))
+    requested = limits isa Tuple ? limits : (limits,)
+    (isempty(requested) || !all(l -> l isa Union{MaxIterations,Stopping.EvaluationLimit}, requested)) &&
+        throw(ArgumentError("explicit PGD limits must be a limit or a nonempty tuple of iteration and evaluation limits"))
+    allunique(map(typeof, requested)) || throw(ArgumentError("each limit kind may be specified once"))
+    iteration_index = findfirst(l -> l isa MaxIterations, requested)
+    limit = iteration_index === nothing ? MaxIterations(options.maxiter) : requested[iteration_index]
+    (options.maxiter == defaults.maxiter || options.maxiter == limit.n) ||
+        throw(ArgumentError("ProximalOptions.maxiter conflicts with limits=MaxIterations($(limit.n))"))
+    limit, filter(l -> l isa Stopping.EvaluationLimit, requested)
 end
 
 function _gradient_policy_result(method, x, objective, increased, trace, monitor, reason, k,
                                  f_calls, grad_calls, prox_calls, backtrack_steps)
     g_calls = ismissing(objective) ? 0 : prox_calls + 1
     counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials=prox_calls-k)
-    decision = Stopping.report(monitor, reason, k, counts)
+    report = Stopping.report(monitor, reason, k, counts)
+    evaluation_limits = monitor.evaluation_limits
+    reached_evaluation_limits = filter(l -> Stopping.evaluation_limit_reached(l, counts), evaluation_limits)
+    decision = merge(report, (; evaluation_limits, reached_evaluation_limits,
+                              limit_reached=report.limit_reached || !isempty(reached_evaluation_limits)))
     converged = monitor.stationarity !== nothing && decision.satisfied &&
         any(o -> o.evidence === :stationarity && o.status === :pass &&
                o.path in decision.winning_branch, decision.observations)
     ProximalGradientStoppingResult(
-        method, x, objective, k, converged, decision.limit_reached, increased, reason === :stalled,
+        method, x, objective, k, converged, report.limit_reached, increased, reason === :stalled,
         trace, backtrack_steps, f_calls, grad_calls, prox_calls, decision)
 end
 
@@ -146,13 +158,13 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
      !(g isa Union{IndBox,IndBallL2})) ||
         throw(ArgumentError("explicit stopping and limits require dense vector least-squares PGD or APG with a supported penalty (excluding box and ball indicators)"))
     _check_gradient_policy_problem(x, f, g, method)
-    limit = _gradient_policy_limit(options, limits)
-    monitor = Stopping.prepare(stopping, limit, eltype(x))
+    limit, evaluation_limits = _gradient_policy_limits(options, method, limits)
+    monitor = Stopping.prepare(stopping, limit, eltype(x); evaluation_limits)
     use_stationarity = Stopping.needs_stationarity(monitor)
     if use_stationarity && !(g isa Union{NormL1,ElasticNet})
         throw(ArgumentError("ScaledKKT requires NormL1 or ElasticNet for dense vector least-squares PGD or APG"))
     end
-    if iszero(limit.n)
+    if iszero(limit.n) || any(l -> iszero(l.n), evaluation_limits)
         trace = OptimizationTrace{typeof(method)}()
         return _gradient_policy_result(method, x, missing, false, trace, monitor, :limit, 0, 0, 0, 0, 0)
     end
@@ -161,21 +173,27 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
     if use_stationarity
         monitor = Stopping.with_stationarity(monitor, _gradient_stationarity_provider(method, f, g_work))
     end
-    # These vector methods complete each update or throw. An interruptible route
-    # needs an _interrupted_gradient_decision method for its stopping decision.
     _solve_gradient!(state, f, g_work, method, options, nothing, monitor)
 end
+
+@inline function _gradient_step!(monitor::Stopping.Monitor, state, f, g,
+                                 method::ProximalGradientDescent, options, t0)
+    _update_pgd_state!(f, g, state, method, monitor.evaluation_limits)
+end
+
+_interrupted_gradient_decision(::Stopping.Monitor, decision, state, options) =
+    (; reason=:limit, stop=true, point=decision.point)
 
 function _initial_gradient_decision(monitor::Stopping.Monitor, state, options, t0)
     point = ProximalGradientStoppingPoint(state, 0)
     isfinite(point.objective) || throw(ArgumentError("start from a point where the composite objective is finite"))
-    reason = Stopping.check!(monitor, point)
+    reason = Stopping.check!(monitor, point, Stopping.evaluation_limit_reached(monitor.evaluation_limits, state))
     (; reason, stop=reason !== :continue, point)
 end
 
 function _assess_gradient_step(monitor::Stopping.Monitor, state, f, g, options, iteration)
     point = ProximalGradientStoppingPoint(state, iteration)
-    reason = Stopping.check!(monitor, point)
+    reason = Stopping.check!(monitor, point, Stopping.evaluation_limit_reached(monitor.evaluation_limits, state))
     if reason === :continue && _verified_pgd_stall(state)
         reason = :stalled
     end

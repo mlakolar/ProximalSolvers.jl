@@ -73,6 +73,8 @@ A line-search acceptance is an iteration decision. Convergence, exact stalls and
 ### [LS-09 Failure and restoration boundary](@id LS-09)
 
 **Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`. The gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first. Full ownership and exception semantics are [RES-01](@ref).
+An explicit evaluation budget can interrupt the search and return an accepted
+point under [STOP-23](@ref).
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 

@@ -550,7 +550,8 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 ### [STOP-22 Explicit stopping for dense vector least-squares PGD and APG](@id STOP-22)
 
 **Statement.** Pass `stopping=rule`, `limits=MaxIterations(n)`, or both to
-`solve!`. The rule replaces the success predicates and stationarity check of
+`solve!`. Dense vector PGD also accepts the evaluation limits of [STOP-23](@ref).
+The rule replaces the success predicates and stationarity check of
 [STOP-01](@ref). Supplying a limit alone selects a budget-only policy. A rule
 without a limit uses `ProximalOptions.maxiter` (200 by default). When both
 keywords are omitted or `nothing`, the default policy applies.
@@ -666,6 +667,53 @@ checks the explicit checkpoint sequence and counts through rejected trials and
 restarts. `test/core_regressions.jl` covers the explicit PGD Float32 stagnation exit.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
+
+### [STOP-23 Hard evaluation budgets for dense vector least-squares PGD](@id STOP-23)
+
+**Statement.** For this PGD route, `limits` accepts one limit or a nonempty
+tuple of limits. Admit at most one of each kind. `MaxIterations` counts accepted
+updates, `MaxObjectiveEvaluations` counts smooth loss values,
+`MaxGradientEvaluations` counts full smooth gradients, and
+`MaxProximalEvaluations` counts penalty proximal calls. Each capacity is a
+nonnegative `Int`. Resolve an omitted iteration limit from `options.maxiter`.
+The option conflicts, rule validation and input checks of [STOP-22](@ref)
+apply, including the refusal of nondefault legacy call limits.
+
+After preflight, a zero capacity in any selected limit returns before oracle
+initialization. Otherwise initialization consumes one smooth value and one
+gradient from a single fused evaluation, and one penalty value. Before starting
+a line-search trial, check the remaining evaluation budgets. The trial uses a
+fused penalty value and proximal update followed by a smooth value. A fused
+smooth value and gradient evaluation requires room in both budgets before
+either output is computed, including during line search, on a zero-step
+gradient refresh, and when completing the accepted gradient. A fused call
+counts both outputs even if one is unused. Cached values and curvature
+rechecks do not increment these evaluation counters.
+
+Stop before another trial if any evaluation cap has been reached. An in-flight
+trial can use its remaining evaluation capacity to finish the update. If a
+needed operation is refused, restore the last accepted coefficients and return
+the objective, trace and stopping observations from that checkpoint. The work
+counts include operations completed on the interrupted trial. A numerical
+failure encountered during the update still follows [RES-03](@ref).
+
+At initialization or after a completed update, apply the reached-cap rule of
+[STOP-22](@ref) if any capacity is reached. A passing cached objective condition
+can win a tie. [RES-04](@ref) specifies the returned flags and counters.
+
+**Applies to.** `ProximalGradientDescent` on the dense vector least-squares
+route of [STOP-22](@ref), including its supported scaled loss. The evaluation
+budgets are refused on other routes.
+
+**Code.** `src/stopping.jl`, `src/solvers/gradient_stopping.jl`,
+`src/solvers/proximal_gradient_descent.jl`, `src/line_searches.jl` and `src/solve.jl`.
+
+**Tests.** `test/pgd_evaluation_limits.jl` checks initialization, admission
+within backtracking, rollback and counts, cap ties, preflight, and agreement
+with the iteration-only route when the evaluation caps do not bind.
+
+**Sources.** [Hard evaluation admission in #525](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944)
+and [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
 ## Change log
 

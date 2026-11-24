@@ -80,6 +80,16 @@ end
 # computes them from its LS image cache (see image_models.jl)
 function value_and_gradient_at_x! end
 
+_trial_gradient_allowed(state, ::Tuple{}) = true
+
+@inline function _trial_gradient!(state, f, limits)
+    _trial_gradient_allowed(state, limits) || return false
+    value_and_gradient_at_x!(state, f)
+    state.f_calls += 1
+    state.grad_calls += 1
+    true
+end
+
 # check_rejection!(state, gradient_mode) returns (c ≤ L, c) for a rejected trial with d̂ ≠ 0,
 # with c the computed curvature of the step in the mode of its estimate (twice α‖X d̂‖²/‖d̂‖²
 # in gradient mode). d̂ is state.delta_x: the step x - x', or, when backtrack! has scaled it (its
@@ -103,7 +113,7 @@ function check_rejection! end
     ldexp(state.f_x, 2k), ldexp(state.f_x_previous, 2k), s, _norm(state.delta_x)^2
 end
 
-function backtrack!(state, ls::BackTracking{T}, f, g) where T
+function backtrack!(state, ls::BackTracking{T}, f, g, limits=()) where T
 
     # Quick exit if no progress made
     _sub!(state.delta_x, state.x, state.x_previous)
@@ -112,11 +122,8 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     if xy_sq == zero(T) && isfinite(state.f_x)
       # in the gradient mode, update_state! expects ∇f(x), but state.grad_f_x may
       # hold the gradient at a rejected trial point
-      if !state.backtrack_simple
-          value_and_gradient_at_x!(state, f)
-          state.f_calls += 1
-          state.grad_calls += 1
-      end
+      # A refused fused gradient interrupts the update instead of shrinking the step.
+      state.backtrack_simple || _trial_gradient!(state, f, limits) || return nothing
       return true
     end
 
@@ -157,15 +164,9 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
         # enough apart to compare in floating point, then switch for good to the
         # gradient estimate, which needs ∇f(x)
         state.backtrack_simple = abs( state.f_x_previous - state.f_x ) >= 1e-10 * max( abs( state.f_x ), abs( state.f_x_previous ) )
-        if !state.backtrack_simple
-            value_and_gradient_at_x!(state, f)
-            state.f_calls += 1
-            state.grad_calls += 1
-        end
+        state.backtrack_simple || _trial_gradient!(state, f, limits) || return nothing
     else
-        value_and_gradient_at_x!(state, f)
-        state.f_calls += 1
-        state.grad_calls += 1
+        _trial_gradient!(state, f, limits) || return nothing
         local_l = _dot_diff(T, state.grad_f_x, state.grad_f_x_previous, state.delta_x)
         # For Float64 data, 2 / xy_sq is Inf when xy_sq is below 2 / floatmax(Float64) (about
         # 1.1e-308, a subnormal xy_sq), and 0 * Inf is NaN. A zero product is therefore left at 0.
