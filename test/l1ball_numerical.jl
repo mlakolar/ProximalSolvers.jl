@@ -428,7 +428,8 @@ end
   x0 = T[1, 2eps(T)]
   f, g = LeastSquaresLoss(copy(x0), Matrix{T}(I, 2, 2)), IndBallL1(one(T))
   a = NumericalFeasibility(mapping_rtol = 1e-30)
-  res = solve!(copy(x0), f, g, method, ProximalOptions(maxiter = 1); feasibility = a)
+  # a callback stop after the first iteration reports that iteration's increase
+  res = solve!(copy(x0), f, g, method, ProximalOptions(maxiter = 6, callback = _ -> true); feasibility = a)
   @test res.iterations == 1 && res.f_increased && !res.converged && !res.approximate_solution
   x1, x2 = copy(x0), copy(x0)
   res = solve!(x1, f, g, method, ProximalOptions(maxiter = 6, store_trace = true); feasibility = a)
