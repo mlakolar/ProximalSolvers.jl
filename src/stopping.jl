@@ -50,7 +50,8 @@ end
 
 Check the absolute change in the original composite objective between successive
 accepted iterates or completed coordinate passes. Two zero tolerances select
-equality of the computed objectives. See [STOP-22](@ref) for the scale and arithmetic.
+equality of the computed objectives. See [STOP-22](@ref) for the scale and
+arithmetic and [CD-10](@ref) for coordinate-descent checkpoints.
 """
 struct ObjectiveChange
     atol::Float64

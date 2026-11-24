@@ -523,6 +523,11 @@ circuiting as [STOP-22](@ref). At the cap the required final objective and its
 predecessor can settle an objective tie. `UserStop` is unchecked at the cap.
 A positive limit-only solve evaluates the objective once at return.
 
+An active sweep can leave the objective unchanged while an omitted coordinate
+still violates the full problem's KKT conditions. `ObjectiveChange` supplies
+progress evidence at its two endpoints. [RES-05](@ref) specifies how that
+evidence appears in the result.
+
 A required nonfinite objective raises an error. A numerical or predicate
 exception can escape before a completed result and before the private iterate
 is copied back to the caller, as in [RES-03](@ref). [RES-05](@ref) specifies the
@@ -537,8 +542,9 @@ default `momentum=nothing`.
 **Code.** `src/cd/solver.jl` and `src/stopping.jl`.
 
 **Tests.** `test/cd_stopping.jl` checks analytic full and active passes, including
-zero visits, composition, counts, preflight, rollback and default trajectory
-agreement with a fixed budget and matched RNG state.
+an unchanged active pass with an inactive-coordinate KKT violation. It also
+checks zero visits, composition, counts, preflight, rollback and default
+trajectory agreement with a fixed budget and matched RNG state.
 
 **Sources.** [#523, solver rollout B3](https://github.com/mlakolar/ProximalSolvers.jl/issues/523)
 and [the shared stopping design](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).

@@ -48,23 +48,27 @@ For dense vector least-squares lasso with unweighted `NormL1`, turn momentum off
 and pass a rule, a pass budget, or both. A full sweep visits all coefficients.
 An active sweep revisits the active coordinates. Both count toward `MaxPasses`.
 
-```julia
+~~~@example explicit_cd_stopping
 using ProximalBase, ProximalSolvers
 
-X = [1.0 1.0; 0.0 1.0]
-y = [0.0, 2.5]
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
+y = [2.0, -2.0, 0.5]
 x = zeros(2)
 r = solve!(x, LeastSquaresLoss(y, X), NormL1(0.5),
            CDSolver(order=:cyclic, momentum=false);
-           stopping=ObjectiveChange(), limits=MaxPasses(2))
+           stopping=ObjectiveChange(), limits=MaxPasses(20))
+@assert x == [1.5, -0.875]
+@assert termination(r).satisfied
 termination(r)
-```
+~~~
 
-This stops when the objective stays at `2.125` on the second sweep. Read
-`termination(r).satisfied` for progress and `termination(r).counts` for full
-passes, active passes, visits, and objective evaluations. The explicit rule
-selects the endpoint while the usual CD change threshold schedules full and
-active sweeps. [CD-10](@ref) specifies the options and checkpoint costs.
+The orthogonal columns give the lasso solution `[1.5, -0.875]` on the first
+full sweep. A later sweep leaves the objective unchanged and satisfies the rule.
+Read `termination(r).satisfied` for progress and `termination(r).counts` for
+full passes, active passes, visits, and objective evaluations. With correlated
+columns, an active sweep can leave the objective unchanged while an omitted
+coordinate still violates the KKT conditions. Check [full-point stationarity](@ref learn-02)
+when accuracy matters. [CD-10](@ref) specifies the checkpoints and their cost.
 
 ## The criterion and a certificate
 

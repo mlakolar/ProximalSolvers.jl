@@ -21,8 +21,8 @@ result = solve!(beta, (1/3)*LeastSquaresLoss(y, X), NormL1(0.1),
                 CDSolver(order=:cyclic, momentum=false))
 ```
 
-`converged` is a change test, with an additional certificate for square-root
-lasso; see [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
+With default stopping, `converged` reports a change test and square-root lasso
+also requires a certificate. See [RES-01](@ref).
 
 Dense vector least-squares lasso with an unweighted `NormL1` and momentum off
 also accepts `stopping` and `limits` in [`solve!`](@ref). See [CD-10](@ref) for

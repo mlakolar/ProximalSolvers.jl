@@ -259,7 +259,9 @@ checks counters through APG restarts.
 Its `minimizer` aliases the caller's coefficients, `minimum` holds the computed
 objective or `missing` at a zero cap, and `passes` counts completed sweeps.
 `converged` is false on this route. A fulfilled objective or user condition is
-recorded in `termination(result).satisfied`.
+recorded in `termination(result).satisfied`. A fulfilled `ObjectiveChange`
+leaf records progress evidence. See [CD-10](@ref) for the risk from inactive
+coordinates and [stationarity checks](@ref learn-02) for assessing the fit.
 
 The report uses the rule reasons, leaf observations and winning paths in
 [RES-04](@ref). Its `iteration` is the completed pass count, its `limit` is the
