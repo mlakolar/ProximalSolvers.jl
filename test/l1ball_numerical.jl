@@ -393,9 +393,9 @@ function checks_per_iteration(d::Fixture, method, options, a)
   counts, objective_proposal
 end
 
-# At most one full check per iteration. With a mapping tolerance far below the rounding allowance every check fails,
-# and objective_rtol = 1e-3 makes B1's objective proposal hold whenever the engine's objective test (ftol = 1e-6) does:
-# such an iteration still runs one check, and an iteration with no proposal runs none.
+# At most one full check per iteration. With a mapping tolerance far below the rounding allowance the checks fail (a
+# pass would end the loop early), and with objective_rtol = 1e-3 an iteration with f_residual < ftol = 1e-6 meets both
+# the engine's objective test and B1's objective proposal: it still runs one check. Iterations with no proposal run none.
 @testset "at most one full check per iteration ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   for d in fixtures(T; big = false)
     counts, _ = checks_per_iteration(d, method, OPTIONS, NumericalFeasibility())
