@@ -35,8 +35,9 @@ working constraint and its methods of the engine's trial, stopping and result ho
 
 ProximalBase supplies losses, L1 proximal operations and sparse coefficient
 storage; ProximalSolvers owns orchestration and algorithm-specific results. CD
-uses ProximalBase's scalar `prox_block`; PGD retains fused `value_and_prox!`, except on the
-ℓ1-ball route, whose trials call ProximalBase's `prox!` ([IN-12](@ref)).
+uses ProximalBase's scalar `prox_block`; regression PGD retains fused `value_and_prox!`, except on
+the ℓ1-ball route, whose trials call ProximalBase's `prox!` ([IN-12](@ref)), and graphical-lasso PGD
+uses `prox!`.
 Ownership of least-squares value/gradient oracles and solver caches is specified
 once in [FP-01](@ref). Dependency and diagnostic provenance is in [HIST-03](@ref).
 

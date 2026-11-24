@@ -72,8 +72,9 @@ four-coefficient Euclidean ball with a same-type radius. These indicators
 require a feasible start and use the generic proximal-gradient check, as does
 `NormLinf`. The ℓ1 ball `IndBallL1(r)`, with a radius of the data's type, is
 supported for dense `Vector{Float32}` or `Vector{Float64}` least squares on a
-numerical route: an accepted iterate can lie outside the ball within a numerical
-cap, and `converged` (a passing check at a point classified inside the ball) is
+numerical route: an accepted iterate can lie outside the ball when its computed
+widened ℓ1 norm passes a computed cap decision (not an exact bound on the
+violation), and `converged` (a passing check at a point classified inside the ball) is
 distinguished from `approximate_solution`; see
 [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12). Assess fits with an
 independent diagnostic, particularly for Float32 or ill-conditioned designs.
@@ -380,8 +381,9 @@ positive L1 level; its successful stopping flag requires a certificate.
 
 PGD and APG accept `IndBallL1(r)` on dense `Vector{Float32}` or `Vector{Float64}` least squares
 with a same-type dense design, response and radius ([IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12)).
-The optional keyword `feasibility = NumericalFeasibility(...)` overrides the route's tolerances;
-it is refused with any other penalty, and graphical-lasso PGD and the other solvers refuse it.
+A non-`nothing` `feasibility = NumericalFeasibility(...)` overrides the route's tolerances. With
+any other penalty, PGD and APG treat `feasibility = nothing` as omitted and refuse a non-`nothing`
+value; graphical-lasso PGD and the other solvers refuse the keyword in any form.
 On the route, read `converged` and `approximate_solution`; `minimum` can be `Inf` or `NaN`.
 
 Use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares and

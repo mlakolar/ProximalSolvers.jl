@@ -149,11 +149,14 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
   coefficient matrices. See [APG-07](@ref).
 
 - **(s)** `IndBallL1(r)` on a dense `Vector{T}` with raw or scaled least squares, a finite positive
-  radius of type `T` and a start that passes the numerical cap ([IN-12](@ref)). An accepted point can
-  lie outside the ball within that cap. `converged = true` requires a passing check at a point
-  classified inside the ball; a passing check elsewhere sets `approximate_solution = true`, with
-  `minimum` `Inf` or `NaN`. The optional keyword `feasibility = NumericalFeasibility(...)` overrides
-  the tolerances.
+  radius of type `T` and a start that passes the computed cap decision ([IN-12](@ref)). An accepted
+  point can lie outside the ball: its computed widened ℓ1 norm passed that decision, which is a
+  computed comparison, not an exact bound on the violation. `converged = true` requires a passing
+  check at a point classified inside the ball; a passing check elsewhere sets
+  `approximate_solution = true`, with `minimum` `Inf` or `NaN`. A non-`nothing`
+  `feasibility = NumericalFeasibility(...)` overrides the tolerances. With other penalties, PGD and
+  APG treat `feasibility = nothing` as omitted and refuse a non-`nothing` value; graphical-lasso PGD
+  refuses the keyword in any form.
 
 - **(q)** `NormL2(lambda)` is the Euclidean norm of the whole coefficient vector. PGD and APG accept
   it for a dense `Vector{T}`, raw or one positive `Scaled` least squares, and a level that is

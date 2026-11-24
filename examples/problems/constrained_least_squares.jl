@@ -142,7 +142,8 @@ end
 # magnitudes; projection soft-thresholds an exterior point, so small
 # coefficients become exactly zero. PGD and APG accept `IndBallL1(r)` on a
 # numerical route ([IN-12](@ref)): an accepted point can lie outside the ball
-# by less than a small numerical cap. `converged = true` means the stopping
+# when its computed ℓ1 norm passes a numerical cap decision, a computed
+# comparison rather than an exact bound. `converged = true` means the stopping
 # check passed at a point classified inside the ball; `approximate_solution =
 # true` means it passed at a point classified outside or on the rounding
 # boundary, where `minimum` is `Inf` or `NaN`.

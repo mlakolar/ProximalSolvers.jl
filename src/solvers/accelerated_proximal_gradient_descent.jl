@@ -367,7 +367,7 @@ line search is that of
 
 With `IndBallL1(r)` on dense `Vector{Float32}` or `Vector{Float64}` least squares, APG takes the
 numerical route of [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12), as described for
-`ProximalGradientDescent`; `feasibility = NumericalFeasibility(...)` optionally overrides its tolerances.
+`ProximalGradientDescent`; a non-`nothing` `feasibility = NumericalFeasibility(...)` overrides its tolerances.
 
 Every refusal of an input, option or
 method setting happens before `x` is modified. A step error

@@ -274,13 +274,13 @@ At any exit the flags describe that same iteration:
 
 | Field | Meaning |
 | --- | --- |
-| `x_converged`, `f_converged`, `grad_converged` | Their proposal tests in [STOP-02](@ref) held, subject to [STOP-10](@ref), and the stationarity check passed. |
+| `x_converged`, `f_converged`, `grad_converged` | Their proposal tests in [STOP-02](@ref) held, subject to [STOP-10](@ref), and the stationarity check passed. On the ℓ1-ball route, B1's unchanged-iterate and progress proposals can also set `x_converged`, also under `ftol = 0` ([IN-12](@ref)). |
 | `converged` | The OR of those three flags. |
 | `f_increased` | `F > F_previous`. |
 | `iteration_converged` | `iterations == maxiter`; a limit flag, not success. |
 | `stagnated` | The condition in [STOP-11](@ref); it can coincide with a call limit, iteration limit or callback stop. |
 
-An increase normally exits with `converged=false`; it can coexist with `converged=true` if a proposal and its check pass at that iteration. In particular, with `ftol > 0`, an increase smaller than about two ulps in the ordinary finite-sum range can pass the objective test. With `ftol = 0`, only the iterate or gradient proposal can produce convergence at an increase. A successful proposal on the last allowed iteration sets both `converged=true` and `iteration_converged=true`. An increase exit on that iteration also sets the latter flag. On the ℓ1-ball route, a passing check at a point not classified inside the ball sets `approximate_solution=true` with `converged=false` ([IN-12](@ref)).
+An increase normally exits with `converged=false`; it can coexist with `converged=true` if a proposal and its check pass at that iteration. In particular, with `ftol > 0`, an increase smaller than about two ulps in the ordinary finite-sum range can pass the objective test. With `ftol = 0`, only the iterate or gradient proposal can produce convergence at an increase. A successful proposal on the last allowed iteration sets both `converged=true` and `iteration_converged=true`. An increase exit on that iteration also sets the latter flag. On the ℓ1-ball route, a passing check at a point not classified inside the ball sets `approximate_solution=true` with `converged=false` ([IN-12](@ref)), with `iteration_converged=true` when it happens on the last allowed iteration.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
@@ -294,7 +294,7 @@ An increase normally exits with `converged=false`; it can coexist with `converge
 
 **Statement.** `ftol` is finite and nonnegative; `-0.0` is stored as `0.0`. A positive value that rounds to zero in Float64 is refused. `ProximalOptions(ftol=0)` turns off both objective-test forms and makes `f_converged=false` at every iteration; the reported `f_residual` is still computed. It does not disable objective-increase or limit exits, and the remaining proposals still require stationarity checks.
 
-Only under `ftol = 0`, an accepted iterate equal to the previous iterate entrywise by value (`-0.0 == 0.0`) sets neither `x_converged` nor `grad_converged`. A difference in any entry is assessed normally, even if its norm rounds to zero. With `ftol > 0`, an unchanged iterate can propose an iterate stop, which is then checked.
+Only under `ftol = 0`, an accepted iterate equal to the previous iterate entrywise by value (`-0.0 == 0.0`) sets neither `x_converged` nor `grad_converged`. A difference in any entry is assessed normally, even if its norm rounds to zero. With `ftol > 0`, an unchanged iterate can propose an iterate stop, which is then checked. On the ℓ1-ball route, B1's unchanged-iterate proposal runs the full check at an unchanged iterate also under `ftol = 0`, and a pass sets `x_converged` ([IN-12](@ref)); the statements of this clause on unchanged iterates and stalls concern the other routes.
 
 A stall can end if `1/L` changes, or for APG if the extrapolated point changes. Neither must change, for example at a zero step or with APG `α = 1`. A permanently unchanged point with no separate exit reaches `maxiter` with `converged=false` and `iteration_converged=true`; this reports no progress, not that the point is wrong. Zero with an unweighted lasso level at least `norm(∇f(0), Inf)` is an example of a solution that can remain unchanged.
 
@@ -338,7 +338,10 @@ with no unchanged iterate, is ended by another stop or by `maxiter`.
 can be inaccurate (a nearly interpolating problem with a small penalty level
 can stall with a duality gap above the `1e-5` target), and the iterate could
 still move at a later iteration if the solve continued. For `Float64` data, for
-`AccProxGradDescent` and with `ftol > 0`, `stagnated` is `false`.
+`AccProxGradDescent` and with `ftol > 0`, `stagnated` is `false`. On the
+ℓ1-ball route, B1's unchanged-iterate proposal runs the full check at that
+iterate before the stagnation check, so the success flags follow [IN-12](@ref)
+and can be set together with `stagnated=true`.
 
 **Applies to.** ProximalGradientDescent; Vector{Float32}; ftol = 0.
 
@@ -358,11 +361,11 @@ still move at a later iteration if the solve continued. For `Float64` data, for
 | --- | --- | --- |
 | Computed stationarity convergence | `converged = true` | A proposal passed the computed stationarity check of [STOP-01](@ref) to [STOP-07](@ref) or [STOP-21](@ref), or on the ℓ1-ball route the full check of [FP-05](@ref) at a point classified inside the ball. The comparison uses the computed residual and threshold, so it establishes no exact residual bound ([STOP-12](@ref)) and no accuracy target. For least squares with `NormL1` or `ElasticNet`, [STOP-21](@ref) states what the coordinatewise check means in exact arithmetic. |
 | ℓ1-ball approximate solution | `approximate_solution = true` | On the route of [IN-12](@ref), the full check passed at a point classified outside the ball or not classified; `minimum` is `Inf` or `NaN`. The check compares computed quantities, as in the first row. |
-| Float32 PGD stagnation | `stagnated = true` | An unchanged accepted iterate after the qualifying rejection of [STOP-11](@ref), under `ftol = 0`. The point is not checked. |
+| Float32 PGD stagnation | `stagnated = true` | An unchanged accepted iterate after the qualifying rejection of [STOP-11](@ref), under `ftol = 0`. The point is not checked, except on the ℓ1-ball route, where the unchanged-iterate proposal runs the full check first and a pass matches an earlier row ([IN-12](@ref)). |
 | Objective increase | `f_increased = true` with `allow_f_increases = false` | A computed objective rise ended the solve ([STOP-09](@ref)); not on the ℓ1-ball route ([IN-12](@ref)). The flag records only the sign of the comparison; the result has no count of units in the last place. The relative size of the last change is `f_residual` ([RES-02](@ref)), and a stored trace holds both objective values once at least two iterations have completed. With `allow_f_increases = true`, `f_increased` describes only the last comparison; read the remaining rows. |
 | Iteration limit | `iteration_converged = true` | The budget `maxiter` was used. |
 | Call limit | `call_limit_reached = true` | A positive call limit was reached ([PGD-04](@ref)). |
-| Callback or time limit | none of the fields above is set, `f_increased` excepted when `allow_f_increases = true`, and `iterations < maxiter` | A callback returned `true`, the time limit elapsed, or both. The result has no dedicated field for either cause. |
+| Callback or time limit | none of the fields above is set, `f_increased` excepted when `allow_f_increases = true` or on the ℓ1-ball route ([IN-12](@ref)), and `iterations < maxiter` | A callback returned `true`, the time limit elapsed, or both. The result has no dedicated field for either cause. |
 
 No class carries independently verified target accuracy. PGD and APG compute no duality gap: `gap` is `NaN`, and a positive `gaptol` is refused ([PGD-05](@ref)). Only square-root-lasso CD returns a bounded gap ([CDQ-03](@ref)). Elsewhere an accuracy target must be evaluated outside the solver, for example by [STOP-13](@ref). A return in any row except the first can still be accurate to the stationarity bound; [STOP-15](@ref) describes one such case.
 
