@@ -52,7 +52,8 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   checked::Bool
   objective_rtol::Float64
   mapping_rtol::Float64
-  underflow::@NamedTuple{np::Float64, n::Float64, p1::Float64, p::Float64, pT::Float64}  # _l1_underflow_terms(T, n, p)
+  underflow::@NamedTuple{np::Float64, n::Float64, p1::Float64, p::Float64, pT::Float64, sqnC::Float64, Eg1::Float64,
+                         twoL::Float64, LpT::Float64}  # _l1_underflow_terms(T, n, p, α, C, L)
 end
 
 # The penalty value that initial_state and the trials store (g_x = 0). A start that passes the cap can lie outside the
@@ -64,7 +65,8 @@ function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha:
   n, p = size(X)
   _NumericalL1Ball{T}(ball, X, y, alpha, b.cap, b.gap, b.mapping, b.curvature, b.col, b.frob, b.ynorm, decision,
                       zeros(p), zeros(n), zeros(p), zeros(T, p), zeros(T, p), false, 0, false,
-                      tolerances.objective_rtol, tolerances.mapping_rtol, _l1_underflow_terms(T, n, p))
+                      tolerances.objective_rtol, tolerances.mapping_rtol,
+                      _l1_underflow_terms(T, n, p, alpha, b.col, Float64(T(b.curvature))))
 end
 
 # ---- B1's arithmetic (FP-05) -------------------------------------------------------------------------------------------
@@ -184,8 +186,8 @@ _mulup(a::Float64, b::Float64) =
 # sw = ‖w‖₁ and winf = ‖w‖∞ of the witness, dual = ‖g‖∞ of the scaled gradient, L the inverse step as Float64, tinf
 # the largest magnitude of the mapping's trial point in T and the computed mapping. Each term is min(k η, a product of
 # magnitudes), so a term is 0 when its products are exact zeros. Both are Inf (the check fails) when the growth factor
-# 2 of the argument does not hold, (n + p + 2) eps(Float64) > 1. k holds the terms k η of the allowance that depend only
-# on n, p and T (_l1_underflow_terms), formed once per solve in the route object.
+# 2 of the argument does not hold, (n + p + 2) eps(Float64) > 1. k holds the terms of the allowance that depend only on
+# the solve (_l1_underflow_terms for the same n, p, T, α, C and L), formed once per solve in the route object.
 function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, ρ::Float64, C::Float64, rnorm::Float64,
                                  sw::Float64, winf::Float64, dual::Float64, L::Float64, tinf::Float64,
                                  mapping::Float64) where T
@@ -193,11 +195,13 @@ function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, �
   (n + p + 2) * eps(Float64) <= 1 || return Inf, Inf
   # the residual X w - y: one product (or fused multiply-add) per entry of X; the subtraction of y adds no absolute
   # error under gradual underflow. ‖Δr‖₂ ≤ ‖Δr‖₁ ≤ Σᵢⱼ min(η, |Xᵢⱼ wⱼ|) ≤ min(n p η, √n C ‖w‖₁)
-  A_r = min(k.np, _mulup(_mulup(sqrt(Float64(n)), C), sw))
+  A_r = min(k.np, _mulup(k.sqnC, sw))
   # Xᵀ r, per coordinate: Σᵢ min(η, |Xᵢⱼ rᵢ|) ≤ min(n η, C ‖r‖₂), plus the residual error carried through, ‖Xⱼ‖₂ ‖Δr‖₂ ≤ C A_r
-  A_s = min(k.n, _mulup(C, rnorm))
-  # the multiplication by α scales both and adds one product error, at most min(η, α |Xⱼᵀ r|) ≤ min(η, 2 α C ‖r‖₂)
-  E_g = _mulup(alpha, _mulup(C, A_r) + A_s) + min(η, _mulup(2alpha, _mulup(C, rnorm)))
+  u = _mulup(C, rnorm)
+  A_s = min(k.n, u)
+  # the multiplication by α scales both and adds one product error, at most min(η, α |Xⱼᵀ r|) ≤ min(η, 2 α C ‖r‖₂); when
+  # both minima select their k η term, the first product is the stored k.Eg1
+  E_g = (A_r == k.np && A_s == k.n ? k.Eg1 : _mulup(alpha, _mulup(C, A_r) + A_s)) + min(η, _mulup(2alpha, u))
   # the support gap: the gradient error through δ and the sum, 2 max(ρ, ‖w‖₁) E_g; the p + 1 products of its Float64
   # sum, min((p + 1) η, δ (ρ + 2 ‖w‖₁)); the witness entries' product errors through the ρ δ term, min(p η, ‖w‖₁) δ
   gap_abs = _mulup(2 * max(ρ, sw), E_g) + min(k.p1, _mulup(dual, ρ + 2sw)) + _mulup(min(k.p, sw), dual)
@@ -207,17 +211,24 @@ function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, �
   # directly (3L), and that of g (2); the division by L (2L). The projection's own underflow in T and the final
   # product by L in Float64 enter after the projection, with the factor 1.
   conv = T === Float64 ? 0.0 : _mulup(3L, min(ηT, winf)) + 2 * min(ηT, dual)
-  map_abs = 2 * E_g + conv + _mulup(2L, min(ηT, dual / L)) + _mulup(L, min(k.pT, tinf)) + min(η, mapping)
+  # (a minimum that selects its per-solve term η_T or p η_T uses the stored product k.twoL or k.LpT)
+  d, q = min(ηT, dual / L), min(k.pT, tinf)
+  map_abs = 2 * E_g + conv + (d == ηT ? k.twoL : _mulup(2L, d)) + (q == k.pT ? k.LpT : _mulup(L, q)) + min(η, mapping)
   # the factor 4: 2 for the growth (1 + u)^k ≤ 2 of an absolute error through the later roundings, k ≤ n + p + 2, and
   # 2 for the computed magnitudes in place of the exact ones
   4 * gap_abs, 4 * map_abs
 end
 
-# The terms n p η, n η, (p + 1) η, p η and p η_T of _l1_underflow_allowance, η = nextfloat(0.0) and η_T =
-# nextfloat(zero(T)), each formed with the expression that the allowance used before they were stored.
-_l1_underflow_terms(::Type{T}, n::Int, p::Int) where T =
-  (; np = Float64(n) * Float64(p) * _ETA64, n = Float64(n) * _ETA64, p1 = Float64(p + 1) * _ETA64,
-     p = Float64(p) * _ETA64, pT = Float64(p) * Float64(nextfloat(zero(T))))
+# The terms of _l1_underflow_allowance that depend only on the solve, η = nextfloat(0.0) and η_T = nextfloat(zero(T)):
+# n p η, n η, (p + 1) η, p η and p η_T, each formed with the expression that the allowance used before they were
+# stored, and the _mulup results on per-solve inputs (α, C = maxⱼ‖Xⱼ‖ and the inverse step L as Float64): √n C, the
+# product α (C n p η + n η) of E_g, 2L η_T and L p η_T. The allowance uses a stored product only where its minimum
+# selects the same inputs, so each stored value is the one that the same _mulup call returns there.
+function _l1_underflow_terms(::Type{T}, n::Int, p::Int, alpha::Float64, C::Float64, L::Float64) where T
+  np, nη, pT = Float64(n) * Float64(p) * _ETA64, Float64(n) * _ETA64, Float64(p) * Float64(nextfloat(zero(T)))
+  (; np, n = nη, p1 = Float64(p + 1) * _ETA64, p = Float64(p) * _ETA64, pT, sqnC = _mulup(sqrt(Float64(n)), C),
+     Eg1 = _mulup(alpha, _mulup(C, np) + nη), twoL = _mulup(2L, Float64(nextfloat(zero(T)))), LpT = _mulup(L, pT))
+end
 
 # ---- the hooks ----------------------------------------------------------------------------------------------------------
 
