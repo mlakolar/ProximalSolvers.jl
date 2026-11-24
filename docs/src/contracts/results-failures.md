@@ -109,7 +109,10 @@ The later ridge result assertions are [217cde72, shared result checks](https://g
 This clause describes `OptimizationResults` for PGD and APG with regression
 coefficients, including [IN-10](@ref). See [PGD-08](@ref) for graphical-lasso PGD.
 `minimizer` aliases the caller's coefficient storage and `minimum` is the reported
-objective at that iterate. `iterations` counts steps. `iteration_converged` reports
+objective at that iterate. It is the solver's numerical objective, the cached smooth value plus the monitored
+penalty; for a four-coefficient `IndBallL2` it can be finite at a point that ProximalBase's strict indicator
+evaluates as `Inf`. Neither `minimum` nor `converged` (the computed stopping check) certifies exact
+feasibility; `g(result.minimizer)` is ProximalBase's standalone check in working precision ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.
 
 The result stores stopping flags, residuals and tolerances, an optional `trace`,
@@ -176,7 +179,8 @@ nonfinite objective or KKT score of the original problem after an iteration, lea
 or `NaN` for valid inputs; it raises no exception ([LA-05](@ref)).
 
 PGD and APG numerical step exceptions restore the last accepted coefficient point
-and rethrow. For [IN-10](@ref) this restoration copies the full accepted
+and rethrow. For `IndBallL2` a restored point with `g(x) == Inf` fails the indicator's
+feasibility check as a start, and one with `g(x) == 0` passes that check ([IN-08](@ref)). For [IN-10](@ref) this restoration copies the full accepted
 coefficient matrix into the supplied storage. They do not provide a general transaction for internal counters or
 buffers. The line-search boundary is [LS-09](@ref) and the accelerated trial/restart
 boundary is [APG-03](@ref). A finite run that reaches a limit may still commit or
