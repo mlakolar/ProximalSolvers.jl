@@ -51,7 +51,8 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
   mapping_rtol::Float64
   underflow::@NamedTuple{n_p_eta::Float64, n_eta::Float64, p1_eta::Float64, p_eta::Float64, p_eta_t::Float64,
                          sqrt_n_col_product::Float64, gradient_error_product::Float64,
-                         division_cap_product::Float64, curvature_p_eta_t_product::Float64}
+                         curvature_eta_t_product::Float64, division_cap_product::Float64,
+                         curvature_p_eta_t_product::Float64}
   # (underflow: _l1_underflow_terms(T, n, p, α, C, L))
 end
 
@@ -171,25 +172,26 @@ end
 const _ETA64 = nextfloat(0.0)
 
 # An upper bound of the exact product of two nonnegative upper bounds a and b under the model fl(a b) = a b (1 + δ) + ε,
-# |δ| ≤ u, |ε| ≤ nextfloat(0.0): Inf when a factor is not finite, so that a selected term is Inf and the check fails (a factor
-# that overflowed, such as 2L, can meet a factor that underflowed to zero, such as δ/L, whose exact value is
+# |δ| ≤ u, |ε| ≤ nextfloat(0.0): Inf when a factor is not finite, so that a selected term is Inf and the check fails (an
+# overflowed factor, such as 2α, carries no bound, and the other factor can be a computed zero whose exact value is
 # positive; a min with an independent finite cap, itself an upper bound for that error contribution, can replace the
-# Inf); otherwise 0
-# when a factor is 0, and fl(a b) (1 + 4 eps) + η, which covers a product that rounds to a subnormal number or to zero,
-# and is Inf when the product overflows.
+# Inf); otherwise 0 when a factor is 0, and fl(a b) (1 + 4 eps) + η, which covers a product that rounds to a subnormal
+# number or to zero, and is Inf when the product overflows.
 _mulup(a::Float64, b::Float64) =
   !(isfinite(a) && isfinite(b)) ? Inf : (iszero(a) || iszero(b)) ? 0.0 : (c = a * b; c + 4 * eps(Float64) * c + _ETA64)
 
 # The absolute allowances (gap, mapping) that FP-05 adds to the support-gap and mapping noise of the full check, from
 # computed magnitudes: n × p the design, α the loss scale, ρ the radius, C the largest column norm, rnorm = ‖X w - y‖₂,
 # sw = ‖w‖₁ and winf = ‖w‖∞ of the witness, dual = ‖g‖∞ of the scaled gradient, L the inverse step as Float64, tinf
-# the largest magnitude of the mapping's trial point in T and the computed mapping. Each term is min(k η, a product of
-# magnitudes), so a term is 0 when its products are exact zeros. Both are Inf (the check fails) when the growth factor
-# 2 of the argument does not hold, (n + p + 2) eps(Float64) > 1. k holds the terms of the allowance that depend only on
-# the solve (_l1_underflow_terms for the same n, p, T, α, C and L), formed once per solve in the route object.
+# the largest magnitude of the mapping's trial point in T, m0 the largest computed difference of the mapping before
+# its product by L, and the computed mapping. The allowance is a sum of terms: the underflow terms are min(k η, a
+# product of magnitudes), the propagated terms are products of magnitudes (_mulup), and each term is 0 when its
+# magnitudes are exact zeros. Both are Inf (the check fails) when the growth factor 2 of the argument does not hold,
+# (n + p + 2) eps(Float64) > 1. k holds the terms of the allowance that depend only on the solve (_l1_underflow_terms
+# for the same n, p, T, α, C and L), formed once per solve in the route object.
 function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, ρ::Float64, C::Float64, rnorm::Float64,
                                  sw::Float64, winf::Float64, dual::Float64, L::Float64, tinf::Float64,
-                                 mapping::Float64) where T
+                                 m0::Float64, mapping::Float64) where T
   η, ηT = _ETA64, Float64(nextfloat(zero(T)))
   (n + p + 2) * eps(Float64) <= 1 || return Inf, Inf
   # the residual X w - y: one product (or fused multiply-add) per entry of X; the subtraction of y adds no absolute
@@ -205,18 +207,21 @@ function _l1_underflow_allowance(::Type{T}, n::Int, p::Int, k, alpha::Float64, �
   # the support gap: the gradient error through δ and the sum, 2 max(ρ, ‖w‖₁) E_g; the p + 1 products of its Float64
   # sum, min((p + 1) η, δ (ρ + 2 ‖w‖₁)); the witness entries' product errors through the ρ δ term, min(p η, ‖w‖₁) δ
   gap_abs = _mulup(2 * max(ρ, sw), E_g) + min(k.p1_eta, _mulup(dual, ρ + 2sw)) + _mulup(min(k.p_eta, sw), dual)
-  # the mapping L (v - P(v - g/L)) at v = T(w). The projection P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0) moves each output by
-  # at most |Δzᵢ| + |Δτ| ≤ 2 ‖Δz‖∞ (the level τ moves by at most ‖Δz‖∞), so an error of the projection input enters
-  # the mapping with the factor 2: the gradient error, 2 E_g; for Float32, the conversion of w, which also enters
-  # directly (3L), and that of g (2); the division by L (2L). The projection's own underflow in T and the final
-  # product by L in Float64 enter after the projection, with the factor 1.
+  # the mapping L (v - P(v - g/L)) at v = T(w). For the exact projection P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0), each
+  # output moves by at most |Δzᵢ| + |Δτ| ≤ 2 ‖Δz‖∞ (the level τ moves by at most ‖Δz‖∞), so an error of the projection
+  # input enters the mapping with the factor 2: the gradient error, 2 E_g; for Float32, the conversion of w, which also
+  # enters directly (3L), and that of g (2); the division g/L, whose error is at most min(η_T, δ/L), so 2L min(η_T,
+  # δ/L) = 2 min(L η_T, δ), formed without the quotient δ/L, which can round to zero. The computed projection's own
+  # underflow in T and the final product by L in Float64 enter after the projection, with the factor 1. The final
+  # product L m0 is exact when m0 = 0; when m0 > 0 its error is at most η, also when the computed mapping is 0.
   conv = T === Float64 ? 0.0 : _mulup(3L, min(ηT, winf)) + 2 * min(ηT, dual)
-  # (a minimum that selects its per-solve term η_T or p η_T uses the stored product k.division_cap_product or
+  # (a minimum that selects its per-solve term L η_T or p η_T uses the stored product k.division_cap_product or
   # k.curvature_p_eta_t_product)
-  d, q = min(ηT, dual / L), min(k.p_eta_t, tinf)
-  cap_d = d == ηT ? k.division_cap_product : _mulup(2L, d)
+  d, q = min(k.curvature_eta_t_product, dual), min(k.p_eta_t, tinf)
+  cap_d = d == k.curvature_eta_t_product ? k.division_cap_product : _mulup(2.0, d)
   cap_q = q == k.p_eta_t ? k.curvature_p_eta_t_product : _mulup(L, q)
-  map_abs = 2 * E_g + conv + cap_d + cap_q + min(η, mapping)
+  final = iszero(m0) ? 0.0 : iszero(mapping) ? η : min(η, mapping)
+  map_abs = 2 * E_g + conv + cap_d + cap_q + final
   # the factor 4: 2 for the growth (1 + u)^k ≤ 2 of an absolute error through the later roundings, k ≤ n + p + 2, and
   # 2 for the computed magnitudes in place of the exact ones
   4 * gap_abs, 4 * map_abs
@@ -225,13 +230,15 @@ end
 # The terms of _l1_underflow_allowance that depend only on the solve, η = nextfloat(0.0) and η_T = nextfloat(zero(T)):
 # n p η, n η, (p + 1) η, p η and p η_T, each formed with the expression that the allowance used before they were
 # stored, and the _mulup results on per-solve inputs (α, C = maxⱼ‖Xⱼ‖ and the inverse step L as Float64): √n C, the
-# product α (C n p η + n η) of E_g, 2L η_T and L p η_T. The allowance uses a stored product only where its minimum
-# selects the same inputs, so each stored value is the one that the same _mulup call returns there.
+# product α (C n p η + n η) of E_g, L η_T, its double 2 (L η_T) and L p η_T. The allowance uses a stored product only
+# where its minimum selects the same inputs, so each stored value is the one that the same _mulup call returns there.
 function _l1_underflow_terms(::Type{T}, n::Int, p::Int, alpha::Float64, C::Float64, L::Float64) where T
   np, nη, pT = Float64(n) * Float64(p) * _ETA64, Float64(n) * _ETA64, Float64(p) * Float64(nextfloat(zero(T)))
+  LηT = _mulup(L, Float64(nextfloat(zero(T))))
   (; n_p_eta = np, n_eta = nη, p1_eta = Float64(p + 1) * _ETA64, p_eta = Float64(p) * _ETA64, p_eta_t = pT,
      sqrt_n_col_product = _mulup(sqrt(Float64(n)), C), gradient_error_product = _mulup(alpha, _mulup(C, np) + nη),
-     division_cap_product = _mulup(2L, Float64(nextfloat(zero(T)))), curvature_p_eta_t_product = _mulup(L, pT))
+     curvature_eta_t_product = LηT, division_cap_product = _mulup(2.0, LηT),
+     curvature_p_eta_t_product = _mulup(L, pT))
 end
 
 # ---- the hooks ----------------------------------------------------------------------------------------------------------
@@ -345,11 +352,12 @@ function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions
   prox!(projected, g.ball, trial, one(T)/L)
   state.prox_calls += 1
   _allfinite(projected) || return false
-  mapping = Float64(L) * maximum(j -> abs(Float64(T(w[j])) - Float64(projected[j])), eachindex(w))
+  m0 = maximum(j -> abs(Float64(T(w[j])) - Float64(projected[j])), eachindex(w))
+  mapping = Float64(L) * m0
   map_noise = g.col * score_noise + Float64(eps(T)) * (Float64(L) * winf + maximum(abs, grad))
   # the absolute allowance for gradual underflow, added after B1's noise terms
   gap_abs, map_abs = _l1_underflow_allowance(T, n, p, g.underflow, alpha, r, g.col, rnorm, _l1_mass64(w),
-                                             winf, dual, Float64(L), Float64(maximum(abs, trial)), mapping)
+                                             winf, dual, Float64(L), Float64(maximum(abs, trial)), m0, mapping)
   gap_noise = gap_noise + gap_abs
   map_noise = map_noise + map_abs
   finite = all(isfinite, (gap, gap_noise, mapping, map_noise))

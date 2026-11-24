@@ -218,8 +218,9 @@ is not finite gives `:unresolved`, with noise `NaN`. The decision classifies no 
 - the curvature `κ = a C²`, or `1.0` when `C = 0`;
 - the mapping budget `H = mapping_rtol * √a C * max(ŷ, √a C ρ)`.
 
-*Full check* at `x`, with the decision of `x` cached by its trial ([IN-12](@ref)); a cached code
-other than `:pass` runs no check:
+*Full check* at `x`, with the decision of `x` cached by its trial ([IN-12](@ref)). A cached code
+other than `:pass` fails the check at once, with neither a gradient call nor a prox call; the check
+still records that it ran. Otherwise:
 
 1. The witness `w = φ * Float64.(x)`, with `φ = 1` when `σ + ν < ρ` and `φ = min(1, (ρ - ν) / σ)`
    otherwise, from the cached `σ` and `ν`.
@@ -243,8 +244,8 @@ selected term of the underflow allowance (below) makes that allowance `Inf` and 
 with an independent finite cap can replace an infinite inner product, which is safe because the cap is
 independently an upper bound for that error contribution. The guarded vectors are `w`, `e`, `g`, the mapping's trial point and `q`; the
 final values are the support gap, the mapping and their two noises. The check counts the gradient call of item 2 and the
-prox call of item 4 when it evaluates them: one each when it reaches the projection, and one gradient
-call and no prox call when it fails before it.
+prox call of item 4 only when it evaluates them: one each when it reaches the projection, one gradient
+call and no prox call when it fails between them, and neither when the cached code is not `:pass`.
 
 The noises of items 3 and 4 are model estimates of the rounding of these sums and products, without
 directed rounding; they are not interval enclosures. The decision compares the computed margin with
@@ -258,9 +259,11 @@ the B0 helpers it imports (`gamma64`, `residual_score64!`, `estimate_gap`).
 *Underflow allowance.* Under gradual underflow a nonzero product can round to a subnormal number or
 to zero, and the computed gap and mapping can then be zero at a point that is not stationary. The gate
 of [IN-12](@ref) refuses a design with a nonzero column whose curvature (in `Float64` and in `T`),
-gap budget or mapping budget is not a normal positive number; the allowance covers the underflow
-inside the full check's products. Besides these, PGD's step raises at an accepted nonzero step whose
-squared norm is computed as zero ([IN-12](@ref)); these are the route's only provisions for underflow. With
+gap budget or mapping budget is not a normal positive number; the allowance adds, to the noises of
+items 3 and 4, model bounds for the absolute underflow errors of the operations listed below. Besides
+these, PGD's step raises at an accepted nonzero step whose squared norm is computed as zero
+([IN-12](@ref)); these are the route-specific provisions for underflow, beside the shared machinery
+of the engine (for APG, the scaled norm and the line-search bound of [APG-06](@ref)). With
 subnormals flushed to zero on the solving thread, the decisions are unspecified, as in [FP-01](@ref).
 
 The model, per precision `P` of the operation, for finite operands and a finite result:
@@ -275,35 +278,47 @@ point, the returned projection `q`, the other guarded vectors and the final valu
 allowance terms, with the independent-cap exception at their end; they make no statement about the
 intermediates of ProximalBase's projection, which can recover internally, for example from an
 overflowing unscaled norm sum, and return a finite projection that the check then tests.
-Additions and subtractions add no absolute error. The relative terms above account for the `δ`; the
-allowance bounds the `ε` and their propagation. With `n × p` the design, `α` the loss scale, the
-witness `w`, the computed residual `r`, `δ = ‖g‖∞`, `L = T(κ)`, `t` the mapping's trial point in `T`
-and the computed mapping `m`:
+Additions and subtractions add no absolute error. The relative noises of items 3 and 4 are meant to
+account for the `δ`; each term below bounds, under this model, the `ε` of the operations it names,
+carried to the gap or the mapping. A term's magnitudes are computed from the operands that the check
+actually uses (the computed `w`, `r`, `g` and trial point); an error already present in an operand is
+carried by the earlier term that bounds it, such as `E_g` for the gradient, and not by the term's
+magnitude. With `n × p` the design, `α` the loss scale, the witness `w`, the computed residual `r`,
+`δ = ‖g‖∞` of the computed gradient, `L = T(κ)`, `t` the mapping's trial point in `T`, `m₀` the
+computed `maxⱼ |Float64(T(wⱼ)) - Float64(qⱼ)|` and the computed mapping `m = fl(Float64(L) m₀)`:
 
 1. The residual: `A_r = min(n p η, √n C ‖w‖₁)`, from the `n p` products `Xᵢⱼ wⱼ`.
 2. The transposed product, per coordinate: `A_s = min(n η, C ‖r‖₂)`, plus the carried residual error
    `C A_r`.
 3. The gradient error per coordinate: `E_g = α (C A_r + A_s) + min(η, 2α C ‖r‖₂)`.
 4. The support gap: `2 max(ρ, ‖w‖₁) E_g + min((p + 1) η, δ (ρ + 2 ‖w‖₁)) + min(p η, ‖w‖₁) δ`.
-5. The mapping `L (v - P(v - g/L))` at `v = T(w)`. The ℓ1-ball projection
+5. The mapping `L (v - P(v - g/L))` at `v = T(w)`. The exact ℓ1-ball projection
    `P(z)ᵢ = sign(zᵢ) max(|zᵢ| - τ(z), 0)` moves its level `τ` by at most `‖Δz‖∞`, so it is
    2-Lipschitz in the ∞-norm (for `r = 3`, `z = [3, 3, 3]` and `z' = [3.125, 2.875, 2.875]` the
    ratio is `4/3`), and an error of the projection input enters with the factor 2: the gradient
    error adds `2 E_g`; for `Float32` data the conversion of `w` adds `3L min(η_T, ‖w‖∞)` and that of
-   `g` adds `2 min(η_T, δ)`; the division by `L` adds `2L min(η_T, δ / L)`; the projection in `T`
-   adds `L min(p η_T, ‖t‖∞)` and the final product by `L` adds `min(η, m)`.
+   `g` adds `2 min(η_T, δ)`; the division by `L`, whose error is at most `min(η_T, δ / L)`, adds
+   `2L min(η_T, δ / L) = 2 min(L η_T, δ)`, which the check forms as the second expression, from the
+   products `L η_T` and `2 (L η_T)`, so that a quotient `δ / L` that rounds to zero does not erase it.
+   The computed projection in `T` enters through its own assumption below, not through this factor
+   2: it adds `L min(p η_T, ‖t‖∞)`. The final product by `L` adds `0` when `m₀ = 0`, where the
+   product is exact, and `η` when `m₀ > 0`, also when `m` rounds to zero (the check evaluates this as
+   `min(η, m)` when `m > 0`).
 
 The gap allowance is `4 × (term 4)` and the mapping allowance `4 × (term 5)`: a factor 2 for the
 growth `(1 + u)^k ≤ 2` through at most `k = n + p + 2` later `Float64` roundings, which needs
-`(n + p + 2) eps(Float64) ≤ 1`, times 2 for computed magnitudes in place of exact ones. That
+`(n + p + 2) eps(Float64) ≤ 1`, times 2 for the rounding in forming the magnitudes (the norms,
+sums and products of the computed operands above) in place of their exact values. The factor 2
+cannot restore a magnitude that is zero although the corresponding exact value is positive; the
+division and final-product terms are formed so that their magnitudes are not such rounded results. That
 condition gives `(1 + u)^k ≤ exp(1/2)`, which leaves room for the at most four roundings in `T` of each
 trial entry (two conversions, the division and the subtraction), `(1 + eps(T)/2)^4 < 2 / exp(1/2)`; the projection in `T` enters only through the
 assumption below. The products of the allowance's terms are formed by `_mulup`, which for finite
 nonnegative factors returns an upper bound of their exact product: `0` when a factor is `0`, otherwise
 `fl(a b)(1 + 4 eps) + η`, which is `Inf` when the product overflows. `_mulup` returns `Inf` when a
-factor is not finite, whatever the other factor: a factor that overflowed, such as `2L` for a `Float64`
-`L` above `floatmax(Float64) / 2`, can meet a factor that underflowed to zero although its exact value is
-positive, such as the computed `δ / L`, and an exact-zero rule would then drop a positive term. The
+factor is not finite, whatever the other factor: an overflowed factor, such as `2α` for `α` above
+`floatmax(Float64) / 2`, carries no bound, and the other factor can be a computed zero whose exact
+value is positive, so an exact-zero rule could drop a positive term. The
 remaining operations of the allowance (sums, `min`, `max` and the products by 2, 3 and 4) are
 evaluated in round-to-nearest without that inflation. When
 `(n + p + 2) eps(Float64) > 1` both allowances are `Inf`; an infinite product in a term that its `min`
@@ -330,23 +345,31 @@ assumption.
 `_l1_budgets`, `_l1_witness!`, `_residual_score64!`, `_l1_support_gap`, `_mulup`,
 `_l1_underflow_allowance`, `_l1_underflow_terms`, `_stationary!`.
 
-**Tests.** `test/l1ball_numerical.jl` checks the budgets against a recomputation in the test from
-LinearAlgebra's `norm` (relative difference at most `1e-12`). It scores each reported success on the
-#508 fixtures with an independent 256-bit MPFR evaluation of the violation of the ball, the support
-gap at the test's own radial witness, the fixed-step mapping with a sorted-threshold projection and the
-change of the loss. It checks each accepted iterate's decision. For the scaled case
+**Tests.** `test/l1ball_numerical.jl` checks the cap, the gap budget and the mapping budget against a
+recomputation in the test from LinearAlgebra's `norm` (relative difference at most `1e-12`). It scores
+each reported success on the #508 fixtures with an independent 256-bit MPFR evaluation of the
+violation of the ball, the support gap at the test's own radial witness, the fixed-step mapping with a
+sorted-threshold projection and the change of the loss; this evaluation does not replay the computed
+noises, allowance or decision. On the fixtures without the 2048-coefficient cases it recomputes each
+accepted iterate's decision from the callback's vector against the recomputed cap. For the scaled case
 `1e300 * LeastSquaresLoss([0.0], reshape([1e-155], 1, 1))`, `x = [1e-15]`, `r = 1e-14`, which the gate
 admits and whose computed gradient is exactly zero, the full check fails, neither method reports
 `converged`, and the returned point misses the budgets in MPFR. For a `Float32` case with a tolerance
 override whose mapping trial overflows in its first entry (projecting it, as the check did before
 this guard, gives a finite vertex; the guarded check skips that projection), neither method reports
 `converged`, the MPFR mapping at the returned point exceeds its budget, and a direct call of the
-check fails with one gradient call and no prox call. For a `Float64` case with a tolerance override
-whose curvature exceeds `floatmax(Float64) / 2` (`X = 1e154`, `y = 1e-171`, `r = 1e-150`, start `0`,
-APG with `β = 1 / 10^(308.1 / 60)`), where `2L` overflows and the computed `δ / L` is zero, neither
+check fails with one gradient call and no prox call. Two `Float64` cases with `mapping_rtol = 1e-180`
+and start `0` cover the division term of term 5, where the computed `δ / L` is zero: one whose
+curvature exceeds `floatmax(Float64) / 2`, so that `2L` overflows (`X = 1e154`, `y = 1e-171`,
+`r = 1e-150`, APG with `β = 1 / 10^(308.1 / 60)`), and one with `L ≈ 1e306`, so that `2L` is finite
+(`X = 1e153`, `y = 1e-172`, `r = 1e-150`, APG with `β = 1 / 10^(306.1 / 60)`), where the term
+`2L min(η_T, δ / L)` evaluated with the quotient was zero and the check passed. In each, neither
 method reports `converged`, the MPFR mapping at the returned point exceeds its budget, and a direct
-call of the check fails after one gradient call and one prox call. It also checks
-the expansion example of term 5 with ProximalBase's projection in both precisions.
+call of the check fails after one gradient call and one prox call. A zero design with a zero
+response, whose budgets are zero, passes the check at the exactly stationary start `0` and
+converges at the first iteration, so the final-product term adds nothing when `m₀ = 0`. It also
+checks one expansion example of the projection in term 5, with ProximalBase's projection in both
+precisions.
 
 **Sources.** [The #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);
 [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl)
@@ -355,4 +378,6 @@ and the [#514 B0 helpers](https://github.com/mlakolar/ProximalSolvers.jl/tree/d5
 [ProximalBase at bc9e888d, `src/functions/indballl1.jl`](https://github.com/mlakolar/ProximalBase.jl/blob/bc9e888d09e5fc3c3feb35905dd7a14e70657fa5/src/functions/indballl1.jl);
 [the maintainer's review of the shrink round](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7116783858);
 [the maintainer's decision on the round 4 blockers](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7119424286),
-which made a nonfinite intermediate fail the check.
+which made a nonfinite intermediate fail the check;
+[the maintainer's decision on the Codex round 9 blocker](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7135436938),
+which formed the division term without the quotient and the final-product term from `m₀`.

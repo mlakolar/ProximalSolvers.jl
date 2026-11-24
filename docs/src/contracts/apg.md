@@ -36,7 +36,7 @@ For one response the error bounds require `max(n, p) + 4 < 1/(4 eps(T))` and `n*
 
 Form `y = x + k/(k+3) * (x - x_previous)` from the two accepted iterates, then take a gradient and proximal step from `y`. The first iteration has no momentum. Before each iteration use `L ← α L`, allowing the step to grow again; `α = 1` keeps this estimate from decreasing. A rejected trial uses `L ← L/β`; a `β` near one makes growth slow. Initial curvature is [PGD-02](@ref).
 
-The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. Each trial uses `value_and_prox!` and a fresh image of its candidate. The unweighted lasso level follows [IN-02](@ref). Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its value is finite. The shared engine then applies [STOP-01](@ref).
+The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. For the ordinary penalties each trial uses `value_and_prox!` and a fresh image of its candidate; on the ℓ1-ball route a trial uses `prox!`, can skip the projection, and can skip forming the image and the loss ([IN-12](@ref)). The unweighted lasso level follows [IN-02](@ref). Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its smooth value is finite and the computed norms of the point and of the displacement are usable (finite). The shared engine then applies [STOP-01](@ref).
 
 **Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
@@ -64,7 +64,7 @@ A nonfinite value or gradient at the extrapolated point is treated the same way:
 
 ### [APG-05 Iteration residual versus accepted-point check](@id APG-05)
 
-**Statement.** The iteration's gradient/proximal residual is `L ‖x-y‖∞`, measured from the extrapolated point. It is a stopping quantity, not an independent KKT residual at accepted `x`. The common proposal tests and exact-stall rule use [STOP-02](@ref) and [STOP-10](@ref); proposed stops are checked at `x` under [STOP-03](@ref)–[STOP-07](@ref). The additional accepted-point gradient and its count are [STOP-08](@ref).
+**Statement.** The iteration's gradient/proximal residual is `L ‖x-y‖∞`, measured from the extrapolated point. It is a stopping quantity, not an independent KKT residual at accepted `x`. The common proposal tests and exact-stall rule use [STOP-02](@ref) and [STOP-10](@ref); for the ordinary penalties, proposed stops are checked at `x` under [STOP-03](@ref)–[STOP-07](@ref), and the additional accepted-point gradient and its count are [STOP-08](@ref). On the ℓ1-ball route the check is the full check of [FP-05](@ref), whose gradient is evaluated at the rounded radial witness, and B1's unchanged-iterate and progress proposals can also trigger it ([IN-12](@ref)).
 
 **Applies to.** AccProxGradDescent.
 

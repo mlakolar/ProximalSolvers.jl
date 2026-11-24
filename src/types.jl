@@ -41,8 +41,9 @@ and [limit checks](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/p
 - `gradtol=1e-5`: gradient/proximal-residual tolerance; the final stationarity
   check has its own working-precision floor.
 - `allow_f_increases=false`: stop on a computed objective increase;
-  `true` removes that exit without certifying the result. The `IndBallL1` route of PGD and APG
-  does not stop on an increase either way (IN-12).
+  `true` removes that exit without certifying the result. On the `IndBallL1` route of PGD and
+  APG an increase does not by itself end the solve either way, though another exit can still end
+  it at that iteration (IN-12).
 - `store_trace=false`: retain iteration states in the returned `trace`.
 - `show_trace=false`: print the iteration trace.
 - `extended_trace=false`: include copied iterates and gradients in trace metadata.
@@ -226,8 +227,10 @@ result = solve!(beta, LeastSquaresLoss(y, X), IndBallL1(0.5), ProximalGradientDe
 result.converged, result.minimum
 ```
 
-The tolerances set the numerical feasibility cap on `‖x‖₁ - r` and the support-gap and
-mapping budgets of the stopping check. A `nothing` takes the default for the coefficient type
+The tolerances set the cap of the numerical feasibility decision, which compares the computed
+widened margin (the `Float64` sum of the `|xᵢ|`, minus `r`) with the cap, a computed comparison
+rather than an exact bound on `‖x‖₁ - r`, and the support-gap and mapping budgets of the stopping
+check. A `nothing` takes the default for the coefficient type
 `T`: `coefficient_rtol = 1e-5`, `objective_rtol = 1e-5` and `mapping_rtol = 1e-4` for
 `Float32`, and `1e-10`, `1e-9` and `1e-8` for `Float64`; `coefficient_atol` defaults to `0`.
 

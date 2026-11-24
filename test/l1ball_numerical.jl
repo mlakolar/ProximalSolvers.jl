@@ -93,7 +93,8 @@ function exact_project_l1(z::Vector{BigFloat}, r::BigFloat)
   error("empty projection")
 end
 
-# A point of the ball near z: z itself when it is inside, otherwise z scaled down until its BigFloat ℓ1 norm is ≤ r
+# The test's radial witness: z itself when its ℓ1 mass, summed in the working MPFR precision, is at most r, otherwise z
+# scaled down until that sum is at most r (a comparison of rounded MPFR sums, not an exact feasibility test)
 function exact_witness(z::Vector{BigFloat}, r::BigFloat)
   s = sum(abs, z)
   s <= r && return z
@@ -239,7 +240,8 @@ end
 @testset "default route without the keyword, and the override ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
   X, y = T.(CORRELATED_X), T.(CORRELATED_Y)
   f = LeastSquaresLoss(y, X)
-  # without the keyword the route runs with the default tolerances: the same result as the explicit default
+  # without the keyword the route runs with the default tolerances: the same coefficients (bitwise), convergence flag
+  # and iteration count as the explicit default
   x1, x2 = zeros(T, 4), zeros(T, 4)
   r1 = solve!(x1, f, IndBallL1(T(0.6)), method, OPTIONS)
   r2 = solve!(x2, f, IndBallL1(T(0.6)), method, OPTIONS; feasibility = NumericalFeasibility())
@@ -339,9 +341,9 @@ end
   @test !acceptable(X, y, alpha, r, x)
 end
 
-# The factor 2 of the mapping's underflow allowance (FP-05): the ℓ1-ball projection is 2-Lipschitz in the ∞-norm, not
-# nonexpansive; this pair expands by 4/3
-@testset "the ℓ1-ball projection expands an ∞-norm difference by at most 2 ($T)" for T in (Float32, Float64)
+# One example for the factor 2 of the mapping's underflow allowance (FP-05): the exact ℓ1-ball projection is
+# 2-Lipschitz in the ∞-norm, not nonexpansive; with ProximalBase's projection this pair expands by 4/3
+@testset "an ∞-norm expansion example of the ℓ1-ball projection, ratio 4/3 ($T)" for T in (Float32, Float64)
   ball = IndBallL1(T(3))
   z, z2 = T[3, 3, 3], T[3.125, 2.875, 2.875]
   ratio = Float64(maximum(abs, ProximalBase.prox(ball, z) - ProximalBase.prox(ball, z2))) / Float64(maximum(abs, z - z2))
@@ -380,12 +382,12 @@ end
   @test stub.grad_calls == 1 && stub.prox_calls == 0
 end
 
-# The overflowed factor of the division allowance (Float64, with a tolerance override): X = 1e154, y = 1e-171, radius
+# An overflowed 2L in the division allowance (Float64, with a tolerance override): X = 1e154, y = 1e-171, radius
 # 1e-150, start 0. The stored curvature L is about 1e308, so 2L overflows to Inf, while the computed quotient δ/L of the
 # gradient scale δ ≈ 1e-17 rounds to zero; the mapping trial and its projection are then zero. The division term of
-# the mapping allowance has the factors Inf and 0; FP-05 makes a product with a nonfinite factor Inf, so the check
-# fails. The exact mapping at the returned point exceeds its budget in MPFR. APG's small β lets its trials reach that
-# curvature.
+# the mapping allowance, 2 min(L η, δ) = 2δ (η = nextfloat(0.0), FP-05), uses neither 2L nor δ/L and exceeds the
+# mapping budget, so the check fails. The exact mapping at the returned point exceeds its budget in MPFR. APG's small β
+# lets its trials reach that curvature.
 @testset "false stationarity: an overflowed factor of the division allowance ($(mname(method)))" for method in
     (ProximalGradientDescent(), AccProxGradDescent(β = 1 / 10^(308.1 / 60)))
   X, y, r = reshape([1e154], 1, 1), [1e-171], 1e-150
@@ -412,6 +414,55 @@ end
   @test stub.grad_calls == 1 && stub.prox_calls == 1
 end
 
+# A finite 2L with a quotient δ/L that rounds to zero (Float64, with a tolerance override): X = 1e153,
+# y = 1e-172, radius 1e-150, start 0. The stored curvature L is about 1e306, so 2L is finite, and δ ≈ 1e-19, so δ/L
+# rounds to zero; the mapping trial, its projection and the computed mapping are zero. Before FP-05 formed the division
+# term as 2 min(L η, δ), the term 2L min(η, δ/L) was zero as well and the check passed. The exact mapping, about 1e-19,
+# exceeds its budget, about 1e-24, in MPFR.
+@testset "false stationarity: a division quotient that rounds to zero ($(mname(method)))" for method in
+    (ProximalGradientDescent(), AccProxGradDescent(β = 1 / 10^(306.1 / 60)))
+  X, y, r = reshape([1e153], 1, 1), [1e-172], 1e-150
+  f = LeastSquaresLoss(y, X)
+  a = NumericalFeasibility(mapping_rtol = 1e-180)
+  x = [0.0]
+  res = solve!(x, f, IndBallL1(r), method, ProximalOptions(maxiter = 2, callback = _ -> true); feasibility = a)
+  @test !res.converged
+  tol = PS._feasibility_tolerances(a, Float64)
+  bud = PS._l1_budgets(X, y, 1.0, r, tol)
+  @test isfinite(2 * bud.curvature)
+  # the exact mapping at the returned point exceeds its budget in MPFR, so a success would be false
+  ind = independent(X, y, 1.0, r, x, bud.curvature)
+  @test ind.mapping > BigFloat(bud.mapping)
+  # the full check at that point: δ is positive, δ/L is zero, the projection is reached, and the check fails
+  ball = IndBallL1(r)
+  dec = PS._l1_decision(x, ball, bud.cap)
+  @test dec.code === :pass
+  route = PS._NumericalL1Ball(ball, X, y, 1.0, bud, tol, dec)
+  stub = CheckStub(copy(x), 0, 0)
+  @test !PS._stationary!(stub, f, route, OPTIONS)
+  δ = maximum(abs, route.gradient)
+  @test δ > 0 && iszero(δ / bud.curvature) && all(iszero, route.projected)
+  @test stub.grad_calls == 1 && stub.prox_calls == 1
+end
+
+# A zero design with a zero response: the budgets are zero, the start 0 is exactly stationary, and every term of the
+# allowance is an exact zero, including the final product by L of a zero difference (FP-05), so the full check passes.
+@testset "a zero design: zero budgets and an exactly stationary start ($T, $(mname(method)))" for T in (Float32, Float64), method in METHODS
+  X, y, r = zeros(T, 2, 2), zeros(T, 2), one(T)
+  f = LeastSquaresLoss(y, X)
+  tol = PS._feasibility_tolerances(NumericalFeasibility(), T)
+  bud = PS._l1_budgets(X, y, 1.0, Float64(r), tol)
+  @test iszero(bud.gap) && iszero(bud.mapping)
+  ball = IndBallL1(r)
+  route = PS._NumericalL1Ball(ball, X, y, 1.0, bud, tol, PS._l1_decision(zeros(T, 2), ball, bud.cap))
+  stub = CheckStub(zeros(T, 2), 0, 0)
+  @test PS._stationary!(stub, f, route, OPTIONS)
+  @test stub.grad_calls == 1 && stub.prox_calls == 1
+  x = zeros(T, 2)
+  res = solve!(x, f, IndBallL1(r), method, ProximalOptions(maxiter = 5, ftol = 0))
+  @test res.converged && res.iterations == 1 && iszero(x)
+end
+
 # ---- boundary rounding: the cap at each accepted iterate ---------------------------------------------------------------------
 
 # Every accepted iterate passes the cap, recomputed from the callback's vector, and the reported minimum is the last
@@ -436,7 +487,8 @@ end
 # ---- B1's progress proposals and objective increases -------------------------------------------------------------------
 
 # The engine of _solve_gradient! driven by hand: per iteration, the gradient and prox calls of convergence_assessment,
-# which are those of the full checks it runs (one each per check), until a success.
+# which count the evaluations that its full checks perform, until a success. The fixtures below reach the projection
+# whenever they check, so there each check counts one of each.
 function checks_per_iteration(d::Fixture, method, options, a)
   x, f = copy(d.start), loss(d)
   c = PS._check_numerical_l1(x, f, IndBallL1(d.r), a, method, :gradient)
@@ -588,7 +640,7 @@ end
   @test res.iterations == 3 && reinterpret(UInt8, x) == reinterpret(UInt8, snapshot)
   # with a zero cap, a start inside the ball by just more than the rounding allowance and a far response, each trial
   # projects onto the boundary (unresolved) until the step is too short, which needs more than 64 doublings of L; the
-  # 65th trial raises the line-search error, and x is restored
+  # attempted 65th trial forms its step and raises the line-search error before its projection, and x is restored
   r = one(T)
   x0 = T === Float32 ? fill(prevfloat(T(0.5), 4), 2) : fill(0.5 - ldexp(1.0, -51), 2)
   f = LeastSquaresLoss(fill(T(1e15), 2), Matrix{T}(I, 2, 2))

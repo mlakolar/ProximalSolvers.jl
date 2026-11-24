@@ -34,7 +34,7 @@ Solvers, options and `BackTracking` each have a validating inner constructor. Se
 
 **Statement.** PGD keeps the native least-squares image buffers and uses ProximalBase's value and gradient oracles. It forms the image before value and gradient, takes scalar steps, and calls `value_and_prox!` for each penalty step, except on the ℓ1-ball route, whose trials are in [IN-12](@ref). Unweighted lasso levels follow [IN-02](@ref).
 
-At an iteration it saves the last accepted point, objective components and gradient; multiplies `L` by the line search's `α`; then repeats the following trial until [LS-01](@ref) accepts it:
+At an iteration it saves the last accepted point, objective components and gradient; multiplies `L` by the line search's `α`; then repeats the following trial until [LS-01](@ref) accepts it. This sequence is that of the ordinary penalties; on the ℓ1-ball route a trial uses `prox!`, can skip the projection, and can skip forming the image and the loss ([IN-12](@ref)):
 
 1. Form the gradient-step point `xhat = x_previous - ∇f(x_previous)/L`.
 2. Apply `value_and_prox!` with step `1/L` into the caller's iterate.
@@ -99,7 +99,7 @@ The complete shared policy is [STOP-01](@ref), including the three OR-combined p
 
 Call and time limits are checked after a complete iteration, including any proposed-stop check and callback. A zero call limit is unlimited; counts can overshoot a positive limit by the work of one iteration. `maxiter` caps completed iterations, and `iteration_converged` means `iterations == maxiter`, not successful convergence. The Float32 stagnation check follows tracing and any callback due at that iteration; it does not change cadence.
 
-On the ℓ1-ball route the traced and called-back objective is the loss, and the full checks count in `grad_calls` and `prox_calls` ([IN-12](@ref)).
+On the ℓ1-ball route the traced and called-back objective is the loss, and `grad_calls` and `prox_calls` include the gradient and prox evaluations that the full checks perform, which can be fewer than one of each per check ([FP-05](@ref), [IN-12](@ref)).
 
 The displayed `|g(x)|` is an internal gradient/proximal stopping residual, not the user's penalty value. Displayed `|x - x'|` and trace `dxx` are iterate-change diagnostics, and `backtrack_steps` counts line-search trials subject to each method's zero-step and stationarity-check rules. They do not describe changes in the statistical model.
 

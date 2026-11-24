@@ -125,7 +125,10 @@ each stationarity check that reaches that evaluation (a generic check with inval
 [STOP-08](@ref)); on the ℓ1-ball route, in both methods, a full check counts
 its one gradient, at the radial witness of [FP-05](@ref), unless the cached decision
 fails it first. PGD's `backtrack_steps` includes accepted nonzero
-line-search trials; APG counts every trial, including the accepted one. Detailed
+line-search trials outside the zero-squared-norm shortcut of [LS-02](@ref), which on the
+ordinary routes accepts a nonzero step whose squared norm underflows without counting
+it (on the ℓ1-ball route such a step raises the error of [IN-12](@ref)); APG counts every
+trial, including the accepted one. Detailed
 APG accounting is in [APG-04](@ref).
 
 `f_increased` records `F > F_previous` for the last computed objectives. An increase

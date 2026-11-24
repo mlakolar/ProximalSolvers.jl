@@ -791,8 +791,8 @@ small for every choice of tolerances.
 9. For a design with a nonzero column: a curvature (in `Float64` or in `T`), gap budget or mapping
    budget that is zero or subnormal. A design whose columns are all zero keeps the curvature `1.0` and
    is exempt from this item only.
-10. A start whose decision ([FP-05](@ref)) is `:over` (infeasible) or `:unresolved`. A start that
-    passes the computed cap decision may lie outside the ball.
+10. A start whose decision ([FP-05](@ref)) is `:over` (over the computed cap) or `:unresolved`. A
+    start that passes the computed cap decision may lie outside the ball.
 11. A start whose loss is not finite in `T`, refused by the state's start check.
 
 *Trials.* The iterations of PGD ([PGD-01](@ref)) and APG ([APG-01](@ref)) keep their order, line
@@ -809,15 +809,16 @@ A trial with `f(x) = Inf` takes the nonfinite branch of PGD's line search ([LS-0
 APG, raises `L` through `next_curvature`; an accepted trial has a finite loss, so its decision passed
 the cap. That decision can pass at a point outside the ball whose computed widened mass
 exceeds `r` by less than the cap; this is a computed comparison, not an exact bound on the violation.
-A search from one base point (PGD's line search, each call of APG's step) allows 64 trials; at the
-start of the would-be 65th, the route raises `ErrorException("line search failed: 64 trials from one
-base point were not accepted (…)")`, unless `next_curvature` or PGD's curvature update raised a
-line-search error earlier. After PGD's search, an accepted trial that differs from `x_previous`
+A search from one base point (PGD's line search, each call of APG's step) allows 64 trials; the
+attempted 65th trial forms its `xhat` and then, before any projection, raises
+`ErrorException("line search failed: 64 trials from one base point were not accepted (…)")`, unless
+`next_curvature` or PGD's curvature update raised a line-search error earlier. After PGD's search, an accepted trial that differs from `x_previous`
 elementwise while the computed squared norm of `x - x_previous` is zero raises
 `ErrorException("line search failed: the step is nonzero but its squared norm underflows (…)")`, since
 [LS-02](@ref) accepts such a step as a zero step without its test and the route reserves that exit for
-an unchanged `x`. APG accepts a trial equal to its extrapolated point `y` entrywise ([APG-01](@ref)) and has
-no squared-norm shortcut that could accept a nonzero step. After PGD's search, a nonfinite entry of the gradient at
+an unchanged `x`. APG accepts a trial equal to its extrapolated point `y` entrywise when its smooth value is finite
+and the computed norms of the trial and of the displacement are usable ([APG-01](@ref)), and has no
+squared-norm shortcut that could accept a nonzero step. After PGD's search, a nonfinite entry of the gradient at
 the accepted trial raises an `ErrorException` inside the step. In each case the engine restores the last accepted `x`
 and rethrows ([RES-03](@ref)). The state's penalty value is `0` throughout, so the trace's `fg_x`, the
 callback's objective, `f_residual` and `f_increased` use the loss.
@@ -840,9 +841,11 @@ whose decision passed the cap. The check measures stationarity at the rounded ra
 in [FP-05](@ref); admission is the computed cap decision on the widened mass. Neither `converged` nor
 `minimum` certifies exact membership in the ball. When the check fails, the three proposal flags are cleared and the solve continues unless another exit applies.
 
-*Objective increases.* `allow_f_increases = false` is not enforced on this route: a computed increase
-of the loss is reported in `f_increased` when it occurs at the last iteration, and in the trace's
-`fg_x`, but does not end the solve, unlike [STOP-09](@ref). The configurable stopping of
+*Objective increases.* `allow_f_increases = false` is not enforced on this route: unlike
+[STOP-09](@ref), a computed increase of the loss does not by itself end the solve, though another
+exit can still end it at that iteration, as in [APG-03](@ref). `f_increased` reports the comparison
+at the last iteration, at the first iteration against the starting value; the trace's `fg_x`, when
+stored, records the objective values, from which an increase can be read. The configurable stopping of
 [#523](https://github.com/mlakolar/ProximalSolvers.jl/issues/523) may revisit this. The stagnation,
 limit and callback exits apply as for the other penalties; after them `converged` is false unless a
 check passed at that iteration.
@@ -877,18 +880,22 @@ the coefficients and the data unchanged; the solver does not detect such a chang
   coefficient, a shape mismatch, the radius cases, invalid and underflowing tolerances, an infeasible
   start, an overflowing curvature, `CDSolver` with the keyword; the underflow refusals, a fully
   subnormal `Float32` problem included;
-- the route without the keyword equals the route with `NumericalFeasibility()` bitwise, and the
-  override with zero coefficient tolerances refuses a boundary start that the default accepts;
-- every success on the #508 fixtures passes the independent MPFR evaluation of [FP-05](@ref), a
-  success has a proposal flag, and `minimum` equals the last traced or callback objective and agrees
-  with the standalone loss; analytic fixtures pin convergence at a point exactly outside the ball whose
+- the route without the keyword returns the same coefficients bitwise, convergence flag and
+  iteration count as the route with `NumericalFeasibility()`, and the override with zero coefficient
+  tolerances refuses a boundary start that the default accepts;
+- every success on the #508 fixtures meets the #514 targets under an independent 256-bit MPFR
+  evaluation with the test's own witness and projection, which does not replay the noises,
+  allowance or decision of [FP-05](@ref); a success has a proposal flag, and `minimum` equals the
+  last traced or callback objective, when one is recorded, and agrees with the standalone loss; analytic fixtures pin convergence at a point exactly outside the ball whose
   widened mass exceeds `r` (`Float32`), at one exactly outside whose widened mass rounds to `r`
   (`Float64`) and at an interior point, each passing the MPFR evaluation, with `minimum` equal to the
   last traced objective, the cached loss;
-- the decision of each accepted iterate, recomputed from the callback's vector, passes the cap;
-- at most one full check per iteration, counted by the gradient and projection calls of
-  `convergence_assessment`, also where the engine's objective test and B1's objective proposal both
-  hold and the check fails; with `ftol = 0`, B1's proposals stop three fixtures at the first iteration
+- on the fixtures without the 2048-coefficient cases, the decision of each accepted iterate,
+  recomputed from the callback's vector, passes the recomputed cap;
+- on the tested fixtures, at most one full check per iteration, counted by the gradient and
+  projection calls of `convergence_assessment` (these fixtures reach the projection whenever they
+  check), also where the engine's objective test and B1's objective proposal both hold and the check
+  fails; with `ftol = 0`, B1's proposals stop three fixtures at the first iteration
   with successes that pass the MPFR evaluation;
 - with `allow_f_increases = false`, an increase at the first iteration sets `f_increased` and the
   solve continues, as with `allow_f_increases = true`;
