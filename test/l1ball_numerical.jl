@@ -284,7 +284,10 @@ end
   for T in (Float32, Float64)
     d = fixture(T, "stationary_tail_0.25_eps")
     x, res = solve_fixture(d, method; options = traced)
-    @test res.converged && sum(big, x) > d.r
+    @test res.converged
+    @test setprecision(BigFloat, 256) do
+      sum(abs, BigFloat.(x)) > d.r
+    end
     @test sum(a -> abs(Float64(a)), x) == (T === Float32 ? 1 + 2.0^-25 : 1.0)
     T === Float32 && @test x == d.start && res.minimum == 0
     @test res.minimum == res.trace[end].fg_x
@@ -295,7 +298,10 @@ end
   for T in (Float32, Float64)
     d = fixture(T, "l1_correlated_interior")
     x, res = solve_fixture(d, method; options = traced)
-    @test res.converged && sum(big, x) < d.r
+    @test res.converged
+    @test setprecision(BigFloat, 256) do
+      sum(abs, BigFloat.(x)) < d.r
+    end
     @test res.minimum == res.trace[end].fg_x && isapprox(res.minimum, loss(d)(x); rtol = 64eps(T))
     @test acceptable(d.X, d.y, d.alpha, d.r, x)
   end

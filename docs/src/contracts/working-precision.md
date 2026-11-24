@@ -333,7 +333,7 @@ assumption.
 **Tests.** `test/l1ball_numerical.jl` checks the budgets against a recomputation in the test from
 LinearAlgebra's `norm` (relative difference at most `1e-12`). It scores each reported success on the
 #508 fixtures with an independent 256-bit MPFR evaluation of the violation of the ball, the support
-gap at a feasible radial witness, the fixed-step mapping with a sorted-threshold projection and the
+gap at the test's own radial witness, the fixed-step mapping with a sorted-threshold projection and the
 change of the loss. It checks each accepted iterate's decision. For the scaled case
 `1e300 * LeastSquaresLoss([0.0], reshape([1e-155], 1, 1))`, `x = [1e-15]`, `r = 1e-14`, which the gate
 admits and whose computed gradient is exactly zero, the full check fails, neither method reports

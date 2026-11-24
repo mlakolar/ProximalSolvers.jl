@@ -3,10 +3,10 @@
 # `feasibility = NumericalFeasibility(...)` overrides the tolerances. The gate is _check_numerical_l1 (src/solve.jl).
 # The route runs the engine of the other penalties (_solve_gradient!, PGD's update_state! and backtrack!, APG's
 # update_state!, restart and certified bound) with this file's methods of trial!, search!, _prox_grad_step!,
-# convergence_assessment, _stationary! and _stop_on_gradient_increase. The arithmetic of the decision (without its
-# membership class), the budgets and the full check is that of research/issue-515/b1.jl at d58b9099 and of the B0
-# helpers it imports (research/issue-514), with the same reductions, loops and Float64 conversions in the same order,
-# plus the underflow allowance (FP-05).
+# convergence_assessment, _stationary! and _stop_on_gradient_increase. Apart from the underflow allowance, the
+# formulas and the reduction order of the decision (without its membership class), the budgets and the full check are
+# those of research/issue-515/b1.jl at d58b9099 and of the B0 helpers it imports (research/issue-514), for comparable
+# finite calculations (FP-05).
 #
 # Within a completed step only trials write state.x; each trial that projects into state.x stores the decision of that
 # vector in `decision`, and a trial with a nonfinite xhat writes neither, so `decision` describes state.x after every
@@ -56,7 +56,8 @@ mutable struct _NumericalL1Ball{T<:Union{Float32, Float64}}
 end
 
 # The penalty value that initial_state and the trials store (g_x = 0). A start that passes the cap can lie outside the
-# ball, where the indicator is Inf; the route does not evaluate it, and minimum is the monitored f_x + g_x (IN-12).
+# ball, where the mathematical indicator is Inf; the route does not evaluate it, and minimum is the monitored
+# f_x + g_x (IN-12).
 (g::_NumericalL1Ball{T})(x) where T = zero(T)
 
 function _NumericalL1Ball(ball::IndBallL1{T}, X::Matrix{T}, y::Vector{T}, alpha::Float64, b, tolerances,

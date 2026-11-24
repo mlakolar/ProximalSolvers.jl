@@ -792,7 +792,7 @@ small for every choice of tolerances.
    budget that is zero or subnormal. A design whose columns are all zero keeps the curvature `1.0` and
    is exempt from this item only.
 10. A start whose decision ([FP-05](@ref)) is `:over` (infeasible) or `:unresolved`. A start that
-    passes may lie outside the ball within the cap.
+    passes the computed cap decision may lie outside the ball.
 11. A start whose loss is not finite in `T`, refused by the state's start check.
 
 *Trials.* The iterations of PGD ([PGD-01](@ref)) and APG ([APG-01](@ref)) keep their order, line
@@ -836,9 +836,9 @@ prox calls that the check counts. When they run no check, B1's unchanged-iterate
 at most `objective_rtol`, with the resolved tolerances) run it, and a pass sets `x_converged`. These
 proposals are triggers for the full check, not success criteria, and an accepted iteration runs the
 full check at most once. `converged` means that the full check passed at an admitted returned point,
-whose decision passed the cap. The check measures stationarity at the radial witness, a point scaled
-into the ball, so a pass concerns that feasible point within the cap of the returned one. When the
-check fails, the three proposal flags are cleared and the solve continues unless another exit applies.
+whose decision passed the cap. The check measures stationarity at the rounded radial witness defined
+in [FP-05](@ref); admission is the computed cap decision on the widened mass. Neither `converged` nor
+`minimum` certifies exact membership in the ball. When the check fails, the three proposal flags are cleared and the solve continues unless another exit applies.
 
 *Objective increases.* `allow_f_increases = false` is not enforced on this route: a computed increase
 of the loss is reported in `f_increased` when it occurs at the last iteration, and in the trace's
