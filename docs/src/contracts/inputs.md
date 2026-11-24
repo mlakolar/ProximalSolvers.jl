@@ -816,15 +816,18 @@ line-search error earlier. After PGD's search, an accepted trial that differs fr
 elementwise while the computed squared norm of `x - x_previous` is zero raises
 `ErrorException("line search failed: the step is nonzero but its squared norm underflows (…)")`, since
 [LS-02](@ref) accepts such a step as a zero step without its test and the route reserves that exit for
-an unchanged `x` (APG has no zero-step exit). After PGD's search, a nonfinite entry of the gradient at
+an unchanged `x`. APG accepts a trial equal to its extrapolated point `y` entrywise ([APG-01](@ref)) and has
+no squared-norm shortcut that could accept a nonzero step. After PGD's search, a nonfinite entry of the gradient at
 the accepted trial raises an `ErrorException` inside the step. In each case the engine restores the last accepted `x`
 and rethrows ([RES-03](@ref)). The state's penalty value is `0` throughout, so the trace's `fg_x`, the
 callback's objective, `f_residual` and `f_increased` use the loss.
 
 *Stopping.* The engine's three proposals ([STOP-01](@ref), with [STOP-10](@ref)) run the full check
 of [FP-05](@ref) at the accepted `x` with the decision cached by its trial; a cached code other than
-`:pass` fails the check, as does a nonfinite intermediate, and the check counts the gradient and prox
-calls it evaluates ([FP-05](@ref)). When they run no check, B1's unchanged-iterate proposal (`x` equal to
+`:pass` fails the check. So does a nonfinite entry of the witness, the residual or the gradient, of the
+mapping's trial point or of its projection, a nonfinite support gap, mapping or noise, and a product of the
+underflow allowance with a nonfinite factor, which makes the allowance `Inf`. [FP-05](@ref) gives the order
+of these tests and the gradient and prox calls that the check counts. When they run no check, B1's unchanged-iterate proposal (`x` equal to
 `x_previous` elementwise, also with `ftol = 0`) and its two progress proposals
 (`maximum(abs, x - x_previous) <= sqrt(mapping_rtol) * maximum(abs, x)`, or `f_residual` of the loss
 at most `objective_rtol`, with the resolved tolerances) run it, and a pass sets `x_converged`. These

@@ -365,8 +365,9 @@ end
 
 # The overflow reproducer (Float32, with a tolerance override): the Hessian is exactly 2⁻¹²⁶ I, so the mapping's trial
 # point is y/d = b [4.5, 1.75, 0, 0] (b = 2¹²⁶) for any witness, and its first entry overflows to Inf in Float32.
-# ProximalBase projects that entry to a finite vertex, so the computed mapping is finite and within its budget, while
-# the exact mapping is not. The full check fails before the projection (FP-05).
+# Before the guard, the check projected that point: ProximalBase maps the overflowed entry to a finite vertex, so the
+# computed mapping was finite and within its budget, while the exact mapping is not. The guarded check fails on the
+# nonfinite trial point and skips that projection (FP-05).
 @testset "false stationarity: an overflowed mapping trial point ($(mname(method)))" for method in METHODS
   d, b = ldexp(1f0, -70), ldexp(1f0, 126)
   X = Matrix(Diagonal(fill(d, 4)))
@@ -392,6 +393,38 @@ end
   @test !PS._stationary!(stub, f, route, OPTIONS)
   @test route.checked && !all(isfinite, route.trial)
   @test stub.grad_calls == 1 && stub.prox_calls == 0
+end
+
+# The overflowed factor of the division allowance (Float64, with a tolerance override): X = 1e154, y = 1e-171, radius
+# 1e-150, start 0. The stored curvature L is about 1e308, so 2L overflows to Inf, while the computed quotient δ/L of the
+# gradient scale δ ≈ 1e-17 rounds to zero; the mapping trial and its projection are then zero. The division term of
+# the mapping allowance has the factors Inf and 0; FP-05 makes a product with a nonfinite factor Inf, so the check
+# fails. The exact mapping at the returned point exceeds its budget in MPFR. APG's small β lets its trials reach that
+# curvature.
+@testset "false stationarity: an overflowed factor of the division allowance ($(mname(method)))" for method in
+    (ProximalGradientDescent(), AccProxGradDescent(β = 1 / 10^(308.1 / 60)))
+  X, y, r = reshape([1e154], 1, 1), [1e-171], 1e-150
+  f = LeastSquaresLoss(y, X)
+  a = NumericalFeasibility(mapping_rtol = 1e-180)
+  x = [0.0]
+  res = solve!(x, f, IndBallL1(r), method, ProximalOptions(maxiter = 2, callback = _ -> true); feasibility = a)
+  @test !res.converged && !res.approximate_solution
+  tol = PS._feasibility_tolerances(a, Float64)
+  bud = PS._l1_budgets(X, y, 1.0, r, tol)
+  @test isinf(2 * bud.curvature)
+  # the exact mapping at the returned point exceeds its budget in MPFR, so a success would be false
+  ind = independent(X, y, 1.0, r, x, bud.curvature)
+  @test ind.mapping > BigFloat(bud.mapping)
+  # the full check at that point: δ is positive, δ/L is zero, the projection is reached, and the check fails
+  ball = IndBallL1(r)
+  dec = PS._l1_decision(x, ball, bud.cap)
+  @test dec.code === :pass
+  route = PS._NumericalL1Ball(ball, X, y, 1.0, bud, tol, dec)
+  stub = CheckStub(copy(x), 0, 0)
+  @test !PS._stationary!(stub, f, route, OPTIONS)
+  δ = maximum(abs, route.gradient)
+  @test δ > 0 && iszero(δ / bud.curvature)
+  @test stub.grad_calls == 1 && stub.prox_calls == 1
 end
 
 # ---- boundary rounding: the cap at each accepted iterate ---------------------------------------------------------------------
@@ -501,9 +534,9 @@ end
   @test calls[] == 0
 end
 
-# The underflow reproducer (Float64, default options): X = 1, y = 1e-170, loss scale 1e150, radius 4e-170, start 5e-171.
-# At L = 0.9 the projected trial 4e-170 differs from the start, but the squared norm of the step, about 1.2e-339,
-# underflows to zero, and the shared backtrack! accepts it as a zero step without its test (LS-02). The route raises
+# The underflow reproducer (Float64, default numerical settings): X = 1, y = 1e-170, loss scale 1e150, radius 4e-170,
+# start 5e-171. At L = 0.9 the projected trial 4e-170 differs from the start, but the squared norm of the step, about
+# 1.2e-339, underflows to zero, and the shared backtrack! accepts it as a zero step without its test (LS-02). The route raises
 # the line-search error instead, and the engine restores the start (IN-12). APG declines the trial and raises the
 # 64-trial error.
 @testset "a nonzero step whose squared norm underflows ($(mname(method)))" for method in METHODS
@@ -545,8 +578,9 @@ end
   end
 end
 
-# A truly unchanged step (x == x_previous) is still accepted as a zero step: X = 1, y = x = 0.5, radius 1 has a zero
-# gradient, so the first trial returns the start, and the unchanged-iterate proposal's check passes inside the ball.
+# On this fixture a truly unchanged step is still accepted: X = 1, y = x = 0.5, radius 1 has a zero gradient, so the
+# first trial returns the start (for APG the extrapolated point equals the previous point), and the unchanged-iterate
+# proposal's check passes inside the ball.
 @testset "an unchanged step is accepted ($(mname(method)))" for method in METHODS
   x0 = [0.5]
   x = copy(x0)

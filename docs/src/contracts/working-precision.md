@@ -236,10 +236,13 @@ other than `:pass` runs no check:
 5. Each noise then gains the underflow allowance below. The check passes when the support gap, the
    mapping and both noises are finite, `support gap + its noise ≤ G` and `mapping + its noise ≤ H`.
 
-The check fails as soon as an entry of `w`, `e` or `g` (after item 2) or of the trial (before its
-projection, which therefore never sees a nonfinite input) or of `q` is not finite. It counts the
-gradient call of item 2 and the prox call of item 4 when it evaluates them: one each when it reaches
-the projection, and one gradient call and no prox call when it fails before it.
+The check tests its intermediates in groups. After item 2 has evaluated, and counted, the gradient,
+it tests the entries of `w`, `e` and `g` together; then the entries of the trial, before its projection,
+which therefore never sees a nonfinite input; then those of `q`. A nonfinite entry in any group fails
+the check, as does a product of the underflow allowance with a nonfinite factor (below), and so does a
+nonfinite support gap, mapping or noise in item 5. The check counts the gradient call of item 2 and the
+prox call of item 4 when it evaluates them: one each when it reaches the projection, and one gradient
+call and no prox call when it fails before it.
 
 The noises of items 3 and 4 are model estimates of the rounding of these sums and products, without
 directed rounding; they are not interval enclosures. The decision compares the computed margin with
@@ -254,14 +257,18 @@ conversions, and their order, are those of the research reference B1 (`norm2_64`
 to zero, and the computed gap and mapping can then be zero at a point that is not stationary. The gate
 of [IN-12](@ref) refuses a design with a nonzero column whose curvature (in `Float64` and in `T`),
 gap budget or mapping budget is not a normal positive number; the allowance covers the underflow
-inside the full check's products. These are the route's only provisions for underflow. With
+inside the full check's products. Besides these, PGD's step raises at an accepted nonzero step whose
+squared norm underflows ([IN-12](@ref)); these are the route's only provisions for underflow. With
 subnormals flushed to zero on the solving thread, the decisions are unspecified, as in [FP-01](@ref).
 
-The model, per precision: each product, quotient and fused multiply-add of the check obeys
-`fl(a ∘ b) = (a ∘ b)(1 + δ) + ε` with `|ε| ≤ min(η, |a ∘ b|)` and `ε = 0` when a factor is an exact
-zero; in `Float64` (the residual, the gradient, the support gap, the mapping's differences and its
-final product), `|δ| ≤ u` and `η = nextfloat(0.0)`; in `T` (the conversions of `w` and `g`, the
-division by `L` and the projection), `|δ| ≤ eps(T)/2` and `η_T = nextfloat(zero(T))`.
+The model, per precision `P` of the operation, for finite operands and a finite result:
+each product, quotient and fused multiply-add of the check obeys
+`fl(a ∘ b) = (a ∘ b)(1 + δ) + ε` with `|ε| ≤ min(η_P, |a ∘ b|)` and `ε = 0` when a factor is an exact
+zero, where `η_P` is the least positive subnormal number of `P`; in `Float64` (the residual, the
+gradient, the support gap, the mapping's differences and its final product), `|δ| ≤ u` and
+`η_P = η = nextfloat(0.0)`; in `T` (the conversions of `w` and `g`, the division by `L` and the
+projection), `|δ| ≤ eps(T)/2` and `η_P = η_T = nextfloat(zero(T))`. An overflow is outside the
+model; the fail-closed rules below cover it.
 Additions and subtractions add no absolute error. The relative terms above account for the `δ`; the
 allowance bounds the `ε` and their propagation. With `n × p` the design, `α` the loss scale, the
 witness `w`, the computed residual `r`, `δ = ‖g‖∞`, `L = T(κ)`, `t` the mapping's trial point in `T`
@@ -285,14 +292,19 @@ growth `(1 + u)^k ≤ 2` through at most `k = n + p + 2` later `Float64` roundin
 `(n + p + 2) eps(Float64) ≤ 1`, times 2 for computed magnitudes in place of exact ones. That
 condition gives `(1 + u)^k ≤ exp(1/2)`, which leaves room for the at most four roundings in `T` of each
 trial entry (two conversions, the division and the subtraction), `(1 + eps(T)/2)^4 < 2 / exp(1/2)`; the projection in `T` enters only through the
-assumption below. Each product inside the allowance is an
-upper bound: `0` when a factor is `0`, otherwise `fl(a b)(1 + 4 eps) + η`. When
-`(n + p + 2) eps(Float64) > 1` both allowances are `Inf`; an overflowing term is `Inf` and a `NaN`
-mapping gives a `NaN` allowance; in each case the check fails. These bound and fail-closed statements
-concern the values the check tests: the entries of `w`, `e`, `g`, the trial and `q`, and the four final
-values. A norm or product inside the allowance that overflows from finite entries is `Inf`; it reaches
-the allowance, which fails the check, or a `min` whose other arm is a bound by itself, or an exact
-zero factor, whose product is exact.
+assumption below. The products of the allowance's terms are formed by `_mulup`, which for finite
+nonnegative factors returns an upper bound of their exact product: `0` when a factor is `0`, otherwise
+`fl(a b)(1 + 4 eps) + η`, which is `Inf` when the product overflows. `_mulup` returns `Inf` when a
+factor is not finite, whatever the other factor: a factor that overflowed, such as `2L` for a `Float64`
+`L` above `floatmax(Float64) / 2`, can meet a factor that underflowed to zero although its exact value is
+positive, such as the computed `δ / L`, and an exact-zero rule would then drop a positive term. The
+remaining operations of the allowance (sums, `min`, `max` and the products by 2, 3 and 4) are
+evaluated in round-to-nearest without that inflation. When
+`(n + p + 2) eps(Float64) > 1` both allowances are `Inf`; a term that is `Inf` makes its allowance `Inf`
+and a `NaN` mapping gives a `NaN` allowance; in each case the check fails. These bound and fail-closed
+statements concern the values the check tests: the entries of `w`, `e`, `g`, the trial and `q`, and the
+four final values. An overflowed `_mulup` result inside a `min` whose other arm is a bound by itself
+leaves that bound.
 
 The projection's own term assumes that ProximalBase's ℓ1 projection at the pinned revision `bc9e888d`
 (`src/functions/indballl1.jl`), which soft-thresholds at a level formed from sums, power-of-two
@@ -307,7 +319,7 @@ assumption.
 
 **Code.** `src/solvers/l1ball.jl`: `_norm2_64`, `_l1_mass64`, `_gamma64`, `_l1_noise`, `_l1_decision`,
 `_l1_budgets`, `_l1_witness!`, `_residual_score64!`, `_l1_support_gap`, `_mulup`,
-`_l1_underflow_allowance`, `_stationary!`.
+`_l1_underflow_allowance`, `_l1_underflow_terms`, `_stationary!`.
 
 **Tests.** `test/l1ball_numerical.jl` checks the budgets against a recomputation in the test from
 LinearAlgebra's `norm` (relative difference at most `1e-12`). It scores each reported success on the
@@ -318,9 +330,14 @@ fixtures and each accepted iterate's decision. For the scaled case
 `1e300 * LeastSquaresLoss([0.0], reshape([1e-155], 1, 1))`, `x = [1e-15]`, `r = 1e-14`, which the gate
 admits and whose computed gradient is exactly zero, the full check fails, neither method reports a
 success flag, and the returned point misses the budgets in MPFR. For a `Float32` case with a tolerance
-override whose mapping trial overflows in its first entry (which ProximalBase projects to a finite
-vertex), neither method reports a success flag, the MPFR mapping at the returned point exceeds its
-budget, and a direct call of the check fails with one gradient call and no prox call. It also checks
+override whose mapping trial overflows in its first entry (projecting it, as the check did before
+this guard, gives a finite vertex; the guarded check skips that projection), neither method reports a
+success flag, the MPFR mapping at the returned point exceeds its budget, and a direct call of the
+check fails with one gradient call and no prox call. For a `Float64` case with a tolerance override
+whose curvature exceeds `floatmax(Float64) / 2` (`X = 1e154`, `y = 1e-171`, `r = 1e-150`, start `0`,
+APG with `β = 1 / 10^(308.1 / 60)`), where `2L` overflows and the computed `δ / L` is zero, neither
+method reports a success flag, the MPFR mapping at the returned point exceeds its budget, and a direct
+call of the check fails after one gradient call and one prox call. It also checks
 the expansion example of term 5 with ProximalBase's projection in both precisions.
 
 **Sources.** [The #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);

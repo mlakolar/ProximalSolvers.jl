@@ -578,7 +578,7 @@ The current development core intentionally excludes the following:
 | PGD or APG with `BlockIterate` coefficients or matrix coefficients outside [IN-10](@ref) and the graphical-lasso PGD contract [PGD-06](@ref) | Deferred; refused with an `ArgumentError` |
 | `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
 | `CDSolver` with `NormL2`; `Scaled(NormL2)`; `NormL2` with a matrix or block coefficient, `LogisticLoss` or `SqrtLeastSquaresLoss` | Refused with an `ArgumentError`; PGD and APG on a dense `Vector` are the supported route ([IN-11](@ref)) |
-| `IndBallL1` with `CDSolver` or `ADMMSolver`, a matrix coefficient, `LogisticLoss` or `SqrtLeastSquaresLoss`; the `feasibility` keyword with another penalty or solver | Refused with an `ArgumentError` ([IN-12](@ref)) |
+| `IndBallL1` with `CDSolver` or `ADMMSolver`, a matrix coefficient, `LogisticLoss` or `SqrtLeastSquaresLoss`; a non-`nothing` `feasibility` with another penalty in regression PGD or APG; the `feasibility` keyword in any form with graphical-lasso PGD or another solver | Refused with an `ArgumentError` ([IN-12](@ref)) |
 | `NormL0` with `solve!` | The [ℓ₀ sparse-regression tutorial](examples/problems/l0_sparse_regression.md) runs its own IHT routine with the ProximalBase prox. |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
 | Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |

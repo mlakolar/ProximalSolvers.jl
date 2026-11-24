@@ -16,7 +16,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 | `CDSolver`, least squares with `NormL1`, `ElasticNet`, `IndNonnegative()` or unweighted `NormL1Nonneg` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
 | `ProximalGradientDescent`, `AccProxGradDescent` on the regression routes with a dedicated KKT check | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and, for least squares with `NormL1` or `ElasticNet` on a dense vector, every coordinate's computed score passed the rule of [STOP-21](@ref) (below its threshold, or at most `0` at an exact zero scale, where no threshold is formed); otherwise the computed residual passed [STOP-04](@ref) and any applicable entry or group checks for [the logistic and matrix-response lasso](@ref STOP-03), [group lasso](@ref STOP-05), [the Euclidean norm](@ref STOP-17), or [the nonnegative penalties](@ref STOP-16) | a comparison in `T` of computed scores and thresholds, formed as stated below; for least squares with `NormL1` or `ElasticNet` on a dense vector, its exact-arithmetic analogue is approximate coordinatewise stationarity relative to the smooth part of the model that the check scores (the objective of the solve when their coefficients agree), with no general error bound ([STOP-21](@ref)) |
-| `ProximalGradientDescent`, `AccProxGradDescent` with `IndBallL1` ([IN-12](@ref)) | the same | the full check of [FP-05](@ref) | the full check passed at a point classified inside the ball; a passing check elsewhere sets `approximate_solution = true` instead. Besides the three tests, B1's unchanged-iterate and progress proposals trigger the check | a comparison in `Float64` of a computed support gap and fixed-step mapping, with model noise terms, against budgets from the tolerances |
+| `ProximalGradientDescent`, `AccProxGradDescent` with `IndBallL1` ([IN-12](@ref)) | the `x`, objective or gradient test of an iteration, and B1's unchanged-iterate and progress proposals | the full check of [FP-05](@ref) | the full check passed at a point classified inside the ball; a passing check elsewhere sets `approximate_solution = true` instead | a comparison in `Float64` of a computed support gap and fixed-step mapping, with model noise terms, against budgets from the tolerances |
 | `ProximalGradientDescent`, `AccProxGradDescent` with a generic stationarity check | the same | the generic check | a test proposed a stop and the proximal-gradient residual passed the threshold comparison and guards in [STOP-07](@ref) | a working-precision indication that can be weaker when the accepted `L` is small |
 | `ProxNewton`, logistic regression | the accepted point, at the start and after each accepted iteration | nothing | the largest ProximalBase KKT score `kkt` of the original problem, from a gradient formed at the returned point, is finite and at most `tol` (see [PN-05](@ref)) | a residual formed in working precision; `stop_reason` is `:converged`, `:maxiter` or `:stalled` |
 | `LogisticADMM`, logistic regression | each completed iteration | nothing | the primal residual `‖X b - t‖` and the dual residual `ρ ‖Xᵀ(t - t_previous)‖` are within their thresholds, and the largest ProximalBase KKT score `kkt` of the original problem, from a gradient formed at the returned point, is at most `tol` (see [LA-04](@ref)) | residuals formed in working precision; `stop_reason` is `:converged`, `:maxiter`, `:stalled` or `:prox_failed` |
@@ -121,7 +121,8 @@ oracle call counts and backtracking counts. `x_converged`, `f_converged` and
 `grad_converged` are the flags after the stationarity check, so all three are false
 when that check vetoed a proposed stop. Residual fields retain the last iteration's
 test residuals. APG's `grad_calls` includes one gradient at the accepted `x` for
-each stationarity check; on the ℓ1-ball route, in both methods, a full check counts
+each stationarity check that reaches that evaluation (a generic check with invalid `t` returns before it,
+[STOP-08](@ref)); on the ℓ1-ball route, in both methods, a full check counts
 its one gradient, at the radial witness of [FP-05](@ref), unless the cached decision
 fails it first. PGD's `backtrack_steps` includes accepted nonzero
 line-search trials; APG counts every trial, including the accepted one. Detailed
@@ -133,9 +134,11 @@ ends the solve only if `allow_f_increases = false`, and never on the ℓ1-ball r
 zero and `Inf` when `F = 0` but the previous value is nonzero. With `ftol > 0`, this
 is the quantity compared with `ftol`. With `ftol = 0`, the objective test is off:
 `f_tol = 0.0`, `f_converged = false`, and `f_residual` is reported without deciding
-a stop. An iteration whose iterate equals the preceding one elementwise sets
-neither `x_converged` nor `grad_converged` under `ftol = 0`; [STOP-10](@ref) also
-specifies the accelerated method's `x == y` case.
+a stop. On the routes other than the ℓ1-ball route, an iteration whose iterate equals the preceding one
+elementwise sets neither `x_converged` nor `grad_converged` under `ftol = 0`; [STOP-10](@ref) also
+specifies the accelerated method's `x == y` case. On the ℓ1-ball route, B1's unchanged-iterate proposal
+runs the full check there, and a pass at a point classified inside the ball sets `x_converged`
+([IN-12](@ref)).
 
 `stagnated` reports the specific Float32 PGD exit whose full condition, flags and
 scope are specified in [STOP-11](@ref). Its `x_residual` is zero; it does not certify

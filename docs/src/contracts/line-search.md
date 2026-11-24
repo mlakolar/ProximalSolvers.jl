@@ -34,7 +34,7 @@ A PGD trial applies the penalty prox after a least-squares gradient step of leng
 
 A nonfinite trial image or loss value supplies no estimate and is never accepted. The search retries with `L ← L/β`, beyond `Lexact` if necessary. On the ℓ1-ball route, a trial that does not pass the numerical cap carries `f(x) = Inf` and takes this branch, and a 64-trial limit applies ([IN-12](@ref)). The zero-step exit accepts a finite-value trial whose computed displacement norm squared is zero, including a nonzero step lost by squaring; in gradient mode it refreshes the gradient so that a previous rejected trial cannot leave a stale one. On the ℓ1-ball route, an accepted nonzero step lost by squaring raises a line-search error instead ([IN-12](@ref)).
 
-The curvature of an accepted trial is not checked again. In particular, a rounding-decided estimate that accepts below the true curvature remains accepted, as do the finite-value `Lexact` and zero-step exits. The ℓ1-ball route also checks the gradient at the accepted trial ([IN-12](@ref)).
+The curvature of an accepted trial is not checked again: the shared `backtrack!` returns `true` for a rounding-decided estimate that accepts below the true curvature, and for the finite-value `Lexact` and zero-step exits. That acceptance ends the curvature decision, not necessarily the step. On the ℓ1-ball route the step can still raise after acceptance, at a nonzero displacement whose squared norm underflows or at a nonfinite gradient at the accepted trial ([IN-12](@ref)).
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
@@ -72,7 +72,7 @@ A line-search acceptance is an iteration decision. Convergence, exact stalls and
 
 ### [LS-09 Failure and restoration boundary](@id LS-09)
 
-**Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`, or on the ℓ1-ball route at its 64-trial limit or at an accepted nonzero step whose squared norm underflows ([IN-12](@ref)). The gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first. Full ownership and exception semantics are [RES-01](@ref).
+**Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`, or on the ℓ1-ball route at its 64-trial limit ([IN-12](@ref)). A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first; on the ℓ1-ball route a zero-step acceptance of a nonzero step does not complete the step (below). Separately, after `backtrack!` has accepted a trial, the ℓ1-ball route raises inside the step at an accepted nonzero step whose squared norm underflows and at a nonfinite gradient at the accepted trial ([IN-12](@ref)). In each case the gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. Full ownership and exception semantics are [RES-01](@ref).
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 

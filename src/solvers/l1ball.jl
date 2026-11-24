@@ -172,9 +172,12 @@ end
 const _ETA64 = nextfloat(0.0)
 
 # An upper bound of the exact product of two nonnegative upper bounds a and b under the model fl(a b) = a b (1 + δ) + ε,
-# |δ| ≤ u, |ε| ≤ nextfloat(0.0): 0 when a factor is 0 (the product is then exact), otherwise fl(a b) (1 + 4 eps) + η,
-# which covers a product that rounds to a subnormal number or to zero. Inf when the product overflows.
-_mulup(a::Float64, b::Float64) = (iszero(a) || iszero(b)) ? 0.0 : (c = a * b; c + 4 * eps(Float64) * c + _ETA64)
+# |δ| ≤ u, |ε| ≤ nextfloat(0.0): Inf when a factor is not finite, so that the check fails (a factor that overflowed,
+# such as 2L, can meet a factor that underflowed to zero, such as δ/L, whose exact value is positive); otherwise 0
+# when a factor is 0, and fl(a b) (1 + 4 eps) + η, which covers a product that rounds to a subnormal number or to zero,
+# and is Inf when the product overflows.
+_mulup(a::Float64, b::Float64) =
+  !(isfinite(a) && isfinite(b)) ? Inf : (iszero(a) || iszero(b)) ? 0.0 : (c = a * b; c + 4 * eps(Float64) * c + _ETA64)
 
 # The absolute allowances (gap, mapping) that FP-05 adds to the support-gap and mapping noise of the full check, from
 # computed magnitudes: n × p the design, α the loss scale, ρ the radius, C the largest column norm, rnorm = ‖X w - y‖₂,
@@ -293,10 +296,12 @@ end
 # Otherwise: the radial witness from the cached s and noise; the residual and gradient at the witness in Float64, times
 # α; the support gap and the fixed-step mapping at the inverse step T(curvature) through PB's projection, each with its
 # noise and underflow allowance; the check passes when the four values are finite, gap + gap noise ≤ gap budget and
-# mapping + map noise ≤ mapping budget. It fails as soon as the witness, residual, gradient, mapping trial point or
-# projection has a nonfinite entry, so a nonfinite trial point is never projected. It counts the gradient and the prox
-# call that it evaluates (one each when it reaches the projection), writes no other field of state and records in
-# g.checked that the assessment ran it.
+# mapping + map noise ≤ mapping budget. The witness, residual and gradient are tested together after the gradient is
+# evaluated and counted; then the mapping trial point before its projection, so a nonfinite trial point is never
+# projected, and then the projection. A nonfinite entry in any of them fails the check, as does an allowance product
+# with a nonfinite factor (the allowance is then Inf). It counts the gradient and the prox call that it evaluates (one
+# each when it reaches the projection), writes no other field of state and records in g.checked that the assessment
+# ran it.
 function _stationary!(state, f, g::_NumericalL1Ball{T}, options::ProximalOptions) where T
   g.checked = true
   dec = g.decision
