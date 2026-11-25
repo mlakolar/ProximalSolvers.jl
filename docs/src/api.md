@@ -33,6 +33,7 @@ ProximalSolvers.Stopping
 IterateChange
 ObjectiveChange
 ScaledKKT
+Every
 PrimalResidual
 DualResidual
 UserStop

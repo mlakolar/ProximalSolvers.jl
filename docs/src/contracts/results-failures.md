@@ -219,7 +219,8 @@ with the expression unfulfilled, and `:stalled` for numerical stagnation with th
 expression unfulfilled. `satisfied` is true for `:rule` and `:user`. At a tie,
 the reason names the satisfied expression and `limit_reached` is true.
 `converged` is true when the winning branch includes a passing `ScaledKKT`
-leaf. The result display reports convergence, policy satisfaction and the stop
+leaf, including one scheduled by `Every` under [STOP-25](@ref).
+The result display reports convergence, policy satisfaction and the stop
 reason. Fatal solver failures throw as specified in [RES-03](@ref).
 
 For [STOP-23](@ref) and [STOP-24](@ref), `evaluation_limits` lists the resolved call caps in the
@@ -237,6 +238,8 @@ observations still describe the last accepted checkpoint.
 `iteration`. An unchecked leaf has missing measurement fields. Predicates,
 exact equality checks and `ScaledKKT` report a Boolean value with threshold
 `true` and a missing scale.
+An `Every`-wrapped `ScaledKKT` occupies one leaf position and is reported
+as `:ScaledKKT` at that path. Its off-schedule status is `:not_checked`.
 An absolute-only iterate comparison also has a missing scale.
 `winning_branch` lists the paths of the passing leaves that settled the
 expression, using the first passing child of each `AnyOf` and the winners of

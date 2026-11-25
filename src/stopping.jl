@@ -11,6 +11,7 @@ coordinate descent and [ADM-06](@ref) for consensus ADMM.
 module Stopping
 
 export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
+export Every
 export MaxCoordinateVisits
 export PrimalResidual, DualResidual
 export MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEvaluations
@@ -77,6 +78,25 @@ tolerance in [STOP-21](@ref). Supported for dense vector least-squares PGD and A
 struct ScaledKKT
     rtol::Float64
     ScaledKKT(; rtol::Real) = new(tolerance(rtol, "rtol"))
+end
+
+"""
+    Every(k, rule::ScaledKKT)
+
+Make a `ScaledKKT` check eligible at the starting point and after every `k`
+accepted updates in supported PGD and APG solves. Use a positive integer `k`
+representable as `Int`. At other checkpoints the leaf is unchecked.
+See [STOP-25](@ref) for scheduling, composition and limits.
+"""
+struct Every
+    interval::Int
+    rule::ScaledKKT
+    function Every(k, rule)
+        k isa Integer && 0 < k <= typemax(Int) ||
+            throw(ArgumentError("the check interval must be a positive Int"))
+        rule isa ScaledKKT || throw(ArgumentError("Every requires a ScaledKKT condition"))
+        new(Int(k), rule)
+    end
 end
 
 """
@@ -240,7 +260,7 @@ mutable struct RuleState{R}
     RuleState(rule::R) where R = new{R}(rule, -1, unchecked)
 end
 
-const GradientLeaves = Union{IterateChange,ObjectiveChange,ScaledKKT,UserStop}
+const GradientLeaves = Union{IterateChange,ObjectiveChange,ScaledKKT,Every,UserStop}
 const ResidualLeaves = Union{PrimalResidual,DualResidual}
 
 function bind_rule(rule, context, supported)
@@ -288,7 +308,7 @@ prepare(rule, limit::Union{MaxIterations,MaxPasses}, ::Type{T}, supported=Gradie
 
 needs_stationarity(monitor::Monitor) = needs_stationarity(monitor.root)
 needs_stationarity(::Union{Nothing,RuleState}) = false
-needs_stationarity(::RuleState{ScaledKKT}) = true
+needs_stationarity(::RuleState{<:Union{ScaledKKT,Every}}) = true
 needs_stationarity(tree::Union{AnyOf,AllOf}) = any(needs_stationarity, tree.rules)
 
 with_stationarity(monitor, provider) =
@@ -359,6 +379,11 @@ function assess(rule::ScaledKKT, point, monitor, at_limit)
     boolean_observation(stationarity!(cache, point, rule.rtol))
 end
 
+function assess(rule::Every, point, monitor, at_limit)
+    iszero(point.iteration % rule.interval) || return unchecked
+    assess(rule.rule, point, monitor, at_limit)
+end
+
 function assess(rule::UserStop, point, monitor, at_limit)
     at_limit && return unchecked
     pass = rule.predicate(user_context(point.iteration, point.objective))
@@ -372,7 +397,7 @@ assess(::PrimalResidual, point, monitor, at_limit) = residual_observation(point.
 assess(::DualResidual, point, monitor, at_limit) = residual_observation(point.s_norm, point.eps_dual)
 
 evidence(::Union{IterateChange,ObjectiveChange}) = :progress
-evidence(::ScaledKKT) = :stationarity
+evidence(::Union{ScaledKKT,Every}) = :stationarity
 evidence(::UserStop) = :user
 evidence(::ResidualLeaves) = :residual
 
@@ -420,9 +445,12 @@ passed(tree::AnyOf, k) = any(child -> passed(child, k), tree.rules)
 passed(tree::AllOf, k) = all(child -> passed(child, k), tree.rules)
 
 observations(::Nothing, k, path) = ()
+observation_name(rule) = nameof(typeof(rule))
+observation_name(rule::Every) = observation_name(rule.rule)
+
 function observations(state::RuleState, k, path)
     o = observation_at(state, k)
-    ((; path, name=nameof(typeof(state.rule)), evidence=evidence(state.rule),
+    ((; path, name=observation_name(state.rule), evidence=evidence(state.rule),
        o.status, o.value, o.threshold, o.scale),)
 end
 observations(tree::Union{AnyOf,AllOf}, k, path) =

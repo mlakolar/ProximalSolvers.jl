@@ -42,6 +42,28 @@ A solve using `ScaledKKT` alone reports `reason = :limit` and
 uses the gradient at the accepted point and includes its cost in the
 [oracle counts](@ref APG-04).
 
+## Schedule stationarity checks in PGD and APG
+
+`Every(k, ScaledKKT(rtol=...))` makes the check eligible at the starting
+point and after every `k` accepted steps. This can save accepted-point gradient
+evaluations in APG. You can combine a scheduled check with other conditions
+through `AnyOf` or `AllOf`.
+
+~~~@example scheduled_kkt
+using ProximalBase, ProximalSolvers
+
+x = [1.0]
+f = LeastSquaresLoss([0.0], ones(1, 1))
+r = solve!(x, f, NormL1(1.0), AccProxGradDescent(α=0.75, β=0.375);
+           stopping=Every(2, ScaledKKT(rtol=0)), limits=MaxIterations(3))
+@assert x == [0.0] && r.iterations == 2 && r.converged
+termination(r)
+~~~
+
+An off-schedule check is reported as `:not_checked`. The iteration and
+evaluation caps still apply at every step. See [STOP-25](@ref) for scheduling
+and limit ties.
+
 ## [Cap the evaluations in dense least-squares PGD](@id pgd-evaluation-limits)
 
 Use a single call limit or a tuple to cap multiple kinds of work.
