@@ -303,7 +303,8 @@ objective counters, cap and user exits, and winning evidence.
 `minimizer` aliases the caller's consensus variable. Its `u` aliases an
 explicit scaled dual or holds the solver's dual when no buffer was supplied.
 `ρ` is the fixed working penalty. `minimum` holds the computed objective
-or `missing` at a zero cap, and `iterations` counts completed iterations.
+or `missing` when the limits permit no complete iteration. `iterations`
+counts completed iterations.
 
 `termination(result).satisfied` reports rule satisfaction. `converged` is
 true when the winning branch contains a passing leaf of each residual kind
@@ -312,7 +313,12 @@ guard are the computed tests of [ADM-06](@ref).
 
 The report uses the reasons and winning paths in [RES-04](@ref). The
 `iteration` is the number of completed iterations, `limit` is the resolved
-`MaxIterations`, and `limit_reached` is true when the count equals the cap.
+`MaxIterations`. `evaluation_limits` lists the proximal-call limit
+when supplied. `reached_evaluation_limits` lists it when fewer than two
+proximal calls remain under [ADM-07](@ref). An omitted limit gives empty tuples.
+`limit_reached` is true when the iteration count equals its cap or the proximal
+limit cannot admit another pair. The `iteration_limit_reached` and
+`call_limit_reached` accessors distinguish the two cases.
 Each checked leaf reports `evidence=:residual`, its native residual and
 threshold as `Float64`, and `scale=missing`. Skipped leaves are marked
 `:not_checked`. The counts `f_calls` and `g_calls` are each one after a
@@ -325,7 +331,7 @@ display perform no solver evaluations.
 **Code.** `src/solvers/admm.jl` and `src/stopping.jl`.
 
 **Tests.** `test/admm_stopping.jl` checks aliases, objective, reports, counts,
-convergence and display.
+convergence, both kinds of cap and display.
 
 **Sources.** [#523, solver rollout B4](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 

@@ -169,9 +169,11 @@ end
 """
     MaxProximalEvaluations(n)
 
-Hard limit of `n` penalty proximal calls for dense vector least-squares PGD and APG.
+Hard limit of `n` proximal calls. Dense vector least-squares PGD and APG count
+penalty proximal calls. Fixed-penalty centered consensus ADMM admits whole
+iterations that use two proximal calls each.
 Pass the limit through `limits`, alone or in a tuple of distinct limits.
-See [STOP-23](@ref) and [STOP-24](@ref).
+See [STOP-23](@ref), [STOP-24](@ref) and [ADM-07](@ref).
 """
 struct MaxProximalEvaluations
     n::Int

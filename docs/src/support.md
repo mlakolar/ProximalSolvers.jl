@@ -163,7 +163,7 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
 | These PGD and APG routes with `NormL1` or `ElasticNet`, with or without supported weights | `Vector{Float32}` or `Vector{Float64}` | Also `ScaledKKT(rtol=...)` |
 | These dense vector PGD and APG routes | `Vector{Float32}` or `Vector{Float64}` | Also `MaxObjectiveEvaluations`, `MaxGradientEvaluations` and `MaxProximalEvaluations`. See [STOP-23](@ref) and [STOP-24](@ref) |
 | `CDSolver` with dense vector-response least squares, unweighted `NormL1`, and momentum off | `Vector{Float32}` or `Vector{Float64}` | `ObjectiveChange`, `UserStop`, `AnyOf`, `AllOf` and `MaxPasses`. See the [example](@ref cd-select-stopping) |
-| `ADMMSolver` with centered `SqrNormL2`, unweighted `NormL1`, and a fixed penalty | `Vector{Float32}` or `Vector{Float64}` | `PrimalResidual`, `DualResidual`, `AnyOf`, `AllOf` and `MaxIterations`. See the [example](@ref admm-select-stopping) |
+| `ADMMSolver` with centered `SqrNormL2`, unweighted `NormL1`, and a fixed penalty | `Vector{Float32}` or `Vector{Float64}` | `PrimalResidual`, `DualResidual`, `AnyOf`, `AllOf`, `MaxIterations` and `MaxProximalEvaluations`. See the [example](@ref admm-select-stopping) |
 
 Other solver and problem routes use their existing stopping options. See
 [STOP-22](@ref) for PGD and APG, [CD-10](@ref) for CD, and [ADM-06](@ref) for ADMM.
