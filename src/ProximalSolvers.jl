@@ -58,6 +58,7 @@ include("types.jl")
 include("stopping.jl")
 using .Stopping
 export Stopping, IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
+export MaxCoordinateVisits
 export PrimalResidual, DualResidual
 export MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEvaluations
 include("solve.jl")

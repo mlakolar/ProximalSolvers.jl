@@ -123,6 +123,23 @@ full passes, active passes, visits, and objective evaluations. Check
 [full-point stationarity](@ref learn-02) when accuracy matters.
 [CD-10](@ref) specifies the checkpoints and their cost.
 
+Add `MaxCoordinateVisits(n)` to cap visits across full and active sweeps.
+CD stops before a scheduled sweep that costs more than the visits left.
+Here a full sweep takes two visits.
+
+~~~@example explicit_cd_stopping
+budgeted = solve!(zeros(2), LeastSquaresLoss(y, X), NormL1(0.5),
+                  CDSolver(order=:cyclic, momentum=false);
+                  limits=(MaxPasses(20), MaxCoordinateVisits(3)))
+@assert budgeted.passes == 1
+@assert termination(budgeted).counts.coordinate_visits == 2
+@assert termination(budgeted).reached_evaluation_limits == (MaxCoordinateVisits(3),)
+termination(budgeted)
+~~~
+
+The solver returns after the first full sweep with one visit left, since
+the next sweep also visits two coordinates. See [CD-11](@ref) for admission.
+
 ## [Select stopping conditions in consensus ADMM](@id admm-select-stopping)
 
 For a centered quadratic with an unweighted L1 penalty, use a fixed-penalty

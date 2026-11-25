@@ -272,7 +272,8 @@ at a checkpoint and during a step.
 
 **Statement.** [CD-10](@ref) returns a `CoordinateDescentStoppingResult`.
 Its `minimizer` aliases the caller's coefficients, `minimum` holds the computed
-objective or `missing` at a zero cap, and `passes` counts completed sweeps.
+objective or `missing` when a limit prevents the first sweep, and `passes`
+counts completed sweeps.
 `converged` is false on this route. A fulfilled objective or user condition is
 recorded in `termination(result).satisfied`. A fulfilled `ObjectiveChange`
 leaf records progress between two completed full sweeps. See [CD-10](@ref) for
@@ -280,13 +281,17 @@ the checkpoint schedule and [stationarity checks](@ref learn-02) for assessing t
 
 The report uses the rule reasons, leaf observations and winning paths in
 [RES-04](@ref). Its `iteration` is the completed pass count, its `limit` is the
-resolved `MaxPasses`, and `limit_reached` reports whether that count equals the
-cap. At a full-pass tie with a passing objective rule the reason is `:rule`
+resolved `MaxPasses`. `evaluation_limits` lists the supplied
+`MaxCoordinateVisits` cap. `reached_evaluation_limits` lists it when the
+next scheduled sweep cannot fit under [CD-11](@ref). Both tuples are empty
+if the visit limit was omitted. `limit_reached` reports whether the pass
+count equals its cap or the visit limit was reached. At a full-pass tie
+with a passing objective rule the reason is `:rule`
 and the limit flag is true. At an active-pass cap the reason is `:limit` and
 the observations are unchecked. The `counts` fields are `full_passes`, `active_passes`,
 `coordinate_visits` and `objective_evaluations`. The two pass counts sum to
 `passes`. Visits and composite objective evaluations count the work specified
-in [CD-10](@ref). Display and result accessors perform no solver evaluations.
+in [CD-10](@ref) and [CD-11](@ref). Display and result accessors perform no solver evaluations.
 
 **Applies to.** Explicit `CDSolver` solves under [CD-10](@ref).
 

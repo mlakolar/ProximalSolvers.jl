@@ -11,6 +11,7 @@ coordinate descent and [ADM-06](@ref) for consensus ADMM.
 module Stopping
 
 export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
+export MaxCoordinateVisits
 export PrimalResidual, DualResidual
 export MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEvaluations
 
@@ -205,6 +206,22 @@ struct MaxPasses
     end
 end
 
+"""
+    MaxCoordinateVisits(n)
+
+Hard limit of `n` coordinate visits for explicit scalar least-squares coordinate
+descent, with `n` a nonnegative integer. CD starts a sweep only if all its visits
+fit. Pass the limit through `limits`, alone or in a tuple with `MaxPasses`.
+See [CD-11](@ref).
+"""
+struct MaxCoordinateVisits
+    n::Int
+    function MaxCoordinateVisits(n::Integer)
+        0 <= n <= typemax(Int) || throw(ArgumentError("the coordinate visit limit must be a nonnegative Int"))
+        new(Int(n))
+    end
+end
+
 struct Observation
     status::Symbol
     value::Union{Missing,Float64,Bool}
@@ -388,11 +405,11 @@ end
 evaluate!(tree::AnyOf, point, monitor, at_limit) = any_pass!(tree.rules, point, monitor, at_limit)
 evaluate!(tree::AllOf, point, monitor, at_limit) = all_pass!(tree.rules, point, monitor, at_limit, :user)
 
-function check!(monitor, point)
+function check!(monitor, point, additional_limit_reached=false)
     monitor.movement.distance = nothing
     monitor.movement.scale = nothing
     monitor.movement.unchanged = nothing
-    at_limit = point.iteration == monitor.limit.n
+    at_limit = point.iteration == monitor.limit.n || additional_limit_reached
     reason = evaluate!(monitor.root, point, monitor, at_limit)
     reason === :continue && (at_limit || checkpoint_evaluation_limit_reached(monitor, point)) ? :limit : reason
 end

@@ -174,4 +174,152 @@ end
     @test t.counts.full_passes + t.counts.active_passes == 48
 end
 
+@testset "Visit caps at full and active checkpoints ($T)" for T in (Float32, Float64)
+    f, g, method = example(T)
+    for (capacity, passes, visits) in ((2, 1, 2), (3, 2, 3), (4, 2, 3))
+        cap = MaxCoordinateVisits(capacity)
+        checkpoints = Int[]
+        watch(c) = (push!(checkpoints, c.iteration); false)
+        rule = AnyOf(UserStop(watch), ObjectiveChange(atol=3/16))
+        x = zeros(T, 2)
+        r = solve!(x, f, g, method; stopping=rule, limits=cap)
+        t = termination(r)
+        @test r.minimizer === x && x == T[0, 1] && r.minimum === T(2.125)
+        @test t.reason === :limit && t.limit_reached && !t.satisfied && !r.converged
+        @test t.iteration == r.passes == passes && t.limit.n == method.maxpasses
+        @test t.evaluation_limits === (cap,) && t.reached_evaluation_limits === (cap,)
+        @test map(o -> o.status, t.observations) == (:not_checked, :not_checked)
+        @test checkpoints == collect(0:passes - 1)
+        @test t.counts == (full_passes=1, active_passes=passes - 1, coordinate_visits=visits,
+                           objective_evaluations=passes + 1)
+    end
+
+    cap = MaxCoordinateVisits(6)
+    for (limits, pass_limit) in ((cap, method.maxpasses), ((cap, MaxPasses(3)), 3))
+        checkpoints = Int[]
+        rule = AnyOf(UserStop(c -> (push!(checkpoints, c.iteration); false)), ObjectiveChange(atol=3/16))
+        r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits)
+        t = termination(r)
+        @test r.minimizer == T[-0.5, 1.25] && r.minimum === T(1.9375)
+        @test t.reason === :rule && t.limit_reached && t.satisfied && !r.converged
+        @test t.limit.n == pass_limit && t.iteration == 3 && t.reached_evaluation_limits === (cap,)
+        @test checkpoints == [0, 1, 2] && t.winning_branch == ((2,),)
+        @test map(o -> o.status, t.observations) == (:not_checked, :pass)
+        @test t.observations[2].value == 3/16
+        @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=4)
+    end
+
+    cap = MaxCoordinateVisits(7)
+    r = solve!(zeros(T, 2), f, g, method; stopping=ObjectiveChange(atol=3/16), limits=cap)
+    t = termination(r)
+    @test t.reason === :rule && t.satisfied && t.iteration == 3 && !t.limit_reached
+    @test t.evaluation_limits === (cap,) && isempty(t.reached_evaluation_limits)
+    @test t.counts.coordinate_visits == 5
+
+    cap = MaxCoordinateVisits(typemax(Int))
+    r = solve!(zeros(T, 2), f, g, method; limits=(MaxPasses(2), cap))
+    t = termination(r)
+    @test t.reason === :limit && t.limit_reached && t.iteration == t.limit.n == 2
+    @test t.evaluation_limits === (cap,) && isempty(t.reached_evaluation_limits)
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=1)
+end
+
+@testset "A blocked full sweep returns the current active objective ($T)" for T in (Float32, Float64)
+    f = LeastSquaresLoss(T[2, 1], T[1 1; 0 1])
+    g = NormL1(T(0.5))
+    method = CDSolver(order=:cyclic, relative=false, tol=1)
+    r = solve!(zeros(T, 2), f, g, method; stopping=ObjectiveChange(), limits=MaxCoordinateVisits(5))
+    t = termination(r)
+    @test r.minimizer == T[1, 0.75] && r.minimum === T(0.9375)
+    @test t.reason === :limit && t.iteration == 2 && only(t.observations).status === :not_checked
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=4, objective_evaluations=2)
+
+    # The active sweep visits both coordinates even though the first becomes zero.
+    f = LeastSquaresLoss(T[0.75, 2.25], T[1 1; 0 1])
+    method = CDSolver(order=:cyclic, relative=false, tol=0.01)
+    r = solve!(zeros(T, 2), f, g, method; limits=MaxCoordinateVisits(4))
+    @test r.minimizer == T[0, 1.25] && r.passes == 2 && r.minimum === T(1.25)
+    @test termination(r).counts.coordinate_visits == 4
+    r = solve!(zeros(T, 2), f, g, method; limits=MaxCoordinateVisits(5))
+    @test r.minimizer == T[0, 1.25] && r.passes == 3 && termination(r).counts.coordinate_visits == 5
+end
+
+@testset "Visit caps respect empty and forced sweeps ($T)" for T in (Float32, Float64)
+    f = LeastSquaresLoss(T[0], ones(T, 1, 1))
+    g = NormL1(T(0.5))
+    cap = MaxCoordinateVisits(1)
+    r = solve!(T[1], f, g, CDSolver(order=:cyclic, relative=false); limits=cap)
+    t = termination(r)
+    @test r.minimizer == T[0] && r.passes == 2 && t.reached_evaluation_limits === (cap,)
+    @test t.reason === :limit && t.limit_reached
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=1, objective_evaluations=1)
+
+    r = solve!(T[1], f, g, CDSolver(order=:cyclic, relative=false, tol=0);
+               limits=(MaxPasses(3), cap))
+    t = termination(r)
+    @test t.reason === :limit && t.limit_reached && r.passes == t.limit.n == 3
+    @test isempty(t.reached_evaluation_limits)
+    @test t.counts == (full_passes=1, active_passes=2, coordinate_visits=1, objective_evaluations=1)
+
+    f, g, _ = example(T)
+    cap = MaxCoordinateVisits(43)
+    r = solve!(zeros(T, 2), f, g, CDSolver(order=:cyclic, tol=0); limits=cap)
+    t = termination(r)
+    @test r.minimizer == T[0, 1] && r.passes == 41 && t.reached_evaluation_limits === (cap,)
+    @test t.counts == (full_passes=1, active_passes=40, coordinate_visits=42, objective_evaluations=1)
+end
+
+@testset "Visit limits preserve seeded random prefixes ($T)" for T in (Float32, Float64)
+    f = T(2) * LeastSquaresLoss(T[2, -2, 3], T[3 0 0; 0 2 0; 0 0 1])
+    g = NormL1(one(T))
+    rng = Xoshiro(493)
+    reference = copy(rng)
+    r = solve!(zeros(T, 3), f, g, CDSolver(rng=rng, momentum=false, tol=0); limits=MaxCoordinateVisits(8))
+    prefix = solve!(zeros(T, 3), f, g, CDSolver(rng=reference, momentum=false, tol=0); limits=MaxPasses(r.passes))
+    t = termination(r)
+    @test r.passes == 2 && t.reason === :limit && t.counts.coordinate_visits == 6
+    @test isequal((r.minimizer, r.minimum), (prefix.minimizer, prefix.minimum))
+    @test t.counts == termination(prefix).counts
+    @test rand(rng, UInt64) == rand(reference, UInt64)
+end
+
+@testset "Blocked first sweep and visit-cap validation" begin
+    f, g, _ = example(Float64)
+    rng = Xoshiro(241)
+    reference = copy(rng)
+    method = CDSolver(rng=rng, momentum=false)
+    x = [floatmax(Float64)/2, 0.0]
+    must_skip = UserStop(_ -> error("a blocked first sweep must skip the user predicate"))
+    for capacity in 0:1
+        cap = MaxCoordinateVisits(capacity)
+        r = solve!(x, f, g, method; stopping=must_skip, limits=cap)
+        t = termination(r)
+        @test r.minimizer === x && x == [floatmax(Float64)/2, 0.0] && r.minimum === missing
+        @test t.reason === :limit && r.passes == 0 && t.limit_reached && !t.satisfied
+        @test t.reached_evaluation_limits === (cap,)
+        @test only(t.observations).status === :not_checked && all(iszero, values(t.counts))
+    end
+
+    cap = MaxCoordinateVisits(1)
+    r = solve!(x, f, g, method; stopping=must_skip, limits=(MaxPasses(0), cap))
+    @test r.minimum === missing && termination(r).limit.n == 0
+    @test termination(r).reached_evaluation_limits === (cap,)
+    for limits in ((), [cap], (cap, cap), (MaxPasses(0), MaxPasses(1)),
+                   (cap, MaxIterations(1)), (cap, MaxProximalEvaluations(1)))
+        @test_throws ArgumentError solve!(x, f, g, method; limits)
+    end
+    @test_throws ArgumentError solve!(x, f, g, CDSolver(order=:cyclic, maxpasses=3);
+                                      limits=(MaxPasses(2), cap))
+    @test_throws ArgumentError solve!(x, f, g, method;
+                                      stopping=AnyOf(must_skip, AllOf(ObjectiveChange(), cap)), limits=cap)
+    @test_throws ArgumentError solve!(x, f, g, CDSolver(rng=rng); limits=cap)
+    @test_throws ArgumentError solve!(PS.SparseIterate(zeros(2)), f, g, method; limits=cap)
+    @test_throws ArgumentError solve!(x, f, NormL1(0.5, ones(2)), method; limits=cap)
+    @test_throws ArgumentError solve!(x, f, g, ProximalGradientDescent(); limits=cap)
+    @test_throws ArgumentError solve!(zeros(2), SqrNormL2(1.0, ones(2)), g, ADMMSolver(); limits=cap)
+    @test_throws ArgumentError MaxCoordinateVisits(-1)
+    @test_throws ArgumentError MaxCoordinateVisits(big(typemax(Int)) + 1)
+    @test x == [floatmax(Float64)/2, 0.0] && rand(rng, UInt64) == rand(reference, UInt64)
+end
+
 end

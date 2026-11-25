@@ -40,6 +40,7 @@ AnyOf
 AllOf
 MaxIterations
 MaxPasses
+MaxCoordinateVisits
 MaxObjectiveEvaluations
 MaxGradientEvaluations
 MaxProximalEvaluations
