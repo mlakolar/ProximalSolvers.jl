@@ -870,7 +870,7 @@ the coefficients and the data unchanged; the solver does not detect such a chang
 `LineSearches.trial!`, `LineSearches.search!`, `_prox_grad_step!`, `convergence_assessment`,
 `_stationary!`, `_stop_on_gradient_increase`,
 `_solve_numerical_l1!`; `src/utils.jl`:
-`LineSearches.trial!`, `_trial_step!` (the trial of the other penalties); `src/line_searches.jl`:
+`LineSearches.trial!`, `_trial_step!` (the trial of the other penalties); `src/line_searches/backtracking.jl`:
 `search!`; `src/solvers/proximal_gradient_descent.jl` and
 `src/solvers/accelerated_proximal_gradient_descent.jl`: `solve!`; `src/types.jl`:
 `NumericalFeasibility`, `OptimizationResults`.

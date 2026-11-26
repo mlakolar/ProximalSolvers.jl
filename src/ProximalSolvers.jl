@@ -46,7 +46,7 @@ using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled
   prox!, value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
 using .Blocks
-include("line_searches.jl")
+include("line_searches/LineSearches.jl")
 using .LineSearches
 export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, LogisticADMM, solve!, ProximalSolver,
        ProximalOptions, ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, LogisticADMMResults, OptimizationState,

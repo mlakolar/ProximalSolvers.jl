@@ -389,7 +389,7 @@ At tolerances near or beyond working precision, success versus an objective-incr
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
 
-**Code.** `src/utils.jl: convergence_assessment; src/line_searches.jl: backtrack!`.
+**Code.** `src/utils.jl: convergence_assessment; src/line_searches/backtracking.jl: backtrack!`.
 
 **Tests.** test/core_regressions.jl; test/accelerated_pgd.jl.
 

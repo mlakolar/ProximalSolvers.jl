@@ -117,7 +117,7 @@ it does not establish this possibility for every setting.
 
 **Applies to.** Least-squares values, PGD/APG gradient refreshes and extreme-range oracle inputs.
 
-**Code.** `src/solvers/image_models.jl`: oracle calls; `src/line_searches.jl`: finite-curvature retry; `src/solve.jl`: last-accepted-point restoration.
+**Code.** `src/solvers/image_models.jl`: oracle calls; `src/line_searches/backtracking.jl`: finite-curvature retry; `src/solve.jl`: last-accepted-point restoration.
 
 **Tests.** Existing range coverage is in `test/core_regressions.jl` and `test/initial_curvature.jl`; the historical nonfinite-gradient accepted-iterate possibility has no reproducing test, as stated above.
 
@@ -157,7 +157,7 @@ products, not a general promise of convergence at small scales.
 
 **Applies to.** CD coordinate correlations and PGD/APG gradients and stationarity products.
 
-**Code.** `src/cd/leastsquares.jl`: column correlations; `src/solvers/image_models.jl`: gradient model; `src/utils.jl`: `_lambda_max!`, `_filled_scales!`; `src/line_searches.jl`: displacement products.
+**Code.** `src/cd/leastsquares.jl`: column correlations; `src/solvers/image_models.jl`: gradient model; `src/utils.jl`: `_lambda_max!`, `_filled_scales!`; `src/line_searches/backtracking.jl`: displacement products.
 
 **Tests.** `test/cd_numerics.jl`, `test/stopping_scale.jl`, `test/stopping_coordinatewise.jl`, `test/core_regressions.jl`; executable historical examples are retained in [ORACLE-03](@ref).
 
@@ -183,7 +183,7 @@ Overflow of a trial's squared step norm and its scaled handling are specified in
 
 **Applies to.** Least-squares PGD/APG initialization and equivalent lasso rescalings.
 
-**Code.** `src/solvers/image_models.jl`: `_initial_curvature`, `_frobenius_upper`; `src/solvers/proximal_gradient_descent.jl`; `src/solvers/accelerated_proximal_gradient_descent.jl`; `src/line_searches.jl`.
+**Code.** `src/solvers/image_models.jl`: `_initial_curvature`, `_frobenius_upper`; `src/solvers/proximal_gradient_descent.jl`; `src/solvers/accelerated_proximal_gradient_descent.jl`; `src/line_searches/backtracking.jl`.
 
 **Tests.** `test/initial_curvature.jl` and `test/core_regressions.jl`; historical illustrative outcomes are in [ORACLE-01](@ref).
 

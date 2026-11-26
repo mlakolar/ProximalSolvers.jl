@@ -20,7 +20,7 @@ A PGD trial applies the penalty prox after a least-squares gradient step of leng
 
 **Applies to.** LineSearches.BackTracking with ProximalGradientDescent.
 
-**Code.** `src/line_searches.jl: BackTracking`.
+**Code.** `src/line_searches/backtracking.jl: BackTracking`.
 
 **Tests.** test/core_contracts.jl; test/minimal_core_characterization.jl.
 
@@ -38,7 +38,7 @@ The curvature of an accepted trial is not checked again: the shared `backtrack!`
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
-**Code.** `src/line_searches.jl: backtrack!, has_updated_gradient, search!, trial!; src/solvers/proximal_gradient_descent.jl: update_state!; src/utils.jl: LineSearches.trial!` (the shared trial of PGD and APG); `src/solve.jl: _trial_penalty_value`.
+**Code.** `src/line_searches/backtracking.jl: backtrack!, has_updated_gradient, search!; src/line_searches/LineSearches.jl: trial!; src/solvers/proximal_gradient_descent.jl: update_state!; src/utils.jl: LineSearches.trial!` (the shared trial of PGD and APG); `src/solve.jl: _trial_penalty_value`.
 
 **Tests.** test/minimal_core_characterization.jl: recorded trials, both modes and zero-step refresh; test/core_regressions.jl: checked rejection testsets.
 
@@ -58,7 +58,7 @@ Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` l
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
-**Code.** `src/solvers/proximal_gradient_descent.jl: LineSearches.check_rejection!, _step_curvature; src/line_searches.jl: backtrack!`.
+**Code.** `src/solvers/proximal_gradient_descent.jl: LineSearches.check_rejection!, _step_curvature; src/line_searches/backtracking.jl: backtrack!`.
 
 **Tests.** `test/multiresponse_lasso_pgd_apg.jl` forces checked matrix rejections in both modes. test/core_regressions.jl: PGD checked rejections and nonfinite-gradient/tiny-step cases; test/logistic_pgd.jl: the bounds behind the factor `¼` and checked rejections of logistic solves.
 
@@ -76,7 +76,7 @@ A line-search acceptance is an iteration decision. Convergence, exact stalls and
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
-**Code.** `src/line_searches.jl: next_curvature, backtrack!; src/solve.jl: _solve_gradient!`.
+**Code.** `src/line_searches/backtracking.jl: next_curvature, backtrack!; src/solve.jl: _solve_gradient!`.
 
 **Tests.** test/core_regressions.jl: checked rejection before unrepresentable curvature; test/minimal_core_characterization.jl: numerical failure restores accepted point.
 
@@ -116,7 +116,7 @@ Scaling in [LS-06](@ref) bounds the squared norm of the scaled displacement; it 
 
 **Applies to.** ProximalGradientDescent; Float64 data.
 
-**Code.** `src/solvers/proximal_gradient_descent.jl: _step_curvature; src/line_searches.jl: backtrack!`.
+**Code.** `src/solvers/proximal_gradient_descent.jl: _step_curvature; src/line_searches/backtracking.jl: backtrack!`.
 
 **Tests.** test/core_regressions.jl: checked rejections and top-of-range steps.
 
@@ -141,7 +141,7 @@ Do not scale a nonfinite trial loss, a displacement with a nonfinite entry, or a
 
 **Applies to.** ProximalGradientDescent; Float32 or Float64.
 
-**Code.** `src/line_searches.jl: _scale_overflowing_step!, backtrack!`.
+**Code.** `src/line_searches/backtracking.jl: _scale_overflowing_step!, backtrack!`.
 
 **Tests.** test/core_regressions.jl: power-of-two scale invariance, restored delta_x and top-of-range steps; test/initial_curvature.jl: overflowing-step cases.
 
@@ -157,7 +157,7 @@ In Float32, a nonzero subnormal entry in `d̃` makes the check retain TFOCS's up
 
 **Applies to.** ProximalGradientDescent; the final paragraph concerns Float32.
 
-**Code.** `src/line_searches.jl: _scale_overflowing_step!, backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
+**Code.** `src/line_searches/backtracking.jl: _scale_overflowing_step!, backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
 
 **Tests.** test/core_regressions.jl: overflowing-step and subnormal tests.
 
@@ -171,7 +171,7 @@ This special case does not make subnormal estimates reliable or guarantee conver
 
 **Applies to.** ProximalGradientDescent; Float64.
 
-**Code.** `src/line_searches.jl: backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
+**Code.** `src/line_searches/backtracking.jl: backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
 
 **Tests.** test/core_regressions.jl: 1×1 and diagonal tiny-scale cases; test/stopping_scale.jl: strict small-scale PGD.
 

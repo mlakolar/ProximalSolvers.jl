@@ -1,11 +1,3 @@
-module LineSearches
-
-using ..Blocks
-
-export
-  backtrack!,has_updated_gradient,
-  BackTracking
-
 #################################
 #
 # TFOCS Backtrack
@@ -75,18 +67,6 @@ function next_curvature(L, β)
     isfinite(next) && next > L || error("line search failed: the curvature estimate cannot increase finitely")
     next
 end
-
-# f(x) and ∇f(x) at the trial point state.x, into state.grad_f_x; the PGD state
-# computes them from its LS image cache (see image_models.jl)
-function value_and_gradient_at_x! end
-
-# check_rejection!(state, gradient_mode) returns (c ≤ L, c) for a rejected trial with d̂ ≠ 0,
-# with c the computed curvature of the step in the mode of its estimate (twice α‖X d̂‖²/‖d̂‖²
-# in gradient mode). d̂ is state.delta_x: the step x - x', or, when backtrack! has scaled it (its
-# squared norm overflows with finite entries and f(x) is finite), that step times a power of two,
-# for which c is the same in exact arithmetic. The PGD state implements it with its LS model
-# (proximal_gradient_descent.jl).
-function check_rejection! end
 
 # The step of a trial whose squared norm overflowed while its entries are finite, with m the
 # largest absolute entry: scale state.delta_x in place by s = 2^k, with
@@ -216,9 +196,6 @@ end
 
 has_updated_gradient(state, ::BackTracking) = state.backtrack_simple == false
 
-# trial!(state, f, g) forms and evaluates one trial at state.L (methods: utils.jl, solvers/l1ball.jl).
-function trial! end
-
 # Retries trials until backtrack! accepts one; then state.x is that trial, with f_x, g_x, grad_f_x and the image
 # cache at it. An error from a trial, backtrack! or next_curvature propagates, leaving the state as at the error.
 function search!(state, ls::BackTracking, f, g)
@@ -231,6 +208,4 @@ function search!(state, ls::BackTracking, f, g)
         state.f_calls += 1
         state.grad_calls += 1
     end
-end
-
 end
