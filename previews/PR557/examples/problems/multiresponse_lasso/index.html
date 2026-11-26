@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>Multi-response lasso: entrywise sparsity · ProximalSolvers.jl</title><meta name="title" content="Multi-response lasso: entrywise sparsity · ProximalSolvers.jl"/><meta property="og:title" content="Multi-response lasso: entrywise sparsity · ProximalSolvers.jl"/><meta property="twitter:title" content="Multi-response lasso: entrywise sparsity · ProximalSolvers.jl"/><meta name="description" content="Documentation for ProximalSolvers.jl."/><meta property="og:description" content="Documentation for ProximalSolvers.jl."/><meta property="twitter:description" content="Documentation for ProximalSolvers.jl."/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script><link href="../../../assets/examples-gallery.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">ProximalSolvers.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Learn</span><ul><li><a class="tocitem" href="../../../learn/01-lasso-problem/">1: The lasso problem</a></li><li><a class="tocitem" href="../../../learn/02-optimality-kkt/">2: Optimality and KKT conditions</a></li><li><a class="tocitem" href="../../../learn/03-proximal-operator/">3: The proximal operator</a></li><li><a class="tocitem" href="../../../learn/04-proximal-gradient/">4: Proximal gradient descent</a></li><li><a class="tocitem" href="../../../learn/05-acceleration/">5: Acceleration</a></li><li><a class="tocitem" href="../../../learn/06-coordinate-descent/">6: Coordinate descent</a></li><li><a class="tocitem" href="../../../learn/07-duality-certificates/">7: Duality and certificates</a></li><li><a class="tocitem" href="../../../learn/08-floating-point/">8: Floating-point computation</a></li></ul></li><li><span class="tocitem">Use</span><ul><li><a class="tocitem" href="../../../getting-started/">Getting started</a></li><li><a class="tocitem" href="../../../choosing-solver/">Choosing a solver</a></li><li><a class="tocitem" href="../../../support/">Supported problems</a></li><li><a class="tocitem" href="../../../working-with-results/">Results and troubleshooting</a></li><li><a class="tocitem" href="../../../benchmarks/">Benchmarks and performance</a></li><li><a class="tocitem" href="../../../glossary/">Glossary</a></li></ul></li><li><a class="tocitem" href="../../">Examples Gallery</a></li><li><span class="tocitem">Problems</span><ul><li><a class="tocitem" href="../lasso/">Lasso</a></li><li class="is-active"><a class="tocitem" href>Multi-response lasso: entrywise sparsity</a><ul class="internal"><li class="toplevel"><a class="tocitem" href="#Multi-response-lasso:-entrywise-sparsity-2"><span>Multi-response lasso: entrywise sparsity</span></a></li></ul></li><li><a class="tocitem" href="../weighted_lasso/">Weighted lasso</a></li><li><a class="tocitem" href="../nonnegative_least_squares/">Nonnegative least squares</a></li><li><a class="tocitem" href="../nonnegative_lasso/">Nonnegative sparse regression</a></li><li><a class="tocitem" href="../elastic_net/">Elastic net</a></li><li><a class="tocitem" href="../l0_sparse_regression/">ℓ₀-penalized sparse regression</a></li><li><a class="tocitem" href="../group_lasso/">Group lasso</a></li><li><a class="tocitem" href="../square_root_lasso/">Square-root lasso</a></li><li><a class="tocitem" href="../constrained_least_squares/">Constrained least squares</a></li><li><a class="tocitem" href="../linf_regularized_regression/">Least squares with an ℓ∞ penalty</a></li><li><a class="tocitem" href="../sparse_signal_denoising/">Sparse signal denoising with ADMM</a></li><li><a class="tocitem" href="../graphical_lasso/">Graphical lasso</a></li><li><a class="tocitem" href="../logistic_regression/">Sparse logistic regression</a></li></ul></li><li><span class="tocitem">Statistical applications</span><ul><li><a class="tocitem" href="../robust_sparse_regression/">Robust sparse regression</a></li><li><a class="tocitem" href="../scaled_lasso/">Scaled lasso</a></li><li><a class="tocitem" href="../sparse_deconvolution/">Sparse deconvolution and event recovery</a></li><li><a class="tocitem" href="../change_point_detection/">Change-point detection</a></li><li><a class="tocitem" href="../stability_selection/">Stability selection with repeated lasso fits</a></li><li><a class="tocitem" href="../nodewise_gaussian_graph/">Gaussian graph: neighborhood selection</a></li><li><a class="tocitem" href="../sparse_additive_regression/">Sparse additive regression</a></li><li><a class="tocitem" href="../multitask_group_lasso/">Multi-task group lasso</a></li><li><a class="tocitem" href="../categorical_group_selection/">Categorical factor selection</a></li><li><a class="tocitem" href="../sparse_covariance_soft_thresholding/">Sparse covariance thresholding</a></li></ul></li><li><span class="tocitem">Solver comparisons</span><ul><li><a class="tocitem" href="../../comparisons/lasso_solvers/">Lasso: solvers at equal accuracy</a></li><li><a class="tocitem" href="../../comparisons/group_lasso_solvers/">Group lasso: CD, PGD and APG</a></li><li><a class="tocitem" href="../../comparisons/weighted_lasso_solvers/">Weighted lasso: CD, PGD and APG</a></li><li><a class="tocitem" href="../../comparisons/graphical_lasso_solvers/">Graphical lasso: ADMM and proximal gradient</a></li><li><a class="tocitem" href="../../comparisons/logistic_solvers/">Sparse logistic regression: PGD, proximal Newton and ADMM</a></li></ul></li><li><a class="tocitem" href="../../../api/">API reference</a></li><li><span class="tocitem">Contracts</span><ul><li><a class="tocitem" href="../../../contracts/">How to read a contract</a></li><li><a class="tocitem" href="../../../contracts/inputs/">Inputs</a></li><li><a class="tocitem" href="../../../contracts/working-precision/">Working precision</a></li><li><a class="tocitem" href="../../../contracts/cd-scalar/">Scalar coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-sparse-iterate/">SparseIterate coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-group/">Group coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-multiresponse/">Multiresponse coordinate descent</a></li><li><a class="tocitem" href="../../../contracts/cd-sqrt-lasso/">Square-root lasso</a></li><li><a class="tocitem" href="../../../contracts/pg-iteration/">Proximal gradient iteration</a></li><li><a class="tocitem" href="../../../contracts/apg/">Accelerated proximal gradient</a></li><li><a class="tocitem" href="../../../contracts/admm/">Consensus ADMM</a></li><li><a class="tocitem" href="../../../contracts/pg-logdet/">Matrix PGD</a></li><li><a class="tocitem" href="../../../contracts/logistic-proxnewton/">Proximal Newton (logistic)</a></li><li><a class="tocitem" href="../../../contracts/logistic-admm/">ADMM (logistic)</a></li><li><a class="tocitem" href="../../../contracts/line-search/">Line search</a></li><li><a class="tocitem" href="../../../contracts/pg-stopping/">PG stopping</a></li><li><a class="tocitem" href="../../../contracts/results-failures/">Results and failures</a></li><li><a class="tocitem" href="../../../contracts/deferred/">Deferred surface</a></li><li><a class="tocitem" href="../../../contracts/architecture/">Architecture</a></li><li><a class="tocitem" href="../../../contracts/history/">History</a></li><li><input class="collapse-toggle" id="menuitem-9-21" type="checkbox"/><label class="tocitem" for="menuitem-9-21"><span class="docs-label">Evidence</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../../contracts/evidence/stopping-audit-352/">Stopping audit</a></li><li><a class="tocitem" href="../../../contracts/evidence/cached-residual-378/">Cached-residual investigation</a></li><li><a class="tocitem" href="../../../contracts/evidence/strict-accuracy-config/">Strict-accuracy configuration</a></li><li><a class="tocitem" href="../../../contracts/evidence/lazy-curvature-cost/">Lazy-curvature cost</a></li><li><a class="tocitem" href="../../../contracts/evidence/oracle-range-observations/">Oracle range observations</a></li><li><a class="tocitem" href="../../../contracts/evidence/examples-index-baseline/">Historical example index</a></li><li><a class="tocitem" href="../../../contracts/evidence/sqrt-fallback-406/">Square-root fallback history</a></li><li><a class="tocitem" href="../../../contracts/evidence/entry-thresholds-464/">Entry stopping thresholds</a></li><li><a class="tocitem" href="../../../contracts/evidence/float32-stopping-320/">Float32 stopping</a></li><li><a class="tocitem" href="../../../contracts/evidence/kkt-scale-492/">Matrix PGD KKT scale</a></li><li><a class="tocitem" href="../../../contracts/evidence/coordinatewise-scale-487/">Coordinatewise stopping scale</a></li><li><a class="tocitem" href="../../../contracts/evidence/ball-rounding-537/">Ball rounding admission</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Problems</a></li><li class="is-active"><a href>Multi-response lasso: entrywise sparsity</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multi-response lasso: entrywise sparsity</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/mlakolar/ProximalSolvers.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/mlakolar/ProximalSolvers.jl/blob/master/examples/problems/multiresponse_lasso.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Multi-response-lasso:-entrywise-sparsity"><a class="docs-heading-anchor" href="#Multi-response-lasso:-entrywise-sparsity">Multi-response lasso: entrywise sparsity</a><a id="Multi-response-lasso:-entrywise-sparsity-1"></a><a class="docs-heading-anchor-permalink" href="#Multi-response-lasso:-entrywise-sparsity" title="Permalink"></a></h1><h1 id="Multi-response-lasso:-entrywise-sparsity-2"><a class="docs-heading-anchor" href="#Multi-response-lasso:-entrywise-sparsity-2">Multi-response lasso: entrywise sparsity</a><a class="docs-heading-anchor-permalink" href="#Multi-response-lasso:-entrywise-sparsity-2" title="Permalink"></a></h1><p>Fit three responses on a shared design using the objective</p><p class="math-container">\[\frac{1}{2n}\|Y-XB\|_F^2 + \lambda\sum_{j,k}|B_{jk}|.\]</p><p>The loss scale is <code>1/n</code>, with no division by the number of responses. Each coefficient has its own absolute-value penalty, including diagonal entries when the coefficient matrix is square. The <a href="../multitask_group_lasso/">multi-task group lasso</a> uses row groups to select or omit a predictor jointly across tasks.</p><p><img src="../multiresponse_lasso.svg" alt="True and fitted entrywise coefficients"/></p><p>The example uses a shared predictor and task-specific predictors. We generate noisy responses and fit without an intercept.</p><pre><code class="language-julia hljs">using LinearAlgebra, Printf, ProximalBase, ProximalSolvers, Random
+
+rng = Xoshiro(469)
+n, p, K = 96, 10, 3
+X = randn(rng, n, p)
+B_true = zeros(p, K)
+B_true[1, :] .= [1.4, -1.2, 0.8]
+B_true[2, 1], B_true[4, 2], B_true[6, 3] = -1.0, 1.2, -1.4
+B_true[3, 1], B_true[3, 3] = 0.5, -0.5
+Y = X * B_true + 0.12 * randn(rng, n, K)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">96×3 Matrix{Float64}:
+  6.18246   -3.62639    -1.33063
+ -1.34673   -2.6189      0.736357
+ -1.22734    2.22098     1.95802
+  2.74503   -1.24086     1.70135
+ -1.3508    -0.622934   -4.09483
+  2.53589   -0.683268    0.377865
+ -3.07422    3.65551    -1.94382
+  0.667257   0.263174    0.748699
+  3.45573   -2.05274    -0.825181
+  1.68255   -0.877944   -0.0788022
+  ⋮                     
+ -2.00028   -1.03715    -0.412371
+ -1.26818   -0.0710484   0.335032
+ -3.76563    1.76728    -2.67484
+ -2.67174    1.76197    -0.298286
+  3.22647   -3.7743      0.438432
+ -0.62464    1.19783    -0.734801
+  0.535802   0.750982   -1.46478
+  4.27588   -1.19276     1.12915
+ -0.71654   -0.900333    0.302147</code></pre><p>The two solves share the data and penalty. Each solver writes into its own coefficient matrix.</p><pre><code class="language-julia hljs">s, lambda = 1/n, 0.12
+f, g = s * LeastSquaresLoss(Y, X), NormL1(lambda)
+opts = ProximalOptions(maxiter=10_000, ftol=0, gradtol=1e-8, allow_f_increases=true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ProximalOptions{Nothing}(10000, 0.0, 1.0e-8, 1.0e-8, 0, 0, 0, true, false, false, false, 1, nothing, Inf)</code></pre><p>Recompute the objective and stationarity score from the data at each fit. A nonzero coefficient must balance its signed penalty derivative with the loss gradient. At zero, the magnitude of the gradient must be at most lambda.</p><pre><code class="language-julia hljs">function fit_diagnostics(X, Y, B, s, lambda)
+  residual = X * B - Y
+  gradient = s * (X&#39; * residual)
+  scores = map(B, gradient) do b, g
+    iszero(b) ? max(abs(g) - lambda, 0.0) : abs(g + lambda * sign(b))
+  end
+  objective = s * sum(abs2, residual)/2 + lambda * sum(abs, B)
+  rmse = sqrt.(vec(sum(abs2, residual; dims=1)) ./ size(X, 1))
+  (; objective, max_kkt=maximum(scores), rmse)
+end
+
+B_pgd, B_apg = zeros(p, K), zeros(p, K)
+for (name, method, B) in ((&quot;PGD&quot;, ProximalGradientDescent(), B_pgd),
+                          (&quot;APG&quot;, AccProxGradDescent(), B_apg))
+  result = solve!(B, f, g, method, opts)
+  diagnostics = fit_diagnostics(X, Y, B, s, lambda)
+  @assert result.minimizer === B
+  @assert isapprox(result.minimum, diagnostics.objective; rtol=1e-12)
+  @assert diagnostics.max_kkt &lt;= 1e-6
+  @printf(&quot;%s  iterations=%d  converged=%s  max KKT=%.2e\n&quot;,
+          name, result.iterations, result.converged, diagnostics.max_kkt)
+  for task in 1:K
+    selected = findall(!iszero, view(B, :, task))
+    @printf(&quot;  Task %d  selected %s  response RMSE %.3f\n&quot;, task, selected, diagnostics.rmse[task])
+  end
+  show(stdout, &quot;text/plain&quot;, round.(B; digits=3))
+  println()
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PGD  iterations=16  converged=true  max KKT=9.72e-10
+  Task 1  selected [1, 2, 3]  response RMSE 0.224
+  Task 2  selected [1, 4]  response RMSE 0.213
+  Task 3  selected [1, 3, 6]  response RMSE 0.271
+10×3 Matrix{Float64}:
+  1.309  -1.083   0.656
+ -0.937   0.0     0.0
+  0.398   0.0    -0.372
+  0.0     1.043   0.0
+  0.0     0.0     0.0
+  0.0     0.0    -1.264
+  0.0     0.0     0.0
+  0.0     0.0     0.0
+  0.0     0.0     0.0
+  0.0     0.0     0.0
+APG  iterations=22  converged=true  max KKT=4.89e-09
+  Task 1  selected [1, 2, 3]  response RMSE 0.224
+  Task 2  selected [1, 4]  response RMSE 0.213
+  Task 3  selected [1, 3, 6]  response RMSE 0.271
+10×3 Matrix{Float64}:
+  1.309  -1.083   0.656
+ -0.937   0.0     0.0
+  0.398   0.0    -0.372
+  0.0     1.043   0.0
+  0.0     0.0     0.0
+  0.0     0.0    -1.264
+  0.0     0.0     0.0
+  0.0     0.0     0.0
+  0.0     0.0     0.0
+  0.0     0.0     0.0</code></pre><p>At the maximum entrywise penalty threshold, the zero matrix satisfies all coefficient conditions. Check this on a tiny design with two tasks.</p><pre><code class="language-julia hljs">X_small = [1.0 0.0; 0.0 1.0]
+Y_small = [2.0 -1.0; 0.0 3.0]
+s_small = 1 / size(X_small, 1)
+lambda_max = maximum(abs, s_small * (X_small&#39; * Y_small))
+for method in (ProximalGradientDescent(), AccProxGradDescent())
+  B_small = zeros(2, 2)
+  solve!(B_small, s_small * LeastSquaresLoss(Y_small, X_small), NormL1(lambda_max), method)
+  @assert iszero(B_small)
+  @assert iszero(fit_diagnostics(X_small, Y_small, B_small, s_small, lambda_max).max_kkt)
+end
+
+using Plots
+limit = max(maximum(abs, B_true), maximum(abs, B_apg))
+panels = [heatmap(1:K, 1:p, B; title, color=:RdBu, clims=(-limit, limit),
+  xlabel=&quot;Task&quot;, ylabel=&quot;Predictor&quot;, xticks=1:K, yticks=1:p, yflip=true)
+  for (title, B) in ((&quot;True coefficients&quot;, B_true), (&quot;APG estimate&quot;, B_apg))]
+figure = plot(panels...; layout=(1, 2), size=(820, 380), left_margin=4Plots.mm)
+savefig(figure, &quot;multiresponse_lasso.svg&quot;)
+nothing</code></pre><p><a href="../../#Reproduce-the-figures">Reproduce the figures locally</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../lasso/">« Lasso</a><a class="docs-footer-nextpage" href="../weighted_lasso/">Weighted lasso »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Thursday 26 November 2026 03:08">Thursday 26 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
