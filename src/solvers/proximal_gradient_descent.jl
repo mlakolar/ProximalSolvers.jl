@@ -70,7 +70,13 @@ scores at positive and zero coefficients specified by
 Use `IndBox` or `IndBallLinf` for box constraints and `IndBallL2` for a
 four-coefficient Euclidean ball with a same-type radius. These indicators
 require a feasible start and use the generic proximal-gradient check, as does
-`NormLinf`. Assess fits with an
+`NormLinf`. The ℓ1 ball `IndBallL1(r)`, with a radius of the data's type, is
+supported for dense `Vector{Float32}` or `Vector{Float64}` least squares on a
+numerical route: an accepted iterate can lie outside the ball when its computed
+widened ℓ1 norm passes a computed cap decision (not an exact bound on the
+violation), and `converged` reports a passing check at the returned point, which
+does not certify exact membership; see
+[IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12). Assess fits with an
 independent diagnostic, particularly for Float32 or ill-conditioned designs.
 An error in an iteration restores the last accepted coefficients and
 is rethrown.
@@ -220,24 +226,7 @@ function update_state!(
     state.L *= method.ls.α
     state.verified_rejection = false
 
-    # backtracking loop
-    while true
-      # find next point
-      _step!(state.xhat, state.x_previous, state.grad_f_x_previous, state.L)
-      v = convert(_eltype(state.x), value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      state.g_x = _trial_penalty_value(g, v, state.x)
-      state.f_x = _value!(state.x, f, state.model, state.z_x)
-      state.prox_calls += 1
-      state.f_calls += 1
-
-      # check if enough progress is done
-      backtrack!(state, method.ls, f, g) && break
-    end
-    if has_updated_gradient( state, method.ls ) == false
-        LineSearches.value_and_gradient_at_x!(state, f)
-        state.f_calls += 1
-        state.grad_calls += 1
-    end
+    LineSearches.search!(state, method.ls, f, g)
     state
 end
 
@@ -332,8 +321,8 @@ end
 
 """
     solve!(x, f, g, CDSolver())
-    solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions())
-    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
+    solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions(); feasibility=nothing)
+    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions(); feasibility=nothing)
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
 Minimize a supported penalized regression objective, overwriting `x`, and return
@@ -390,6 +379,15 @@ accept `NormL2(lambda)` for least squares with a dense coefficient vector.
 Square-root lasso is available only with CD, an unscaled loss and an unweighted
 positive L1 level; its successful stopping flag requires a certificate.
 
+PGD and APG accept `IndBallL1(r)` on dense `Vector{Float32}` or `Vector{Float64}` least squares
+with a same-type dense design, response and radius ([IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12)).
+A non-`nothing` `feasibility = NumericalFeasibility(...)` overrides the route's tolerances. With
+any other penalty, PGD and APG treat `feasibility = nothing` as omitted and refuse a non-`nothing`
+value; graphical-lasso PGD and the other solvers refuse the keyword in any form.
+On the route, `converged` means the full check passed at the returned point, and `minimum` is the
+monitored numerical objective, the cached loss, which can be finite where ProximalBase's strict
+indicator is `Inf`; neither certifies exact membership of the returned point.
+
 Use `IndNonnegative()` or `NormL1Nonneg(0)` for nonnegative least squares and
 unweighted `NormL1Nonneg(lambda)` for nonnegative lasso. These penalties are accepted
 by PGD and by `CDSolver` on a dense `Vector`, with dense same-type least-squares data
@@ -409,8 +407,9 @@ and [CD's change test](https://mlakolar.github.io/ProximalSolvers.jl/dev/contrac
 - [Group steps and private storage](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-group/#CDG-01).
 """
 function solve!(x, f, g, method::ProximalGradientDescent,
-                options::ProximalOptions = ProximalOptions(); kwargs...)
+                options::ProximalOptions = ProximalOptions(); feasibility = nothing, kwargs...)
   _check_keywords(kwargs)
+  _numerical_route(g, feasibility) && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :pgd)
   _check_gradient_problem(x, f, g, :pgd)
   t0 = time()
   g_work = _working_gradient_penalty(g, eltype(x))

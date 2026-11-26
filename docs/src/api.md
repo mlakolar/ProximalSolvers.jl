@@ -21,6 +21,7 @@ LogisticADMM
 ADMMSolver
 solve!
 ProximalOptions
+NumericalFeasibility
 CDResults
 ProxNewtonResults
 LogisticADMMResults
