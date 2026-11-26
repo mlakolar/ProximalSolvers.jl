@@ -401,17 +401,35 @@ function _stationary!(state, f, g, options::ProximalOptions)
   isfinite(t) && t > 0 || return false
   λmax = _lambda_max!(state)       # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
-  S = max(λmax, _norm_inf(grad))
+  measurement = _measure_proximal_gradient_mapping!(state, g, grad, t, λmax)
+  _proximal_gradient_mapping_passes(measurement, options.gradtol)
+end
+
+struct ProximalGradientMeasurement{T}
+  residual::T
+  scale::T
+  step::T
+  resolution::T
+end
+
+function _measure_proximal_gradient_mapping!(state, g, grad, t::T, λmax;
+                                             restore_displacement=true) where T
+  scale = max(λmax, _norm_inf(grad))
   _step!(state.xhat, state.x, grad, state.L)   # elementwise, so APG's grad === xhat is safe
   value_and_prox!(state.delta_x, g, state.xhat, t)
   state.prox_calls += 1
-  r = _norm_diff(state.x, state.delta_x, Inf) / t
-  _sub!(state.delta_x, state.x, state.x_previous)
-  threshold = T(max(options.gradtol, 64 * Float64(eps(T)))) * S
-  # (L ‖x‖∞) eps(T): a product in this order underflows only where ρ < floatmin(T) ≤ τ S, and overflows to Inf (refused)
-  ρ = (state.L * _norm_inf(state.x)) * eps(T)
-  isfinite(S) && isfinite(r) && threshold >= floatmin(T) && threshold > ρ &&
-    t * threshold >= floatmin(T) / eps(T) && r < threshold
+  residual = _norm_diff(state.x, state.delta_x, Inf) / t
+  restore_displacement && _sub!(state.delta_x, state.x, state.x_previous)
+  # (L ‖x‖∞) eps(T) stays below the threshold if it underflows and gives Inf if it overflows.
+  resolution = (state.L * _norm_inf(state.x)) * eps(T)
+  ProximalGradientMeasurement(residual, scale, t, resolution)
+end
+
+function _proximal_gradient_mapping_passes(measurement::ProximalGradientMeasurement{T}, rtol) where T
+  (; residual, scale, step, resolution) = measurement
+  threshold = T(max(rtol, 64 * Float64(eps(T)))) * scale
+  isfinite(scale) && isfinite(residual) && threshold >= floatmin(T) &&
+    threshold > resolution && step * threshold >= floatmin(T) / eps(T) && residual < threshold
 end
 
 # ‖∇f(0)‖ in the norm `nrm` (the ∞-norm by default, as in the default check; the dedicated check passes _scale_norm(g)),
@@ -421,7 +439,7 @@ end
 # PGD's update_state!, the same input and the difference x - y in APG's _prox_grad_step!), and
 # the convergence tests and the trace do not read it, so a stop that is assessed after an
 # iteration can overwrite it. Default stopping leaves the product uncounted.
-# The explicit matrix check counts it under STOP-27.
+# Explicit stopping counts it under STOP-27 and STOP-28.
 function _lambda_max!(state, nrm = _norm_inf)
   state.λmax < 0 || return state.λmax
   _zero_gradient!(state.xhat, state, state.model)

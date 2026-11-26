@@ -239,6 +239,7 @@ The proximal evaluation uses the iterations' ProximalBase `value_and_prox!`. For
 A small accepted `L` makes `t` large and this mapping a weaker stationarity measure than one formed with true curvature; a penalty whose own curvature is far above `L` is an extreme case. Passing remains a working-precision indication, with no coefficient-distance certificate. The check requires only the penalty's prox; that does not itself authorize an unsupported penalty.
 
 **Applies to.** PGD and APG; dense Vector{T}; T = Float32 or Float64.
+[STOP-28](@ref) exposes the check for explicit `NormLinf` stopping.
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
@@ -624,7 +625,8 @@ the solve. Evaluations with identical `rtol` share a decision within the same
 checkpoint.
 
 `Every(k, ScaledKKT(...))` makes a stationarity leaf eligible at selected
-checkpoints under [STOP-25](@ref).
+checkpoints under [STOP-25](@ref). The vector `NormLinf` route accepts
+`ProximalGradientMapping` under [STOP-28](@ref).
 
 `UserStop(predicate)` receives an immutable named tuple with `iteration` and
 `objective` (native type). Return `true` to request a stop or `false` to continue.
@@ -877,6 +879,55 @@ settle the tie.
 scale against an independent reference, threshold and range guards,
 checkpoint gradient provenance, shared evaluations, cadence and both
 types of limits.
+
+**Sources.** [#523, stationarity rollout](https://github.com/mlakolar/ProximalSolvers.jl/issues/523)
+and [#525, diagnostic work admission](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944).
+
+### [STOP-28 Selectable proximal-gradient mapping for NormLinf](@id STOP-28)
+
+**Statement.** For the dense vector least-squares `NormLinf` route of
+[IN-06](@ref), `ProximalGradientMapping(rtol=...)` applies [STOP-07](@ref)
+at an accepted checkpoint, including the initial point. Use the rule's
+`rtol` in place of `gradtol`, including the tolerance floor and the step,
+threshold and rounding guards. Validate the tolerance as in [STOP-22](@ref).
+The leaf can appear in `AnyOf` or `AllOf`. Its Boolean decision supplies
+stationarity evidence under [RES-04](@ref).
+
+After the finite positive step guard passes, the first measurement computes
+the reference gradient scale and caches it for the solve. Count that product
+as one full gradient and zero smooth values. PGD uses its stored accepted
+gradient. APG uses the same accepted-point fused evaluation as [STOP-24](@ref)
+and counts one value and one gradient. Form the reference first because
+both computations use the same coefficient scratch. Evaluate one penalty
+value and prox in distinct scratch buffers using the [STOP-07](@ref) step.
+Keep the accepted coefficients and restore their displacement at positive
+checkpoints before other leaves or trace operations read it.
+
+Below the applicable caps, admit all work for a new measurement before
+starting it. The first measurement needs one prox and, on PGD, one
+gradient. On APG it needs one prox, one smooth value and two gradients.
+Once the reference is cached, the measurement needs one prox on either
+solver and, on APG, one smooth value and one gradient. If only one gradient
+remains for the first APG measurement, leave the leaf unchecked and keep
+that capacity available to the solve.
+
+Share the scalar mapping measurement across tolerances at the same
+checkpoint. At a reached cap, the existing rule permits reuse of a scalar
+decision measured at the current checkpoint with the same stored tolerance.
+A check admitted before the cap can consume the last unit and settle a tie.
+The diagnostic contributes to the value and proximal counts listed above.
+Backtracking and rejected-trial counts refer to the solver's trials under
+[RES-04](@ref).
+
+**Applies to.** PGD and APG with dense vector-response least squares, raw or
+with a supported scale, and `NormLinf` under [IN-06](@ref).
+
+**Code.** `src/solvers/gradient_stopping.jl`, `src/stopping.jl` and
+`src/utils.jl`.
+
+**Tests.** `test/linf.jl` checks the mapping against analytic references,
+the shared measurement, cap admission and ties, accepted gradient and
+displacement, and the distinction between diagnostic and trial counts.
 
 **Sources.** [#523, stationarity rollout](https://github.com/mlakolar/ProximalSolvers.jl/issues/523)
 and [#525, diagnostic work admission](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944).

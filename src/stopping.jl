@@ -12,7 +12,7 @@ matrix-response lasso, [CD-10](@ref) for coordinate descent and
 module Stopping
 
 export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
-export Every
+export Every, ProximalGradientMapping
 export MaxCoordinateVisits
 export PrimalResidual, DualResidual
 export MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEvaluations
@@ -82,6 +82,18 @@ Dense vector least-squares PGD and APG use [STOP-21](@ref) with `NormL1` or
 struct ScaledKKT
     rtol::Float64
     ScaledKKT(; rtol::Real) = new(tolerance(rtol, "rtol"))
+end
+
+"""
+    ProximalGradientMapping(; rtol)
+
+Check stationarity using the norm of the proximal-gradient mapping at the
+current coefficients. Supported for dense vector least-squares PGD and APG
+with a `NormLinf` penalty. See [STOP-28](@ref) for the scale and work limits.
+"""
+struct ProximalGradientMapping
+    rtol::Float64
+    ProximalGradientMapping(; rtol::Real) = new(tolerance(rtol, "rtol"))
 end
 
 """
@@ -266,6 +278,7 @@ mutable struct RuleState{R}
 end
 
 const GradientLeaves = Union{IterateChange,ObjectiveChange,ScaledKKT,Every,UserStop}
+const MappingLeaves = Union{IterateChange,ObjectiveChange,ProximalGradientMapping,UserStop}
 const ResidualLeaves = Union{PrimalResidual,DualResidual}
 
 function bind_rule(rule, context, supported)
@@ -313,7 +326,7 @@ prepare(rule, limit::Union{MaxIterations,MaxPasses}, ::Type{T}, supported=Gradie
 
 needs_stationarity(monitor::Monitor) = needs_stationarity(monitor.root)
 needs_stationarity(::Union{Nothing,RuleState}) = false
-needs_stationarity(::RuleState{<:Union{ScaledKKT,Every}}) = true
+needs_stationarity(::RuleState{<:Union{ScaledKKT,Every,ProximalGradientMapping}}) = true
 needs_stationarity(tree::Union{AnyOf,AllOf}) = any(needs_stationarity, tree.rules)
 
 with_stationarity(monitor, provider) =
@@ -377,7 +390,7 @@ end
 stationarity_eligible(provider, point) = true
 stationarity_admitted(provider, point, limits) = true
 
-function assess(rule::ScaledKKT, point, monitor, at_limit)
+function assess(rule::Union{ScaledKKT,ProximalGradientMapping}, point, monitor, at_limit)
     cache = monitor.stationarity
     stationarity_eligible(cache.provider, point) || return unchecked
     if at_limit
@@ -407,7 +420,7 @@ assess(::PrimalResidual, point, monitor, at_limit) = residual_observation(point.
 assess(::DualResidual, point, monitor, at_limit) = residual_observation(point.s_norm, point.eps_dual)
 
 evidence(::Union{IterateChange,ObjectiveChange}) = :progress
-evidence(::Union{ScaledKKT,Every}) = :stationarity
+evidence(::Union{ScaledKKT,Every,ProximalGradientMapping}) = :stationarity
 evidence(::UserStop) = :user
 evidence(::ResidualLeaves) = :residual
 
@@ -415,7 +428,7 @@ checkpoint_evaluation_limit_reached(monitor, point) = false
 
 evaluate!(::Nothing, point, monitor, at_limit) = :continue
 function evaluate!(state::RuleState, point, monitor, at_limit)
-    # An accepted-point APG gradient can exhaust a budget during this checkpoint.
+    # A stationarity evaluation can exhaust a budget during this checkpoint.
     at_limit = at_limit || checkpoint_evaluation_limit_reached(monitor, point)
     observation = assess(state.rule, point, monitor, at_limit)
     state.iteration = point.iteration

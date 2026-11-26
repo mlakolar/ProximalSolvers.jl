@@ -219,7 +219,8 @@ expression whose winning leaves are user predicates, `:limit` for a reached cap
 with the expression unfulfilled, and `:stalled` for numerical stagnation with the
 expression unfulfilled. `satisfied` is true for `:rule` and `:user`. At a tie,
 the reason names the satisfied expression and `limit_reached` is true.
-`converged` is true when the winning branch includes a passing `ScaledKKT`
+`converged` is true when the winning branch includes a passing
+`ProximalGradientMapping` under [STOP-28](@ref), or a passing `ScaledKKT`
 leaf, including one scheduled by `Every` under [STOP-25](@ref).
 [STOP-27](@ref) specifies the matrix stationarity observation and the count
 for its reference gradient.
@@ -239,8 +240,8 @@ observations still describe the last accepted checkpoint.
 (`:progress`, `:stationarity` or `:user`), `status` (`:pass`, `:fail`,
 `:not_checked` or `:invalid`), `value`, `threshold` and `scale` at the final
 `iteration`. An unchecked leaf has missing measurement fields. Predicates,
-exact equality checks and `ScaledKKT` report a Boolean value with threshold
-`true` and a missing scale.
+exact equality checks, `ScaledKKT` and `ProximalGradientMapping` report a
+Boolean value with threshold `true` and a missing scale.
 An `Every`-wrapped `ScaledKKT` occupies one leaf position and is reported
 as `:ScaledKKT` at that path. Its off-schedule status is `:not_checked`.
 An absolute-only iterate comparison also has a missing scale.
@@ -252,9 +253,9 @@ each child of `AllOf`. It is `nothing` for an unfulfilled expression.
 `rejected_trials`. `f_calls` and `grad_calls` count smooth value and gradient
 computations, respectively. A fused computation increments both. `g_calls`
 counts penalty values, including the value at initialization. `prox_calls`
-counts penalty value/prox trials including rejections. Each contributes to both
-counters, and `rejected_trials`
-is the trial count minus accepted iterations, including APG prox trials
+counts penalty proximal evaluations. Each fused penalty value and prox
+increments both counters, including trials and the diagnostic of [STOP-28](@ref).
+`rejected_trials` is the trial count minus accepted iterations, including APG prox trials
 discarded by restart and trials whose completion an evaluation limit
 prevented. PGD uses the line-search convention in [RES-02](@ref).
 PGD initialization contributes one smooth value and gradient and no prox

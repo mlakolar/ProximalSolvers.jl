@@ -316,8 +316,9 @@ With `g = NormLinf(lambda)`, the default-option calls are
 The ℓ∞ penalty can tie the largest coefficients at a common magnitude and does not
 in general give zeros. ProximalBase supplies the proximal operator. In exact arithmetic, zero is a minimizer
 exactly when `lambda >= norm(gradient(f, 0), 1) = s * norm(X' * y, 1)`; the relevant
-dual norm here is the 1-norm. Proposed stops use the [generic check](@ref STOP-07).
-CD refuses this penalty for dense vectors, `SparseIterate` and `BlockIterate` before
+dual norm here is the 1-norm. Default stopping uses the
+[generic check](@ref STOP-07). [STOP-28](@ref) exposes that mapping as a
+selectable condition. CD refuses this penalty for dense vectors, `SparseIterate` and `BlockIterate` before
 mutation or RNG use, as specified in [IN-01](@ref). See the
 [infinity-norm tutorial](../examples/problems/linf_regularized_regression.md).
 
