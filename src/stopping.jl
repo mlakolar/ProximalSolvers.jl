@@ -73,7 +73,8 @@ end
 
 Check coordinatewise stationarity at the current point using the relative
 tolerance in [STOP-21](@ref). Supported for dense vector least-squares PGD and APG with
-`NormL1` or `ElasticNet`, with or without weights.
+`NormL1` or `ElasticNet`, with or without weights. For scalar least-squares
+coordinate descent with unweighted `NormL1` and momentum off, see [CD-12](@ref).
 """
 struct ScaledKKT
     rtol::Float64
@@ -369,8 +370,11 @@ function assess(rule::ObjectiveChange, point, monitor, at_limit)
     atmost(abs(current - previous), rule.atol, rule.rtol, max(abs(current), abs(previous)))
 end
 
+stationarity_eligible(provider, point) = true
+
 function assess(rule::ScaledKKT, point, monitor, at_limit)
     cache = monitor.stationarity
+    stationarity_eligible(cache.provider, point) || return unchecked
     if at_limit
         cache.iteration == point.iteration || return unchecked
         decision = get(cache.decisions, reinterpret(UInt64, rule.rtol), nothing)

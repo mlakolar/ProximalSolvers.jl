@@ -141,9 +141,26 @@ termination(r)
 The orthogonal columns give the lasso solution `[1.5, -0.875]` on the first
 full sweep. The next full sweep has the same objective and satisfies the rule.
 Read `termination(r).satisfied` for progress and `termination(r).counts` for
-full passes, active passes, visits, and objective evaluations. Check
-[full-point stationarity](@ref learn-02) when accuracy matters.
-[CD-10](@ref) specifies the checkpoints and their cost.
+full passes, active passes, visits, and objective evaluations.
+[CD-10](@ref) specifies these checkpoints.
+
+To check stationarity instead, select `ScaledKKT`. It evaluates the full
+gradient at the completed coefficients after an eligible full sweep. On
+this example it can stop after the first sweep.
+
+~~~@example explicit_cd_stopping
+stationary = solve!(zeros(2), LeastSquaresLoss(y, X), NormL1(0.5),
+                    CDSolver(order=:cyclic, momentum=false);
+                    stopping=ScaledKKT(rtol=1e-6), limits=MaxPasses(20))
+@assert stationary.minimizer == [1.5, -0.875]
+@assert stationary.converged && stationary.passes == 1
+@assert termination(stationary).counts.gradient_evaluations == 1
+termination(stationary)
+~~~
+
+A passing `ScaledKKT` in the winning branch sets `converged=true`.
+The check is unchecked at the pass or visit cap. See [CD-12](@ref)
+for the gradient count and checkpoint rules.
 
 Add `MaxCoordinateVisits(n)` to cap visits across full and active sweeps.
 CD stops before a scheduled sweep that costs more than the visits left.

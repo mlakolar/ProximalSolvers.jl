@@ -503,8 +503,8 @@ A nondefault disagreement is refused. Omitting both keywords uses default stoppi
 
 Validate the problem through [CD-01](@ref), the momentum setting, the resolved
 limit and the complete rule tree before initialization. Supported leaves are
-`ObjectiveChange` and `UserStop`, including trees composed with `AnyOf` and
-`AllOf`. Limits are supplied through `limits`. `MaxPasses(0)` returns the starting
+`ObjectiveChange`, `UserStop` and `ScaledKKT` under [CD-12](@ref), including
+trees composed with `AnyOf` and `AllOf`. Limits are supplied through `limits`. `MaxPasses(0)` returns the starting
 coefficients with a missing objective and zero work counts after validation.
 
 On a positive budget, run the plain CD pass schedule in [CD-02](@ref). The
@@ -521,8 +521,8 @@ and on active sweeps. An active objective never replaces the full-sweep history.
 At the cap, a full sweep can settle a tie when there is an earlier full objective.
 
 Evaluate the composite objective from the cached residual and penalty in
-[CD-09](@ref). With only objective conditions, evaluate once per full sweep
-and at the returned endpoint if the cap ends on an active sweep. A positive
+[CD-09](@ref). For a rule tree without `UserStop`, evaluate once per full
+sweep and at the returned endpoint if the cap ends on an active sweep. A positive
 limit-only solve evaluates once at return. A tree containing `UserStop` uses
 one evaluation at initialization and after each completed sweep. At each of
 those checkpoints share the value among conditions and reuse it at return.
@@ -583,7 +583,7 @@ when it leaves some visits unused.
 
 At this endpoint, apply the capped-checkpoint rules of [CD-10](@ref).
 `ObjectiveChange` can pass at a full-sweep tie with an earlier full
-objective. `UserStop` is unchecked there. Reuse the checkpoint objective
+objective. `UserStop` and `ScaledKKT` are unchecked there. Reuse the checkpoint objective
 for the returned point, computing it when needed under [CD-10](@ref).
 Return the last completed sweep through the existing commit boundary.
 [RES-05](@ref) specifies the result fields.
@@ -596,3 +596,40 @@ Return the last completed sweep through the existing commit boundary.
 cap ties, no-work admission, seeded order and rollback.
 
 **Sources.** [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
+
+## [CD-12 Full-sweep stationarity for scalar least-squares CD](@id CD-12)
+
+**Statement.** `ScaledKKT(rtol=...)` is eligible after each completed full
+sweep under [CD-10](@ref). At initialization, after active sweeps, and at a
+reached pass or coordinate-visit cap, the leaf is unchecked. Rules are
+evaluated in the order supplied, with the usual short circuiting.
+
+On the first request at an eligible checkpoint, copy the private CD
+coefficients into a dense buffer and recompute the predictor `X*x`.
+From that predictor, ProximalBase computes the smooth loss and its full
+gradient together in working precision under [FP-01](@ref) and [FP-03](@ref).
+Use these values in the [STOP-21](@ref) comparison with `rtol` in place of
+`gradtol` and the L1 level converted to the coefficient type. A nonfinite
+smooth loss fails the check. The score uses the rounded level even when the
+CD step uses a wider supplied level under [CD-04](@ref).
+
+The fused evaluation uses scratch storage and leaves the CD residual cache
+and coordinate updates alone. The composite objective in [CD-10](@ref)
+continues to use the CD residual cache, which can differ by rounding from
+the freshly evaluated loss. The first check with a finite fresh loss fills
+the column scales for reuse throughout the solve. At a given checkpoint, all KKT leaves
+share the fused evaluation. Leaves with the same stored tolerance share the
+comparison. Count the fused diagnostic once in `gradient_evaluations` and
+count composite objectives separately in `objective_evaluations`, as in
+[RES-05](@ref). A full gradient consumes no coordinate visits.
+
+**Applies to.** The explicit unweighted lasso routes of [CD-10](@ref), with
+a raw or supported scaled loss, `Float32` or `Float64`, and momentum off.
+
+**Code.** `src/cd/solver.jl`, `src/stopping.jl` and `src/utils.jl`.
+
+**Tests.** `test/cd_stopping.jl` checks a closed-form lasso solution, first
+full-sweep eligibility, fresh residual and inactive-coordinate evidence,
+a nonfinite diagnostic, gradient reuse, composition, and both hard caps.
+
+**Sources.** [#523, solver rollout B3](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
