@@ -339,13 +339,18 @@ function _stationary!(state, f, g::Union{NormL1, NormL1Nonneg, IndNonnegative, E
   λmax = _lambda_max!(state, _scale_norm(g))   # first: it uses xhat, which APG's gradient below also uses
   grad = _gradient_at_x!(state, f)
   gT = _converted_penalty(g, T)
+  _lambda_scaled_stationary(state.x, grad, gT, λmax, options.gradtol)
+end
+
+function _lambda_scaled_stationary(x, grad, gT, λmax, rtol)
+  T = eltype(x)
   λ = _l1_level(gT)
-  residual = kkt_violation(gT, grad, state.x)
+  residual = kkt_violation(gT, grad, x)
   S = max(λ, λmax)
-  τ = T(max(options.gradtol, 64 * Float64(eps(T))))
+  τ = T(max(rtol, 64 * Float64(eps(T))))
   threshold = τ * S
   isfinite(S) && threshold >= floatmin(T) && isfinite(residual) && residual < threshold &&
-    (λ <= λmax || _entry_thresholds_hold(gT, grad, state.x, τ, λmax))
+    (λ <= λmax || _entry_thresholds_hold(gT, grad, x, τ, λmax))
 end
 
 # Each entry (each group) of a weighted penalty against its own threshold τ max(cᵢ, λmax), when the full-point
@@ -415,7 +420,8 @@ end
 # every use in the solvers xhat is written before it is read (the input of the proximal step in
 # PGD's update_state!, the same input and the difference x - y in APG's _prox_grad_step!), and
 # the convergence tests and the trace do not read it, so a stop that is assessed after an
-# iteration can overwrite it. It is not a counted call.
+# iteration can overwrite it. Default stopping leaves the product uncounted.
+# The explicit matrix check counts it under STOP-27.
 function _lambda_max!(state, nrm = _norm_inf)
   state.λmax < 0 || return state.λmax
   _zero_gradient!(state.xhat, state, state.model)

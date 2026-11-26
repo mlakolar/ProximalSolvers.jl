@@ -221,6 +221,8 @@ expression unfulfilled. `satisfied` is true for `:rule` and `:user`. At a tie,
 the reason names the satisfied expression and `limit_reached` is true.
 `converged` is true when the winning branch includes a passing `ScaledKKT`
 leaf, including one scheduled by `Every` under [STOP-25](@ref).
+[STOP-27](@ref) specifies the matrix stationarity observation and the count
+for its reference gradient.
 The result display reports convergence, policy satisfaction and the stop
 reason. Fatal solver failures throw as specified in [RES-03](@ref).
 

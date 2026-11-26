@@ -73,10 +73,11 @@ end
 """
     ScaledKKT(; rtol)
 
-Check coordinatewise stationarity at the current point using the relative
-tolerance in [STOP-21](@ref). Supported for dense vector least-squares PGD and APG with
-`NormL1` or `ElasticNet`, with or without weights. For scalar least-squares
-coordinate descent with unweighted `NormL1` and momentum off, see [CD-12](@ref).
+Check stationarity at the current point using a relative tolerance.
+Dense vector least-squares PGD and APG use [STOP-21](@ref) with `NormL1` or
+`ElasticNet`, with or without weights. Matrix-response lasso uses
+[STOP-27](@ref). For scalar least-squares coordinate descent with unweighted
+`NormL1` and momentum off, see [CD-12](@ref).
 """
 struct ScaledKKT
     rtol::Float64
@@ -169,9 +170,10 @@ end
 """
     MaxObjectiveEvaluations(n)
 
-Hard limit of `n` smooth loss values for dense vector least-squares PGD and APG.
+Hard limit of `n` smooth loss values for supported dense least-squares PGD and APG.
 A fused loss and gradient evaluation uses one unit. Pass the limit through
-`limits`, alone or in a tuple of distinct limits. See [STOP-23](@ref) and [STOP-24](@ref).
+`limits`, alone or in a tuple of distinct limits.
+See [STOP-23](@ref), [STOP-24](@ref) and [STOP-26](@ref).
 """
 struct MaxObjectiveEvaluations
     n::Int
@@ -181,9 +183,9 @@ end
 """
     MaxGradientEvaluations(n)
 
-Hard limit of `n` full smooth gradients for dense vector least-squares PGD and APG.
+Hard limit of `n` full smooth gradients for supported dense least-squares PGD and APG.
 Pass the limit through `limits`, alone or in a tuple of distinct limits.
-See [STOP-23](@ref) and [STOP-24](@ref).
+For the reference gradient in matrix `ScaledKKT`, see [STOP-27](@ref).
 """
 struct MaxGradientEvaluations
     n::Int
@@ -193,11 +195,11 @@ end
 """
     MaxProximalEvaluations(n)
 
-Hard limit of `n` proximal calls. Dense vector least-squares PGD and APG count
-penalty proximal calls. Fixed-penalty centered consensus ADMM admits whole
-iterations that use two proximal calls each.
+Hard limit of `n` proximal calls. Supported dense least-squares PGD and APG
+count penalty proximal calls. Fixed-penalty centered consensus ADMM admits
+whole iterations that use two proximal calls each.
 Pass the limit through `limits`, alone or in a tuple of distinct limits.
-See [STOP-23](@ref), [STOP-24](@ref) and [ADM-07](@ref).
+See [STOP-23](@ref), [STOP-24](@ref), [STOP-26](@ref) and [ADM-07](@ref).
 """
 struct MaxProximalEvaluations
     n::Int
@@ -373,6 +375,7 @@ function assess(rule::ObjectiveChange, point, monitor, at_limit)
 end
 
 stationarity_eligible(provider, point) = true
+stationarity_admitted(provider, point, limits) = true
 
 function assess(rule::ScaledKKT, point, monitor, at_limit)
     cache = monitor.stationarity
@@ -382,6 +385,7 @@ function assess(rule::ScaledKKT, point, monitor, at_limit)
         decision = get(cache.decisions, reinterpret(UInt64, rule.rtol), nothing)
         return decision === nothing ? unchecked : boolean_observation(decision)
     end
+    stationarity_admitted(cache.provider, point, monitor.evaluation_limits) || return unchecked
     boolean_observation(stationarity!(cache, point, rule.rtol))
 end
 

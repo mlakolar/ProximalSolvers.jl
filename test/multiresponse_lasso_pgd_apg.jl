@@ -573,7 +573,7 @@ end
     @test all(iszero, values(t.counts)) && only(t.observations).status === :not_checked
   end
   cap = MaxIterations(0)
-  for rule in (ScaledKKT(rtol=0), Every(2, ScaledKKT(rtol=0)), MaxIterations(5))
+  for rule in (PrimalResidual(), MaxIterations(5))
     @test_throws ArgumentError solve!(B, f, g, method;
         stopping=AnyOf(user, AllOf(ObjectiveChange(), rule)), limits=cap)
   end
@@ -651,6 +651,117 @@ end
   @test length(r.trace) == 6 && r.trace[end].metadata["x"] == r.minimizer
   @test t.counts == (f_calls=15, grad_calls=7, g_calls=8, prox_calls=7,
                      backtrack_steps=7, rejected_trials=1)
+end
+
+@testset "Matrix KKT reuses the entrywise scale and strict comparison ($T, $method)" for
+    T in PRECISIONS, method in METHODS
+  X = Matrix{T}(I, 2, 2)
+  Y = T[2 2; 0 1]
+  tight = ScaledKKT(rtol=0.5)
+  loose = ScaledKKT(rtol=0.75)
+  apg = method isa AccProxGradDescent
+  for s in (one(T), 0.5)
+    f, g = loss(Y, X, s), NormL1(Float64(s))
+    B = zeros(T, 2, 2)
+    independent = oracle(X, Y, B, s, T(g.λ0))
+    @test independent.S == 2s && independent.R == s
+    r = solve!(B, f, g, method; stopping=AnyOf(tight, loose))
+    t = termination(r)
+    @test r.minimizer === B && iszero(B) && r.iterations == 0
+    @test r.converged && t.reason === :rule && t.winning_branch == ((2,),)
+    @test map(o -> o.status, t.observations) == (:fail, :pass)
+    @test t.counts == (f_calls=apg ? 2 : 1, grad_calls=2, g_calls=1, prox_calls=0,
+                       backtrack_steps=0, rejected_trials=0)
+
+    B = T[1 1; 0 0]
+    @test iszero(oracle(X, Y, B, s, T(g.λ0)).R)
+    r = solve!(B, f, g, method; stopping=ScaledKKT(rtol=0))
+    @test r.minimizer === B && r.converged && r.iterations == 0
+
+    r = solve!(copy(B), f, g, method; stopping=AnyOf(UserStop(_ -> true), tight))
+    t = termination(r)
+    @test t.reason === :user && t.observations[2].status === :not_checked
+    @test t.counts.f_calls == 1 && t.counts.grad_calls == (apg ? 0 : 1)
+  end
+
+  f = LeastSquaresLoss(zeros(T, 2, 2), X)
+  rule = AnyOf(loose, UserStop(_ -> true))
+  for level in (zero(T), floatmin(T))
+    r = solve!(zeros(T, 2, 2), f, NormL1(level), method; stopping=rule)
+    t = termination(r)
+    @test t.reason === :user && !r.converged && t.observations[1].status === :fail
+  end
+end
+
+@testset "Matrix KKT shares the last admitted observation ($T, $method)" for
+    T in PRECISIONS, method in METHODS
+  f = LeastSquaresLoss(T[2 2; 0 1], Matrix{T}(I, 2, 2))
+  g, tight, loose = NormL1(one(T)), ScaledKKT(rtol=0.5), ScaledKKT(rtol=0.75)
+  cap = MaxGradientEvaluations(2)
+  for (rule, reason, statuses) in ((AllOf(loose, loose), :rule, (:pass, :pass)),
+                                   (AnyOf(tight, loose), :limit, (:fail, :not_checked)))
+    r = solve!(zeros(T, 2, 2), f, g, method; stopping=rule, limits=cap)
+    t = termination(r)
+    @test t.iteration == 0 && t.reason === reason && t.limit_reached
+    @test r.converged == t.satisfied == (reason === :rule)
+    @test t.reached_evaluation_limits === (cap,) && t.counts.grad_calls == 2
+    @test map(o -> o.status, t.observations) == statuses
+    @test t.counts.f_calls == (method isa AccProxGradDescent ? 2 : 1)
+  end
+
+  # Initialization uses the last value. The fresh reference product is skipped.
+  r = solve!(zeros(T, 2, 2), f, g, method; stopping=loose, limits=MaxObjectiveEvaluations(1))
+  t = termination(r)
+  @test t.reason === :limit && only(t.observations).status === :not_checked
+  @test t.counts.grad_calls == (method isa AccProxGradDescent ? 0 : 1)
+end
+
+@testset "Matrix APG admits the reference and checkpoint gradient together ($T)" for T in PRECISIONS
+  X, Y = fill(T(0.5), 1, 1), T[1 -1]
+  f, g = LeastSquaresLoss(Y, X), NormL1(zero(T))
+  method, kkt = AccProxGradDescent(α=1.0, β=0.5), ScaledKKT(rtol=0.75)
+  r = solve!(zeros(T, 1, 2), f, g, method;
+             stopping=AnyOf(kkt, UserStop(_ -> true)), limits=MaxGradientEvaluations(1))
+  t = termination(r)
+  @test t.reason === :user && !t.limit_reached && t.iteration == 0
+  @test t.observations[1].status === :not_checked
+  @test t.counts.f_calls == 1 && t.counts.grad_calls == t.counts.prox_calls == 0
+
+  r = solve!(zeros(T, 1, 2), f, g, method; stopping=kkt, limits=MaxGradientEvaluations(1))
+  t = termination(r)
+  @test t.reason === :limit && t.limit_reached && t.iteration == 1
+  @test t.counts.grad_calls == 1 && only(t.observations).status === :not_checked
+
+  opts = ProximalOptions(store_trace=true, extended_trace=true)
+  for budget in (MaxGradientEvaluations(4), MaxObjectiveEvaluations(6), MaxIterations(2))
+    r = solve!(zeros(T, 1, 2), f, g, method, opts; stopping=kkt, limits=budget)
+    t = termination(r)
+    @test r.converged && t.reason === :rule && t.iteration == 1
+    @test t.limit_reached == !(budget isa MaxIterations)
+    @test t.counts == (f_calls=6, grad_calls=4, g_calls=3, prox_calls=2,
+                       backtrack_steps=2, rejected_trials=1)
+    score = oracle(X, Y, r.minimizer, one(T), zero(T))
+    @test score.R < 0.75 * score.S
+    @test PB.kkt_violation(g, r.trace[1].metadata["grad_f(y)"], r.minimizer) >= 0.75 * score.S
+  end
+
+  r = solve!(zeros(T, 1, 2), f, g, method;
+             stopping=Every(1, kkt), limits=MaxIterations(2))
+  plain = solve!(zeros(T, 1, 2), f, g, method; stopping=kkt, limits=MaxIterations(2))
+  @test isequal(termination(r), termination(plain)) && r.minimizer == plain.minimizer
+
+  rule = AnyOf(Every(2, kkt), UserStop(c -> c.iteration == 1))
+  r = solve!(zeros(T, 1, 2), f, g, method; stopping=rule, limits=MaxIterations(2))
+  t = termination(r)
+  @test t.reason === :user && t.iteration == 1 && !r.converged
+  @test t.observations[1].status === :not_checked && t.counts.grad_calls == 3
+  @test t.counts.f_calls == 5
+
+  r = solve!(zeros(T, 1, 2), f, g, method;
+             stopping=Every(1, kkt), limits=MaxIterations(1))
+  t = termination(r)
+  @test r.minimizer == plain.minimizer && t.reason === :limit && !r.converged
+  @test only(t.observations).status === :not_checked && t.counts.grad_calls == 3
 end
 
 end
