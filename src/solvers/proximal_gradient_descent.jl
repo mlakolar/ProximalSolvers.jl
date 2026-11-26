@@ -358,9 +358,9 @@ saved_beta = copy(result.minimizer)
 
 The meaning of `converged` depends on the method and loss; see
 [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
-The dense vector least-squares PGD pilot accepts explicit conditions and an
-independent work budget. See [STOP-22](@ref) for explicit stopping,
-[STOP-23](@ref) for evaluation limits and [`termination`](@ref) for the report.
+Dense least-squares PGD accepts explicit stopping conditions and work limits.
+See [STOP-22](@ref) and [STOP-23](@ref) for vector coefficients, [STOP-26](@ref)
+for matrix coefficients, and [`termination`](@ref) for the report.
 
 # Extended help
 

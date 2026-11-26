@@ -677,9 +677,9 @@ of any shape, nonfinite data or coefficients, or a reported
 `tmp` throws `ArgumentError`. APG applies [APG-07](@ref) before state
 creation. Borrowed inputs follow [IN-05](@ref). On return the result's
 `minimizer` is the supplied `B`, with the failure boundary in [RES-03](@ref).
-A proposed stop is checked over all entries with the `λmax`-based scale of
-[STOP-03](@ref); the coordinatewise check of [STOP-21](@ref) is for a vector
-response only.
+Under default stopping, a proposed stop is checked over all entries with the
+`λmax`-based scale of [STOP-03](@ref). See [STOP-26](@ref) for selectable
+conditions and work limits on the matrix-response route.
 
 **Applies to.** Matrix-response least squares with PGD or APG and unweighted
 `NormL1`.

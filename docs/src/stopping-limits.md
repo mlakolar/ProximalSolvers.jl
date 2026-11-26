@@ -22,7 +22,7 @@ the last permitted evaluation. See [STOP-22](@ref), [STOP-24](@ref) and
 
 Use `stopping` to choose a condition and `limits=MaxIterations(n)` to cap the
 number of accepted updates. These keywords also apply to `AccProxGradDescent`
-on the supported dense least-squares route. `AnyOf` accepts the first passing condition.
+on the dense vector-response least-squares route. `AnyOf` accepts the first passing condition.
 `AllOf` needs its conditions to pass at the same checkpoint. `IterateChange`
 and `ObjectiveChange` measure progress between accepted points. `UserStop`
 accepts a predicate over scalar checkpoint metadata. With `NormL1` or
@@ -125,6 +125,29 @@ The search evaluates one gradient and takes two trials. It accepts the
 second and reports both caps. If you add a `ScaledKKT` rule, evaluating
 stationarity at the accepted point can require its own smooth value and
 gradient. See [STOP-24](@ref) for when that work is allowed.
+
+## [Select stopping conditions for multiple responses](@id multiresponse-select-stopping)
+
+PGD and APG accept `IterateChange`, `ObjectiveChange` and `UserStop` for
+dense matrix-response least squares with unweighted entrywise `NormL1`.
+`IterateChange` measures movement across the entire coefficient matrix.
+Each gradient or proximal evaluation counts once for the matrix.
+
+~~~@example explicit_multiresponse_stopping
+using ProximalBase, ProximalSolvers
+
+X = ones(1, 1)
+Y = [2.0 -1.0]
+B = zeros(1, 2)
+r = solve!(B, LeastSquaresLoss(Y, X), NormL1(0.5), AccProxGradDescent();
+           stopping=IterateChange(atol=1e-6),
+           limits=(MaxIterations(100), MaxGradientEvaluations(200)))
+@assert r.minimizer === B && termination(r).satisfied
+termination(r)
+~~~
+
+The result reports whether the selected progress or user condition passed.
+See [STOP-26](@ref) for input support and limit accounting.
 
 ## [Select stopping conditions in scalar coordinate descent](@id cd-select-stopping)
 

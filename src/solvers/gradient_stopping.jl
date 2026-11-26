@@ -22,8 +22,8 @@ end
 
 Stopping.movement_distance(point::ProximalGradientStoppingPoint{Float64}) =
     norm(point.state.delta_x)
-_gradient_policy_norm(x::Vector{Float64}) = norm(x)
-_gradient_policy_norm(x::Vector{Float32}) = sqrt(sum(v -> abs2(Float64(v)), x))
+_gradient_policy_norm(x::VecOrMat{Float64}) = norm(x)
+_gradient_policy_norm(x::VecOrMat{Float32}) = sqrt(sum(v -> abs2(Float64(v)), x))
 Stopping.movement_scale(point::ProximalGradientStoppingPoint) =
     max(_gradient_policy_norm(point.state.x), _gradient_policy_norm(point.state.x_previous))
 
@@ -40,13 +40,13 @@ end
     ProximalSolvers.ProximalGradientStoppingResult
 
 Result of an explicit PGD or APG stopping-policy solve. `minimizer` aliases the supplied
-coefficient vector. `minimum` holds the computed objective or `missing` when
+coefficient vector or matrix. `minimum` holds the computed objective or `missing` when
 a budget of zero prevented initialization. Use [`termination`](@ref) to inspect the reason
 and the observations at the returned point.
 """
-struct ProximalGradientStoppingResult{M,T,D}
+struct ProximalGradientStoppingResult{M,T,D,X<:VecOrMat{T}}
     method::M
-    minimizer::Vector{T}
+    minimizer::X
     minimum::Union{Missing,T}
     iterations::Int
     converged::Bool
@@ -155,12 +155,14 @@ end
 
 function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
     base = f isa Scaled ? f.f : f
-    (x isa Vector && base isa LeastSquaresLoss && base.Y isa Vector &&
+    (base isa LeastSquaresLoss &&
+     ((x isa Vector && base.Y isa Vector) || (x isa Matrix && base.Y isa AbstractMatrix)) &&
      !(g isa Union{IndBox,IndBallL2})) ||
-        throw(ArgumentError("explicit stopping and limits require dense vector least-squares PGD or APG with a supported penalty (excluding box and ball indicators)"))
+        throw(ArgumentError("explicit stopping and limits require dense least-squares PGD or APG with matching vector or matrix coefficients and a supported penalty"))
     _check_gradient_policy_problem(x, f, g, method)
     limit, evaluation_limits = _gradient_policy_limits(options, limits)
-    monitor = Stopping.prepare(stopping, limit, eltype(x); evaluation_limits)
+    supported = x isa Matrix ? Union{IterateChange,ObjectiveChange,UserStop} : Stopping.GradientLeaves
+    monitor = Stopping.prepare(stopping, limit, eltype(x), supported; evaluation_limits)
     use_stationarity = Stopping.needs_stationarity(monitor)
     if use_stationarity && !(g isa Union{NormL1,ElasticNet})
         throw(ArgumentError("ScaledKKT requires NormL1 or ElasticNet for dense vector least-squares PGD or APG"))

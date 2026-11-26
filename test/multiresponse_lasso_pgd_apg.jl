@@ -517,4 +517,140 @@ end
   end
 end
 
+@testset "Matrix progress measures all accepted entries ($T, $method)" for
+    T in PRECISIONS, method in METHODS
+  X = Matrix{T}(I, 2, 2)
+  Y = T[3 0; 0 4]
+  f, g = LeastSquaresLoss(Y, X), NormL1(zero(T))
+  visits = Int[]
+  watch(c) = (push!(visits, c.iteration); c.iteration == 1)
+  B = zeros(T, 2, 2)
+  opts = ProximalOptions(store_trace=true, extended_trace=true)
+  r = solve!(B, f, g, method, opts;
+             stopping=AnyOf(IterateChange(rtol=0.5), UserStop(watch)),
+             limits=MaxIterations(3))
+  t = termination(r)
+  move = t.observations[1]
+  expected = Float64(sqrt(sum(abs2, BigFloat.(B))))
+  @test r.minimizer === B && r.minimum == r.trace[end].fg_x
+  @test r.trace[1].metadata["x"] == B && r.trace[1].metadata["x"] !== B
+  @test r.iterations == 1 && visits == [0, 1] && t.reason === :user && t.satisfied
+  @test !r.converged && move.status === :fail && t.winning_branch == ((2,),)
+  @test move.value ≈ expected rtol=4eps(Float64)
+  @test move.scale ≈ expected rtol=4eps(Float64)
+  @test move.threshold ≈ expected / 2 rtol=4eps(Float64)
+  @test move.value > opnorm(Float64.(B))
+
+  B = T[-0.0 0.0; 0.0 -0.0]
+  lasso = NormL1(T(5))
+  rule = AllOf(IterateChange(), ObjectiveChange())
+  r = solve!(B, f, lasso, method; stopping=rule, limits=MaxIterations(3))
+  t = termination(r)
+  @test iszero(B) && r.iterations == 1
+  @test t.reason === :rule && t.satisfied && !r.converged
+  @test map(o -> o.value, t.observations) == (true, true)
+
+  r = solve!(zeros(T, 2, 2), f, g, method;
+             stopping=AnyOf(IterateChange(atol=1e3), ObjectiveChange(atol=1e3)),
+             limits=MaxIterations(1))
+  t = termination(r)
+  @test t.limit_reached && t.reason === :rule && t.winning_branch == ((2,),)
+  @test map(o -> o.status, t.observations) == (:not_checked, :pass)
+end
+
+@testset "Matrix preflight and no-work caps ($T, $method)" for T in PRECISIONS, method in METHODS
+  X, Y = T[1 0; 0 1], T[2 -1; 0 3]
+  f, g = LeastSquaresLoss(Y, X), NormL1(T(0.25))
+  B = fill(floatmax(T) / 2, 2, 2)
+  start = copy(B)
+  user = UserStop(_ -> error("a zero cap skips predicates"))
+  for limit in (MaxIterations(0), MaxObjectiveEvaluations(0),
+                MaxGradientEvaluations(0), MaxProximalEvaluations(0))
+    r = solve!(B, f, g, method; stopping=user, limits=limit)
+    t = termination(r)
+    @test B == start && r.minimizer === B && r.minimum === missing
+    @test t.iteration == 0 && t.limit_reached && t.reason === :limit
+    @test all(iszero, values(t.counts)) && only(t.observations).status === :not_checked
+  end
+  cap = MaxIterations(0)
+  for rule in (ScaledKKT(rtol=0), Every(2, ScaledKKT(rtol=0)), MaxIterations(5))
+    @test_throws ArgumentError solve!(B, f, g, method;
+        stopping=AnyOf(user, AllOf(ObjectiveChange(), rule)), limits=cap)
+  end
+  @test_throws ArgumentError solve!(B, f, NormL1(T(0.25), ones(T, 2)), method; limits=cap)
+  @test_throws ArgumentError solve!(view(B, :, :), f, g, method; limits=cap)
+  @test_throws DimensionMismatch solve!(zeros(T, 2, 1), f, g, method; limits=cap)
+  @test_throws ArgumentError solve!(B, f, g, method, ProximalOptions(gradtol=0.01); limits=cap)
+  @test B == start
+end
+
+@testset "Matrix PGD counts whole-matrix trials and rolls back ($T)" for T in PRECISIONS
+  f = LeastSquaresLoss(ones(T, 1, 2), fill(T(2), 1, 1))
+  g = NormL1(zero(T))
+  method = ProximalGradientDescent(ls=PS.LineSearches.BackTracking(α=1.0, β=0.125))
+  for (limit, f_calls, trials) in ((MaxObjectiveEvaluations(2), 2, 1),
+                                  (MaxObjectiveEvaluations(3), 3, 2),
+                                  (MaxProximalEvaluations(1), 2, 1))
+    B = zeros(T, 1, 2)
+    r = solve!(B, f, g, method; stopping=ObjectiveChange(atol=2), limits=limit)
+    t = termination(r)
+    @test r.minimizer === B && iszero(B) && r.minimum === one(T)
+    @test t.iteration == 0 && t.reason === :limit && t.reached_evaluation_limits === (limit,)
+    @test only(t.observations).status === :not_checked
+    @test t.counts == (; f_calls, grad_calls=1, g_calls=1+trials, prox_calls=trials,
+                       backtrack_steps=trials, rejected_trials=trials)
+  end
+  limits = (MaxObjectiveEvaluations(4), MaxGradientEvaluations(2), MaxProximalEvaluations(2))
+  r = solve!(zeros(T, 1, 2), f, g, method; stopping=ObjectiveChange(atol=1), limits)
+  t = termination(r)
+  @test r.minimizer == fill(T(0.25), 1, 2) && r.minimum === T(0.25)
+  @test t.reason === :rule && t.satisfied && t.reached_evaluation_limits === limits
+  @test t.counts == (f_calls=4, grad_calls=2, g_calls=3, prox_calls=2,
+                     backtrack_steps=2, rejected_trials=1)
+
+  cap = MaxObjectiveEvaluations(5)
+  r = solve!(zeros(T, 1, 2), f, g, method; limits=cap)
+  t = termination(r)
+  @test t.iteration == 1 && t.reason === :limit && t.reached_evaluation_limits === (cap,)
+  @test r.minimizer == fill(T(0.25), 1, 2) && r.minimum === T(0.25)
+  @test t.counts == (f_calls=5, grad_calls=2, g_calls=4, prox_calls=3,
+                     backtrack_steps=3, rejected_trials=2)
+end
+
+@testset "Matrix APG counts one gradient across a search ($T)" for T in PRECISIONS
+  f = T(0.25) * LeastSquaresLoss(fill(T(2), 1, 2), fill(T(2), 1, 1))
+  g, method = NormL1(zero(T)), AccProxGradDescent(α=0.75, β=0.375)
+  grad = MaxGradientEvaluations(1)
+  baseline = solve!(zeros(T, 1, 2), f, g, method; limits=MaxIterations(1))
+  r = solve!(zeros(T, 1, 2), f, g, method; limits=grad)
+  t = termination(r)
+  @test r.minimizer == baseline.minimizer && r.minimum === baseline.minimum
+  @test t.iteration == 1 && t.reason === :limit && t.reached_evaluation_limits === (grad,)
+  @test t.counts == (f_calls=4, grad_calls=1, g_calls=3, prox_calls=2,
+                     backtrack_steps=2, rejected_trials=1)
+  value_cap = MaxObjectiveEvaluations(3)
+  r = solve!(zeros(T, 1, 2), f, g, method; limits=value_cap)
+  t = termination(r)
+  @test iszero(r.minimizer) && r.minimum === one(T) && t.iteration == 0
+  @test t.reached_evaluation_limits === (value_cap,) && t.counts.rejected_trials == 1
+end
+
+@testset "Matrix APG restores the accepted point when a restart cannot run ($T)" for T in PRECISIONS
+  f = LeastSquaresLoss(T[1 1; 0 0], T[0.5 0; 0 2])
+  g, method = NormL1(zero(T)), AccProxGradDescent(α=1.0, β=0.5)
+  options = ProximalOptions(store_trace=true, extended_trace=true)
+  baseline = solve!(zeros(T, 2, 2), f, g, method, options; limits=MaxIterations(6))
+  cap = MaxGradientEvaluations(7)
+  visits = Int[]
+  user = UserStop(c -> (push!(visits, c.iteration); false))
+  r = solve!(zeros(T, 2, 2), f, g, method, options; stopping=user, limits=cap)
+  t = termination(r)
+  @test isequal(r.minimizer, baseline.minimizer) && r.minimum === baseline.minimum
+  @test t.iteration == 6 && t.reason === :limit && t.reached_evaluation_limits === (cap,)
+  @test visits == collect(0:6) && only(t.observations).status === :fail
+  @test length(r.trace) == 6 && r.trace[end].metadata["x"] == r.minimizer
+  @test t.counts == (f_calls=15, grad_calls=7, g_calls=8, prox_calls=7,
+                     backtrack_steps=7, rejected_trials=1)
+end
+
 end

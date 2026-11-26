@@ -651,8 +651,8 @@ the result and accounting.
 `Vector{Float32}` or `Vector{Float64}`, with matching dense vector-response
 least squares and any supported positive loss scale. Each route accepts its
 supported penalties apart from box and ball indicators, whose feasibility
-preflight evaluates the penalty. [CD-10](@ref) specifies the explicit
-coordinate descent route.
+preflight evaluates the penalty. See [STOP-26](@ref) for the matrix-response
+route and [CD-10](@ref) for coordinate descent.
 
 **Code.** `src/stopping.jl`, `src/solvers/gradient_stopping.jl` and
 `src/solvers/proximal_gradient_descent.jl` and
@@ -711,6 +711,7 @@ can win a tie. [RES-04](@ref) specifies the returned flags and counters.
 **Applies to.** `ProximalGradientDescent` on the dense vector least-squares
 route of [STOP-22](@ref), including its supported scaled loss. [STOP-24](@ref)
 applies the same limit configuration to the dense vector APG route.
+[STOP-26](@ref) applies these limits to matrix-response PGD and APG.
 
 **Code.** `src/stopping.jl`, `src/solvers/gradient_stopping.jl`,
 `src/solvers/proximal_gradient_descent.jl`, `src/line_searches.jl` and `src/solve.jl`.
@@ -753,8 +754,8 @@ measured at this checkpoint. A newly measured passing branch can settle the
 tie. [RES-04](@ref) specifies the limit flags and report counts.
 
 **Applies to.** `AccProxGradDescent` on the dense vector least-squares route of
-[STOP-22](@ref), including its supported scaled loss. The evaluation budgets
-are refused on the matrix-response and logistic routes.
+[STOP-22](@ref), including its supported scaled loss. For the matrix-response
+route, see [STOP-26](@ref). The logistic route refuses evaluation budgets.
 
 **Code.** `src/stopping.jl`, `src/solvers/gradient_stopping.jl` and
 `src/solvers/accelerated_proximal_gradient_descent.jl`.
@@ -799,6 +800,40 @@ penalty support for `ScaledKKT` under [STOP-22](@ref).
 scheduling, composition, missing evidence, limit ties and APG gradient counts.
 
 **Sources.** [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
+
+### [STOP-26 Explicit stopping for multiresponse least-squares PGD and APG](@id STOP-26)
+
+**Statement.** The dense matrix-response route of [IN-10](@ref) accepts
+`IterateChange`, `ObjectiveChange` and `UserStop` through `stopping`,
+including expressions composed with `AnyOf` and `AllOf`. Validate the full
+rule tree using these leaves, the inputs and the limits before initialization,
+including for zero caps. Follow [STOP-22](@ref) for option conflicts,
+accepted checkpoints, rule evaluation, objective ties and trace order.
+A progress or user stop records satisfaction in [RES-04](@ref).
+
+For the matrix iterate, apply the `IterateChange` comparison of [STOP-22](@ref)
+to all entries of the accepted coefficient matrices. The Euclidean norm over
+these entries is the Frobenius norm. Use the working-precision arithmetic and
+exact stored-entry comparison of [STOP-22](@ref).
+
+Apply [STOP-23](@ref) and [STOP-24](@ref) for iteration and evaluation
+limits. Each smooth value, full gradient or proximal call on the matrix
+counts as one evaluation of its kind. If a cap interrupts a trial or an APG
+restart, restore the last accepted coefficient matrix. Keep the counts for
+completed work and report the objective and observations at the restored
+checkpoint under [RES-04](@ref). Default stopping follows [STOP-01](@ref).
+
+**Applies to.** Dense matrix-response PGD and APG with unweighted entrywise
+`NormL1` under [IN-10](@ref), with raw or supported scaled least squares.
+
+**Code.** `src/solvers/gradient_stopping.jl` and the driver in `src/solve.jl`.
+
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks the Frobenius
+comparison against a direct entrywise calculation, support and preflight,
+shared checkpoint semantics, matrix aliasing and traces, and whole-matrix
+work accounting and rollback under caps.
+
+**Sources.** [#523, solver rollout B1 and B2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
 ## Change log
 

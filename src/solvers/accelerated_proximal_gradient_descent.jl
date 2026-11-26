@@ -371,9 +371,9 @@ with `T = Float32` or `Float64`. A dense matrix response uses same-type dense
 matrix coefficients and unweighted `NormL1` under
 [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
 
-Dense vector least squares supports explicit stopping conditions and an
-independent iteration budget under [STOP-22](@ref). It also accepts hard
-evaluation budgets under [STOP-24](@ref).
+Dense least-squares APG accepts explicit stopping conditions and work limits.
+See [STOP-22](@ref) and [STOP-24](@ref) for vector coefficients and
+[STOP-26](@ref) for matrix coefficients.
 
 # Extended help
 
