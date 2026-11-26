@@ -4,6 +4,20 @@ This page keeps its published links. The full material is now organized in Learn
 
 See the [current section](@ref evidence-stopping-352).
 
+## [What a cap says about stationarity](@id stopping-at-cap)
+
+When a limit is already reached at a checkpoint, PGD, APG and CD skip a fresh
+`ScaledKKT` check. This includes a scheduled check at the iteration cap.
+In CD, the check is skipped at the pass cap or when the next sweep cannot
+fit the remaining visit budget. A skipped check is reported as `:not_checked`.
+If it was the only selected condition, the result reports `reason = :limit`
+and `converged = false`.
+
+`ObjectiveChange` can still pass using the available checkpoint objectives.
+An APG stationarity check admitted before the cap can also pass when it uses
+the last permitted evaluation. See [STOP-22](@ref), [STOP-24](@ref) and
+[CD-12](@ref) for the checkpoint rules.
+
 ## Select stopping conditions in dense least-squares PGD
 
 Use `stopping` to choose a condition and `limits=MaxIterations(n)` to cap the
@@ -35,12 +49,9 @@ The [result contract](@ref RES-04)
 describes the stop reason, winning leaves, observations and counts. Omit both
 keywords to use the solver’s default stopping policy.
 
-At the [iteration cap](@ref STOP-22), a tie can use stored objective values.
-`ScaledKKT`, `IterateChange` and `UserStop` are marked `:not_checked` there.
-A solve using `ScaledKKT` alone reports `reason = :limit` and
-`converged = false` if it reaches the cap. In APG, an evaluated KKT check
-uses the gradient at the accepted point and includes its cost in the
-[oracle counts](@ref APG-04).
+At the [iteration cap](@ref STOP-22), `IterateChange` and `UserStop`
+are marked `:not_checked`. In APG, an evaluated KKT check uses the gradient
+at the accepted point and includes its cost in the [oracle counts](@ref APG-04).
 
 ## Schedule stationarity checks in PGD and APG
 
@@ -159,8 +170,7 @@ termination(stationary)
 ~~~
 
 A passing `ScaledKKT` in the winning branch sets `converged=true`.
-The check is unchecked at the pass or visit cap. See [CD-12](@ref)
-for the gradient count and checkpoint rules.
+See [CD-12](@ref) for the gradient count and checkpoint rules.
 
 Add `MaxCoordinateVisits(n)` to cap visits across full and active sweeps.
 CD stops before a scheduled sweep that costs more than the visits left.
