@@ -60,9 +60,11 @@ r = solve!(x, f, NormL1(1.0), AccProxGradDescent(α=0.75, β=0.375);
 termination(r)
 ~~~
 
-An off-schedule check is reported as `:not_checked`. The iteration and
-evaluation caps still apply at every step. See [STOP-25](@ref) for scheduling
-and limit ties.
+An off-schedule check is reported as `:not_checked`. A scheduled check
+at a reached iteration cap is also `:not_checked`, including when the cap
+is a multiple of `k`. With `MaxIterations(2)` in the example above, APG
+returns the same point with `reason = :limit` and `converged = false`.
+Evaluation caps apply at each step. See [STOP-25](@ref) for limit ties.
 
 ## [Cap the evaluations in dense least-squares PGD](@id pgd-evaluation-limits)
 
