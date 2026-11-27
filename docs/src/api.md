@@ -34,6 +34,8 @@ ProximalSolvers.Stopping
 IterateChange
 ObjectiveChange
 ScaledKKT
+PrimalResidual
+DualResidual
 UserStop
 AnyOf
 AllOf
@@ -42,4 +44,5 @@ MaxPasses
 termination
 ProximalSolvers.ProximalGradientStoppingResult
 ProximalSolvers.CoordinateDescentStoppingResult
+ProximalSolvers.ADMMStoppingResult
 ```

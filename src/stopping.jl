@@ -1,14 +1,16 @@
 """
     ProximalSolvers.Stopping
 
-Explicit stopping conditions, composition and budgets for dense vector least squares.
+Explicit stopping conditions, composition and budgets for supported dense-vector solves.
 Pass conditions as `stopping` and the iteration or pass budget as `limits`
 to [`solve!`](@ref ProximalSolvers.solve!).
-See [STOP-22](@ref) for PGD and APG and [CD-10](@ref) for coordinate descent.
+See [STOP-22](@ref) for PGD and APG, [CD-10](@ref) for coordinate descent,
+and [ADM-06](@ref) for consensus ADMM.
 """
 module Stopping
 
 export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
+export PrimalResidual, DualResidual
 
 # The integer call boundary keeps scalar comparisons valid when the thread
 # flushes subnormals and the compiler recognizes a floating-point zero test.
@@ -73,6 +75,22 @@ struct ScaledKKT
     rtol::Float64
     ScaledKKT(; rtol::Real) = new(tolerance(rtol, "rtol"))
 end
+
+"""
+    PrimalResidual()
+
+Check the computed primal residual against the current `ADMMSolver` primal
+threshold after a completed iteration. See [ADM-06](@ref).
+"""
+struct PrimalResidual end
+
+"""
+    DualResidual()
+
+Check the computed dual residual against the current `ADMMSolver` dual
+threshold after a completed iteration. See [ADM-06](@ref).
+"""
+struct DualResidual end
 
 """
     UserStop(predicate)
@@ -154,14 +172,23 @@ mutable struct RuleState{R}
     RuleState(rule::R) where R = new{R}(rule, -1, unchecked)
 end
 
-bind_rule(rule, context) = throw(ArgumentError("unsupported stopping condition $(typeof(rule))"))
-bind_rule(rule::Union{IterateChange,ObjectiveChange,ScaledKKT}, context) = RuleState(rule)
-function bind_rule(rule::UserStop, context)
+const GradientLeaves = Union{IterateChange,ObjectiveChange,ScaledKKT,UserStop}
+const ResidualLeaves = Union{PrimalResidual,DualResidual}
+
+function bind_rule(rule, context, supported)
+    rule isa supported || throw(ArgumentError("unsupported stopping condition $(typeof(rule))"))
+    bind_leaf(rule, context)
+end
+bind_rule(rule::AnyOf, context, supported) =
+    AnyOf(map(child -> bind_rule(child, context, supported), rule.rules)...)
+bind_rule(rule::AllOf, context, supported) =
+    AllOf(map(child -> bind_rule(child, context, supported), rule.rules)...)
+
+bind_leaf(rule, context) = RuleState(rule)
+function bind_leaf(rule::UserStop, context)
     applicable(rule.predicate, context) || throw(ArgumentError("UserStop needs a predicate callable with the stopping context"))
     RuleState(rule)
 end
-bind_rule(rule::AnyOf, context) = AnyOf(map(child -> bind_rule(child, context), rule.rules)...)
-bind_rule(rule::AllOf, context) = AllOf(map(child -> bind_rule(child, context), rule.rules)...)
 
 # A checkpoint supplies objective history from the solver. Movement is shared
 # lazily across leaves, and both slots expire before the next decision.
@@ -185,8 +212,8 @@ struct Monitor{R,S,L}
 end
 
 user_context(k, objective) = (; iteration=k, objective)
-prepare(rule, limit::Union{MaxIterations,MaxPasses}, ::Type{T}) where {T} =
-    Monitor(rule === nothing ? nothing : bind_rule(rule, user_context(0, zero(T))),
+prepare(rule, limit::Union{MaxIterations,MaxPasses}, ::Type{T}, supported=GradientLeaves) where {T} =
+    Monitor(rule === nothing ? nothing : bind_rule(rule, user_context(0, zero(T)), supported),
             limit, MovementCache(nothing, nothing, nothing), nothing)
 
 needs_stationarity(monitor::Monitor) = needs_stationarity(monitor.root)
@@ -264,9 +291,15 @@ function assess(rule::UserStop, point, monitor, at_limit)
     boolean_observation(pass)
 end
 
+residual_observation(value, threshold) =
+    Observation(value <= threshold ? :pass : :fail, Float64(value), Float64(threshold), missing)
+assess(::PrimalResidual, point, monitor, at_limit) = residual_observation(point.r_norm, point.eps_pri)
+assess(::DualResidual, point, monitor, at_limit) = residual_observation(point.s_norm, point.eps_dual)
+
 evidence(::Union{IterateChange,ObjectiveChange}) = :progress
 evidence(::ScaledKKT) = :stationarity
 evidence(::UserStop) = :user
+evidence(::ResidualLeaves) = :residual
 
 evaluate!(::Nothing, point, monitor, at_limit) = :continue
 function evaluate!(state::RuleState, point, monitor, at_limit)
@@ -336,7 +369,8 @@ end
 
 Return the termination record of an explicit-policy solve. The record gives
 the reason, policy satisfaction, winning leaf paths, iteration, limit, final
-checkpoint observations and work counts. See [RES-04](@ref) and [RES-05](@ref).
+checkpoint observations and work counts. See [RES-04](@ref), [RES-05](@ref),
+and [RES-06](@ref).
 """
 function termination end
 
