@@ -16,7 +16,8 @@ certified optimum. The solvers stop on three kinds of evidence:
 | `CDSolver`, least squares with default stopping and `NormL1`, `ElasticNet`, `IndNonnegative()` or unweighted `NormL1Nonneg` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
 | `CDSolver`, group lasso | the same, with the change of a group | nothing | the same per group: the scaled change is `‖h_k‖ √(s ℓ_k)`, with `ℓ_k` the curvature bound of the group, and the unscaled one `‖h_k‖` | a change test, with no independent check |
 | `ProximalGradientDescent`, `AccProxGradDescent` on the regression routes with a dedicated KKT check | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and, for least squares with `NormL1` or `ElasticNet` on a dense vector, every coordinate's computed score passed the rule of [STOP-21](@ref) (below its threshold, or at most `0` at an exact zero scale, where no threshold is formed); otherwise the computed residual passed [STOP-04](@ref) and any applicable entry or group checks for [the logistic and matrix-response lasso](@ref STOP-03), [group lasso](@ref STOP-05), [the Euclidean norm](@ref STOP-17), or [the nonnegative penalties](@ref STOP-16) | a comparison in `T` of computed scores and thresholds, formed as stated below; for least squares with `NormL1` or `ElasticNet` on a dense vector, its exact-arithmetic analogue is approximate coordinatewise stationarity relative to the smooth part of the model that the check scores (the objective of the solve when their coefficients agree), with no general error bound ([STOP-21](@ref)) |
-| `ProximalGradientDescent`, `AccProxGradDescent` with a generic stationarity check | the same | the generic check | a test proposed a stop and the proximal-gradient residual passed the threshold comparison and guards in [STOP-07](@ref) | a working-precision indication that can be weaker when the accepted `L` is small |
+| `ProximalGradientDescent`, `AccProxGradDescent` with `IndBallL1` ([IN-12](@ref)) | the `x`, objective or gradient test of an iteration, and B1's unchanged-iterate and progress proposals | the full check of [FP-05](@ref) | a trigger fired and the full check passed at the admitted returned point | a comparison in `Float64` of a computed support gap and fixed-step mapping, with model noise terms, against budgets from the tolerances |
+| `ProximalGradientDescent`, `AccProxGradDescent` with a generic stationarity check | the `x`, objective or gradient test of an iteration | the generic check | a test proposed a stop and the proximal-gradient residual passed the threshold comparison and guards in [STOP-07](@ref) | a working-precision indication that can be weaker when the accepted `L` is small |
 | `ProxNewton`, logistic regression | the accepted point, at the start and after each accepted iteration | nothing | the largest ProximalBase KKT score `kkt` of the original problem, from a gradient formed at the returned point, is finite and at most `tol` (see [PN-05](@ref)) | a residual formed in working precision; `stop_reason` is `:converged`, `:maxiter` or `:stalled` |
 | `LogisticADMM`, logistic regression | each completed iteration | nothing | the primal residual `‖X b - t‖` and the dual residual `ρ ‖Xᵀ(t - t_previous)‖` are within their thresholds, and the largest ProximalBase KKT score `kkt` of the original problem, from a gradient formed at the returned point, is at most `tol` (see [LA-04](@ref)) | residuals formed in working precision; `stop_reason` is `:converged`, `:maxiter`, `:stalled` or `:prox_failed` |
 | `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
@@ -96,7 +97,7 @@ rollback boundary in [PGD-07](@ref).
 
 **Code.** `src/cd/solver.jl`: completed passes and CD results; `src/solve.jl`: gradient iteration/stationarity decisions; `src/types.jl`: result fields; `src/solvers/logistic_proxnewton.jl`: the `ProxNewton` result; `src/solvers/logistic_admm.jl`: the `LogisticADMM` result.
 
-**Tests.** `test/weighted_elasticnet.jl` checks public convergence flags against the independent weighted scores and the coordinatewise scales of [STOP-21](@ref), and `test/stopping_coordinatewise.jl` the convergence flags of zero-scale, exact-fit and offset problems. `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/logistic_proxnewton.jl` checks the `ProxNewton` result fields and stop reasons against an independent objective and KKT score, and `test/logistic_admm.jl` does so for the `LogisticADMM` result. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl` (the nonnegative CD fits, judged by an independent constrained KKT score) and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
+**Tests.** `test/weighted_elasticnet.jl` checks public convergence flags against the independent weighted scores and the coordinatewise scales of [STOP-21](@ref), and `test/stopping_coordinatewise.jl` the convergence flags of zero-scale, exact-fit and offset problems, and `test/l1ball_numerical.jl` the ℓ1-ball route: the #508 loop scores every claimed success with the independent MPFR evaluator, and dedicated regressions assert the false-stationarity flags. `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/logistic_proxnewton.jl` checks the `ProxNewton` result fields and stop reasons against an independent objective and KKT score, and `test/logistic_admm.jl` does so for the `LogisticADMM` result. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl` (the nonnegative CD fits, judged by an independent constrained KKT score) and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
 
 **Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`. The later nonnegative-lasso result interpretation follows [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The square-root fallback qualification is from [f573224f](https://github.com/mlakolar/ProximalSolvers.jl/commit/f573224f70058be24b81378ab2d6e1c752eb93e8), as retained in [the integrated result guidance at ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/blob/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7/docs/src/stopping-limits.md#L35-L45).
 
@@ -110,7 +111,7 @@ This clause describes `OptimizationResults` for PGD and APG with regression
 coefficients, including [IN-10](@ref). See [PGD-08](@ref) for graphical-lasso PGD.
 `minimizer` aliases the caller's coefficient storage and `minimum` is the reported
 objective at that iterate. It is the solver's numerical objective, the cached smooth value plus the monitored
-penalty; for a four-coefficient `IndBallL2` it can be finite at a point that ProximalBase's strict indicator
+penalty. For a four-coefficient `IndBallL2` ([IN-08](@ref)) and on the ℓ1-ball route, whose monitored penalty is `0` ([IN-12](@ref)), it can be finite at a point that ProximalBase's strict indicator
 evaluates as `Inf`. Neither `minimum` nor `converged` (the computed stopping check) certifies exact
 feasibility; `g(result.minimizer)` is ProximalBase's standalone check in working precision ([IN-08](@ref)). `iterations` counts steps. `iteration_converged` reports
 reaching the iteration limit; it does not report successful convergence.
@@ -120,19 +121,26 @@ oracle call counts and backtracking counts. `x_converged`, `f_converged` and
 `grad_converged` are the flags after the stationarity check, so all three are false
 when that check vetoed a proposed stop. Residual fields retain the last iteration's
 test residuals. APG's `grad_calls` includes one gradient at the accepted `x` for
-each stationarity check. PGD's `backtrack_steps` includes accepted nonzero
-line-search trials; APG counts every trial, including the accepted one. Detailed
+each stationarity check that reaches that evaluation (a generic check with invalid `t` returns before it,
+[STOP-08](@ref)); on the ℓ1-ball route, in both methods, a full check counts
+its one gradient, at the radial witness of [FP-05](@ref), unless the cached decision
+fails it first. PGD's `backtrack_steps` includes accepted nonzero
+line-search trials outside the zero-squared-norm shortcut of [LS-02](@ref), which on the
+ordinary routes accepts a nonzero step whose squared norm underflows without counting
+it (on the ℓ1-ball route such a step raises the error of [IN-12](@ref)); APG counts every
+trial, including the accepted one. Detailed
 APG accounting is in [APG-04](@ref).
 
 `f_increased` records `F > F_previous` for the last computed objectives. An increase
-ends the solve only if `allow_f_increases = false`; the result does not store that
-option. `f_residual` is `abs(F-F_previous)/abs(F)`, with `0.0` when both values are
+ends the solve only if `allow_f_increases = false`, and never on the ℓ1-ball route of
+[IN-12](@ref); the result does not store that option. `f_residual` is `abs(F-F_previous)/abs(F)`, with `0.0` when both values are
 zero and `Inf` when `F = 0` but the previous value is nonzero. With `ftol > 0`, this
 is the quantity compared with `ftol`. With `ftol = 0`, the objective test is off:
 `f_tol = 0.0`, `f_converged = false`, and `f_residual` is reported without deciding
-a stop. An iteration whose iterate equals the preceding one elementwise sets
-neither `x_converged` nor `grad_converged` under `ftol = 0`; [STOP-10](@ref) also
-specifies the accelerated method's `x == y` case.
+a stop. On the routes other than the ℓ1-ball route, an iteration whose iterate equals the preceding one
+elementwise sets neither `x_converged` nor `grad_converged` under `ftol = 0`; [STOP-10](@ref) also
+specifies the accelerated method's `x == y` case. On the ℓ1-ball route, B1's unchanged-iterate proposal
+runs the full check there, and a pass sets `x_converged` ([IN-12](@ref)).
 
 `stagnated` reports the specific Float32 PGD exit whose full condition, flags and
 scope are specified in [STOP-11](@ref). Its `x_residual` is zero; it does not certify
@@ -146,7 +154,7 @@ notes that the result has no dedicated field for a callback or time-limit stop.
 
 **Code.** `src/types.jl`: `OptimizationResults`; `src/solve.jl`: stopping/result construction; gradient solver iteration state.
 
-**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/accelerated_pgd.jl`, `test/stopping_scale.jl`.
+**Tests.** `test/core_contracts.jl`, `test/core_regressions.jl`, `test/accelerated_pgd.jl`, `test/stopping_scale.jl`; `test/l1ball_numerical.jl` checks, on the ℓ1-ball route, that `minimum` equals the last traced or callback objective.
 
 **Sources.** `docstring:src/solvers/proximal_gradient_descent.jl:L334`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`, `docstring:src/types.jl:L313`, `docstring:src/types.jl:L323`, `docstring:src/types.jl:L335`.
 
@@ -179,7 +187,7 @@ nonfinite objective or KKT score of the original problem after an iteration, lea
 or `NaN` for valid inputs; it raises no exception ([LA-05](@ref)).
 
 PGD and APG numerical step exceptions restore the last accepted coefficient point
-and rethrow. For `IndBallL2` a restored point with `g(x) == Inf` fails the indicator's
+and rethrow, including the line-search errors of the ℓ1-ball route ([IN-12](@ref)). For `IndBallL2` a restored point with `g(x) == Inf` fails the indicator's
 feasibility check as a start, and one with `g(x) == 0` passes that check ([IN-08](@ref)). For [IN-10](@ref) this restoration copies the full accepted
 coefficient matrix into the supplied storage. They do not provide a general transaction for internal counters or
 buffers. The line-search boundary is [LS-09](@ref) and the accelerated trial/restart
@@ -195,7 +203,7 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 **Code.** `src/solve.jl`: validation, solve wrappers and restoration; `src/cd/solver.jl`: private run and finite-objective completion; `src/solvers/logistic_proxnewton.jl`: the private `ProxNewton` solve and its single write; `src/solvers/logistic_admm.jl`: the private `LogisticADMM` solve and its single write.
 
-**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks pre-write refusals and full-matrix restoration after a failing trial. `test/norml2_pgd.jl` checks pre-write refusals and restoration of the starting coefficients after a failed step for both gradient methods. `test/logistic_proxnewton.jl` checks that the coefficients and the borrowed inputs are unchanged after a refusal and after a numerical exception of the inner solve; `test/logistic_admm.jl` checks the same for `LogisticADMM`, with its predictor and dual, and the `:prox_failed` return. `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/core_contracts.jl`, `test/core_regressions.jl`.
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks pre-write refusals and full-matrix restoration after a failing trial. `test/norml2_pgd.jl` checks pre-write refusals and restoration of the starting coefficients after a failed step for both gradient methods, and `test/l1ball_numerical.jl` does so for the ℓ1-ball route. `test/logistic_proxnewton.jl` checks that the coefficients and the borrowed inputs are unchanged after a refusal and after a numerical exception of the inner solve; `test/logistic_admm.jl` checks the same for `LogisticADMM`, with its predictor and dual, and the `:prox_failed` return. `test/sparse_cd.jl`, `test/group_cd.jl`, `test/multiresponse_cd.jl`, `test/core_contracts.jl`, `test/core_regressions.jl`.
 
 **Sources.** `docs/src/numerics.md:L921`, `docs/src/numerics.md:L923`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/developer/implementation-notes.md:L205`, `docstring:src/solvers/proximal_gradient_descent.jl:L334`. The later caught-stage refusal follows [the fallback at f573224f](https://github.com/mlakolar/ProximalSolvers.jl/blob/f573224f70058be24b81378ab2d6e1c752eb93e8/src/cd/sqrtlasso.jl#L602-L665) and its unchanged outer finite-objective commit boundary.
 

@@ -46,7 +46,10 @@ For least squares, the supported penalties are `NormL1` and `ElasticNet`, each w
 `NormLinf`, `NormL2` ([IN-11](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-11)) and a matching `GroupNormL2{T}` on dense coefficients.
 Box constraints use `IndBox` or `IndBallLinf`. Euclidean-ball constraints use
 `IndBallL2` with four coefficients and a radius of the same type. These
-indicators require a feasible starting vector.
+indicators require a feasible starting vector. The ℓ1 ball `IndBallL1(r)` is
+supported for dense `Vector{Float32}` or `Vector{Float64}` least squares with a
+same-type radius on the numerical route of
+[IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12).
 Use [`ProximalGradientDescent`](@ref), or [`CDSolver`](@ref) on a dense `Vector`,
 for `IndNonnegative()` and unweighted `NormL1Nonneg`; APG does not support those constrained penalties.
 
@@ -268,15 +271,10 @@ function _prox_grad_step!(f, g, state::AccProxGradDescentState{T}, β::T, evalua
       return true
     end
     while true
-      # This search can use the gradient it already evaluated at y for every trial.
+      # Every trial from this base reuses the gradient already evaluated at y.
       any(limit -> !(limit isa MaxGradientEvaluations) && Stopping.evaluation_limit_reached(limit, state),
           evaluation_limits) && return false
-      _step!(state.xhat, state.y, state.grad_f_y, state.L)
-      v = convert(T, value_and_prox!(state.x, g, state.xhat, one(state.L) / state.L))
-      state.g_x = _trial_penalty_value(g, v, state.x)
-      state.f_x = _value!(state.x, f, state.model, state.z_x)
-      state.prox_calls += 1
-      state.f_calls += 1
+      LineSearches.trial!(state, f, g)
 
       _sub!(state.xhat, state.x, state.y)
       state.backtrack_steps += 1
@@ -362,7 +360,7 @@ function gradient_converged!(state::AccProxGradDescentState, options::ProximalOp
 end
 
 """
-    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions())
+    solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions(); feasibility=nothing)
     solve!(x, f, g, AccProxGradDescent(); stopping=rule, limits=MaxIterations(n))
 
 Minimize the same least-squares lasso, elastic net, `NormLinf` or `NormL2` problem as [`ProximalGradientDescent`](@ref) with
@@ -394,17 +392,24 @@ order of refusals shared with PGD. The factors `β` and `α` and the dimension l
 line search is that of
 [APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
 
+With `IndBallL1(r)` on dense `Vector{Float32}` or `Vector{Float64}` least squares, APG takes the
+numerical route of [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12), as described for
+`ProximalGradientDescent`; a non-`nothing` `feasibility = NumericalFeasibility(...)` overrides its tolerances.
+
 Every refusal of an input, option or
 method setting happens before `x` is modified. A step error
 restores the last accepted `x` and rethrows, without a transaction guarantee for
 internal counters. The result shares `x`.
 """
 function solve!(x, f, g, method::AccProxGradDescent,
-                options::ProximalOptions = ProximalOptions(); stopping=nothing, limits=nothing, kwargs...)
+                options::ProximalOptions = ProximalOptions();
+                feasibility=nothing, stopping=nothing, limits=nothing, kwargs...)
   _check_keywords(kwargs)
+  numerical_l1 = _numerical_route(g, feasibility)
   if stopping !== nothing || limits !== nothing
     return _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
   end
+  numerical_l1 && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :gradient)
   _check_apg_problem(x, f, g, method)
   t0 = time()
   g_work = _working_gradient_penalty(g, eltype(x))
