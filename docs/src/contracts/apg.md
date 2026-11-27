@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` or `ElasticNet` with optional weights under [IN-03](@ref), `NormLinf`, `NormL2` ([IN-11](@ref)) or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref). The penalty prox is described in [PGD-01](@ref). For a raw `LogisticLoss(y, X)` the smooth term is the summed logistic loss of [IN-09](@ref) and the penalty is `NormL1` (optional weights); [APG-08](@ref) gives its line search.
+Minimize `s‖Xx - response‖²/2 + g(x)` with `NormL1` or `ElasticNet` with optional weights under [IN-03](@ref), `NormLinf`, `NormL2` ([IN-11](@ref)) or `GroupNormL2`. The constrained variants use `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref), and `IndBallL1` on the route of [IN-12](@ref). The penalty prox is described in [PGD-01](@ref). For a raw `LogisticLoss(y, X)` the smooth term is the summed logistic loss of [IN-09](@ref) and the penalty is `NormL1` (optional weights); [APG-08](@ref) gives its line search.
 
 ## Notation
 
@@ -36,11 +36,21 @@ For one response the error bounds require `max(n, p) + 4 < 1/(4 eps(T))` and `n*
 
 Form `y = x + k/(k+3) * (x - x_previous)` from the two accepted iterates, then take a gradient and proximal step from `y`. The first iteration has no momentum. Before each iteration use `L ← α L`, allowing the step to grow again; `α = 1` keeps this estimate from decreasing. A rejected trial uses `L ← L/β`; a `β` near one makes growth slow. Initial curvature is [PGD-02](@ref).
 
-The image `X y` is formed by the same linear combination of cached `X x` and `X x_previous`, without a new product. Form `y` before saving `x_previous ← x`, then make trials; the saved point is the last accepted point if a trial throws. Each trial uses `value_and_prox!` and a fresh image of its candidate. The unweighted lasso level follows [IN-02](@ref). Nonzero trial displacements are accepted only by [APG-06](@ref); a point equal to `y` entrywise is accepted when its value is finite. The shared engine then applies the default checks in [STOP-01](@ref) or the explicit policy in [STOP-22](@ref).
+The image `X y` is formed by the same linear combination of cached `X x` and
+`X x_previous`, without a new product. Form `y` before saving `x_previous ← x`
+and making trials. The saved point is the last accepted point if a trial throws.
+For ordinary penalties each trial uses `value_and_prox!` and a fresh image of
+its candidate. On the ℓ1-ball route a trial uses `prox!`, can skip the projection,
+and can skip forming the image and loss ([IN-12](@ref)). The unweighted lasso
+level follows [IN-02](@ref). Nonzero trial displacements are accepted only by
+[APG-06](@ref). A point equal to `y` entrywise is accepted when its smooth value
+and computed norms of the point and displacement are finite. The shared engine
+then applies the default checks in [STOP-01](@ref) or the explicit policy in
+[STOP-22](@ref).
 
 **Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
-**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: initial_state, update_state!, _prox_grad_step!`.
+**Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: initial_state, update_state!, _prox_grad_step!; src/utils.jl: LineSearches.trial!` (the shared trial of PGD and APG); `src/solve.jl: _trial_penalty_value`.
 
 **Tests.** test/accelerated_pgd.jl: momentum, backtracking rejection, restart and image caches.
 
@@ -48,7 +58,17 @@ The image `X y` is formed by the same linear combination of cached `X x` and `X 
 
 ### [APG-03 Restart and failure boundary](@id APG-03)
 
-**Statement.** If an extrapolated step raises the computed objective (the smooth value plus the monitored penalty, [IN-08](@ref)), repeat it once without momentum from `y = x_previous`, copy the cached image of that point, and reset `k` to zero. The next iteration then extrapolates with `1/4`. An accepted step that used momentum does not increase the computed objective. A first or restarted step without momentum can increase it through rounding, invoking the default objective-increase exit unless `allow_f_increases=true`. Under explicit stopping the selected policy governs the exit under [STOP-22](@ref).
+**Statement.** If an extrapolated step raises the computed objective (the
+smooth value plus the monitored penalty, [IN-08](@ref) and [IN-12](@ref)),
+repeat it once without momentum from `y = x_previous`, copy the cached image
+of that point, and reset `k` to zero. The next iteration then extrapolates with
+`1/4`. An accepted step that used momentum does not increase the computed
+objective. A first or restarted step without momentum can increase it through
+rounding. Under default stopping with `allow_f_increases=false` this increase
+normally ends the solve ([STOP-09](@ref)). The `IndBallL1` route disables the
+objective-increase exit and can still stop at that iteration on a passing check,
+a callback or a limit. Its admitted base can lie outside the ball ([IN-12](@ref)).
+With explicit stopping, the selected policy governs the exit ([STOP-22](@ref)).
 
 A nonfinite value or gradient at the extrapolated point is treated the same way: restart when momentum was used, otherwise fail. A nonfinite smooth trial value is rejected, raising `L` through `next_curvature` rather than immediately accepting or silently ending. If `L/β` cannot increase finitely, the search errors; [RES-01](@ref) specifies restoration of the last accepted iterate and rethrow. A trial with a nonfinite smooth value is never accepted. The monitored penalty of an `IndBallL2` trial is specified in [IN-08](@ref).
 An explicit evaluation limit can prevent the restart or interrupt a search
@@ -66,7 +86,7 @@ under [STOP-24](@ref).
 
 ### [APG-05 Iteration residual versus accepted-point check](@id APG-05)
 
-**Statement.** The iteration's gradient/proximal residual is `L ‖x-y‖∞`, measured from the extrapolated point. It is a stopping quantity, not an independent KKT residual at accepted `x`. The common proposal tests and exact-stall rule use [STOP-02](@ref) and [STOP-10](@ref); proposed stops are checked at `x` under [STOP-03](@ref)–[STOP-07](@ref). The additional accepted-point gradient and its count are [STOP-08](@ref).
+**Statement.** The iteration's gradient/proximal residual is `L ‖x-y‖∞`, measured from the extrapolated point. It is a stopping quantity, not an independent KKT residual at accepted `x`. With default stopping, the common proposal tests and exact-stall rule use [STOP-02](@ref) and [STOP-10](@ref); for the ordinary penalties, proposed stops are checked at `x` under [STOP-03](@ref)–[STOP-07](@ref), and the additional accepted-point gradient and its count are [STOP-08](@ref). On the ℓ1-ball route the check is the full check of [FP-05](@ref), whose gradient is evaluated at the rounded radial witness, and B1's unchanged-iterate and progress proposals can also trigger it ([IN-12](@ref)).
 
 **Applies to.** AccProxGradDescent.
 
@@ -80,7 +100,7 @@ under [STOP-24](@ref).
 
 ### [APG-04 Trial and oracle counts](@id APG-04)
 
-**Statement.** `backtrack_steps` counts every APG trial, including accepted trials. Let `C` count stationarity checks that evaluate the gradient at accepted `x`, and `C_prox` count additional proximal evaluations by the generic check. On a completed solve with default stopping,
+**Statement.** `backtrack_steps` counts every APG trial, including accepted trials. Let `C` count stationarity checks that evaluate the gradient at accepted `x`, and `C_prox` count additional proximal evaluations by the generic check. On a completed solve with default stopping and an ordinary penalty,
 
 ```
 grad_calls = iterations + restarts + C
@@ -88,12 +108,17 @@ prox_calls = backtrack_steps + C_prox
 f_calls = 1 + grad_calls + backtrack_steps - C
 ```
 
-For a dedicated KKT check, including the `NormL2` check of [STOP-17](@ref), `C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can add a proximal call without a trial or function call; its guards and counting are [STOP-07](@ref) and [STOP-08](@ref). Errors do not transactionally restore these counters.
+For a dedicated KKT check, including the `NormL2` check of [STOP-17](@ref),
+`C_prox = 0`, so `backtrack_steps == prox_calls` and the last identity is
+equivalently `f_calls = 1 + grad_calls + prox_calls - C`. A generic check can
+add a proximal call without a trial or function call. Its guards and counting
+are [STOP-07](@ref) and [STOP-08](@ref). On the ℓ1-ball route, [IN-12](@ref)
+governs oracle counts for trials that can skip the projection or loss evaluation.
 
 With explicit stopping under [STOP-22](@ref) or [STOP-26](@ref),
 initialization counts one smooth value and one penalty value when it runs. Each application of the fused
-oracle at an accepted point counts one smooth value and one gradient. At most
-one such application is counted per checkpoint, including the initial point.
+oracle at an accepted point counts one smooth value and one gradient. Let `C`
+count these applications, at most one per checkpoint including initialization.
 Let `Z` be one if the matrix reference gradient under [STOP-27](@ref) was
 computed and zero otherwise. The gradient count is the number of fused
 evaluations started by searches plus `C + Z`, including any search from an
@@ -104,6 +129,8 @@ completed checkpoint or at initialization this is
 candidates discarded by a restart. A failed extrapolated oracle contributes
 to the value and gradient counts and contributes no prox trial when none ran.
 [RES-04](@ref) specifies the remaining result counters and the zero-cap return.
+
+Errors do not transactionally restore the counters.
 
 **Applies to.** Completed AccProxGradDescent solves.
 
@@ -316,6 +343,8 @@ The proof assumptions include IEEE arithmetic with gradual underflow and matrix-
 The retired normalized-KKT shorthand remains separately available as [historical evidence](@ref STOP-UNRECONCILED).
 
 ## Change log
+
+[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: APG accepts `IndBallL1` on the route of [IN-12](@ref); [APG-04](@ref) excludes that route from its counter identities. APG on the other penalties is unchanged.
 
 [#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): the monitored penalty of a four-coefficient `IndBallL2` trial is specified in [IN-08](@ref).
 

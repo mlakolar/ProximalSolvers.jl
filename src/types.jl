@@ -41,7 +41,9 @@ and [limit checks](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/p
 - `gradtol=1e-5`: gradient/proximal-residual tolerance; the final stationarity
   check has its own working-precision floor.
 - `allow_f_increases=false`: stop on a computed objective increase;
-  `true` removes that exit without certifying the result.
+  `true` removes that exit without certifying the result. On the `IndBallL1` route of PGD and
+  APG an increase does not by itself end the solve either way, though another exit can still end
+  it at that iteration (IN-12).
 - `store_trace=false`: retain iteration states in the returned `trace`.
 - `show_trace=false`: print the iteration trace.
 - `extended_trace=false`: include copied iterates and gradients in trace metadata.
@@ -207,6 +209,52 @@ function Base.show(io::IO, tr::OptimizationTrace)
 end
 
 
+"""
+    NumericalFeasibility(; coefficient_rtol = nothing, coefficient_atol = 0,
+                         objective_rtol = nothing, mapping_rtol = nothing)
+
+Optional tolerances for `IndBallL1(r)` with [`ProximalGradientDescent`](@ref) and
+[`AccProxGradDescent`](@ref), passed as the `feasibility` keyword of [`solve!`](@ref).
+`solve!` supports `IndBallL1` without the keyword, with the defaults below.
+
+```julia
+using ProximalBase, ProximalSolvers
+X = [1.0 0.25; 0.25 1.0; 0.5 -0.5]
+y = [1.0, -0.5, 0.25]
+beta = zeros(2)
+result = solve!(beta, LeastSquaresLoss(y, X), IndBallL1(0.5), ProximalGradientDescent();
+                feasibility = NumericalFeasibility(objective_rtol = 1e-8))
+result.converged, result.minimum
+```
+
+The tolerances set the cap of the numerical feasibility decision, which compares the computed
+widened margin (the `Float64` sum of the `|xᵢ|`, minus `r`) with the cap, a computed comparison
+rather than an exact bound on `‖x‖₁ - r`, and the support-gap and mapping budgets of the stopping
+check. A `nothing` takes the default for the coefficient type
+`T`: `coefficient_rtol = 1e-5`, `objective_rtol = 1e-5` and `mapping_rtol = 1e-4` for
+`Float32`, and `1e-10`, `1e-9` and `1e-8` for `Float64`; `coefficient_atol` defaults to `0`.
+
+# Extended help
+
+Before writing to `x`, `solve!` refuses with an `ArgumentError` a tolerance that is not a real
+number or `nothing`, coefficient tolerances that are not finite and nonnegative, and objective
+or mapping tolerances that are not finite and positive, each judged as given and after
+conversion to `Float64`. The result's `minimum` is the monitored numerical objective, the
+cached loss at the returned point, so it can be finite where ProximalBase's strict indicator
+evaluates that point as `Inf`. The route is specified in
+[IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12) and
+[FP-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/working-precision/#FP-05).
+"""
+struct NumericalFeasibility{A, B, C, D}
+  coefficient_rtol::A
+  coefficient_atol::B
+  objective_rtol::C
+  mapping_rtol::D
+end
+
+NumericalFeasibility(; coefficient_rtol = nothing, coefficient_atol = 0, objective_rtol = nothing,
+                     mapping_rtol = nothing) =
+  NumericalFeasibility(coefficient_rtol, coefficient_atol, objective_rtol, mapping_rtol)
 
 """
     OptimizationResults
@@ -239,6 +287,12 @@ optimization; see [result semantics](https://mlakolar.github.io/ProximalSolvers.
 - `stagnated`: the documented Float32 PGD stagnation exit; this is not a
   convergence or accuracy certificate, and other exit flags can also be true.
 - `gap`: `NaN`, because this result type does not compute a certified duality gap.
+
+On the `IndBallL1` route, `minimum` is the monitored numerical objective: the cached loss
+plus the route's monitored penalty `0`, which the trace and callback objectives also report. It
+can be finite at an admitted point that ProximalBase's strict indicator evaluates as `Inf`, and
+neither `minimum` nor `converged` certifies exact feasibility; see
+[IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12).
 
 For `NormL1`, `ElasticNet` and `GroupNormL2`, the stop check uses the applicable
 computed KKT residual; `NormLinf` uses the generic proximal-gradient check.
