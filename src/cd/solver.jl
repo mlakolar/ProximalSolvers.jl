@@ -26,7 +26,8 @@ also requires a certificate. See [RES-01](@ref).
 
 Dense vector least-squares lasso with an unweighted `NormL1` and momentum off
 also accepts `stopping` and `limits` in [`solve!`](@ref). `ObjectiveChange`
-compares consecutive full sweeps. Both full and active sweeps count toward
+compares consecutive full sweeps. `ScaledKKT` checks stationarity after full
+sweeps under [CD-12](@ref). Both full and active sweeps count toward
 `MaxPasses` and their visits count toward `MaxCoordinateVisits`. See
 [CD-10](@ref) and [CD-11](@ref) for checkpoints and admission.
 
@@ -183,8 +184,9 @@ end
 
 Result of an explicit stopping or budgeted solve with [`CDSolver`](@ref).
 The minimizer aliases the input vector. The minimum is `missing` when a limit
-prevents the first sweep. Policy satisfaction is recorded in [`termination`](@ref), and this
-route supplies no convergence certificate. See [RES-05](@ref).
+prevents the first sweep. [`termination`](@ref) records rule satisfaction.
+`converged` indicates passing stationarity evidence in the winning branch.
+See [RES-05](@ref).
 """
 struct CoordinateDescentStoppingResult{T,D}
   minimizer::Vector{T}
@@ -553,6 +555,58 @@ function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   dest
 end
 
+mutable struct _CDStationarityWorkspace{T,C}
+  x::Vector{T}
+  gradient::Vector{T}
+  predictor::Vector{T}
+  residual::Vector{T}
+  scales::C
+  smooth_value::T
+  pass::Int
+end
+
+mutable struct _CDStationarityProvider{F,G,M,W}
+  loss::F
+  penalty::G
+  model::M
+  workspace::Union{Nothing,W}
+  gradient_evaluations::Int
+end
+
+function _cd_stationarity_provider(f, g, ::Type{T}) where T
+  model = _image_model(f)
+  penalty = _converted_penalty(g, T)
+  _CDStationarityProvider{typeof(f),typeof(penalty),typeof(model),_CDStationarityWorkspace{T,_CoordinateScales}}(
+    f, penalty, model, nothing, 0)
+end
+
+Stopping.stationarity_eligible(::_CDStationarityProvider, point) = point.full
+
+function (provider::_CDStationarityProvider)(point, rtol)
+  work = provider.workspace
+  if work === nothing
+    T = eltype(point.x)
+    x = Vector{T}(undef, length(point.x))
+    predictor = _image_buffer(provider.model)
+    scales = _coordinate_scales(provider.model, provider.penalty, x)
+    provider.workspace = work = _CDStationarityWorkspace(
+      x, similar(x), predictor, similar(predictor), scales, zero(T), -1)
+  end
+  # Score the completed coefficients with a fresh residual and gradient. The
+  # incremental residual still belongs to the CD updates and composite objective.
+  if work.pass != point.iteration
+    _copy_dense!(work.x, point.x)
+    _image!(work.predictor, provider.model, work.x)
+    work.smooth_value = _value_and_gradient!(work.gradient, work.x, provider.loss,
+                                           work.predictor, work.residual)
+    work.pass = point.iteration
+    provider.gradient_evaluations += 1
+  end
+  isfinite(work.smooth_value) &&
+    _coordinatewise_stationary!(work.scales, provider.model, work.x, work.smooth_value,
+                               work.gradient, provider.penalty, rtol)
+end
+
 mutable struct _CDStoppingObserver{T,M,F}
   objective::T
   previous_full_objective::Union{Nothing,T}
@@ -584,6 +638,9 @@ function _check_cd_checkpoint!(observer, m, g, x, pass, full)
   objective = _measure_cd_objective!(observer, m, g, x)
   full && (observer.previous_full_objective = objective)
   point = (; iteration=pass, objective, previous_objective)
+  if observer.monitor.stationarity !== nothing
+    point = (; point..., x, full)
+  end
   observer.reason = Stopping.check!(observer.monitor, point, observer.visit_limit_reached)
 end
 
@@ -610,7 +667,7 @@ function _observe_cd_pass!(observer::_CDStoppingObserver, m, g, x, pass, full, a
 end
 
 function _cd_rule_needs_user_context(rule)
-  if rule isa Union{ObjectiveChange,UserStop}
+  if rule isa Union{ObjectiveChange,ScaledKKT,UserStop}
     return rule isa UserStop
   elseif rule isa Union{AnyOf,AllOf}
     # Validate each child even if an earlier one already needs the context.
@@ -633,14 +690,19 @@ function _cd_policy_limits(method, limits)
 end
 
 function _cd_policy_result(x, value, observer, passes, reason)
+  stationarity = observer.monitor.stationarity
+  gradient_evaluations = stationarity === nothing ? 0 : stationarity.provider.gradient_evaluations
   counts = (; observer.full_passes, observer.active_passes, observer.coordinate_visits,
-            observer.objective_evaluations)
+            observer.objective_evaluations, gradient_evaluations)
   report = Stopping.report(observer.monitor, reason, passes, counts)
   evaluation_limits = observer.monitor.evaluation_limits
   reached_evaluation_limits = observer.visit_limit_reached ? evaluation_limits : ()
   decision = merge(report, (; evaluation_limits, reached_evaluation_limits,
                             limit_reached=report.limit_reached || observer.visit_limit_reached))
-  CoordinateDescentStoppingResult(x, value, passes, false, decision)
+  converged = stationarity !== nothing && decision.satisfied &&
+    any(o -> o.evidence === :stationarity && o.status === :pass &&
+             o.path in decision.winning_branch, decision.observations)
+  CoordinateDescentStoppingResult(x, value, passes, converged, decision)
 end
 
 function _solve_cd_policy!(x, f, g, method, stopping, limits)
@@ -655,9 +717,13 @@ function _solve_cd_policy!(x, f, g, method, stopping, limits)
   has_user_stop = stopping === nothing ? false : _cd_rule_needs_user_context(stopping)
   monitor = Stopping.prepare(stopping, limit, eltype(x); evaluation_limits)
   visit_limit_reached = _cd_visit_limit_reached(evaluation_limits, 0, length(x))
+  can_run = limit.n > 0 && !visit_limit_reached
+  if can_run && Stopping.needs_stationarity(monitor)
+    monitor = Stopping.with_stationarity(monitor, _cd_stationarity_provider(f, g, eltype(x)))
+  end
   observer = _CDStoppingObserver(zero(eltype(x)), nothing, monitor, f, has_user_stop,
                                  visit_limit_reached, :continue, 0, 0, 0, 0)
-  (limit.n == 0 || visit_limit_reached) && return _cd_policy_result(x, missing, observer, 0, :limit)
+  can_run || return _cd_policy_result(x, missing, observer, 0, :limit)
 
   work = SparseIterate(x)
   m = _initialize_cd_model!(work, f, g, true)

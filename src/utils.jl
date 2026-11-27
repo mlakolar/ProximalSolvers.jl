@@ -203,12 +203,17 @@ end
 function _coordinatewise_stationary!(state::_CoordinatewiseState{T}, grad,
                                     g::Union{NormL1,ElasticNet}, rtol::Float64) where {T}
   gT = _converted_penalty(g, T)
+  _coordinatewise_stationary!(state.scales, state.model, state.x, state.f_x, grad, gT, rtol)
+end
+
+function _coordinatewise_stationary!(scales, model, x::Vector{T}, f_x, grad, gT,
+                                    rtol::Float64) where {T}
   λ2 = _ridge_level(gT)
-  scales = _filled_scales!(state.scales, state.model, λ2)
+  _filled_scales!(scales, model, λ2)
   τ = T(max(rtol, 64 * Float64(eps(T))))
-  trivial = scales.y_zero && all(_stored_zero, state.x)
-  c = _threshold_factor(τ, state.f_x, λ2, state.x)
-  _coordinates_pass(gT, grad, state.x, scales.h, c, trivial)
+  trivial = scales.y_zero && all(_stored_zero, x)
+  c = _threshold_factor(τ, f_x, λ2, x)
+  _coordinates_pass(gT, grad, x, scales.h, c, trivial)
 end
 
 # The coordinates of the check above. With `trivial` (case B), and where hᵢ is _CASE_A, the score must be finite and at

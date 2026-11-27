@@ -175,7 +175,7 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
 | PGD or APG with dense vector-response least squares, raw or with one supported positive scale, and the solver’s supported penalties apart from box and ball indicators | `Vector{Float32}` or `Vector{Float64}` | `IterateChange`, `ObjectiveChange`, `UserStop`, `AnyOf`, `AllOf` and `MaxIterations` |
 | These PGD and APG routes with `NormL1` or `ElasticNet`, with or without supported weights | `Vector{Float32}` or `Vector{Float64}` | Also `ScaledKKT(rtol=...)`, with optional scheduling by `Every` under [STOP-25](@ref) |
 | These dense vector PGD and APG routes | `Vector{Float32}` or `Vector{Float64}` | Also `MaxObjectiveEvaluations`, `MaxGradientEvaluations` and `MaxProximalEvaluations`. See [STOP-23](@ref) and [STOP-24](@ref) |
-| `CDSolver` with dense vector-response least squares, unweighted `NormL1`, and momentum off | `Vector{Float32}` or `Vector{Float64}` | `ObjectiveChange`, `UserStop`, `AnyOf`, `AllOf`, `MaxPasses` and `MaxCoordinateVisits`. See the [example](@ref cd-select-stopping) |
+| `CDSolver` with dense vector-response least squares, unweighted `NormL1`, and momentum off | `Vector{Float32}` or `Vector{Float64}` | `ObjectiveChange`, `ScaledKKT`, `UserStop`, `AnyOf`, `AllOf`, `MaxPasses` and `MaxCoordinateVisits`. See [CD-12](@ref) and the [example](@ref cd-select-stopping) |
 | `ADMMSolver` with centered `SqrNormL2`, unweighted `NormL1`, and a fixed penalty | `Vector{Float32}` or `Vector{Float64}` | `PrimalResidual`, `DualResidual`, `AnyOf`, `AllOf`, `MaxIterations` and `MaxProximalEvaluations`. See the [example](@ref admm-select-stopping) |
 
 Other solver and problem routes use their existing stopping options. See

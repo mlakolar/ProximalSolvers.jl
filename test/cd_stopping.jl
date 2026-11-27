@@ -24,7 +24,7 @@ end
     @test t.winning_branch === nothing
     @test map(o -> o.status, t.observations) == (:not_checked, :not_checked)
     @test checkpoints == [(0, T(3.125)), (1, T(2.125))]
-    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=3)
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=3, gradient_evaluations=0)
     # At the returned point the inactive first coordinate has |X₁'r| = 1 > 0.5.
     @test abs((f.Y - f.X * x)[1]) == one(T)
     @test occursin("Coordinate Descent", summary(r))
@@ -47,14 +47,14 @@ end
     @test r.minimizer == T[-0.5, 1.25] && r.minimum === T(1.9375)
     @test t.reason === :rule && t.satisfied && t.limit_reached && t.iteration == 3
     @test t.winning_branch == ((),) && t.observations[1].value == 3/16
-    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=2)
+    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=2, gradient_evaluations=0)
 
     r = solve!(zeros(T, 2), f, g, method; limits=MaxPasses(3))
     t = termination(r)
     @test r.minimizer == T[-0.5, 1.25] && r.minimum === T(1.9375)
     @test t.reason === :limit && !t.satisfied && t.limit_reached && t.iteration == 3
     @test isempty(t.observations) && t.winning_branch === nothing
-    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=1)
+    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=1, gradient_evaluations=0)
 end
 
 @testset "Composition and the initial checkpoint ($T)" for T in (Float32, Float64)
@@ -63,7 +63,7 @@ end
     r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxPasses(4))
     t = termination(r)
     @test t.reason === :rule && !t.limit_reached && t.winning_branch == ((1,), (2,))
-    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=4)
+    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=4, gradient_evaluations=0)
     @test (t.observations[2].value, t.observations[2].threshold) == (3/16, 3/16)
 
     rule = AnyOf(ObjectiveChange(atol=100), UserStop(c -> c.iteration == 2))
@@ -71,14 +71,14 @@ end
     t = termination(r)
     @test r.passes == 2 && t.reason === :user && t.winning_branch == ((2,),)
     @test map(o -> o.status, t.observations) == (:not_checked, :pass)
-    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=3)
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=3, gradient_evaluations=0)
 
     user = UserStop(c -> c.iteration == 0 && c.objective === T(3.125))
     r = solve!(zeros(T, 2), f, g, method; stopping=AnyOf(ObjectiveChange(), user))
     t = termination(r)
     @test r.passes == 0 && r.minimum === T(3.125) && t.reason === :user && !r.converged
     @test map(o -> o.status, t.observations) == (:not_checked, :pass)
-    @test t.counts == (full_passes=0, active_passes=0, coordinate_visits=0, objective_evaluations=1)
+    @test t.counts == (full_passes=0, active_passes=0, coordinate_visits=0, objective_evaluations=1, gradient_evaluations=0)
 
     equal = CDSolver(order=:cyclic, maxpasses=3)
     r = solve!(zeros(T, 2), T(2) * f, NormL1(one(T)), equal;
@@ -100,7 +100,7 @@ end
     @test t.reason === :limit && t.limit_reached && !t.satisfied
     @test map(o -> o.status, t.observations) == (:fail, :not_checked)
     @test t.observations[1].value == 15/64 && t.observations[1].threshold == 1/16
-    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=6, objective_evaluations=4)
+    @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=6, objective_evaluations=4, gradient_evaluations=0)
 end
 
 @testset "Zero cap, conflicts and all-leaf preflight" begin
@@ -121,7 +121,7 @@ end
     @test termination(r).limit.n == 0 && r.minimum === missing
     @test calls[] == 0
 
-    for unsupported in (IterateChange(), ScaledKKT(rtol=1e-5), MaxPasses(1))
+    for unsupported in (IterateChange(), Every(2, ScaledKKT(rtol=1e-5)), MaxPasses(1))
         @test_throws ArgumentError solve!(x, f, g, method;
             stopping=AnyOf(user, AllOf(ObjectiveChange(), unsupported)), limits=MaxPasses(0))
     end
@@ -154,7 +154,7 @@ end
     f = LeastSquaresLoss([0.0], ones(1, 1))
     r = solve!([1.0], f, g, CDSolver(order=:cyclic, relative=false); limits=MaxPasses(2))
     @test r.minimizer == [0.0] && r.passes == 2
-    @test termination(r).counts == (full_passes=1, active_passes=1, coordinate_visits=1, objective_evaluations=1)
+    @test termination(r).counts == (full_passes=1, active_passes=1, coordinate_visits=1, objective_evaluations=1, gradient_evaluations=0)
 end
 
 @testset "Budget-only trajectory and seeded order ($T, $order)" for T in (Float32, Float64), order in (:cyclic, :random)
@@ -191,7 +191,7 @@ end
         @test map(o -> o.status, t.observations) == (:not_checked, :not_checked)
         @test checkpoints == collect(0:passes - 1)
         @test t.counts == (full_passes=1, active_passes=passes - 1, coordinate_visits=visits,
-                           objective_evaluations=passes + 1)
+                           objective_evaluations=passes + 1, gradient_evaluations=0)
     end
 
     cap = MaxCoordinateVisits(6)
@@ -206,7 +206,7 @@ end
         @test checkpoints == [0, 1, 2] && t.winning_branch == ((2,),)
         @test map(o -> o.status, t.observations) == (:not_checked, :pass)
         @test t.observations[2].value == 3/16
-        @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=4)
+        @test t.counts == (full_passes=2, active_passes=1, coordinate_visits=5, objective_evaluations=4, gradient_evaluations=0)
     end
 
     cap = MaxCoordinateVisits(7)
@@ -221,7 +221,7 @@ end
     t = termination(r)
     @test t.reason === :limit && t.limit_reached && t.iteration == t.limit.n == 2
     @test t.evaluation_limits === (cap,) && isempty(t.reached_evaluation_limits)
-    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=1)
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=1, gradient_evaluations=0)
 end
 
 @testset "A blocked full sweep returns the current active objective ($T)" for T in (Float32, Float64)
@@ -232,7 +232,7 @@ end
     t = termination(r)
     @test r.minimizer == T[1, 0.75] && r.minimum === T(0.9375)
     @test t.reason === :limit && t.iteration == 2 && only(t.observations).status === :not_checked
-    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=4, objective_evaluations=2)
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=4, objective_evaluations=2, gradient_evaluations=0)
 
     # The active sweep visits both coordinates even though the first becomes zero.
     f = LeastSquaresLoss(T[0.75, 2.25], T[1 1; 0 1])
@@ -252,21 +252,21 @@ end
     t = termination(r)
     @test r.minimizer == T[0] && r.passes == 2 && t.reached_evaluation_limits === (cap,)
     @test t.reason === :limit && t.limit_reached
-    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=1, objective_evaluations=1)
+    @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=1, objective_evaluations=1, gradient_evaluations=0)
 
     r = solve!(T[1], f, g, CDSolver(order=:cyclic, relative=false, tol=0);
                limits=(MaxPasses(3), cap))
     t = termination(r)
     @test t.reason === :limit && t.limit_reached && r.passes == t.limit.n == 3
     @test isempty(t.reached_evaluation_limits)
-    @test t.counts == (full_passes=1, active_passes=2, coordinate_visits=1, objective_evaluations=1)
+    @test t.counts == (full_passes=1, active_passes=2, coordinate_visits=1, objective_evaluations=1, gradient_evaluations=0)
 
     f, g, _ = example(T)
     cap = MaxCoordinateVisits(43)
     r = solve!(zeros(T, 2), f, g, CDSolver(order=:cyclic, tol=0); limits=cap)
     t = termination(r)
     @test r.minimizer == T[0, 1] && r.passes == 41 && t.reached_evaluation_limits === (cap,)
-    @test t.counts == (full_passes=1, active_passes=40, coordinate_visits=42, objective_evaluations=1)
+    @test t.counts == (full_passes=1, active_passes=40, coordinate_visits=42, objective_evaluations=1, gradient_evaluations=0)
 end
 
 @testset "Visit limits preserve seeded random prefixes ($T)" for T in (Float32, Float64)
@@ -320,6 +320,129 @@ end
     @test_throws ArgumentError MaxCoordinateVisits(-1)
     @test_throws ArgumentError MaxCoordinateVisits(big(typemax(Int)) + 1)
     @test x == [floatmax(Float64)/2, 0.0] && rand(rng, UInt64) == rand(reference, UInt64)
+end
+
+@testset "Full-sweep ScaledKKT on an analytic lasso ($T, $order)" for
+        T in (Float32, Float64), order in (:cyclic, :random)
+    X, y = T[1 0; 0 2], T[2, -2]
+    f, g = 2.25 * LeastSquaresLoss(y, X), NormL1(1.125)
+    method = CDSolver(; order, momentum=false, rng=MersenneTwister(523))
+    kkt = ScaledKKT(rtol=0)
+    r = solve!(zeros(T, 2), f, g, method; stopping=kkt, limits=MaxPasses(2))
+    t = termination(r)
+    expected = T[1.5, -0.875]
+    @test r.minimizer == expected && r.minimum === T(3.0234375)
+    @test r.passes == 1 && PS.converged(r) && t.satisfied && t.reason === :rule
+    @test t.winning_branch == ((),) && !t.limit_reached
+    @test isequal(only(t.observations), (; path=(), name=:ScaledKKT, evidence=:stationarity,
+                                         status=:pass, value=true, threshold=true, scale=missing))
+    @test t.counts == (full_passes=1, active_passes=0, coordinate_visits=2,
+                       objective_evaluations=1, gradient_evaluations=1)
+    residual = BigFloat.(X) * BigFloat.(r.minimizer) - BigFloat.(y)
+    @test (big"2.25" * (transpose(BigFloat.(X)) * residual)) ==
+          -big"1.125" .* sign.(r.minimizer)
+
+    for limit in (MaxPasses(1), MaxCoordinateVisits(2))
+        capped = solve!(zeros(T, 2), f, g, method; stopping=kkt, limits=limit)
+        end_state = termination(capped)
+        @test capped.minimizer == expected && capped.passes == 1 && !capped.converged
+        @test end_state.limit_reached && !end_state.satisfied && end_state.reason === :limit
+        @test only(end_state.observations).status === :not_checked
+        @test end_state.counts.gradient_evaluations == 0
+        @test end_state.reached_evaluation_limits == (limit isa MaxCoordinateVisits ? (limit,) : ())
+    end
+    for limit in (MaxPasses(0), MaxCoordinateVisits(1))
+        start = copy(expected)
+        stopped = solve!(start, f, g, method; stopping=kkt, limits=limit)
+        @test stopped.minimizer === start && start == expected && stopped.minimum === missing
+        @test termination(stopped).reason === :limit
+        @test all(iszero, values(termination(stopped).counts))
+    end
+
+    rule = AllOf(ScaledKKT(rtol=1e-3), kkt, kkt)
+    r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxPasses(2))
+    @test r.converged && termination(r).winning_branch == ((1,), (2,), (3,))
+    @test termination(r).counts.gradient_evaluations == 1
+
+    checkpoints = Int[]
+    watch(c) = (push!(checkpoints, c.iteration); c.iteration >= 2)
+    r = solve!(zeros(T, 2), f, g, method; stopping=AllOf(kkt, UserStop(watch)),
+               limits=MaxPasses(4))
+    @test checkpoints == [1, 3]
+    @test r.converged && r.passes == 3 && termination(r).counts.gradient_evaluations == 2
+
+    r = solve!(zeros(T, 2), f, g, method; stopping=AllOf(kkt, UserStop(_ -> false)),
+               limits=MaxPasses(2))
+    t = termination(r)
+    @test t.reason === :limit && t.counts.active_passes == 1
+    @test map(o -> o.status, t.observations) == (:not_checked, :not_checked)
+    @test t.counts.gradient_evaluations == 1 && !r.converged
+
+    rule = AnyOf(UserStop(c -> c.iteration == 1), kkt)
+    r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxPasses(2))
+    t = termination(r)
+    @test !r.converged && t.satisfied && t.reason === :user && t.winning_branch == ((1,),)
+    @test t.observations[2].status === :not_checked && t.counts.gradient_evaluations == 0
+end
+
+@testset "KKT evaluates the complete accepted point ($T)" for T in (Float32, Float64)
+    f, g, method = example(T)
+    kkt = ScaledKKT(rtol=0)
+    rule = AnyOf(kkt, UserStop(c -> c.iteration == 1))
+    r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxPasses(2))
+    t = termination(r)
+    @test r.minimizer == T[0, 1] && !r.converged && t.reason === :user
+    @test t.observations[1].status === :fail && t.counts.gradient_evaluations == 1
+
+    # The first residual update loses the small response next to the large
+    # starting coefficient. The sweep returns to zero with cached loss 1/2.
+    f = LeastSquaresLoss(T[1, 1], reshape(T[1, 0], 2, 1))
+    x = T[ldexp(one(T), precision(T) + 2)]
+    r = solve!(x, f, g, method; stopping=rule, limits=MaxPasses(2))
+    t = termination(r)
+    @test x == T[0] && r.minimum === T(0.5) && f(x) === one(T)
+    @test only(transpose(f.X) * (f.X * x - f.Y)) == -one(T)
+    @test !r.converged && t.reason === :user && t.observations[1].status === :fail
+    @test t.counts.gradient_evaluations == 1
+
+    # With a larger response, the fresh loss overflows while the incremental
+    # objective is finite. The diagnostic fails and the progress leaf can win.
+    k = exponent(floatmax(T)) ÷ 2 + 2
+    f = LeastSquaresLoss(T[ldexp(one(T), k)], ones(T, 1, 1))
+    x = T[ldexp(one(T), k + precision(T) + 2)]
+    r = solve!(x, f, g, method; stopping=AnyOf(kkt, ObjectiveChange()),
+               limits=MaxPasses(10))
+    t = termination(r)
+    @test x == T[0] && r.minimum === zero(T) && isinf(f(x))
+    @test t.reason === :rule && t.winning_branch == ((2,),) && !r.converged
+    @test map(o -> o.status, t.observations) == (:fail, :pass)
+    @test t.counts.gradient_evaluations == 2
+
+    # A later predicate can throw after the gradient ran. The caller still
+    # holds the original start until CD produces a result.
+    x = T[2]
+    orthogonal = LeastSquaresLoss(T[1, 1], reshape(T[1, 0], 2, 1))
+    fails(c) = c.iteration == 1 ? error("after the full sweep") : false
+    @test_throws ErrorException solve!(x, orthogonal, g, method;
+        stopping=AllOf(kkt, UserStop(fails)), limits=MaxPasses(2))
+    @test x == T[2]
+end
+
+@testset "CD stationarity leaves the fixed-budget trajectory and RNG alone ($T)" for T in (Float32, Float64)
+    f, g, _ = example(T)
+    a, b = zeros(T, 2), zeros(T, 2)
+    rng = MersenneTwister(754)
+    same_rng = copy(rng)
+    ma = CDSolver(order=:random, momentum=false, rng=rng)
+    mb = CDSolver(order=:random, momentum=false, rng=same_rng)
+    cap = MaxPasses(12)
+    baseline = solve!(a, f, g, ma; limits=cap)
+    rule = AllOf(ScaledKKT(rtol=0), UserStop(_ -> false))
+    observed = solve!(b, f, g, mb; stopping=rule, limits=cap)
+    @test isequal(a, b) && baseline.minimum === observed.minimum
+    @test !observed.converged && termination(observed).reason === :limit
+    @test termination(baseline).counts.coordinate_visits == termination(observed).counts.coordinate_visits
+    @test rand(rng, UInt64) == rand(same_rng, UInt64)
 end
 
 end
