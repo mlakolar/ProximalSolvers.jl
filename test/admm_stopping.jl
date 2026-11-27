@@ -11,7 +11,7 @@ both_residuals() = AllOf(DualResidual(), PrimalResidual())
     z, u = T[0], T[0]
     r = solve!(z, f, g, method; u, stopping=both_residuals(), limits=MaxIterations(1))
     t = termination(r)
-    @test r isa PS.ADMMStoppingResult
+    @test r isa PS.ADMMStoppingResult && r.method === method
     @test PS.minimizer(r) === z && PS.minimum(r) === T(3.625) && z == T[0.5]
     @test r.u === u && u == T[1] && r.ρ === one(T)
     @test PS.iterations(r) == r.iterations == t.iteration == 1
@@ -22,7 +22,14 @@ both_residuals() = AllOf(DualResidual(), PrimalResidual())
     @test all(o -> o.evidence === :residual && ismissing(o.scale), t.observations)
     @test t.counts == (f_calls=1, g_calls=1, prox_calls=2)
     @test PS.f_calls(r) == 1 && PS.grad_calls(r) == 0 && PS.prox_calls(r) == 2
-    @test PS.iteration_limit_reached(r) && occursin("limit", sprint(show, r))
+    @test PS.iteration_limit_reached(r)
+    @test summary(r) == summary(method)
+    printed = sprint(show, r)
+    @test occursin("ADMM (explicit stopping policy)", printed)
+    @test occursin(" * Minimizer: [0.5]", printed) && occursin(" * Iterations: 1", printed)
+    @test occursin(" * Convergence: false", printed) &&
+          occursin(" * Stopping condition satisfied: false", printed) &&
+          occursin(" * Stop reason: limit", printed)
 
     r = solve!(T[0], f, g, method; stopping=AnyOf(DualResidual(), PrimalResidual()),
                limits=MaxIterations(1))
@@ -48,12 +55,27 @@ both_residuals() = AllOf(DualResidual(), PrimalResidual())
     @test map(o -> (o.value, o.threshold), termination(r).observations) == ((1.25, 1.25), (0.25, 0.625))
 end
 
+@testset "Nonfinite residual observations ($T)" for T in (Float32, Float64)
+    for (value, threshold) in ((T(NaN), one(T)), (one(T), T(NaN)),
+                               (T(Inf), one(T)), (one(T), T(Inf)), (T(Inf), T(Inf)))
+        point = (; r_norm=value, s_norm=value, eps_pri=threshold, eps_dual=threshold)
+        for rule in (PrimalResidual(), DualResidual())
+            observation = PS.Stopping.assess(rule, point, nothing, false)
+            @test observation.status === :invalid
+            @test isequal((observation.value, observation.threshold), (Float64(value), Float64(threshold)))
+        end
+    end
+end
+
 @testset "Zero budget, stagnation and private return ($T)" for T in (Float32, Float64)
     f, g = SqrNormL2(1, T[1]), NormL1(0)
     z, u = T[floatmax(T)/4], T[0.25]
-    r = solve!(z, f, g, ADMMSolver(); u, stopping=both_residuals(), limits=MaxIterations(0))
+    method = ADMMSolver(ρ=2.0)
+    r = solve!(z, f, g, method; u, stopping=both_residuals(), limits=MaxIterations(0))
     t = termination(r)
+    @test r.method === method && r.ρ === T(2)
     @test r.minimizer === z && r.u === u && r.minimum === missing
+    @test occursin(" * Minimum: missing", sprint(show, r))
     @test z == T[floatmax(T)/4] && u == T[0.25]
     @test t.reason === :limit && t.limit_reached && !t.satisfied && !r.converged
     @test t.iteration == 0 && all(iszero, values(t.counts))
@@ -157,7 +179,7 @@ end
     z, u = T[floatmax(T)], T[-floatmax(T)]
     r = solve!(z, f, g, method; u, stopping=both_residuals(), limits=MaxProximalEvaluations(1))
     t = termination(r)
-    @test r.minimizer === z && r.u === u && r.ρ === T(2)
+    @test r.method === method && r.minimizer === z && r.u === u && r.ρ === T(2)
     @test z == T[floatmax(T)] && u == T[-floatmax(T)] && ismissing(r.minimum)
     @test t.iteration == 0 && all(iszero, values(t.counts))
     @test all(o -> o.status === :not_checked, t.observations)

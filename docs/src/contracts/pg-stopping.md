@@ -638,8 +638,9 @@ short-circuiting expression. The check uses the stored loss at the current
 accepted point. PGD supplies its stored gradient at that point. For APG, the
 first evaluated `ScaledKKT` leaf at a checkpoint forms the gradient from the
 cached image of the accepted point. It uses the existing `xhat` and `dz` scratch
-buffers. Other KKT leaves at that checkpoint reuse the gradient, including
-leaves with a different tolerance. [APG-04](@ref) gives the oracle counts.
+buffers. While the checkpoint remains below its caps, other evaluated KKT
+leaves reuse the gradient, including leaves with a different tolerance.
+[APG-04](@ref) gives the oracle counts.
 The check fills the column scales at its first evaluation and reuses them for
 the solve. Evaluations with identical `rtol` share a decision within the same
 checkpoint.
@@ -663,8 +664,8 @@ of the same kind are shared within a checkpoint, and objective conditions reuse
 the solver's accepted objective values. At a reached cap, the monitor may
 decide a tie using the cached objective and predecessor. It skips movement
 scans, fresh stationarity checks and predicates. It leaves those conditions
-unchecked. [STOP-24](@ref) also describes a cap reached during APG stationarity
-evaluation and the reuse of an already measured result.
+unchecked. A stationarity leaf can still reuse a verdict already measured at
+the same checkpoint and stored tolerance, as specified in [STOP-24](@ref).
 Display and result construction request no extra solver oracle calls. Trace operations run after
 the policy decision and cannot supply evidence for it. [RES-04](@ref) specifies
 the result and accounting.
@@ -693,7 +694,9 @@ capped KKT leaves, unsupported nested leaves and oracle accounting.
 independent references. `test/pgd_stopping_policy.jl` checks that APG uses the
 accepted gradient once per checkpoint across tolerances. `test/accelerated_pgd.jl`
 checks the explicit checkpoint sequence and counts through rejected trials and
-restarts. `test/core_regressions.jl` covers the explicit PGD Float32 stagnation exit.
+restarts. `test/apg_evaluation_limits.jl` checks identical and different
+tolerances after an APG stationarity evaluation reaches a cap.
+`test/core_regressions.jl` covers the explicit PGD Float32 stagnation exit.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
 

@@ -344,8 +344,10 @@ settings and buffers are validated before solving, even at a zero cap.
 Use the recurrence, residuals and thresholds of [ADM-02](@ref), with the
 fixed working-precision penalty and the selected relaxation and tolerances.
 Neither residual is checked at initialization. After both proximal updates
-and the scaled dual update, each evaluated leaf compares its stored residual
-with the corresponding threshold in working precision, using `<=`.
+and the scaled dual update, each evaluated leaf compares its finite residual
+and threshold in working precision, using `<=`. A nonfinite residual or
+threshold yields an `:invalid` leaf observation if assessed. The solver
+applies the finiteness check of [ADM-02](@ref) before rule assessment.
 A completed iteration with two zero residuals runs the stationarity guard of
 [ADM-02](@ref) before a nonempty rule is assessed. A failed finite guard
 returns `:stalled` with the leaves unchecked. A solve with a limit alone
@@ -370,9 +372,10 @@ matrix storage and adaptive penalties.
 **Code.** `src/solvers/admm.jl` and `src/stopping.jl`.
 
 **Tests.** `test/admm_stopping.jl` checks both working precisions, the
-completed-iteration comparisons and cap ties, relaxation, the stationarity
-guard, zero-budget and unsupported inputs, warm starts and failure before
-either caller buffer is updated.
+completed-iteration comparisons and cap ties, both leaf assessments using
+nonfinite measurements, relaxation, the stationarity guard, zero-budget and
+unsupported inputs, warm starts and failure before either caller buffer is
+updated.
 
 **Sources.** [#523, solver rollout B4](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 

@@ -16,7 +16,7 @@ end
     rule = AnyOf(UserStop(watch), ObjectiveChange())
     r = solve!(x, f, g, method; stopping=rule, limits=MaxPasses(2))
     t = termination(r)
-    @test r isa PS.CoordinateDescentStoppingResult
+    @test r isa PS.CoordinateDescentStoppingResult && r.method === method
     @test PS.minimizer(r) === x && x == T[0, 1] && PS.minimum(r) === T(2.125)
     @test PS.iterations(r) == r.passes == t.iteration == 2
     @test !PS.converged(r) && !r.converged && !t.satisfied && t.reason === :limit
@@ -27,8 +27,13 @@ end
     @test t.counts == (full_passes=1, active_passes=1, coordinate_visits=3, objective_evaluations=3, gradient_evaluations=0)
     # At the returned point the inactive first coordinate has |X₁'r| = 1 > 0.5.
     @test abs((f.Y - f.X * x)[1]) == one(T)
-    @test occursin("Coordinate Descent", summary(r))
-    @test occursin("reason=limit", sprint(show, r))
+    @test summary(r) == summary(method)
+    printed = sprint(show, r)
+    @test occursin("Coordinate Descent (explicit stopping policy)", printed)
+    @test occursin(" * Minimizer: [0.0,1.0]", printed) && occursin(" * Passes: 2", printed)
+    @test occursin(" * Convergence: false", printed) &&
+          occursin(" * Stopping condition satisfied: false", printed) &&
+          occursin(" * Stop reason: limit", printed)
 
     r = solve!(zeros(T, 2), f, g, method; stopping=ObjectiveChange(), limits=MaxPasses(2))
     t = termination(r)
@@ -76,7 +81,8 @@ end
     user = UserStop(c -> c.iteration == 0 && c.objective === T(3.125))
     r = solve!(zeros(T, 2), f, g, method; stopping=AnyOf(ObjectiveChange(), user))
     t = termination(r)
-    @test r.passes == 0 && r.minimum === T(3.125) && t.reason === :user && !r.converged
+    @test r.method === method && r.passes == 0 && r.minimum === T(3.125)
+    @test t.reason === :user && !r.converged
     @test map(o -> o.status, t.observations) == (:not_checked, :pass)
     @test t.counts == (full_passes=0, active_passes=0, coordinate_visits=0, objective_evaluations=1, gradient_evaluations=0)
 
@@ -113,10 +119,11 @@ end
     x = [1.0, 0.0]
     r = solve!(x, f, g, method; stopping=user, limits=MaxPasses(0))
     t = termination(r)
-    @test r.minimizer === x && x == [1, 0] && r.minimum === missing && r.passes == 0
+    @test r.method === method && r.minimizer === x && x == [1, 0]
+    @test r.minimum === missing && r.passes == 0
     @test t.reason === :limit && t.limit_reached && !r.converged && !t.satisfied
     @test t.observations[1].status === :not_checked && all(iszero, values(t.counts))
-    @test occursin("missing", sprint(show, r))
+    @test occursin(" * Minimum: missing", sprint(show, r))
     r = solve!(x, f, g, CDSolver(order=:cyclic, maxpasses=0); stopping=user)
     @test termination(r).limit.n == 0 && r.minimum === missing
     @test calls[] == 0
@@ -294,7 +301,8 @@ end
         cap = MaxCoordinateVisits(capacity)
         r = solve!(x, f, g, method; stopping=must_skip, limits=cap)
         t = termination(r)
-        @test r.minimizer === x && x == [floatmax(Float64)/2, 0.0] && r.minimum === missing
+        @test r.method === method && r.minimizer === x && x == [floatmax(Float64)/2, 0.0]
+        @test r.minimum === missing
         @test t.reason === :limit && r.passes == 0 && t.limit_reached && !t.satisfied
         @test t.reached_evaluation_limits === (cap,)
         @test only(t.observations).status === :not_checked && all(iszero, values(t.counts))

@@ -183,12 +183,14 @@ end
     ProximalSolvers.CoordinateDescentStoppingResult
 
 Result of an explicit stopping or budgeted solve with [`CDSolver`](@ref).
+`method` holds the supplied solver.
 The minimizer aliases the input vector. The minimum is `missing` when a limit
 prevents the first sweep. [`termination`](@ref) records rule satisfaction.
 `converged` indicates passing stationarity evidence in the winning branch.
 See [RES-05](@ref).
 """
-struct CoordinateDescentStoppingResult{T,D}
+struct CoordinateDescentStoppingResult{T,D,M<:CDSolver}
+  method::M
   minimizer::Vector{T}
   minimum::Union{Missing,T}
   passes::Int
@@ -196,7 +198,7 @@ struct CoordinateDescentStoppingResult{T,D}
   decision::D
 end
 
-Base.summary(::CoordinateDescentStoppingResult) = "Coordinate Descent"
+Base.summary(r::CoordinateDescentStoppingResult) = summary(r.method)
 minimizer(r::CoordinateDescentStoppingResult) = r.minimizer
 minimum(r::CoordinateDescentStoppingResult) = r.minimum
 iterations(r::CoordinateDescentStoppingResult) = r.passes
@@ -204,9 +206,14 @@ converged(r::CoordinateDescentStoppingResult) = r.converged
 Stopping.termination(r::CoordinateDescentStoppingResult) = r.decision
 
 function Base.show(io::IO, r::CoordinateDescentStoppingResult)
-  print(io, summary(r), " stopping result (passes=", r.passes, ", minimum=", r.minimum,
-        ", converged=", r.converged, ", satisfied=", r.decision.satisfied,
-        ", reason=", r.decision.reason, ")")
+  println(io, summary(r), " (explicit stopping policy)")
+  _show_minimizer(io, minimizer(r))
+  println(io, " * Minimum: ", minimum(r))
+  println(io, " * Passes: ", r.passes)
+  decision = termination(r)
+  println(io, " * Convergence: ", converged(r))
+  println(io, " * Stopping condition satisfied: ", decision.satisfied)
+  print(io, " * Stop reason: ", decision.reason)
 end
 
 # Nesterov momentum on the passes over the active set (see CDSolver), as in
@@ -689,7 +696,7 @@ function _cd_policy_limits(method, limits)
   limit, filter(l -> l isa MaxCoordinateVisits, requested)
 end
 
-function _cd_policy_result(x, value, observer, passes, reason)
+function _cd_policy_result(method, x, value, observer, passes, reason)
   stationarity = observer.monitor.stationarity
   gradient_evaluations = stationarity === nothing ? 0 : stationarity.provider.gradient_evaluations
   counts = (; observer.full_passes, observer.active_passes, observer.coordinate_visits,
@@ -702,7 +709,7 @@ function _cd_policy_result(x, value, observer, passes, reason)
   converged = stationarity !== nothing && decision.satisfied &&
     any(o -> o.evidence === :stationarity && o.status === :pass &&
              o.path in decision.winning_branch, decision.observations)
-  CoordinateDescentStoppingResult(x, value, passes, converged, decision)
+  CoordinateDescentStoppingResult(method, x, value, passes, converged, decision)
 end
 
 function _solve_cd_policy!(x, f, g, method, stopping, limits)
@@ -723,12 +730,12 @@ function _solve_cd_policy!(x, f, g, method, stopping, limits)
   end
   observer = _CDStoppingObserver(zero(eltype(x)), nothing, monitor, f, has_user_stop,
                                  visit_limit_reached, :continue, 0, 0, 0, 0)
-  can_run || return _cd_policy_result(x, missing, observer, 0, :limit)
+  can_run || return _cd_policy_result(method, x, missing, observer, 0, :limit)
 
   work = SparseIterate(x)
   m = _initialize_cd_model!(work, f, g, true)
   if has_user_stop && _check_cd_checkpoint!(observer, m, g, work, 0, false) !== :continue
-    return _cd_policy_result(x, observer.objective, observer, 0, observer.reason)
+    return _cd_policy_result(method, x, observer.objective, observer, 0, observer.reason)
   end
 
   st = _CDState(eltype(x), work, method)
@@ -737,7 +744,7 @@ function _solve_cd_policy!(x, f, g, method, stopping, limits)
     _measure_cd_objective!(observer, m, g, work)
     observer.reason = :limit
   end
-  result = _cd_policy_result(x, observer.objective, observer, st.passes, observer.reason)
+  result = _cd_policy_result(method, x, observer.objective, observer, st.passes, observer.reason)
   _copy_dense!(x, work)
   result
 end

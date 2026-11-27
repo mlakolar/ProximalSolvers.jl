@@ -288,9 +288,9 @@ checks the matrix result, limits and counters.
 ## [RES-05 Explicit coordinate descent stopping result](@id RES-05)
 
 **Statement.** [CD-10](@ref) returns a `CoordinateDescentStoppingResult`.
-Its `minimizer` aliases the caller's coefficients, `minimum` holds the computed
-objective or `missing` when a limit prevents the first sweep, and `passes`
-counts completed sweeps.
+Its `method` is the supplied `CDSolver`. Its `minimizer` aliases the caller's
+coefficients, `minimum` holds the computed objective or `missing` when a
+limit prevents the first sweep, and `passes` counts completed sweeps.
 `converged` is true when the winning branch includes a passing
 `ScaledKKT` leaf under [CD-12](@ref). A fulfilled objective or user condition
 is recorded in `termination(result).satisfied`. A fulfilled
@@ -318,19 +318,20 @@ no solver evaluations.
 
 **Code.** `src/cd/solver.jl` and `src/stopping.jl`.
 
-**Tests.** `test/cd_stopping.jl` checks the result accessors, alias, pass and
-objective counters, cap and user exits, and winning evidence.
+**Tests.** `test/cd_stopping.jl` checks the result accessors, method, display,
+coefficient alias, pass and objective counters, cap and user exits, and
+winning evidence.
 
 **Sources.** [#523, solver rollout B3](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
 ## [RES-06 Explicit consensus ADMM stopping result](@id RES-06)
 
-**Statement.** [ADM-06](@ref) returns an `ADMMStoppingResult`. Its
-`minimizer` aliases the caller's consensus variable. Its `u` aliases an
-explicit scaled dual or holds the solver's dual when no buffer was supplied.
-`ρ` is the fixed working penalty. `minimum` holds the computed objective
-or `missing` when the limits permit no complete iteration. `iterations`
-counts completed iterations.
+**Statement.** [ADM-06](@ref) returns an `ADMMStoppingResult`. Its `method`
+is the supplied `ADMMSolver`. Its `minimizer` aliases the caller's consensus
+variable. Its `u` aliases an explicit scaled dual or holds the solver's dual
+when no buffer was supplied. `ρ` is the fixed working penalty. `minimum` holds
+the computed objective or `missing` when the limits permit no complete
+iteration. `iterations` counts completed iterations.
 
 `termination(result).satisfied` reports rule satisfaction. `converged` is
 true when the winning branch contains a passing leaf of each residual kind
@@ -356,8 +357,8 @@ display perform no solver evaluations.
 
 **Code.** `src/solvers/admm.jl` and `src/stopping.jl`.
 
-**Tests.** `test/admm_stopping.jl` checks aliases, objective, reports, counts,
-convergence, both kinds of cap and display.
+**Tests.** `test/admm_stopping.jl` checks the method, aliases, objective,
+reports, counts, convergence, both kinds of cap and display.
 
 **Sources.** [#523, solver rollout B4](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 

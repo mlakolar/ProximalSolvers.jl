@@ -116,12 +116,14 @@ end
     ProximalSolvers.ADMMStoppingResult
 
 Result of an explicit stopping or budgeted solve with [`ADMMSolver`](@ref).
-`minimizer` and `u` hold the returned consensus iterate and scaled dual at `ρ`.
+`method` holds the supplied solver. `minimizer` and `u` hold the returned
+consensus iterate and scaled dual at the fixed working penalty `ρ`.
 The minimum is `missing` when the limits permit no complete iteration.
 `converged` requires both residual kinds in the winning branch of
 [`termination`](@ref). See [RES-06](@ref).
 """
-struct ADMMStoppingResult{T,D}
+struct ADMMStoppingResult{T,D,M<:ADMMSolver}
+  method::M
   minimizer::Vector{T}
   minimum::Union{Missing,T}
   iterations::Int
@@ -131,7 +133,7 @@ struct ADMMStoppingResult{T,D}
   decision::D
 end
 
-Base.summary(::ADMMStoppingResult) = "ADMM"
+Base.summary(r::ADMMStoppingResult) = summary(r.method)
 minimizer(r::ADMMStoppingResult) = r.minimizer
 minimum(r::ADMMStoppingResult) = r.minimum
 iterations(r::ADMMStoppingResult) = r.iterations
@@ -145,9 +147,14 @@ call_limit_reached(r::ADMMStoppingResult) = !isempty(r.decision.reached_evaluati
 stagnated(r::ADMMStoppingResult) = r.decision.reason === :stalled
 
 function Base.show(io::IO, r::ADMMStoppingResult)
-  print(io, summary(r), " stopping result (iterations=", r.iterations, ", minimum=", r.minimum,
-        ", converged=", r.converged, ", satisfied=", r.decision.satisfied,
-        ", reason=", r.decision.reason, ")")
+  println(io, summary(r), " (explicit stopping policy)")
+  _show_minimizer(io, minimizer(r))
+  println(io, " * Minimum: ", minimum(r))
+  println(io, " * Iterations: ", iterations(r))
+  decision = termination(r)
+  println(io, " * Convergence: ", converged(r))
+  println(io, " * Stopping condition satisfied: ", decision.satisfied)
+  print(io, " * Stop reason: ", decision.reason)
 end
 
 function _check_admm_options(options)
@@ -185,7 +192,7 @@ end
 
 _admm_prox_pairs(limit::MaxProximalEvaluations) = limit.n ÷ 2
 
-function _admm_policy_result(z, u, objective, iterations, ρ, monitor, reason, calls)
+function _admm_policy_result(method, z, u, objective, iterations, ρ, monitor, reason, calls)
   f_calls = g_calls = ismissing(objective) ? 0 : 1
   counts = (; f_calls, g_calls, prox_calls=calls)
   report = Stopping.report(monitor, reason, iterations, counts)
@@ -197,7 +204,7 @@ function _admm_policy_result(z, u, objective, iterations, ρ, monitor, reason, c
   converged = decision.satisfied &&
     all(name -> any(o -> o.name === name && o.path in decision.winning_branch,
                     decision.observations), residuals)
-  ADMMStoppingResult(z, objective, iterations, converged, u, ρ, decision)
+  ADMMStoppingResult(method, z, objective, iterations, converged, u, ρ, decision)
 end
 
 """
@@ -281,7 +288,7 @@ function _solve_admm!(initial_z::Vector{T}, f, g, method, options, initial_u, mo
   settings = _admm_working_settings(T, method)
 
   # Use native levels for the two oracles and the fixed-point check.
-  _admm_vector!(initial_z, initial_u, SqrNormL2(λ, c), NormL1(τ), method.adaptive, settings, options, monitor)
+  _admm_vector!(initial_z, initial_u, SqrNormL2(λ, c), NormL1(τ), method, settings, options, monitor)
 end
 
 # The lasso LeastSquaresLoss(y, X) + NormL1(τ) with n ≥ p ≥ 1 on dense Float64 data (ADM-05).
@@ -313,7 +320,7 @@ function _solve_admm_lasso!(initial_z::Vector{T}, f, g, method, options, initial
 
   τ = _admm_level(g.λ0, T, "τ")
   settings = _admm_working_settings(T, method)
-  _admm_vector!(initial_z, initial_u, f, NormL1(τ), method.adaptive, settings, options)
+  _admm_vector!(initial_z, initial_u, f, NormL1(τ), method, settings, options)
 end
 
 # The settings in T, with a finite positive step inv(ρ).
@@ -326,7 +333,7 @@ end
 
 # The recurrence of ADM-02 on validated native data, for f a centered SqrNormL2 or a
 # LeastSquaresLoss and g = NormL1(τ). The caller's buffers change only on normal return.
-function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings, options, monitor=nothing) where T
+function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, method, settings, options, monitor=nothing) where T
   ρ, α, abstol, reltol, abstol_dual = settings
   maxiter = monitor === nothing ? options.maxiter : monitor.limit.n
   if monitor !== nothing
@@ -335,7 +342,7 @@ function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings
     end
     if iszero(maxiter)
       u = initial_u === nothing ? zeros(T, length(initial_z)) : initial_u
-      return _admm_policy_result(initial_z, u, missing, 0, ρ, monitor, :limit, 0)
+      return _admm_policy_result(method, initial_z, u, missing, 0, ρ, monitor, :limit, 0)
     end
   end
   γ = inv(ρ)
@@ -365,7 +372,7 @@ function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings
 
     # Apply a change only when an iteration can use it. On exit ρ, u and
     # the residual diagnostics correspond to the same completed iteration.
-    if adaptive && iterations > 0 && penalty_changes < 50
+    if method.adaptive && iterations > 0 && penalty_changes < 50
       balance = _admm_balance(r_norm, eps_pri, s_norm, eps_dual)
       candidate_ρ, candidate_γ = _admm_adjust_penalty!(tmp, u, ρ, γ, balance)
       if candidate_ρ != ρ
@@ -423,7 +430,7 @@ function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings
     ADMMResults(initial_z, objective, iterations, status === :converged,
                 r_norm, s_norm, eps_pri, eps_dual, returned_u, ρ, calls, status)
   else
-    _admm_policy_result(initial_z, returned_u, objective, iterations, ρ, monitor, status, calls)
+    _admm_policy_result(method, initial_z, returned_u, objective, iterations, ρ, monitor, status, calls)
   end
   copyto!(initial_z, z)
   initial_u === nothing || copyto!(initial_u, u)
