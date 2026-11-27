@@ -9,7 +9,8 @@ and relative tolerances control the primal and dual residual tests. Set
 `adaptive=true` to rebalance the penalty between iterations.
 
 The centered vector problem with a fixed penalty also accepts explicit residual
-conditions and iteration limits in [`solve!`](@ref). See [ADM-06](@ref).
+conditions, iteration limits and proximal-call budgets in [`solve!`](@ref).
+See [ADM-06](@ref) and [ADM-07](@ref).
 
 With a dense `Matrix{Float32}` or `Matrix{Float64}` start, it applies to the
 graphical lasso `LogDetLoss(S) + NormL1(λ₀, Λ)` under the input rules of ADM-04,
@@ -114,10 +115,11 @@ end
 """
     ProximalSolvers.ADMMStoppingResult
 
-Result of an explicit stopping or iteration-budget solve with [`ADMMSolver`](@ref).
+Result of an explicit stopping or budgeted solve with [`ADMMSolver`](@ref).
 `minimizer` and `u` hold the returned consensus iterate and scaled dual at `ρ`.
-The minimum is `missing` at a zero cap. `converged` requires both residual kinds
-in the winning branch of [`termination`](@ref). See [RES-06](@ref).
+The minimum is `missing` when the limits permit no complete iteration.
+`converged` requires both residual kinds in the winning branch of
+[`termination`](@ref). See [RES-06](@ref).
 """
 struct ADMMStoppingResult{T,D}
   minimizer::Vector{T}
@@ -138,7 +140,8 @@ Stopping.termination(r::ADMMStoppingResult) = r.decision
 f_calls(r::ADMMStoppingResult) = r.decision.counts.f_calls
 grad_calls(::ADMMStoppingResult) = 0
 prox_calls(r::ADMMStoppingResult) = r.decision.counts.prox_calls
-iteration_limit_reached(r::ADMMStoppingResult) = r.decision.limit_reached
+iteration_limit_reached(r::ADMMStoppingResult) = r.iterations == r.decision.limit.n
+call_limit_reached(r::ADMMStoppingResult) = !isempty(r.decision.reached_evaluation_limits)
 stagnated(r::ADMMStoppingResult) = r.decision.reason === :stalled
 
 function Base.show(io::IO, r::ADMMStoppingResult)
@@ -164,21 +167,32 @@ function _admm_level(level, ::Type{T}, name; positive=false) where T
   native
 end
 
-function _admm_policy_limit(options, limits)
+function _admm_policy_limits(options, limits)
   defaults = ProximalOptions()
   options.prox_calls_limit == defaults.prox_calls_limit && options.time_limit == defaults.time_limit ||
     throw(ArgumentError("prox_calls_limit and time_limit must have their default values with explicit ADMM stopping or limits"))
-  limits === nothing && return MaxIterations(options.maxiter)
-  limits isa MaxIterations || throw(ArgumentError("explicit ADMM stopping requires limits=MaxIterations(n)"))
-  (options.maxiter == defaults.maxiter || options.maxiter == limits.n) ||
-    throw(ArgumentError("ProximalOptions.maxiter conflicts with limits=MaxIterations($(limits.n))"))
-  limits
+  limits === nothing && return MaxIterations(options.maxiter), ()
+  requested = limits isa Tuple ? limits : (limits,)
+  (isempty(requested) || !all(l -> l isa Union{MaxIterations,MaxProximalEvaluations}, requested)) &&
+    throw(ArgumentError("explicit ADMM limits must be MaxIterations, MaxProximalEvaluations, or a nonempty tuple of these limits"))
+  allunique(map(typeof, requested)) || throw(ArgumentError("each limit kind may be specified once"))
+  iteration_index = findfirst(l -> l isa MaxIterations, requested)
+  limit = iteration_index === nothing ? MaxIterations(options.maxiter) : requested[iteration_index]
+  (options.maxiter == defaults.maxiter || options.maxiter == limit.n) ||
+    throw(ArgumentError("ProximalOptions.maxiter conflicts with limits=MaxIterations($(limit.n))"))
+  limit, filter(l -> l isa MaxProximalEvaluations, requested)
 end
+
+_admm_prox_pairs(limit::MaxProximalEvaluations) = limit.n ÷ 2
 
 function _admm_policy_result(z, u, objective, iterations, ρ, monitor, reason, calls)
   f_calls = g_calls = ismissing(objective) ? 0 : 1
   counts = (; f_calls, g_calls, prox_calls=calls)
-  decision = Stopping.report(monitor, reason, iterations, counts)
+  report = Stopping.report(monitor, reason, iterations, counts)
+  evaluation_limits = monitor.evaluation_limits
+  reached_evaluation_limits = filter(l -> iterations == _admm_prox_pairs(l), evaluation_limits)
+  decision = merge(report, (; evaluation_limits, reached_evaluation_limits,
+                            limit_reached=report.limit_reached || !isempty(reached_evaluation_limits)))
   residuals = (nameof(PrimalResidual), nameof(DualResidual))
   converged = decision.satisfied &&
     all(name -> any(o -> o.name === name && o.path in decision.winning_branch,
@@ -199,8 +213,10 @@ normal return. Pass the returned iterate, scaled dual and penalty together to
 restart a solve. See [`ADMMResults`](@ref) and the
 [ADMM input and result contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-01).
 For this centered vector problem with `adaptive=false`, pass residual conditions
-as `stopping` or a `MaxIterations` budget as `limits` to obtain an
-[`ADMMStoppingResult`](@ref). [ADM-06](@ref) specifies the residual checkpoints.
+as `stopping` or `MaxIterations` and `MaxProximalEvaluations` through `limits`
+to obtain an [`ADMMStoppingResult`](@ref). Pass the limits individually or
+together in a tuple. See [ADM-06](@ref) for residual checkpoints and
+[ADM-07](@ref) for proximal-call admission.
 A dense `Matrix{Float32}` or `Matrix{Float64}` start selects the graphical lasso
 of ADM-04; Extended help summarizes its inputs.
 
@@ -234,8 +250,8 @@ function solve!(z, f, g, method::ADMMSolver, options::ProximalOptions = Proximal
   if stopping !== nothing || limits !== nothing
     z isa Vector && f isa SqrNormL2 && !method.adaptive ||
       throw(ArgumentError("explicit ADMM stopping requires a dense vector, centered SqrNormL2 and adaptive=false"))
-    limit = _admm_policy_limit(options, limits)
-    monitor = Stopping.prepare(stopping, limit, eltype(z), Stopping.ResidualLeaves)
+    limit, evaluation_limits = _admm_policy_limits(options, limits)
+    monitor = Stopping.prepare(stopping, limit, eltype(z), Stopping.ResidualLeaves; evaluation_limits)
     return _solve_admm!(z, f, g, method, options, u, monitor)
   end
   _solve_admm!(z, f, g, method, options, u)
@@ -312,9 +328,15 @@ end
 # LeastSquaresLoss and g = NormL1(τ). The caller's buffers change only on normal return.
 function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings, options, monitor=nothing) where T
   ρ, α, abstol, reltol, abstol_dual = settings
-  if monitor !== nothing && monitor.limit.n == 0
-    u = initial_u === nothing ? zeros(T, length(initial_z)) : initial_u
-    return _admm_policy_result(initial_z, u, missing, 0, ρ, monitor, :limit, 0)
+  maxiter = monitor === nothing ? options.maxiter : monitor.limit.n
+  if monitor !== nothing
+    if !isempty(monitor.evaluation_limits)
+      maxiter = min(maxiter, _admm_prox_pairs(only(monitor.evaluation_limits)))
+    end
+    if iszero(maxiter)
+      u = initial_u === nothing ? zeros(T, length(initial_z)) : initial_u
+      return _admm_policy_result(initial_z, u, missing, 0, ρ, monitor, :limit, 0)
+    end
   end
   γ = inv(ρ)
   t0 = monitor === nothing ? time_ns() : zero(UInt64)
@@ -325,7 +347,6 @@ function _admm_vector!(initial_z::Vector{T}, initial_u, f, g, adaptive, settings
   tmp = similar(z)
   sqrt_n = sqrt(T(length(z)))
   abs_pri, abs_dual = sqrt_n * abstol, sqrt_n * abstol_dual
-  maxiter = monitor === nothing ? options.maxiter : monitor.limit.n
   max_prox_pairs = options.prox_calls_limit == 0 ? typemax(Int) : options.prox_calls_limit ÷ 2
 
   iterations = penalty_changes = 0

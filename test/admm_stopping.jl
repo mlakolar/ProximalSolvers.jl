@@ -122,4 +122,105 @@ end
     @test isequal((r.minimizer, r.u, r.minimum), (resumed.minimizer, resumed.u, resumed.minimum))
 end
 
+@testset "Proximal budgets admit complete ADMM pairs ($T)" for T in (Float32, Float64)
+    f, g = SqrNormL2(1, T[3, -1]), NormL1(T(0.5))
+    method = ADMMSolver(ρ=2, α=1.5)
+    start, dual = T[0.5, -0.25], T[0.25, -0.25]
+    for n in 0:7
+        cap = MaxProximalEvaluations(n)
+        steps = n ÷ 2
+        expected = solve!(copy(start), f, g, method; u=copy(dual), limits=MaxIterations(steps))
+        z, u = copy(start), copy(dual)
+        r = solve!(z, f, g, method; u, limits=cap)
+        t = termination(r)
+        @test r.minimizer === z && r.u === u
+        @test isequal((z, u, r.ρ, r.minimum),
+                      (expected.minimizer, expected.u, expected.ρ, expected.minimum))
+        @test t.counts == termination(expected).counts
+        @test t.iteration == r.iterations == steps && PS.prox_calls(r) == 2 * steps
+        @test 0 <= cap.n - PS.prox_calls(r) < 2
+        @test t.reason === :limit && t.limit_reached && !t.satisfied
+        @test t.evaluation_limits === t.reached_evaluation_limits === (cap,)
+        @test t.limit.n == ProximalOptions().maxiter
+        @test PS.call_limit_reached(r) && !PS.iteration_limit_reached(r)
+    end
+
+    cap = MaxProximalEvaluations(typemax(Int))
+    r = solve!(copy(start), f, g, method; u=copy(dual), limits=(MaxIterations(1), cap))
+    t = termination(r)
+    @test t.reason === :limit && t.iteration == t.limit.n == 1 && t.limit_reached
+    @test t.evaluation_limits === (cap,) && isempty(t.reached_evaluation_limits)
+    @test PS.iteration_limit_reached(r) && !PS.call_limit_reached(r)
+
+    # Even forming the first proximal argument would overflow at this start.
+    f = SqrNormL2(1, T[3])
+    z, u = T[floatmax(T)], T[-floatmax(T)]
+    r = solve!(z, f, g, method; u, stopping=both_residuals(), limits=MaxProximalEvaluations(1))
+    t = termination(r)
+    @test r.minimizer === z && r.u === u && r.ρ === T(2)
+    @test z == T[floatmax(T)] && u == T[-floatmax(T)] && ismissing(r.minimum)
+    @test t.iteration == 0 && all(iszero, values(t.counts))
+    @test all(o -> o.status === :not_checked, t.observations)
+    @test_throws r"nonfinite x-prox argument" solve!(z, f, g, method; u, limits=MaxProximalEvaluations(2))
+    @test z == T[floatmax(T)] && u == T[-floatmax(T)]
+end
+
+@testset "ADMM residual and evaluation-cap ties ($T)" for T in (Float32, Float64)
+    f, g = SqrNormL2(1, T[3]), NormL1(1)
+    method = ADMMSolver(abstol=1, abstol_dual=0.5, reltol=0)
+    for (limits, call_reached, iteration_reached) in (
+        (MaxProximalEvaluations(3), true, false),
+        (MaxProximalEvaluations(5), false, false),
+        ((MaxProximalEvaluations(3), MaxIterations(1)), true, true),
+        ((MaxIterations(1), MaxProximalEvaluations(5)), false, true),
+    )
+        r = solve!(T[0], f, g, method; stopping=both_residuals(), limits)
+        t = termination(r)
+        @test r.iterations == 1 && r.minimizer == T[0.5] && r.u == T[1]
+        @test r.minimum === T(3.625) && r.converged
+        @test t.reason === :rule && t.satisfied && t.limit_reached == (call_reached || iteration_reached)
+        @test PS.call_limit_reached(r) == call_reached
+        @test PS.iteration_limit_reached(r) == iteration_reached
+        @test map(o -> (o.status, o.value, o.threshold), t.observations) ==
+            ((:pass, 0.5, 0.5), (:pass, 1.0, 1.0))
+        @test t.counts == (f_calls=1, g_calls=1, prox_calls=2)
+    end
+
+    f, g = SqrNormL2(1, T[1]), NormL1(0)
+    cap = MaxProximalEvaluations(3)
+    r = solve!(T[2], f, g, ADMMSolver(ρ=T(2)^100); stopping=both_residuals(), limits=cap)
+    t = termination(r)
+    @test r.minimizer == T[2] && t.reason === :stalled && PS.stagnated(r)
+    @test t.reached_evaluation_limits === (cap,) && t.limit_reached && !t.satisfied
+    @test PS.call_limit_reached(r) && !PS.iteration_limit_reached(r)
+    @test PS.prox_calls(r) == 2 && all(o -> o.status === :not_checked, t.observations)
+
+    z, u = T[4sqrt(floatmax(T))], T[0.25]
+    @test_throws r"nonfinite objective" solve!(z, f, g, ADMMSolver(); u, limits=cap)
+    @test z == T[4sqrt(floatmax(T))] && u == T[0.25]
+end
+
+@testset "ADMM proximal budget preflight" begin
+    z, u = [0.5], [0.25]
+    f, g, method = SqrNormL2(1, [3.0]), NormL1(1), ADMMSolver()
+    cap = MaxProximalEvaluations(1)
+    for limits in ((), [cap], (cap, cap), (MaxIterations(0), MaxIterations(1)),
+                   (cap, MaxObjectiveEvaluations(0)), (cap, MaxGradientEvaluations(0)), (cap, MaxPasses(0)))
+        @test_throws ArgumentError solve!(z, f, g, method; u, limits)
+    end
+    for options in (ProximalOptions(prox_calls_limit=1), ProximalOptions(time_limit=0))
+        @test_throws ArgumentError solve!(z, f, g, method, options; u, limits=cap)
+    end
+    @test_throws ArgumentError solve!(z, f, g, method, ProximalOptions(maxiter=2);
+                                      u, limits=(cap, MaxIterations(1)))
+    @test_throws ArgumentError solve!(z, f, g, method; u, stopping=AllOf(PrimalResidual(), cap), limits=cap)
+    @test_throws ArgumentError solve!(z, f, g, method; u=z, limits=cap)
+    @test_throws ArgumentError solve!(z, f, g, ADMMSolver(adaptive=true); u, limits=cap)
+    @test_throws ArgumentError solve!(z, LeastSquaresLoss([3.0], ones(1, 1)), g, method; u, limits=cap)
+    matrix = ones(1, 1)
+    @test_throws ArgumentError solve!(matrix, LogDetLoss(ones(1, 1)), NormL1(1, ones(1, 1)),
+                                      method; limits=cap)
+    @test z == [0.5] && u == [0.25] && matrix == ones(1, 1)
+end
+
 end

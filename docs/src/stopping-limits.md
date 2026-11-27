@@ -144,10 +144,27 @@ termination(r)
 ~~~
 
 `AllOf` requires both tests to pass. The report gives the residuals and
-thresholds for the evaluated leaves, and records any iteration-cap tie.
+thresholds for the evaluated leaves, and records any tie with a limit.
 For a warm start, keep the returned consensus variable, scaled dual `r.u`
 and penalty `r.ρ` together. See [ADM-06](@ref) for when the tests run and
 [RES-06](@ref) for the result fields.
+
+Use `limits=(MaxIterations(100), MaxProximalEvaluations(3))` to set both
+caps. A complete ADMM iteration takes two proximal calls. A cap of three
+therefore permits one iteration, and the report lists the reached
+`MaxProximalEvaluations(3)` with `counts.prox_calls == 2`. A residual rule
+can still pass on that iteration. See [ADM-07](@ref).
+
+~~~@example explicit_admm_stopping
+z_budget = zeros(1)
+cap = MaxProximalEvaluations(3)
+limited = solve!(z_budget, f, g, ADMMSolver();
+                 limits=(MaxIterations(100), cap))
+@assert z_budget == [0.5] && limited.u == [1.0]
+@assert termination(limited).counts.prox_calls == 2
+@assert termination(limited).reached_evaluation_limits == (cap,)
+termination(limited)
+~~~
 
 ## The criterion and a certificate
 
