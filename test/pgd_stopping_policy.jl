@@ -334,6 +334,8 @@ end
     refuses(f, g, method; stopping=UserStop(() -> true))
     refuses(f, g, method; stopping=UserStop(_ -> 1))
     refuses(f, g, method; limits=(time=0,))
+    refuses(f, IndBallL1(1.0), method; limits=MaxIterations(0))
+    refuses(f, g, method; stopping=IterateChange(), feasibility=NumericalFeasibility())
     refuses(f, g, AccProxGradDescent(); stopping=IterateChange())
     refuses(LogisticLoss([1.0], ones(1, 1)), g, method; stopping=IterateChange())
     @test_throws ArgumentError solve!(zeros(1, 1), LeastSquaresLoss(ones(1, 1), ones(1, 1)),

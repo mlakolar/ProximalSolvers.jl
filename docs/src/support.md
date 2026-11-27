@@ -28,6 +28,7 @@ as supported in the table is not verified; the sections below give the exact inp
 | Multi-response entrywise lasso: `LeastSquaresLoss` with a matrix response, unweighted `NormL1` | — | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, o), Float64 (o) | — | — | — | — | [Multi-response lasso: entrywise sparsity](examples/problems/multiresponse_lasso.md) |
 | Square-root lasso: `SqrtLeastSquaresLoss`, `NormL1` | Float32, Float64 (e) | Float32, Float64 (e) | — | — | — | — | — | — | — | — | — | — | [Square-root lasso](examples/problems/square_root_lasso.md) |
 | Box- and ball-constrained least squares: `LeastSquaresLoss`, `IndBox`, `IndBallLinf`, or four-coefficient `IndBallL2` ([IN-08](@ref)) | — | — | — | — | Float32, Float64 | — | Float32, Float64 | — | — | — | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
+| ℓ1-ball-constrained least squares: `LeastSquaresLoss`, `IndBallL1` ([IN-12](@ref)) | — | — | — | — | Float32, Float64 (s) | — | Float32, Float64 (b, s) | — | — | — | — | — | [Constrained least squares](examples/problems/constrained_least_squares.md) |
 | ℓ∞-penalized least squares: `LeastSquaresLoss`, `NormLinf` | — | — | — | — | Float32 (a), Float64 | — | Float32 (a, b), Float64 (b) | — | — | — | — | — | [ℓ∞ penalty](examples/problems/linf_regularized_regression.md) |
 | Sparse signal denoising: centered `SqrNormL2`, unweighted `NormL1` | — | — | — | — | — | — | — | — | — | — | Float32, Float64 | — | [Sparse signal denoising](examples/problems/sparse_signal_denoising.md) |
 | Graphical lasso: `LogDetLoss`, `NormL1(λ₀, Λ)` with symmetric `Matrix` weights | — | — | — | — | — | Float32, Float64, full weights (m) | — | — | — | — | — | Float32, Float64, full weights (k) | [Graphical lasso](examples/problems/graphical_lasso.md), [solver comparison](examples/comparisons/graphical_lasso_solvers.md) |
@@ -147,6 +148,18 @@ that loss and scaling. Their feasibility rules, for PGD and for CD on a dense `V
 - **(o)** APG's certified backtracking limits use the sizes of the image and
   coefficient matrices. See [APG-07](@ref).
 
+- **(s)** `IndBallL1(r)` on a dense `Vector{T}` with raw or scaled least squares, a finite positive
+  radius of type `T` and a start that passes the computed cap decision ([IN-12](@ref)). An accepted
+  point can lie outside the ball: its computed widened ℓ1 norm passed that decision, which is a
+  computed comparison, not an exact bound on the violation. `converged = true` means that the full
+  stopping check passed at the returned point. `minimum` is the monitored numerical objective, the
+  cached loss, so it can be finite at an admitted point that ProximalBase's strict indicator
+  evaluates as `Inf`; neither `converged` nor `minimum` certifies exact membership of the returned
+  point. A non-`nothing`
+  `feasibility = NumericalFeasibility(...)` overrides the tolerances. With other penalties, PGD and
+  APG treat `feasibility = nothing` as omitted and refuse a non-`nothing` value; graphical-lasso PGD
+  refuses the keyword in any form.
+
 - **(q)** `NormL2(lambda)` is the Euclidean norm of the whole coefficient vector. PGD and APG accept
   it for a dense `Vector{T}`, raw or one positive `Scaled` least squares, and a level that is
   finite, nonnegative and representable in `T`. The solver uses the working level
@@ -220,6 +233,7 @@ meaning of `converged` are specified in [the scalar CD contract](@ref CD-01).
 | Group lasso | `CDSolver` with a ProximalBase `BlockIterate{Float32}` or `BlockIterate{Float64}` as the coefficients and a `GroupNormL2{Float32}` or `GroupNormL2{Float64}` penalty, and `ProximalGradientDescent` or `AccProxGradDescent` with a dense `Vector{T}` and a `GroupNormL2{T}` penalty, on the same dense least-squares loss (see below) |
 | Nonnegative least squares and lasso | `ProximalGradientDescent`, and `CDSolver` on a dense `Vector{T}` (not a `SparseIterate`), with `IndNonnegative()` or unweighted `NormL1Nonneg(lambda)`, dense same-type least-squares data and a feasible nonnegative `Vector{T}` start; see note (i) |
 | Multi-response group lasso | `CDSolver` only, with `X::Matrix{T}`, `Y::Matrix{T}`, `Matrix{T}` coefficients (or a `BlockIterate{T}` over their entries) and a `GroupNormL2` whose groups are the rows of the coefficients, on the least-squares loss (see below) |
+| ℓ1-ball constraint | PGD or APG with `IndBallL1(r)` and a same-type radius on a dense `Vector{T}` with the least-squares loss; see note (s) |
 | Multi-response entrywise lasso | PGD or APG with unweighted `NormL1` and same-type dense matrix data and coefficients under [IN-10](@ref). See [APG-07](@ref) for the APG dimension limits. |
 
 ### Lasso with consensus ADMM
@@ -576,6 +590,7 @@ The current development core intentionally excludes the following:
 | PGD or APG with `BlockIterate` coefficients or matrix coefficients outside [IN-10](@ref) and the graphical-lasso PGD contract [PGD-06](@ref) | Deferred; refused with an `ArgumentError` |
 | `CDSolver` with `NormLinf`; `Scaled(NormLinf)`; `NormLinf` with a loss other than least squares | Refused with an `ArgumentError` (this `CDSolver` needs a separable penalty; the others deferred) |
 | `CDSolver` with `NormL2`; `Scaled(NormL2)`; `NormL2` with a matrix or block coefficient, `LogisticLoss` or `SqrtLeastSquaresLoss` | Refused with an `ArgumentError`; PGD and APG on a dense `Vector` are the supported route ([IN-11](@ref)) |
+| `IndBallL1` with `CDSolver` or `ADMMSolver`, a matrix coefficient, `LogisticLoss` or `SqrtLeastSquaresLoss`; a non-`nothing` `feasibility` with another penalty in regression PGD or APG; the `feasibility` keyword in any form with graphical-lasso PGD or another solver | Refused with an `ArgumentError` ([IN-12](@ref)) |
 | `NormL0` with `solve!` | The [ℓ₀ sparse-regression tutorial](examples/problems/l0_sparse_regression.md) runs its own IHT routine with the ProximalBase prox. |
 | Momentum (`momentum = true`) with a `BlockIterate` | Rejected; not implemented |
 | Group lasso with a sparse design, mixed-element-type arrays or a loss other than least squares | Deferred |
