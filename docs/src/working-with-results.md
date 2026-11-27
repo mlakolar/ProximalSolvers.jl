@@ -42,7 +42,7 @@ A convergence flag reports the solver's implemented stopping criterion;
 | Least-squares CD with default stopping, including group and multi-response fits | The pass-change test succeeded. See [CD-03](@ref) for the scalar test |
 | Scalar least-squares CD with an explicit policy | `converged` is false. Read satisfaction, reason, and full/active pass counts through `termination(r)`. See [RES-05](@ref) |
 | PGD/APG with default stopping | A stopping proposal passed the applicable computed stationarity check |
-| PGD/APG with an explicit policy | The winning branch includes a passing `ScaledKKT` leaf. Read `termination(r).satisfied` and `termination(r).reason` for the policy outcome ([RES-04](@ref)). |
+| PGD/APG with an explicit policy | The winning branch includes a passing `ScaledKKT`, `ProximalGradientMapping` or `DualGap` leaf on its supported route. Read `termination(r).satisfied` and `termination(r).reason` for the policy outcome ([RES-04](@ref)). |
 | `ProxNewton` (logistic regression) | The largest KKT score of the returned point is finite and at most `tol`; see [PN-05](@ref) |
 | `LogisticADMM` (logistic regression) | The primal and dual residual tests passed and the largest KKT score of the returned point is at most `tol`; see [LA-04](@ref) |
 | Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |
@@ -55,9 +55,11 @@ which can be finite at a point where ProximalBase evaluates its indicator as `In
 See [IN-12](@ref).
 
 Use an [independent KKT check](@ref learn-02) or an appropriate
-[duality gap](@ref learn-07) when assessing a fit. An unavailable `gap` is `NaN`,
-not zero; CD's `kkt_checks=0` is also a placeholder. The square-root certificate
-is the documented exception; see [its contract](@ref CDQ-01).
+[duality gap](@ref learn-07) when assessing a fit. The selectable Float32 PGD
+lasso bound appears in the [`DualGap` observation](@ref dual-gap-stopping).
+For CD, `gap = NaN` marks an unavailable gap and `kkt_checks = 0` can be
+a placeholder. The [square-root lasso contract](@ref CDQ-01) specifies
+when CD reports a certificate.
 
 Square-root lasso can try bounded smoothing recovery after an uncertified
 change-test stop. Its `passes` includes that work and stays within `maxpasses`.
@@ -112,7 +114,7 @@ diagnostics, not changes to the statistical model.
 | PGD or APG rejects `BlockIterate` | PGD and APG take a dense `Vector{T}`, with a `GroupNormL2{T}` penalty for the group lasso; only CD takes a `BlockIterate` |
 | `DimensionMismatch` naming groups, or an error naming a group | The groups of `BlockIterate` and `GroupNormL2` must be equal in number, order and members; an error naming a group is a curvature or step refusal, see [Numerical behavior](numerics.md), or a weight or parameter refusal such as `group weight 2 …` |
 | Convergence flag is false | Inspect the solver's iteration/pass limit; check the [KKT residual](sparsity-and-kkt.md); for `ProxNewton`, read `stop_reason` (`:maxiter` spent the iteration budget, `:stalled` found no accepted step); for `LogisticADMM`, compare `r_norm`, `s_norm` and `kkt` with their thresholds, and try another `ρ` when the residuals decrease slowly |
-| `gap` is NaN | Gap certification is implemented only for the square-root lasso with CD; there, `NaN` means that the run stopped without a certificate |
+| The CD result's `gap` is NaN | The gap is unavailable. For square-root lasso, the run stopped without a certificate |
 | Square-root lasso: `converged = false` with a warning about a missing duality certificate | No certificate was proved, at the stop or in the fallback that follows it (where the fallback runs), for example at an exact fit (`y = X*beta`), where coordinate descent can stop at a coordinatewise minimum that is not a minimum and the fallback need not recover; see [`CDSolver`](@ref) and [an example](@ref sqrt-lasso-exact-fit) |
 | Float32 precision looks poor | Start with native Float32 inputs/scales, check the KKT residual; Float32 has lower precision |
 | Coefficients appear to change unexpectedly | `solve!` mutates the supplied coefficients; copy them to save the old solution |

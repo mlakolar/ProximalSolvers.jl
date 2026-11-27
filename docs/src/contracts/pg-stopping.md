@@ -384,7 +384,12 @@ and can be set together with `stagnated=true`.
 | Call limit | `call_limit_reached = true` | A positive call limit was reached ([PGD-04](@ref)). |
 | Callback or time limit | none of the fields above is set, `f_increased` excepted when `allow_f_increases = true` or on the ℓ1-ball route ([IN-12](@ref)), and `iterations < maxiter` | A callback returned `true`, the time limit elapsed, or both. The result has no dedicated field for either cause. |
 
-No class carries independently verified target accuracy. PGD and APG compute no duality gap: `gap` is `NaN`, and a positive `gaptol` is refused ([PGD-05](@ref)). Only square-root-lasso CD returns a bounded gap ([CDQ-03](@ref)). Elsewhere an accuracy target must be evaluated outside the solver, for example by [STOP-13](@ref). A return in any row except the first can still be accurate to the stationarity bound; [STOP-15](@ref) describes one such case.
+No class carries independently verified target accuracy. The default PGD and APG
+result has `gap = NaN`, and a positive `gaptol` is refused ([PGD-05](@ref)).
+For an independent lasso accuracy check, see [STOP-13](@ref). The selectable
+gap rule of [STOP-29](@ref) reports its bound through [RES-04](@ref).
+A return in any row except the first can still be accurate to the stationarity
+bound. [STOP-15](@ref) describes one such case.
 
 **Applies to.** PGD and APG on the regression routes; dense Vector{T} and the matrices in [IN-10](@ref); T = Float32 or Float64. Graphical-lasso PGD reports through [PGD-08](@ref).
 
@@ -455,11 +460,12 @@ With the dual point `θ = κ s (y - Xx)`, where
 `F(x) - D(θ) = (1-κ)² f(x) + (1-κ) λ‖x‖₁ + κ⟨G, x⟩`, `1 - κ ≤ k` and
 `F ≥ max(f, λ‖x‖₁)`. Evaluating `k` in `Float64` from the returned `x` is an
 independent numerical check, **not** a rigorous floating-point certificate: the
-rounding errors of that evaluation are not bounded here.
+rounding errors of that evaluation are not bounded here. [STOP-29](@ref)
+specifies the selectable bound for the raw Float32 PGD lasso.
 
 **Applies to.** Unweighted NormL1; positive loss scale s, positive λ, and positive objective F(x).
 
-**Code.** `Analytic statement; no new solver certificate is implemented`.
+**Code.** Analytic statement. [STOP-29](@ref) specifies a separate implementation.
 
 **Tests.** No implementation change; the stated exact-arithmetic derivation is retained for independent numerical checks.
 
@@ -645,9 +651,11 @@ The check fills the column scales at its first evaluation and reuses them for
 the solve. Evaluations with identical `rtol` share a decision within the same
 checkpoint.
 
-`Every(k, rule)` schedules supported stationarity leaves under
+`Every(k, rule)` schedules supported leaves under
 [STOP-25](@ref). The vector `NormLinf` route accepts
-`ProximalGradientMapping` under [STOP-28](@ref).
+`ProximalGradientMapping` under [STOP-28](@ref). Raw Float32 least-squares
+PGD with an unweighted positive `NormL1` also accepts `DualGap` under
+[STOP-29](@ref).
 
 `UserStop(predicate)` receives an immutable named tuple with `iteration` and
 `objective` (native type). Return `true` to request a stop or `false` to continue.
@@ -731,7 +739,8 @@ failure encountered during the update still follows [RES-03](@ref).
 
 At initialization or after a completed update, apply the reached-cap rule of
 [STOP-22](@ref) if any capacity is reached. A passing cached objective condition
-can win a tie. [RES-04](@ref) specifies the returned flags and counters.
+can win a tie. [STOP-29](@ref) specifies the diagnostic work and tie behavior
+for `DualGap`. [RES-04](@ref) specifies the returned flags and counters.
 
 **Applies to.** `ProximalGradientDescent` on the dense vector least-squares
 route of [STOP-22](@ref), including its supported scaled loss. [STOP-24](@ref)
@@ -792,11 +801,12 @@ accepted-point stationarity and simultaneous limits.
 **Sources.** [Hard evaluation admission in #525](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944)
 and [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
-### [STOP-25 Scheduled stationarity checks](@id STOP-25)
+### [STOP-25 Scheduled stopping checks](@id STOP-25)
 
 **Statement.** `Every(k, rule)` schedules a `ScaledKKT` leaf on the PGD and
-APG routes of [STOP-22](@ref) and [STOP-27](@ref), or a
-`ProximalGradientMapping` leaf on the route of [STOP-28](@ref).
+APG routes of [STOP-22](@ref) and [STOP-27](@ref), a
+`ProximalGradientMapping` leaf on the route of [STOP-28](@ref), or a
+`DualGap` leaf on the route of [STOP-29](@ref).
 `k` must be a positive integer representable as `Int`. Use `Every` directly
 or as a child of `AnyOf` or `AllOf`. Validate the wrapped condition and its
 problem support before initialization.
@@ -813,18 +823,19 @@ admission in the short-circuit order of [STOP-22](@ref), including reuse
 within the checkpoint. The caps apply at each step. At an eligible
 checkpoint with a reached cap, reuse of an already measured verdict and
 ties with a measurement that spends the last unit follow [STOP-24](@ref),
-[STOP-27](@ref) or [STOP-28](@ref) for the wrapped rule.
+[STOP-27](@ref), [STOP-28](@ref) or [STOP-29](@ref) for the wrapped rule.
 
 **Applies to.** Dense least-squares PGD and APG with input and penalty
-support for `ScaledKKT` under [STOP-22](@ref) or [STOP-27](@ref), or for
-`ProximalGradientMapping` under [STOP-28](@ref).
+support for `ScaledKKT` under [STOP-22](@ref) or [STOP-27](@ref),
+`ProximalGradientMapping` under [STOP-28](@ref), or
+`DualGap` under [STOP-29](@ref).
 
 **Code.** `src/stopping.jl`.
 
 **Tests.** `test/pgd_stopping_policy.jl` and
 `test/multiresponse_lasso_pgd_apg.jl` check `ScaledKKT` scheduling.
 `test/linf.jl` checks mapping cadence, wrapped observations, work counts,
-limit ties and preflight refusals.
+limit ties and preflight refusals. `test/dual_gap.jl` checks the gap schedule.
 
 **Sources.** [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
@@ -956,6 +967,104 @@ the shared measurement, cap admission and ties, accepted gradient and
 displacement, and the distinction between diagnostic and trial counts.
 
 **Sources.** [#523, stationarity rollout](https://github.com/mlakolar/ProximalSolvers.jl/issues/523)
+and [#525, diagnostic work admission](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944).
+
+### [STOP-29 Certified relative duality gap for the Float32 lasso](@id STOP-29)
+
+**Statement.** `DualGap(rtol=...)` evaluates a bound on the relative
+duality gap at an accepted PGD checkpoint, including the initial point.
+The loss must be a raw `LeastSquaresLoss(y, X)` with a
+`Matrix{Float32}` design, `Vector{Float32}` response and
+`Vector{Float32}` coefficients. The penalty must be an unweighted
+`NormL1(λ)` with a positive finite `Float32` or `Float64` level that
+`Float32` represents exactly. Validate this support for every leaf
+before initialization, including under a zero cap or short-circuiting tree.
+Validate and store `rtol` as in [STOP-22](@ref). The comparison is inclusive
+and has no tolerance floor. `AnyOf`, `AllOf` and
+`Every(k, DualGap(...))` can use the leaf. [STOP-25](@ref) specifies the cadence.
+
+#### Measurement and bound
+
+Take each stored input entry as an exact real number, and let
+`r = y - Xx`, `z = Xᵀr` and `P(x) = ‖r‖²/2 + λ‖x‖₁`.
+The diagnostic uses Float64 round-to-nearest arithmetic with gradual
+underflow. It recomputes enclosures from the stored data and accepted
+coefficients without reading the working-precision predictor or gradient.
+The products `Float64(X[i,j]) * Float64(x[j])` are exact. To form residual
+intervals, start at the widened response and subtract the nonzero products
+in column order, rounding the lower and upper results outward. Form intervals for
+`z[j]` by multiplying the residual endpoints by each widened design
+entry with endpoints in the order given by its sign. Round each endpoint
+product outward and sum the endpoints outward in row order, skipping zero
+design entries. Each outward rounding takes the adjacent Float64 value
+toward the appropriate infinity after the nearest-rounded operation.
+
+Let `B` be the largest endpoint magnitude of the correlation intervals.
+Use `κ = 1` if `B ≤ λ`; otherwise take the nonnegative lower rounding of
+`λ/B`. Then `‖Xᵀ(κr)‖∞ ≤ κB ≤ λ`, so `θ = κr` is a feasible dual
+point. Here `θ` denotes the exact product and need not be stored as a rounded
+vector. Its dual objective is `D(θ) = yᵀθ - ‖θ‖²/2`. For each nonzero
+`x[j]`, use the lower endpoint of the interval for `sign(x[j]) z[j]` to
+bound the corresponding penalty contribution above. Substitution of
+`y = r + Xx` gives the exact identity
+
+~~~math
+P(x) - D(\theta) = (1-\kappa)^2\frac{\|r\|_2^2}{2}
+  + \sum_{j:x_j\ne 0} |x_j|\bigl(\lambda-\kappa\,\operatorname{sign}(x_j)z_j\bigr).
+~~~
+
+Use the smallest and largest absolute members of each residual interval to
+bound `‖r‖²/2` below and above. Square each nonzero magnitude outward, sum
+in row order with outward rounding, then divide by two and round outward.
+Raise a negative loss lower bound to zero. Sum the nonzero exact
+`λ abs(x[j])` terms downward in column order. Add the result to the
+lower loss bound with rounding downward to enclose `P(x)` below.
+To enclose the numerator above, round the nonnegative loss term upward
+throughout, taking it as zero for `κ = 1`. For each nonzero coefficient,
+round the scaled lower signed correlation downward and then round the
+subtraction, product by `abs(x[j])` and sum in column order upward.
+Divide that upper bound by the positive lower bound on `P(x)`, rounding
+the quotient upward for a nonzero numerator. By weak duality, the quotient bounds both
+`(P(x) - D(θ))/P(x)` and `(P(x) - P*)/P(x)`, where `P*` is the exact
+minimum. If all stored coefficients and responses are zero, the exact
+objective and its minimum are both zero and the observation reports a
+bound of zero. The guarantee concerns the objective value.
+
+#### Observations, work and caps
+
+An observation has evidence `:gap_bound`, the finite nonnegative bound as
+`value`, the stored `rtol` as `threshold` and a missing `scale`.
+It passes when the bound is at most the threshold. Subnormal flushing or
+an unsupported rounding mode makes a fresh measurement invalid before work.
+A nonfinite bound or the lack of a positive denominator lower bound outside
+the exact-zero case also yields `:invalid`. An invalid observation has a
+missing value and retains the threshold. A passing leaf contributes to
+`converged` when it settled the expression under [RES-04](@ref).
+
+Allocate scratch at the first measurement and reuse it for the solve.
+A completed measurement, including the exact-zero case, counts one smooth
+value, one gradient and one penalty value. The diagnostic uses scratch
+for its data products and consumes zero proximal calls or line-search trials.
+Cache the bound at the current checkpoint and reuse it across tolerances
+while the solve remains below its caps. The cache is independent of
+`ScaledKKT` evidence. At a reached cap, the leaf can reuse an observation
+from the same checkpoint and the same stored tolerance. Leave other
+gap leaves unchecked there, including a fresh scheduled leaf under
+[STOP-25](@ref). A measurement admitted before a cap may use its last
+allowed smooth value or gradient and settle the expression at that limit
+under [STOP-23](@ref).
+
+**Applies to.** Dense vector PGD on the raw Float32 least-squares lasso
+defined above.
+
+**Code.** `src/solvers/dual_gap.jl`, `src/solvers/gradient_stopping.jl`
+and `src/stopping.jl`.
+
+**Tests.** `test/dual_gap.jl` checks bounds against exact arithmetic,
+including cancellation and underflow, and exercises support validation,
+observation and cache behavior, scheduling and evaluation limits.
+
+**Sources.** [#523, duality-gap rollout](https://github.com/mlakolar/ProximalSolvers.jl/issues/523#issuecomment-7210139862)
 and [#525, diagnostic work admission](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944).
 
 ## Change log

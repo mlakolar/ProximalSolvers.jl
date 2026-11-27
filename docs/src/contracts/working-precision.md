@@ -18,7 +18,8 @@ supported solver working type. The loss-scale type refusals are in [IN-02](@ref)
 With subnormal numbers flushed to zero on the solving thread (`set_zero_subnormals(true)`),
 the stopping decisions of PGD and APG are unspecified, the exact zero cases of [STOP-21](@ref)
 included: the solver's arithmetic and its compiled comparisons can treat a stored subnormal
-value as zero.
+value as zero. The selectable Float32 lasso gap checks the arithmetic mode
+under [STOP-29](@ref).
 
 Finite input entries do not guarantee finite intermediate arithmetic. ProximalBase's
 least-squares kernels selectively recover some overflow/underflow cases with
@@ -38,7 +39,8 @@ coordinatewise check ([STOP-21](@ref)), steps and line searches, APG's
 certified bound, stopping rules and rollback, and on the ℓ1-ball route of [IN-12](@ref) the widened
 `Float64` decision, the budgets and the full check of [FP-05](@ref). The coordinatewise check reads
 ProximalBase's least-squares value at the accepted point for its scale and does not
-recompute `‖Xx - y‖`. Exact oracle accuracy and range
+recompute `‖Xx - y‖`. The selectable lasso gap uses a separate enclosed
+computation from the stored inputs under [STOP-29](@ref). Exact oracle accuracy and range
 statements belong to the section “Least squares at a predictor or residual that the
 caller holds” in the pinned
 [ProximalBase smooth-function guide](https://github.com/mlakolar/ProximalBase.jl/blob/7d5d1e006b02814fb28f8cfb5eca20a05d73ee9e/docs/src/smooth.md).

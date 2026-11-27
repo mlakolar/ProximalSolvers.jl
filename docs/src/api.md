@@ -35,6 +35,7 @@ IterateChange
 ObjectiveChange
 ScaledKKT
 ProximalGradientMapping
+DualGap
 Every
 PrimalResidual
 DualResidual

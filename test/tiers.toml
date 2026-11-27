@@ -8,6 +8,7 @@ quick = [
   "minimal_core_characterization",
   "core_contracts",
   "pgd_stopping_policy",
+  "dual_gap",
   "paired_master",
 ]
 standard = [

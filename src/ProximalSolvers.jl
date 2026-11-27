@@ -59,7 +59,7 @@ include("types.jl")
 include("stopping.jl")
 using .Stopping
 export Stopping, IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
-export Every, ProximalGradientMapping
+export Every, ProximalGradientMapping, DualGap
 export MaxCoordinateVisits
 export PrimalResidual, DualResidual
 export MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEvaluations
@@ -78,6 +78,7 @@ include("cd/sqrtlasso.jl")
 include("solvers/logistic_proxnewton.jl")
 include("solvers/logistic_admm.jl")
 include("utils.jl")
+include("solvers/dual_gap.jl")
 include("solvers/gradient_stopping.jl")
 include("precompile.jl")
 end

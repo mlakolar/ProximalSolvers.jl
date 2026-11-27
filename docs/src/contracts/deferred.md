@@ -52,7 +52,7 @@ The following remain deferred:
   least-squares ADMM of [ADM-05](@ref), and over-relaxation or the adaptive penalty
   on a matrix;
 - paths, screening, public workspaces, refitting, reweighting, and certificates
-  other than the square-root-lasso CD duality certificate;
+  outside the duality-gap routes of [CDQ-03](@ref) and [STOP-29](@ref);
 - generic block, metric, certificate and logging frameworks, and extension
   promises based on the private model/state hooks.
 

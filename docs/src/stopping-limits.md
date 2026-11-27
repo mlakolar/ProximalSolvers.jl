@@ -7,17 +7,18 @@ See the [current section](@ref evidence-stopping-352).
 ## [What a cap says about stationarity](@id stopping-at-cap)
 
 When a limit is already reached at a checkpoint, PGD, APG and CD skip fresh
-stationarity checks. This includes a scheduled `ScaledKKT` check at the
-iteration cap.
+stationarity checks. PGD also skips a fresh `DualGap` check. These rules
+apply to scheduled checks at the iteration cap.
 In CD, the check is skipped at the pass cap or when the next sweep cannot
 fit the remaining visit budget. A skipped check is reported as `:not_checked`.
 If it was the only selected condition, the result reports `reason = :limit`
 and `converged = false`.
 
 `ObjectiveChange` can still pass using the available checkpoint objectives.
-An APG stationarity check admitted before the cap can also pass when it uses
-the last permitted evaluation. See [STOP-22](@ref), [STOP-24](@ref) and
-[CD-12](@ref) for the checkpoint rules.
+A check admitted before the cap, such as APG's `ScaledKKT` or PGD's `DualGap`,
+can also pass when it uses the last permitted evaluation.
+See [STOP-22](@ref), [STOP-24](@ref), [STOP-29](@ref) and [CD-12](@ref) for
+the checkpoint rules.
 
 ## Select stopping conditions in dense least-squares PGD
 
@@ -77,14 +78,43 @@ Each diagnostic costs one proximal call. The first one also counts the
 reference gradient, and APG counts its fused evaluation at the accepted
 coefficients. See [STOP-28](@ref) for the comparison and admission rules.
 
+## [Certify relative objective accuracy for the Float32 lasso](@id dual-gap-stopping)
+
+Use `DualGap(rtol=...)` with PGD, a raw dense Float32 least-squares loss
+and an unweighted `NormL1` penalty with a positive level represented
+exactly in Float32. A passing gap in the winning branch sets
+`r.converged = true`. The observation gives an upper bound on how far the
+objective is above its exact minimum, divided by the objective at the
+returned point. At the all-zero response and coefficient point, the bound
+is zero.
+
+~~~@example float32_dual_gap
+using ProximalBase, ProximalSolvers
+
+X = Float32[1;;]
+y = Float32[2]
+x = Float32[1]
+r = solve!(x, LeastSquaresLoss(y, X), NormL1(1f0), ProximalGradientDescent();
+           stopping=DualGap(rtol=1e-6), limits=MaxIterations(10))
+gap = only(termination(r).observations)
+@assert r.converged && r.iterations == 0
+@assert 0 <= gap.value <= gap.threshold
+gap
+~~~
+
+Each measurement counts one smooth value, one full gradient and one
+penalty value. Use `Every(k, DualGap(rtol=...))` to check less often.
+If rounding makes the bound too wide to pass, the solver can continue even
+at an exact optimum. [STOP-29](@ref) specifies the guarantee and the
+conditions for a valid measurement.
+
 ## Schedule stationarity checks in PGD and APG
 
-`Every(k, rule)` makes a supported `ScaledKKT` or
-`ProximalGradientMapping` check eligible at the starting point and after
-every `k` accepted steps. Scheduling can save accepted-point gradient
-evaluations in APG and proximal calls for mapping in either solver. You
-can combine a scheduled check with other conditions through `AnyOf` or
-`AllOf`.
+`Every(k, rule)` makes a supported `ScaledKKT`,
+`ProximalGradientMapping` or `DualGap` check eligible at the starting point
+and after every `k` accepted steps. Scheduling reduces diagnostic work when
+the solve continues through off-schedule steps. You can combine a scheduled
+check with other conditions through `AnyOf` or `AllOf`.
 
 ~~~@example scheduled_kkt
 using ProximalBase, ProximalSolvers

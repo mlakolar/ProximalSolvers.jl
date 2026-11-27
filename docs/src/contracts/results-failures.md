@@ -8,9 +8,6 @@ contract, and the independently evaluated residual when accuracy matters.
 
 **Statement.**
 
-Meeting the implemented stopping criterion is not the same as holding an independently
-certified optimum. The solvers stop on three kinds of evidence:
-
 | Solver | A stop is proposed by | Vetoed by | `converged = true` means | Kind of evidence |
 | --- | --- | --- | --- | --- |
 | `CDSolver`, least squares with default stopping and `NormL1`, `ElasticNet`, `IndNonnegative()` or unweighted `NormL1Nonneg` | a full pass whose largest change, scaled when relative scaling is active, is below the threshold | nothing | with `relative = true` and `y ≠ 0`: each scaled change `abs(h_k) √(s a_k)` of one full pass is below `tol √s ‖y‖`, with `a_k = ‖X_k‖²`; with `relative = false`, or `y = 0`: each `abs(h_k)` is below `tol` | a change test, with no independent check |
@@ -18,6 +15,7 @@ certified optimum. The solvers stop on three kinds of evidence:
 | `ProximalGradientDescent`, `AccProxGradDescent` on the regression routes with a dedicated KKT check | the `x`, objective or gradient test of an iteration | the stationarity check | a test proposed a stop and, for least squares with `NormL1` or `ElasticNet` on a dense vector, every coordinate's computed score passed the rule of [STOP-21](@ref) (below its threshold, or at most `0` at an exact zero scale, where no threshold is formed); otherwise the computed residual passed [STOP-04](@ref) and any applicable entry or group checks for [the logistic and matrix-response lasso](@ref STOP-03), [group lasso](@ref STOP-05), [the Euclidean norm](@ref STOP-17), or [the nonnegative penalties](@ref STOP-16) | a comparison in `T` of computed scores and thresholds, formed as stated below; for least squares with `NormL1` or `ElasticNet` on a dense vector, its exact-arithmetic analogue is approximate coordinatewise stationarity relative to the smooth part of the model that the check scores (the objective of the solve when their coefficients agree), with no general error bound ([STOP-21](@ref)) |
 | `ProximalGradientDescent`, `AccProxGradDescent` with `IndBallL1` ([IN-12](@ref)) | the `x`, objective or gradient test of an iteration, and B1's unchanged-iterate and progress proposals | the full check of [FP-05](@ref) | a trigger fired and the full check passed at the admitted returned point | a comparison in `Float64` of a computed support gap and fixed-step mapping, with model noise terms, against budgets from the tolerances |
 | `ProximalGradientDescent`, `AccProxGradDescent` with a generic stationarity check | the `x`, objective or gradient test of an iteration | the generic check | a test proposed a stop and the proximal-gradient residual passed the threshold comparison and guards in [STOP-07](@ref) | a working-precision indication that can be weaker when the accepted `L` is small |
+| `ProximalGradientDescent` with `DualGap` on the raw Float32 lasso | an eligible checkpoint | the bound under [STOP-29](@ref) | a passing gap in the winning branch certifies the relative objective accuracy specified in [STOP-29](@ref) | a bounded gap |
 | `ProxNewton`, logistic regression | the accepted point, at the start and after each accepted iteration | nothing | the largest ProximalBase KKT score `kkt` of the original problem, from a gradient formed at the returned point, is finite and at most `tol` (see [PN-05](@ref)) | a residual formed in working precision; `stop_reason` is `:converged`, `:maxiter` or `:stalled` |
 | `LogisticADMM`, logistic regression | each completed iteration | nothing | the primal residual `‖X b - t‖` and the dual residual `ρ ‖Xᵀ(t - t_previous)‖` are within their thresholds, and the largest ProximalBase KKT score `kkt` of the original problem, from a gradient formed at the returned point, is at most `tol` (see [LA-04](@ref)) | residuals formed in working precision; `stop_reason` is `:converged`, `:maxiter`, `:stalled` or `:prox_failed` |
 | `CDSolver`, square-root lasso, `λ > 0` | a full pass below the threshold | the duality certificate | where the minimum `P*` is positive: a proved `(P − P*)/P* < 1e-4`, with `gap` the bound; for `y = 0` and `x = 0`, where `P* = 0`: exact optimality, with `gap = 0` | a bounded gap |
@@ -40,24 +38,23 @@ say that this cache is close to `y − Xx` at the returned point (see
 with the threshold is made between the computed values, in working precision, of [CD-03](@ref), so a
 case whose exact values are equal can pass; "below" is that computed comparison.
 
-Of the problems audited, only the square-root lasso carries a certificate, and that
-certificate has the assumptions stated in [The certificate](@ref CDQ-03) and
-[Tightening and the uncertified stop](@ref CDQ-04). After an uncertified stop,
+[CDQ-03](@ref) and [CDQ-04](@ref) give the conditions for the square-root
+lasso certificate. After an uncertified stop,
 [the bounded fallback](@ref CDQ-05) can certify the stopped point or return a
-point with a proved lower objective. It does not guarantee recovery at exact
-fits, and a final `converged = false` can still mean a nonoptimal exact fit. For the
-other solvers `converged = true` reports that the criterion of its row was met. Check the
-returned point with the [independent KKT residual](../sparsity-and-kkt.md) when the result
-matters.
+point with a proved lower objective. At an exact fit, it can also finish
+with `converged = false` at a nonminimizer. Check a returned point with the
+[independent KKT residual](../sparsity-and-kkt.md) when the result matters.
 
-Reaching a pass or iteration limit is not convergence. CD can return a finite
+A stop solely due to a pass or iteration limit leaves `converged = false`.
+For explicit stopping and cap ties, see [RES-04](@ref), [RES-05](@ref) and
+[RES-06](@ref). CD can return a finite
 nonconverged solution and logs a warning when `converged = false`; PGD and APG do
 not log a warning merely because `maxiter` was reached, and `ProxNewton` and `LogisticADMM` log none
-for any stop ([PN-01](@ref), [LA-01](@ref)). Gap certificates are
-implemented only for square-root-lasso CD. Elsewhere `gap = NaN` means that a gap
-was not calculated, and does not mean the gap is zero. CD's `kkt_checks = 0` is also
-a compatibility placeholder. [CDQ-03](@ref) and [CDQ-04](@ref) specify the certificate
-assumptions, tightening and uncertified stop. [CDQ-05](@ref) specifies the
+for any stop ([PN-01](@ref), [LA-01](@ref)). Read the square-root-lasso certificate
+in the CD result's `gap` field, and the Float32 PGD lasso bound in its
+`DualGap` observation under [RES-04](@ref). A CD result with `gap = NaN`
+has no calculated gap. CD's `kkt_checks = 0` is also
+a compatibility placeholder. [CDQ-05](@ref) specifies the
 fallback's returned point, pass total, restored or final-stage change statistics,
 and RNG advancement. The square-root row describes the certificate at the
 returned point, which can follow an uncertified initial stop and a fallback.
@@ -97,7 +94,7 @@ rollback boundary in [PGD-07](@ref).
 
 **Code.** `src/cd/solver.jl`: completed passes and CD results; `src/solve.jl`: gradient iteration/stationarity decisions; `src/types.jl`: result fields; `src/solvers/logistic_proxnewton.jl`: the `ProxNewton` result; `src/solvers/logistic_admm.jl`: the `LogisticADMM` result.
 
-**Tests.** `test/weighted_elasticnet.jl` checks public convergence flags against the independent weighted scores and the coordinatewise scales of [STOP-21](@ref), and `test/stopping_coordinatewise.jl` the convergence flags of zero-scale, exact-fit and offset problems, and `test/l1ball_numerical.jl` the ℓ1-ball route: the #508 loop scores every claimed success with the independent MPFR evaluator, and dedicated regressions assert the false-stationarity flags. `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/logistic_proxnewton.jl` checks the `ProxNewton` result fields and stop reasons against an independent objective and KKT score, and `test/logistic_admm.jl` does so for the `LogisticADMM` result. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl` (the nonnegative CD fits, judged by an independent constrained KKT score) and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`.
+**Tests.** `test/weighted_elasticnet.jl` checks public convergence flags against the independent weighted scores and the coordinatewise scales of [STOP-21](@ref), and `test/stopping_coordinatewise.jl` the convergence flags of zero-scale, exact-fit and offset problems, and `test/l1ball_numerical.jl` the ℓ1-ball route: the #508 loop scores every claimed success with the independent MPFR evaluator, and dedicated regressions assert the false-stationarity flags. `test/multiresponse_lasso_pgd_apg.jl` checks matrix limits, callbacks and residuals. `test/logistic_proxnewton.jl` checks the `ProxNewton` result fields and stop reasons against an independent objective and KKT score, and `test/logistic_admm.jl` does so for the `LogisticADMM` result. `test/core_contracts.jl`, `test/stopping_scale.jl`, `test/group_pgd.jl`, `test/linf.jl`, `test/sqrt_lasso.jl`, `test/nonnegative_lasso.jl`, `test/cd_nonnegative.jl` (the nonnegative CD fits, judged by an independent constrained KKT score) and the solver-specific stopping tests. The ridge cases in `test/cd_elasticnet.jl` reuse `check_result!` for the independently evaluated objective, caller identity, `kkt_checks == 0` and `isnan(gap)`. `test/dual_gap.jl` checks the Float32 PGD certificate and cap ties.
 
 **Sources.** `docs/src/numerics.md:L853`, `docs/src/numerics.md:L1072`, `docs/src/numerics.md:L1075`, `docs/src/numerics.md:L1081`, `docs/src/stopping-limits.md:L17`, `docs/src/stopping-limits.md:L19`, `docs/src/stopping-limits.md:L22`, `docs/src/stopping-limits.md:L23`, `docs/src/stopping-limits.md:L24`, `docs/src/stopping-limits.md:L25`, `docs/src/stopping-limits.md:L26`, `docs/src/stopping-limits.md:L27`, `docs/src/stopping-limits.md:L28`, `docs/src/stopping-limits.md:L30`, `docs/src/stopping-limits.md:L35`, `docs/src/support.md:L385`, `docstring:src/types.jl:L298`, `docstring:src/types.jl:L300`. The later nonnegative-lasso result interpretation follows [upstream #413 at fd45a42](https://github.com/mlakolar/ProximalSolvers.jl/commit/fd45a4274222e7cfe8f329c1dacd41ec26bfc2c8). The square-root fallback qualification is from [f573224f](https://github.com/mlakolar/ProximalSolvers.jl/commit/f573224f70058be24b81378ab2d6e1c752eb93e8), as retained in [the integrated result guidance at ef8c9aae](https://github.com/mlakolar/ProximalSolvers.jl/blob/ef8c9aae0afd8dedf0b2f2b172f5a06da267c9d7/docs/src/stopping-limits.md#L35-L45).
 
@@ -222,14 +219,15 @@ Both `minimum` and the work counters reflect the evaluations already performed.
 `termination(result)` has `reason`, `satisfied`, `winning_branch`, `iteration`,
 `limit` (the resolved `MaxIterations`), `limit_reached`, `observations` and
 `counts`. The reason is `:rule` for a satisfied expression whose winning
-leaves include progress or stationarity evidence, `:user` for a satisfied
+leaves include progress, stationarity or gap evidence, `:user` for a satisfied
 expression whose winning leaves are user predicates, `:limit` for a reached cap
 with the expression unfulfilled, and `:stalled` for numerical stagnation with the
 expression unfulfilled. `satisfied` is true for `:rule` and `:user`. At a tie,
 the reason names the satisfied expression and `limit_reached` is true.
 `converged` is true when the winning branch includes a passing
-`ProximalGradientMapping` under [STOP-28](@ref), or a passing `ScaledKKT`
-leaf. Either check may be scheduled by `Every` under [STOP-25](@ref).
+`ProximalGradientMapping` under [STOP-28](@ref), `ScaledKKT`, or
+`DualGap` under [STOP-29](@ref). These checks may be scheduled by `Every`
+under [STOP-25](@ref).
 [STOP-27](@ref) specifies the matrix stationarity observation and the count
 for its reference gradient.
 The result display reports convergence, policy satisfaction and the stop
@@ -245,11 +243,12 @@ observations still describe the last accepted checkpoint.
 
 `observations` records each leaf in tree order, with its one-based child
 `path` from the root (empty for a root leaf), rule type `name`, `evidence`
-(`:progress`, `:stationarity` or `:user`), `status` (`:pass`, `:fail`,
+(`:progress`, `:stationarity`, `:gap_bound` or `:user`), `status` (`:pass`, `:fail`,
 `:not_checked` or `:invalid`), `value`, `threshold` and `scale` at the final
 `iteration`. An unchecked leaf has missing measurement fields. Predicates,
 exact equality checks, `ScaledKKT` and `ProximalGradientMapping` report a
-Boolean value with threshold `true` and a missing scale.
+Boolean value with threshold `true` and a missing scale. The `DualGap`
+observation reports the numerical bound and tolerance under [STOP-29](@ref).
 An `Every`-wrapped rule occupies one leaf position with the inner rule's
 name and an additional `interval` field. The interval is reported even for
 an unchecked observation. Scheduling follows [STOP-25](@ref).
@@ -264,6 +263,8 @@ computations, respectively. A fused computation increments both. `g_calls`
 counts penalty values, including the value at initialization. `prox_calls`
 counts penalty proximal evaluations. Each fused penalty value and prox
 increments both counters, including trials and the diagnostic of [STOP-28](@ref).
+The gap diagnostic contributes the value and gradient work specified in
+[STOP-29](@ref).
 `rejected_trials` is the trial count minus accepted iterations, including APG prox trials
 discarded by restart and trials whose completion an evaluation limit
 prevented. PGD uses the line-search convention in [RES-02](@ref).
@@ -282,7 +283,8 @@ identity, display and counter totals including rejected trials. `test/accelerate
 checks counters through APG restarts.
 `test/pgd_evaluation_limits.jl` checks flags and counts after budget exhaustion
 at a checkpoint and during a step. `test/multiresponse_lasso_pgd_apg.jl`
-checks the matrix result, limits and counters.
+checks the matrix result, limits and counters. `test/dual_gap.jl` checks
+the gap observation, result flags and counters.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
 
