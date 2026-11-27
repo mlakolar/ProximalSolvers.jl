@@ -213,12 +213,12 @@ function _scanned_initial_curvature(::Type{T}, X, α) where {T}
   _initial_curvature(T, _root_scale(T, α), _frobenius_upper(T, X, s))
 end
 
-function update_state!(
-    f, g,
-    state::ProximalGradientDescentState{T},
-    method::ProximalGradientDescent
-    ) where T
+function update_state!(f, g, state::ProximalGradientDescentState, method::ProximalGradientDescent)
+    _update_pgd_state!(f, g, state, method, ())
+    state
+end
 
+function _update_pgd_state!(f, g, state, method, limits)
     # copy x --> x_previous
     _copyto!(state.x_previous, state.x)
     state.f_x_previous = state.f_x
@@ -227,10 +227,18 @@ function update_state!(
     state.L *= method.ls.α
     state.verified_rejection = false
 
-    LineSearches.search!(state, method.ls, f, g)
-    state
+    if isempty(limits)
+        LineSearches.search!(state, method.ls, f, g)
+        return true
+    end
+    LineSearches.search!(state, method.ls, f, g, limits)
 end
 
+LineSearches._trial_allowed(state, limits::Tuple) =
+    !Stopping.evaluation_limit_reached(limits, state)
+
+LineSearches._trial_gradient_allowed(state, limits::Tuple) =
+    !any(l -> !(l isa MaxProximalEvaluations) && Stopping.evaluation_limit_reached(l, state), limits)
 
 LineSearches.value_and_gradient_at_x!(state::ProximalGradientDescentState, f) =
   _value_and_gradient!(state.grad_f_x, state.x, f, state.z_x, state.dz)
@@ -348,7 +356,8 @@ saved_beta = copy(result.minimizer)
 The meaning of `converged` depends on the method and loss; see
 [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
 The dense vector least-squares PGD pilot accepts explicit conditions and an
-independent iteration budget. See [STOP-22](@ref) and [`termination`](@ref).
+independent work budget. See [STOP-22](@ref) for explicit stopping,
+[STOP-23](@ref) for evaluation limits and [`termination`](@ref) for the report.
 
 # Extended help
 

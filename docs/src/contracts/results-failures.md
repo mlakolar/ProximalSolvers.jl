@@ -211,10 +211,10 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 **Statement.** [STOP-22](@ref) returns a `ProximalGradientStoppingResult`
 whose `minimizer` aliases the caller's coefficient vector. `minimum` is the
-objective at the returned point, or `missing` if a zero iteration cap prevented
+objective at the returned point, or `missing` if a zero cap prevented
 initialization.
 `iterations` counts accepted updates. `iteration_converged` reports whether the
-cap was reached. `f_increased` compares the last two accepted objectives and
+iteration cap was reached. `f_increased` compares the last two accepted objectives and
 is false when no update was accepted. `stagnated` reports a stagnation exit.
 Both `minimum` and the work counters reflect the evaluations already performed.
 
@@ -229,6 +229,14 @@ the reason names the satisfied expression and `limit_reached` is true.
 `converged` is true when the winning branch includes a passing `ScaledKKT`
 leaf. The result display reports convergence, policy satisfaction and the stop
 reason. Fatal solver failures throw as specified in [RES-03](@ref).
+
+For [STOP-23](@ref), `evaluation_limits` lists the resolved call caps in the
+supplied order, and `reached_evaluation_limits` lists those whose counts equal
+their capacities. These tuples are empty when no call caps are set.
+`limit_reached` includes either an iteration or an evaluation cap. The
+`ProximalSolvers.call_limit_reached` accessor reports whether any evaluation
+cap was reached. After an interrupted update, the reason is `:limit` and the
+observations still describe the last accepted checkpoint.
 
 `observations` records each leaf in tree order, with its one-based child
 `path` from the root (empty for a root leaf), rule type `name`, `evidence`
@@ -248,8 +256,9 @@ computations, respectively. A fused computation increments both. `g_calls`
 counts penalty values, including the value at initialization. `prox_calls`
 counts penalty value/prox trials including rejections. Each contributes to both
 counters, and `rejected_trials`
-is the trial count minus accepted iterations, including any APG prox trials
-discarded by restart. PGD uses the line-search convention in [RES-02](@ref).
+is the trial count minus accepted iterations, including APG prox trials
+discarded by restart and PGD trials whose completion an evaluation limit
+prevented. PGD uses the line-search convention in [RES-02](@ref).
 PGD initialization contributes one smooth value and gradient and no prox
 trial. APG work and initialization follow [APG-04](@ref). A zero-cap result
 has zero counts.
@@ -262,6 +271,8 @@ has zero counts.
 states, limit, convergence and satisfaction flags, objective and coefficient
 identity, display and counter totals including rejected trials. `test/accelerated_pgd.jl`
 checks counters through APG restarts.
+`test/pgd_evaluation_limits.jl` checks flags and counts after budget exhaustion
+at a checkpoint and during a step.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
 

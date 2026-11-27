@@ -42,6 +42,33 @@ A solve using `ScaledKKT` alone reports `reason = :limit` and
 uses the gradient at the accepted point and includes its cost in the
 [oracle counts](@ref APG-04).
 
+## [Cap the evaluations in dense least-squares PGD](@id pgd-evaluation-limits)
+
+Use a single call limit or a tuple to cap multiple kinds of work.
+`MaxObjectiveEvaluations` counts smooth loss values, and
+`MaxGradientEvaluations` counts full gradients. A fused evaluation uses one
+of each. `MaxProximalEvaluations` counts the penalty's proximal calls,
+including any trials the line search discards.
+
+~~~@example pgd_evaluation_limits
+using ProximalBase, ProximalSolvers
+
+x = zeros(1)
+f = LeastSquaresLoss([1.0], ones(1, 1))
+method = ProximalGradientDescent(ls=ProximalSolvers.LineSearches.BackTracking(α=1.0))
+r = solve!(x, f, NormL1(0.0), method;
+           limits=(MaxIterations(20), MaxObjectiveEvaluations(4)))
+@assert x == [1.0] && r.iterations == 1
+@assert termination(r).counts.f_calls == 4
+@assert termination(r).reached_evaluation_limits == (MaxObjectiveEvaluations(4),)
+termination(r)
+~~~
+
+The second trial uses the last smooth value. PGD returns the first accepted
+point because completing the second update needs one more smooth value as
+part of a fused gradient call. The report counts work on both trials.
+See [STOP-23](@ref) for admission and [RES-04](@ref) for the report fields.
+
 ## [Select stopping conditions in scalar coordinate descent](@id cd-select-stopping)
 
 For dense vector least-squares lasso with unweighted `NormL1`, turn momentum off

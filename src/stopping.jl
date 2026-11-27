@@ -2,15 +2,16 @@
     ProximalSolvers.Stopping
 
 Explicit stopping conditions, composition and budgets for supported dense-vector solves.
-Pass conditions as `stopping` and the iteration or pass budget as `limits`
+Pass conditions as `stopping` and work budgets as `limits`
 to [`solve!`](@ref ProximalSolvers.solve!).
-See [STOP-22](@ref) for PGD and APG, [CD-10](@ref) for coordinate descent,
+See [STOP-22](@ref) and [STOP-23](@ref) for PGD and APG, [CD-10](@ref) for coordinate descent,
 and [ADM-06](@ref) for consensus ADMM.
 """
 module Stopping
 
 export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
 export PrimalResidual, DualResidual
+export MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEvaluations
 
 # The integer call boundary keeps scalar comparisons valid when the thread
 # flushes subnormals and the compiler recognizes a floating-point zero test.
@@ -141,6 +142,53 @@ struct MaxIterations
 end
 
 """
+    MaxObjectiveEvaluations(n)
+
+Hard limit of `n` smooth loss values for dense vector least-squares PGD.
+A fused loss and gradient evaluation uses one unit. Pass the limit through
+`limits`, alone or in a tuple of distinct limits. See [STOP-23](@ref).
+"""
+struct MaxObjectiveEvaluations
+    n::Int
+    MaxObjectiveEvaluations(n::Integer) = new(evaluation_capacity(n))
+end
+
+"""
+    MaxGradientEvaluations(n)
+
+Hard limit of `n` full smooth gradients for dense vector least-squares PGD.
+Pass the limit through `limits`, alone or in a tuple of distinct limits.
+See [STOP-23](@ref).
+"""
+struct MaxGradientEvaluations
+    n::Int
+    MaxGradientEvaluations(n::Integer) = new(evaluation_capacity(n))
+end
+
+"""
+    MaxProximalEvaluations(n)
+
+Hard limit of `n` penalty proximal calls for dense vector least-squares PGD.
+Pass the limit through `limits`, alone or in a tuple of distinct limits.
+See [STOP-23](@ref).
+"""
+struct MaxProximalEvaluations
+    n::Int
+    MaxProximalEvaluations(n::Integer) = new(evaluation_capacity(n))
+end
+
+function evaluation_capacity(n)
+    0 <= n <= typemax(Int) || throw(ArgumentError("the evaluation limit must be a nonnegative Int"))
+    Int(n)
+end
+
+const EvaluationLimit = Union{MaxObjectiveEvaluations,MaxGradientEvaluations,MaxProximalEvaluations}
+evaluation_limit_reached(limit::MaxObjectiveEvaluations, counts) = counts.f_calls >= limit.n
+evaluation_limit_reached(limit::MaxGradientEvaluations, counts) = counts.grad_calls >= limit.n
+evaluation_limit_reached(limit::MaxProximalEvaluations, counts) = counts.prox_calls >= limit.n
+evaluation_limit_reached(limits::Tuple, counts) = any(l -> evaluation_limit_reached(l, counts), limits)
+
+"""
     MaxPasses(n)
 
 Hard limit of `n` completed coordinate passes, with `n` a nonnegative integer.
@@ -204,17 +252,19 @@ mutable struct StationarityCache{F}
     decisions::Dict{UInt64,Bool}
 end
 
-struct Monitor{R,S,L}
+struct Monitor{R,S,L,E}
     root::R
     limit::L
     movement::MovementCache
     stationarity::S
+    evaluation_limits::E
 end
 
 user_context(k, objective) = (; iteration=k, objective)
-prepare(rule, limit::Union{MaxIterations,MaxPasses}, ::Type{T}, supported=GradientLeaves) where {T} =
+prepare(rule, limit::Union{MaxIterations,MaxPasses}, ::Type{T}, supported=GradientLeaves;
+        evaluation_limits=()) where {T} =
     Monitor(rule === nothing ? nothing : bind_rule(rule, user_context(0, zero(T)), supported),
-            limit, MovementCache(nothing, nothing, nothing), nothing)
+            limit, MovementCache(nothing, nothing, nothing), nothing, evaluation_limits)
 
 needs_stationarity(monitor::Monitor) = needs_stationarity(monitor.root)
 needs_stationarity(::Union{Nothing,RuleState}) = false
@@ -223,7 +273,7 @@ needs_stationarity(tree::Union{AnyOf,AllOf}) = any(needs_stationarity, tree.rule
 
 with_stationarity(monitor, provider) =
     Monitor(monitor.root, monitor.limit, monitor.movement,
-            StationarityCache(provider, -1, Dict{UInt64,Bool}()))
+            StationarityCache(provider, -1, Dict{UInt64,Bool}()), monitor.evaluation_limits)
 
 function stationarity!(cache::StationarityCache, point, rtol::Float64)
     if cache.iteration != point.iteration
@@ -326,11 +376,11 @@ end
 evaluate!(tree::AnyOf, point, monitor, at_limit) = any_pass!(tree.rules, point, monitor, at_limit)
 evaluate!(tree::AllOf, point, monitor, at_limit) = all_pass!(tree.rules, point, monitor, at_limit, :user)
 
-function check!(monitor, point)
+function check!(monitor, point, evaluation_cap_reached=false)
     monitor.movement.distance = nothing
     monitor.movement.scale = nothing
     monitor.movement.unchanged = nothing
-    at_limit = point.iteration == monitor.limit.n
+    at_limit = point.iteration == monitor.limit.n || evaluation_cap_reached
     reason = evaluate!(monitor.root, point, monitor, at_limit)
     reason === :continue && at_limit ? :limit : reason
 end

@@ -68,6 +68,17 @@ function next_curvature(L, β)
     next
 end
 
+_trial_allowed(state, ::Tuple{}) = true
+_trial_gradient_allowed(state, ::Tuple{}) = true
+
+@inline function _trial_gradient!(state, f, limits)
+    _trial_gradient_allowed(state, limits) || return false
+    value_and_gradient_at_x!(state, f)
+    state.f_calls += 1
+    state.grad_calls += 1
+    true
+end
+
 # The step of a trial whose squared norm overflowed while its entries are finite, with m the
 # largest absolute entry: scale state.delta_x in place by s = 2^k, with
 # k = -min(exponent(m), exponent(floatmax(T)) - 1) for the type T of m, so that s ≥ floatmin(T)
@@ -83,7 +94,7 @@ end
     ldexp(state.f_x, 2k), ldexp(state.f_x_previous, 2k), s, _norm(state.delta_x)^2
 end
 
-function backtrack!(state, ls::BackTracking{T}, f, g) where T
+function backtrack!(state, ls::BackTracking{T}, f, g, limits=()) where T
 
     # Quick exit if no progress made
     _sub!(state.delta_x, state.x, state.x_previous)
@@ -92,11 +103,8 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
     if xy_sq == zero(T) && isfinite(state.f_x)
       # in the gradient mode, update_state! expects ∇f(x), but state.grad_f_x may
       # hold the gradient at a rejected trial point
-      if !state.backtrack_simple
-          value_and_gradient_at_x!(state, f)
-          state.f_calls += 1
-          state.grad_calls += 1
-      end
+      # A refused fused gradient interrupts the update instead of shrinking the step.
+      state.backtrack_simple || _trial_gradient!(state, f, limits) || return nothing
       return true
     end
 
@@ -137,15 +145,9 @@ function backtrack!(state, ls::BackTracking{T}, f, g) where T
         # enough apart to compare in floating point, then switch for good to the
         # gradient estimate, which needs ∇f(x)
         state.backtrack_simple = abs( state.f_x_previous - state.f_x ) >= 1e-10 * max( abs( state.f_x ), abs( state.f_x_previous ) )
-        if !state.backtrack_simple
-            value_and_gradient_at_x!(state, f)
-            state.f_calls += 1
-            state.grad_calls += 1
-        end
+        state.backtrack_simple || _trial_gradient!(state, f, limits) || return nothing
     else
-        value_and_gradient_at_x!(state, f)
-        state.f_calls += 1
-        state.grad_calls += 1
+        _trial_gradient!(state, f, limits) || return nothing
         local_l = _dot_diff(T, state.grad_f_x, state.grad_f_x_previous, state.delta_x)
         # For Float64 data, 2 / xy_sq is Inf when xy_sq is below 2 / floatmax(Float64) (about
         # 1.1e-308, a subnormal xy_sq), and 0 * Inf is NaN. A zero product is therefore left at 0.
@@ -196,16 +198,15 @@ end
 
 has_updated_gradient(state, ::BackTracking) = state.backtrack_simple == false
 
-# Retries trials until backtrack! accepts one; then state.x is that trial, with f_x, g_x, grad_f_x and the image
-# cache at it. An error from a trial, backtrack! or next_curvature propagates, leaving the state as at the error.
-function search!(state, ls::BackTracking, f, g)
+# Retry until backtrack! accepts a trial and the gradient is available at that trial. Return false if a
+# budget interrupts the search. A trial or line-search error propagates for the solver to handle.
+function search!(state, ls::BackTracking, f, g, limits=())
     while true
+        _trial_allowed(state, limits) || return false
         trial!(state, f, g)
-        backtrack!(state, ls, f, g) && break
+        accepted = backtrack!(state, ls, f, g, limits)
+        accepted === nothing && return false
+        accepted && break
     end
-    if !has_updated_gradient(state, ls)
-        value_and_gradient_at_x!(state, f)
-        state.f_calls += 1
-        state.grad_calls += 1
-    end
+    has_updated_gradient(state, ls) || _trial_gradient!(state, f, limits)
 end

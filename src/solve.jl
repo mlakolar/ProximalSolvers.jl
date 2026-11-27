@@ -807,6 +807,9 @@ _rollback_gradient_step!(state) = _copyto!(state.x, state.x_previous)
   true
 end
 
+@inline _gradient_step!(policy, state, f, g, method, options, t0) =
+  _gradient_step!(state, f, g, method, options, t0)
+
 struct DefaultGradientDecision
   assessment::NTuple{5,Bool}
   strict_limits::Bool
@@ -843,7 +846,7 @@ function _gradient_decision_after_trace(::Nothing, previous, assessment, state, 
                           stopped || converged || iteration >= options.maxiter)
 end
 
-function _interrupted_gradient_decision(decision::DefaultGradientDecision, state, options)
+function _interrupted_gradient_decision(::Nothing, decision::DefaultGradientDecision, state, options)
   DefaultGradientDecision(decision.assessment, decision.strict_limits,
                           _gradient_call_limit(state, options), decision.stagnated, true)
 end
@@ -858,7 +861,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time(), policy = no
 
   while !decision.stop
     completed = try
-      accepted = _gradient_step!(state, f, g, method, options, t0)
+      accepted = _gradient_step!(policy, state, f, g, method, options, t0)
       (!accepted || isfinite(state.f_x + state.g_x)) ||
         error("the gradient step did not produce a finite objective")
       accepted
@@ -867,7 +870,8 @@ function _solve_gradient!(state, f, g, method, options, t0 = time(), policy = no
       rethrow()
     end
     if !completed
-      decision = _interrupted_gradient_decision(decision, state, options)
+      _rollback_gradient_step!(state)
+      decision = _interrupted_gradient_decision(policy, decision, state, options)
       break
     end
     iteration += 1

@@ -74,6 +74,9 @@ A line-search acceptance is an iteration decision. Convergence, exact stalls and
 
 **Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`, or on the ℓ1-ball route at its 64-trial limit ([IN-12](@ref)). A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first; on the ℓ1-ball route a zero-step acceptance of a nonzero step does not complete the step (below). Separately, after `backtrack!` has accepted a trial, the ℓ1-ball route raises inside the step at an accepted nonzero step whose computed squared norm is zero and at a nonfinite gradient at the accepted trial ([IN-12](@ref)). In each case the gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. Full ownership and exception semantics are [RES-01](@ref).
 
+An explicit evaluation budget can interrupt the search and return an accepted
+point under [STOP-23](@ref).
+
 **Applies to.** ProximalGradientDescent with BackTracking.
 
 **Code.** `src/line_searches/backtracking.jl: next_curvature, backtrack!; src/solve.jl: _solve_gradient!`.

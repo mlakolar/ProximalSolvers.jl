@@ -24,6 +24,7 @@ standard = [
   "core_regressions",
   "sparse_cd",
   "accelerated_pgd",
+  "pgd_evaluation_limits",
   "admm",
   "admm_stopping",
   "admm_graphical_lasso",
