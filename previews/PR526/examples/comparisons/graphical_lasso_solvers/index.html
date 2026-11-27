@@ -111,8 +111,8 @@ for case in cases
   @assert maximum(abs, ta.Θ - tb.Θ) &lt;= 1e-8 * max(1, maximum(abs, tb.Θ)) &amp;&amp; graph(ta.Θ) == graph(tb.Θ)
   @printf(&quot;λdiag = %.2f: matched objective difference %.2e, entrywise difference %.2e (bound %.2e); tightest entrywise difference %.2e\n&quot;,
           case.policy.λdiag, Δobjective, Δentry, bound, maximum(abs, ta.Θ - tb.Θ))
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">λdiag = 0.00: matched objective difference 1.78e-15, entrywise difference 7.95e-09 (bound 4.82e-07); tightest entrywise difference 1.06e-10
-λdiag = 0.06: matched objective difference 3.55e-15, entrywise difference 8.76e-09 (bound 4.46e-07); tightest entrywise difference 9.76e-11
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">λdiag = 0.00: matched objective difference 0.00e+00, entrywise difference 7.95e-09 (bound 4.82e-07); tightest entrywise difference 1.06e-10
+λdiag = 0.06: matched objective difference 0.00e+00, entrywise difference 8.76e-09 (bound 4.46e-07); tightest entrywise difference 9.76e-11
 λdiag = 0.12: matched objective difference 1.78e-15, entrywise difference 7.49e-09 (bound 3.76e-07); tightest entrywise difference 8.11e-11</code></pre><h2 id="Compare-work-at-the-same-accuracy"><a class="docs-heading-anchor" href="#Compare-work-at-the-same-accuracy">Compare work at the same accuracy</a><a id="Compare-work-at-the-same-accuracy-1"></a><a class="docs-heading-anchor-permalink" href="#Compare-work-at-the-same-accuracy" title="Permalink"></a></h2><p>One ADMM iteration makes two proximal calls: the logdet proximal operator, which uses an eigendecomposition, and the ℓ₁ proximal operator. PGD counts each attempted proposal as a backtracking trial. A trial calls the ℓ₁ proximal operator when its argument is finite, and the solver evaluates the loss only when the resulting proposal is finite, exactly symmetric and passes Cholesky in the element type; an accepted step also evaluates a gradient (<a href="../../../contracts/pg-logdet/#PGD-07">PGD-07</a>, <a href="../../../contracts/pg-logdet/#PGD-08">PGD-08</a>). PGD&#39;s <code>f_calls</code> and <code>grad_calls</code> also each include one combined value and gradient evaluation at the start. Both solvers call the ℓ₁ proximal operator, while ADMM&#39;s proximal-call count also includes the logdet proximal operator, so the two totals count different operations. The times are the minimum of three warmed solves of the matched setting, each from a fresh start and checked like the sweep fits. They illustrate one machine and one problem, and they do not show a speedup.</p><pre><code class="language-julia hljs">function timed(route, policy, t)
   runs = [fit(route, policy, t) for _ in 1:3]
   foreach(check_fit, runs)
@@ -147,20 +147,20 @@ for (; λdiag, route, run) in rows
 end
 @assert S == stored.S &amp;&amp; policies == stored.policies &amp;&amp; start == Matrix(1.0I, p, p)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
 λdiag  solver  setting  converged  KKT(norm)  KKT(abs)   objective       |minimum - objective|  gap        eigmin
-0.00   ADMM    1e-09    true       5.57e-09   5.57e-09   9.7389009845  0.00e+00                 2.25e-16  0.7957
-0.00   PGD     1e-08    true       8.43e-09   8.43e-09   9.7389009845  0.00e+00                 2.00e-15  0.7957
-0.06   ADMM    1e-09    true       5.93e-09   5.93e-09   10.6026595070  0.00e+00                -5.67e-16  0.7612
+0.00   ADMM    1e-09    true       5.57e-09   5.57e-09   9.7389009845  0.00e+00                -2.12e-16  0.7957
+0.00   PGD     1e-08    true       8.43e-09   8.43e-09   9.7389009845  0.00e+00                -2.10e-16  0.7957
+0.06   ADMM    1e-09    true       5.93e-09   5.93e-09   10.6026595070  0.00e+00                 9.41e-16  0.7612
 0.06   PGD     1e-08    true       9.73e-09   9.73e-09   10.6026595070  1.78e-15                 2.11e-09  0.7612
-0.12   ADMM    1e-09    true       5.95e-09   5.95e-09   11.4055786492  1.78e-15                 3.71e-11  0.7294
-0.12   PGD     1e-08    true       9.78e-09   9.78e-09   11.4055786492  1.78e-15                 5.54e-16  0.7294
+0.12   ADMM    1e-09    true       5.95e-09   5.95e-09   11.4055786492  0.00e+00                 3.71e-11  0.7294
+0.12   PGD     1e-08    true       9.78e-09   9.78e-09   11.4055786492  1.78e-15                -1.35e-15  0.7294
 
 λdiag  solver  iterations  prox_calls  f_calls  grad_calls  backtracks  r_norm    s_norm    illustrative_ms
-0.00   ADMM    54          108         -        -           -           7.6e-10   1.0e-08   0.87
-0.00   PGD     35          35          36       36          35          -         -         0.15
-0.06   ADMM    46          92          -        -           -           1.1e-09   1.1e-08   0.76
-0.06   PGD     27          27          28       28          27          -         -         0.15
-0.12   ADMM    40          80          -        -           -           1.8e-09   1.1e-08   0.70
-0.12   PGD     24          25          26       25          25          -         -         0.14
+0.00   ADMM    54          108         -        -           -           7.6e-10   1.0e-08   0.63
+0.00   PGD     35          35          36       36          35          -         -         0.26
+0.06   ADMM    46          92          -        -           -           1.1e-09   1.1e-08   0.52
+0.06   PGD     27          27          28       28          27          -         -         0.18
+0.12   ADMM    40          80          -        -           -           1.8e-09   1.1e-08   0.45
+0.12   PGD     24          25          26       25          25          -         -         0.16
 
 λdiag  solver  exact zeros among the 66 pairs  true positives  false positives  false negatives (edges: |Θᵢⱼ| &gt; 1.0e-6)
 0.00   ADMM    56                               10              0                1
@@ -191,4 +191,4 @@ estimates = [heatmap(1:p, 1:p, A; title=labels[k] * &quot;: ADMM above, PGD belo
 figure = plot(work..., estimates...; layout=(2, 3), size=(1150, 720), titlefontsize=10,
               left_margin=5Plots.mm, bottom_margin=4Plots.mm)
 savefig(figure, &quot;graphical_lasso_solvers.svg&quot;)
-nothing</code></pre><p><a href="../../#Reproduce-the-figures">Reproduce the figures locally</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../weighted_lasso_solvers/">« Weighted lasso: CD, PGD and APG</a><a class="docs-footer-nextpage" href="../logistic_solvers/">Sparse logistic regression: PGD, proximal Newton and ADMM »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 24 November 2026 06:53">Tuesday 24 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+nothing</code></pre><p><a href="../../#Reproduce-the-figures">Reproduce the figures locally</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../weighted_lasso_solvers/">« Weighted lasso: CD, PGD and APG</a><a class="docs-footer-nextpage" href="../logistic_solvers/">Sparse logistic regression: PGD, proximal Newton and ADMM »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Friday 27 November 2026 07:41">Friday 27 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
