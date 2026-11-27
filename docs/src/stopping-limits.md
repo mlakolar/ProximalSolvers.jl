@@ -162,7 +162,9 @@ general, and an exact or near-exact fit can return `converged = false`. The matr
 lasso of [IN-10](@ref) keeps the `λmax`-based check of [STOP-03](@ref). For square-root lasso, a bounded
 fallback can certify an uncertified stopped point or return a point with a
 proved lower objective; recovery at exact fits is not guaranteed. See the
-[bounded recovery rule](@ref CDQ-05).
+[bounded recovery rule](@ref CDQ-05). On the ℓ1-ball route of PGD and APG, `converged`
+means that the full check passed at the returned point, which can lie outside the ball and still pass
+the computed cap decision ([IN-12](@ref)).
 
 ## What the change test of coordinate descent implies
 

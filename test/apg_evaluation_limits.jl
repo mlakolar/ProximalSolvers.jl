@@ -16,6 +16,11 @@ const PS = ProximalSolvers
     @test_throws ArgumentError solve!(x, f, g, method;
                                       stopping=AnyOf(UserStop(_ -> true), cap), limits=MaxIterations(0))
     @test_throws ArgumentError solve!(x, LogisticLoss([1.0], ones(1, 1)), g, method; limits=cap)
+    for solver in (ProximalGradientDescent(), method), n in (0, 1)
+        @test_throws ArgumentError solve!(x, f, IndBallL1(1.0), solver;
+                                         feasibility=NumericalFeasibility(),
+                                         limits=MaxObjectiveEvaluations(n))
+    end
     @test x == [0.25]
     B = fill(0.25, 1, 2)
     @test_throws ArgumentError solve!(B, LeastSquaresLoss(ones(1, 2), ones(1, 1)), g, method; limits=cap)
