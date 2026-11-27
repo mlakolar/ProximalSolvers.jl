@@ -1,12 +1,13 @@
 """
     ProximalSolvers.Stopping
 
-Explicit stopping conditions, composition and budgets for supported dense-vector solves.
+Explicit stopping conditions, composition and budgets for supported solves.
 Pass conditions as `stopping` and work budgets as `limits`
 to [`solve!`](@ref ProximalSolvers.solve!).
 See [STOP-22](@ref) for PGD and APG stopping and [STOP-23](@ref) and
-[STOP-24](@ref) for their evaluation budgets. See [CD-10](@ref) for
-coordinate descent and [ADM-06](@ref) for consensus ADMM.
+[STOP-24](@ref) for their evaluation budgets. See [STOP-26](@ref) for dense
+matrix-response lasso, [CD-10](@ref) for coordinate descent and
+[ADM-06](@ref) for consensus ADMM.
 """
 module Stopping
 
@@ -40,9 +41,10 @@ end
 """
     IterateChange(; atol=0.0, rtol=0.0)
 
-Check the Euclidean displacement between successive accepted iterates against
-an absolute plus relative tolerance. Two zero tolerances select elementwise
-equality. The exact comparison and scale are specified in [STOP-22](@ref).
+Check the displacement between successive accepted iterates against an
+absolute plus relative tolerance. Use Euclidean norms for vectors and
+Frobenius norms for matrices. Two zero tolerances select elementwise equality.
+See [STOP-22](@ref) for vectors and [STOP-26](@ref) for matrices.
 """
 struct IterateChange
     atol::Float64

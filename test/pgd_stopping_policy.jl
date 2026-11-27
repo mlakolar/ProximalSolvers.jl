@@ -515,8 +515,9 @@ end
     refuses(f, g, AccProxGradDescent(); stopping=IterateChange(), feasibility=NumericalFeasibility())
     refuses(LogisticLoss([1.0], ones(1, 1)), g, AccProxGradDescent(); stopping=IterateChange())
     refuses(LogisticLoss([1.0], ones(1, 1)), g, method; stopping=IterateChange())
-    @test_throws ArgumentError solve!(zeros(1, 1), LeastSquaresLoss(ones(1, 1), ones(1, 1)),
-                                     g, method; limits=MaxIterations(0))
+    B = zeros(1, 1)
+    @test solve!(B, LeastSquaresLoss(ones(1, 1), ones(1, 1)), g, method;
+                 limits=MaxIterations(0)).minimizer === B
     @test_throws ArgumentError MaxIterations(-1)
     @test_throws ArgumentError MaxIterations(big(typemax(Int)) + 1)
     for rule in (IterateChange, ObjectiveChange), invalid in (-1, Inf, NaN, big"1e-1000")

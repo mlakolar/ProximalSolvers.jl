@@ -209,8 +209,9 @@ a returned result, or the [Glossary](../glossary.md) for terminology.
 
 ## [RES-04 Explicit gradient stopping result](@id RES-04)
 
-**Statement.** [STOP-22](@ref) returns a `ProximalGradientStoppingResult`
-whose `minimizer` aliases the caller's coefficient vector. `minimum` is the
+**Statement.** [STOP-22](@ref) and [STOP-26](@ref) return a
+`ProximalGradientStoppingResult` whose `minimizer` aliases the caller's
+coefficient vector or matrix. `minimum` is the
 objective at the returned point, or `missing` if a zero cap prevented
 initialization.
 `iterations` counts accepted updates. `iteration_converged` reports whether the
@@ -266,7 +267,8 @@ PGD initialization contributes one smooth value and gradient and no prox
 trial. APG work and initialization follow [APG-04](@ref). A zero-cap result
 has zero counts.
 
-**Applies to.** The dense vector least-squares PGD and APG routes in [STOP-22](@ref).
+**Applies to.** The dense vector- and matrix-response least-squares PGD and
+APG routes in [STOP-22](@ref) and [STOP-26](@ref).
 
 **Code.** `src/solvers/gradient_stopping.jl` and `src/stopping.jl`.
 
@@ -275,7 +277,8 @@ states, limit, convergence and satisfaction flags, objective and coefficient
 identity, display and counter totals including rejected trials. `test/accelerated_pgd.jl`
 checks counters through APG restarts.
 `test/pgd_evaluation_limits.jl` checks flags and counts after budget exhaustion
-at a checkpoint and during a step.
+at a checkpoint and during a step. `test/multiresponse_lasso_pgd_apg.jl`
+checks the matrix result, limits and counters.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
 

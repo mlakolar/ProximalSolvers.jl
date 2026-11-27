@@ -37,7 +37,9 @@ budget_types() = (MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEv
     X = ones(1, 1)
     Y = ones(1, 2)
     B = zeros(1, 2)
-    @test_throws ArgumentError solve!(B, LeastSquaresLoss(Y, X), g, method; limits=cap)
+    r = solve!(B, LeastSquaresLoss(Y, X), g, method; limits=cap)
+    @test r.minimizer === B && r.minimum === missing
+    @test all(iszero, values(termination(r).counts))
     @test B == zeros(1, 2)
 end
 

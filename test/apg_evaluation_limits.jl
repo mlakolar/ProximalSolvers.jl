@@ -23,7 +23,9 @@ const PS = ProximalSolvers
     end
     @test x == [0.25]
     B = fill(0.25, 1, 2)
-    @test_throws ArgumentError solve!(B, LeastSquaresLoss(ones(1, 2), ones(1, 1)), g, method; limits=cap)
+    r = solve!(B, LeastSquaresLoss(ones(1, 2), ones(1, 1)), g, method; limits=cap)
+    @test r.minimizer === B && r.minimum === missing
+    @test all(iszero, values(termination(r).counts))
     @test B == fill(0.25, 1, 2)
 end
 
