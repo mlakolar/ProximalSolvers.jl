@@ -1,11 +1,3 @@
-module LineSearches
-
-using ..Blocks
-
-export
-  backtrack!,has_updated_gradient,
-  BackTracking
-
 #################################
 #
 # TFOCS Backtrack
@@ -76,10 +68,7 @@ function next_curvature(L, β)
     next
 end
 
-# f(x) and ∇f(x) at the trial point state.x, into state.grad_f_x; the PGD state
-# computes them from its LS image cache (see image_models.jl)
-function value_and_gradient_at_x! end
-
+_trial_allowed(state, ::Tuple{}) = true
 _trial_gradient_allowed(state, ::Tuple{}) = true
 
 @inline function _trial_gradient!(state, f, limits)
@@ -89,14 +78,6 @@ _trial_gradient_allowed(state, ::Tuple{}) = true
     state.grad_calls += 1
     true
 end
-
-# check_rejection!(state, gradient_mode) returns (c ≤ L, c) for a rejected trial with d̂ ≠ 0,
-# with c the computed curvature of the step in the mode of its estimate (twice α‖X d̂‖²/‖d̂‖²
-# in gradient mode). d̂ is state.delta_x: the step x - x', or, when backtrack! has scaled it (its
-# squared norm overflows with finite entries and f(x) is finite), that step times a power of two,
-# for which c is the same in exact arithmetic. The PGD state implements it with its LS model
-# (proximal_gradient_descent.jl).
-function check_rejection! end
 
 # The step of a trial whose squared norm overflowed while its entries are finite, with m the
 # largest absolute entry: scale state.delta_x in place by s = 2^k, with
@@ -217,4 +198,15 @@ end
 
 has_updated_gradient(state, ::BackTracking) = state.backtrack_simple == false
 
+# Retry until backtrack! accepts a trial and the gradient is available at that trial. Return false if a
+# budget interrupts the search. A trial or line-search error propagates for the solver to handle.
+function search!(state, ls::BackTracking, f, g, limits=())
+    while true
+        _trial_allowed(state, limits) || return false
+        trial!(state, f, g)
+        accepted = backtrack!(state, ls, f, g, limits)
+        accepted === nothing && return false
+        accepted && break
+    end
+    has_updated_gradient(state, ls) || _trial_gradient!(state, f, limits)
 end

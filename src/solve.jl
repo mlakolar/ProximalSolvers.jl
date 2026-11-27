@@ -604,6 +604,91 @@ _check_keywords(kwargs) = isempty(kwargs) ||
   throw(ArgumentError("unsupported solve! keywords: $(join(keys(kwargs), ", "))"))
 _check_start(f_x) = isfinite(f_x) || throw(ArgumentError("start from a point where f is finite"))
 
+# ---- the gate of the IndBallL1 route of PGD and APG (IN-12) ----------------------------------------------------------
+#
+# Whether solve! takes the IndBallL1 route: for every IndBallL1. After the keyword check of solve!, a `feasibility`
+# other than `nothing` with another penalty is refused.
+_numerical_route(::IndBallL1, feasibility) = true
+_numerical_route(g, feasibility) = feasibility === nothing ? false :
+  throw(ArgumentError("feasibility applies only to IndBallL1 with ProximalGradientDescent or AccProxGradDescent; " *
+                      "omit it for $(nameof(typeof(g)))"))
+
+# The tolerances of a NumericalFeasibility for coefficients of type T, as Float64: a `nothing` takes the default of T. A
+# value must be a Real that is finite and, with its Float64 conversion, nonnegative for the coefficient tolerances and
+# positive for the objective and mapping tolerances; -0.0 is stored as 0.0.
+function _feasibility_tolerances(a::NumericalFeasibility, ::Type{T}) where T
+  coefficient, objective, mapping = T === Float32 ? (1e-5, 1e-5, 1e-4) : (1e-10, 1e-9, 1e-8)
+  (; coefficient_rtol = _feasibility_tolerance(a.coefficient_rtol, coefficient, "coefficient_rtol", false),
+     coefficient_atol = _feasibility_tolerance(a.coefficient_atol, 0.0, "coefficient_atol", false),
+     objective_rtol = _feasibility_tolerance(a.objective_rtol, objective, "objective_rtol", true),
+     mapping_rtol = _feasibility_tolerance(a.mapping_rtol, mapping, "mapping_rtol", true))
+end
+
+function _feasibility_tolerance(v, default::Float64, name::String, positive::Bool)
+  v === nothing && return default
+  rule = positive ? "finite and positive" : "finite and nonnegative"
+  v isa Real || throw(ArgumentError("NumericalFeasibility: $name must be a real number or nothing (got $(typeof(v)))"))
+  w = try
+    Float64(v)
+  catch
+    throw(ArgumentError("NumericalFeasibility: $name = $v does not convert to Float64"))
+  end
+  isfinite(v) && isfinite(w) && (positive ? v > 0 && w > 0 : v >= 0 && w >= 0) ||
+    throw(ArgumentError("NumericalFeasibility: $name must be $rule, as given and in Float64 (got $v)"))
+  iszero(w) ? 0.0 : w
+end
+
+# A finite number of at least floatmin of its type (zero, subnormal and nonfinite numbers fail)
+_normal_positive(v::AbstractFloat) = isfinite(v) && v >= floatmin(v)
+
+# The checks of the IndBallL1 route (IN-12), before any write to x, in this order: a logistic loss; coefficients that
+# are not a dense Vector{Float32} or Vector{Float64}; the data checks of _check_problem with the placeholder
+# NormL1(zero(T)); for APG, _check_method and _check_bound_size; the radius; the tolerances; finite budgets and
+# curvature; for a design with a nonzero column, a normal positive curvature (in Float64 and in T), gap budget and
+# mapping budget; the start's decision, which must be :pass. initial_state then refuses a start whose loss is not finite.
+function _check_numerical_l1(x, f, g::IndBallL1, a::NumericalFeasibility, method, kind::Symbol)
+  _is_logistic_loss(f) &&
+    throw(ArgumentError("IndBallL1 with PGD or APG needs LeastSquaresLoss or one positive " *
+                        "Scaled(LeastSquaresLoss); LogisticLoss is not supported"))
+  x isa Vector && eltype(x) in (Float32, Float64) ||
+    throw(ArgumentError("IndBallL1 with PGD or APG needs x to be a dense Vector{Float32} or " *
+                        "Vector{Float64}; matrix and other coefficient storage is not supported"))
+  T = eltype(x)
+  _check_problem(x, f, NormL1(zero(T)), kind)
+  if method isa AccProxGradDescent
+    _check_method(method, T)
+    _check_bound_size(f, x)
+  end
+  r = g.r
+  r isa T && isfinite(r) && r > 0 ||
+    throw(ArgumentError("IndBallL1 with PGD or APG needs a finite positive radius of type $T " *
+                        "(got $r of type $(typeof(r)))"))
+  tolerances = _feasibility_tolerances(a, T)
+  d = leastsquares_data(f)
+  alpha = Float64(d.α)
+  b = _l1_budgets(d.X, d.Y, alpha, Float64(r), tolerances)
+  all(isfinite, (b.cap, b.gap, b.mapping, b.curvature)) && isfinite(T(b.curvature)) && T(b.curvature) > 0 ||
+    throw(ArgumentError("IndBallL1: the feasibility cap, the stopping budgets or " *
+                        "the curvature α maxⱼ‖Xⱼ‖² are not finite in Float64, or the curvature is not finite and positive in $T; " *
+                        "rescale the data, the radius or the tolerances"))
+  # A design with a nonzero column needs a normal curvature in Float64 and in T and normal budgets: under gradual
+  # underflow a zero or subnormal curvature or budget can let the full check pass at a point that is not stationary.
+  # A design whose columns are all zero (C = 0, curvature 1.0) is exempt from this check only; the others apply to it.
+  b.col > 0 && !(_normal_positive(b.curvature) && _normal_positive(T(b.curvature)) && _normal_positive(b.gap) &&
+                 _normal_positive(b.mapping)) &&
+    throw(ArgumentError("IndBallL1: for a design with a nonzero column, the curvature " *
+                        "α maxⱼ‖Xⱼ‖² (in Float64 and in $T), the gap budget and the mapping budget must be normal positive " *
+                        "numbers; one is zero or subnormal (underflow); rescale the data, the radius or the tolerances"))
+  decision = _l1_decision(x, g, b.cap)
+  decision.code === :over &&
+    throw(ArgumentError("IndBallL1: the starting point is infeasible, its widened ℓ1 " *
+                        "norm exceeds the radius by more than the feasibility cap $(b.cap)"))
+  decision.code === :pass ||
+    throw(ArgumentError("IndBallL1: the feasibility of the starting point against the " *
+                        "cap $(b.cap) is unresolved at the rounding allowance of its widened ℓ1 norm"))
+  (; budgets = b, tolerances, decision, alpha, data = d)
+end
+
 # The penalty value that a gradient step monitors for a trial point x, with v the value that
 # ProximalBase's value_and_prox! returned for it (IN-08).
 #
@@ -710,6 +795,8 @@ _gradient_time_limit(t0::UInt64, options) = (time_ns() - t0) * 1e-9 >= options.t
 # A strict-budget search can return false when a limit interrupts a trial.
 _strict_gradient_limits(state) = false
 _stop_on_gradient_increase(state, options) = !options.allow_f_increases
+# The IndBallL1 route has a method of this three-argument form that returns false (IN-12).
+_stop_on_gradient_increase(state, g, options) = _stop_on_gradient_increase(state, options)
 _gradient_tolerance(state, options) = options.gradtol
 _gradient_tracing(state, options) =
   options.store_trace || options.show_trace || options.extended_trace || options.callback !== nothing
@@ -742,7 +829,7 @@ end
 _assess_gradient_step(::Nothing, state, f, g, options, iteration) =
   convergence_assessment(state, f, g, options)
 
-function _gradient_decision_after_trace(::Nothing, previous, assessment, state, options, t0,
+function _gradient_decision_after_trace(::Nothing, previous, assessment, state, g, options, t0,
                                        iteration, stopped_by_callback)
   x_converged, fg_converged, grad_converged, converged, f_increased = assessment
   stopped_by_time_limit = _gradient_time_limit(t0, options)
@@ -752,7 +839,7 @@ function _gradient_decision_after_trace(::Nothing, previous, assessment, state, 
   end
 
   stagnated = _stagnated(state, options)
-  increased = f_increased && _stop_on_gradient_increase(state, options)
+  increased = f_increased && _stop_on_gradient_increase(state, g, options)
   stopped = increased || stagnated || stopped_by_callback || stopped_by_time_limit || call_limit_reached
   DefaultGradientDecision((x_converged, fg_converged, grad_converged, converged, f_increased),
                           previous.strict_limits, call_limit_reached, stagnated,
@@ -791,7 +878,7 @@ function _solve_gradient!(state, f, g, method, options, t0 = time(), policy = no
 
     assessment = _assess_gradient_step(policy, state, f, g, options, iteration)
     stopped_by_callback = tracing && trace!(tr, state, iteration, options)
-    decision = _gradient_decision_after_trace(policy, decision, assessment, state, options, t0,
+    decision = _gradient_decision_after_trace(policy, decision, assessment, state, g, options, t0,
                                               iteration, stopped_by_callback)
   end
   _gradient_result(policy, decision, state, method, options, tr, iteration)
