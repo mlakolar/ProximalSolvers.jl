@@ -20,7 +20,7 @@ A PGD trial applies the penalty prox after a least-squares gradient step of leng
 
 **Applies to.** LineSearches.BackTracking with ProximalGradientDescent.
 
-**Code.** `src/line_searches.jl: BackTracking`.
+**Code.** `src/line_searches/backtracking.jl: BackTracking`.
 
 **Tests.** test/core_contracts.jl; test/minimal_core_characterization.jl.
 
@@ -32,13 +32,13 @@ A PGD trial applies the penalty prox after a least-squares gradient step of leng
 
 **Statement.** The backtracking policy follows TFOCS's reference routine `private/tfocs_backtrack.m`. Each iteration starts with `L ← α L`. TFOCS's local estimate `L̂` uses function values until they are too close for the floating-point comparison, then gradients. A finite trial is accepted when that estimate is no larger than `L`, or when `L ≥ Lexact`. Ordinary rejected trials retry with `L ← min(Lexact, max(L̂, L/β))`, except when the separate rejection check in [LS-03](@ref) accepts or replaces `L̂`.
 
-A nonfinite trial image or loss value supplies no estimate and is never accepted. The search retries with `L ← L/β`, beyond `Lexact` if necessary. The zero-step exit accepts a finite-value trial whose computed displacement norm squared is zero, including a nonzero step lost by squaring; in gradient mode it refreshes the gradient so that a previous rejected trial cannot leave a stale one.
+A nonfinite trial image or loss value supplies no estimate and is never accepted. The search retries with `L ← L/β`, beyond `Lexact` if necessary. On the ℓ1-ball route, a trial that does not pass the numerical cap carries `f(x) = Inf` and takes this branch, and a 64-trial limit applies ([IN-12](@ref)). The zero-step exit accepts a finite-value trial whose computed displacement norm squared is zero, including a nonzero step lost by squaring; in gradient mode it refreshes the gradient so that a previous rejected trial cannot leave a stale one. On the ℓ1-ball route, an accepted nonzero step lost by squaring raises a line-search error instead ([IN-12](@ref)).
 
-Accepted trials are not checked again. In particular, a rounding-decided estimate that accepts below the true curvature remains accepted, as do the finite-value `Lexact` and zero-step exits.
+The curvature of an accepted trial is not checked again: the shared `backtrack!` returns `true` for a rounding-decided estimate that accepts below the true curvature, and for the finite-value `Lexact` and zero-step exits. That acceptance ends the curvature decision, not necessarily the step. On the ℓ1-ball route the step can still raise after acceptance, at a nonzero displacement whose computed squared norm is zero or at a nonfinite gradient at the accepted trial ([IN-12](@ref)).
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
-**Code.** `src/line_searches.jl: backtrack!, has_updated_gradient; src/solvers/proximal_gradient_descent.jl: update_state!`.
+**Code.** `src/line_searches/backtracking.jl: backtrack!, has_updated_gradient, search!; src/line_searches/LineSearches.jl: trial!; src/solvers/proximal_gradient_descent.jl: update_state!; src/utils.jl: LineSearches.trial!` (the shared trial of PGD and APG); `src/solve.jl: _trial_penalty_value`.
 
 **Tests.** test/minimal_core_characterization.jl: recorded trials, both modes and zero-step refresh; test/core_regressions.jl: checked rejection testsets.
 
@@ -58,7 +58,7 @@ Do not run this check for a nonfinite trial value, the zero-step exit, a `NaN` l
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
-**Code.** `src/solvers/proximal_gradient_descent.jl: LineSearches.check_rejection!, _step_curvature; src/line_searches.jl: backtrack!`.
+**Code.** `src/solvers/proximal_gradient_descent.jl: LineSearches.check_rejection!, _step_curvature; src/line_searches/backtracking.jl: backtrack!`.
 
 **Tests.** `test/multiresponse_lasso_pgd_apg.jl` forces checked matrix rejections in both modes. test/core_regressions.jl: PGD checked rejections and nonfinite-gradient/tiny-step cases; test/logistic_pgd.jl: the bounds behind the factor `¼` and checked rejections of logistic solves.
 
@@ -72,11 +72,11 @@ A line-search acceptance is an iteration decision. Convergence, exact stalls and
 
 ### [LS-09 Failure and restoration boundary](@id LS-09)
 
-**Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`. The gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first. Full ownership and exception semantics are [RES-01](@ref).
+**Statement.** A search that keeps rejecting ends in an error when `next_curvature` cannot make `L/β` a finite strict increase, or when TFOCS's update yields a nonfinite `L`, or on the ℓ1-ball route at its 64-trial limit ([IN-12](@ref)). A curvature along trial steps above `floatmax(T)` can cause this failure, unless TFOCS's estimate, `Lexact` or the zero-step exit accepts a trial first; on the ℓ1-ball route a zero-step acceptance of a nonzero step does not complete the step (below). Separately, after `backtrack!` has accepted a trial, the ℓ1-ball route raises inside the step at an accepted nonzero step whose computed squared norm is zero and at a nonfinite gradient at the accepted trial ([IN-12](@ref)). In each case the gradient engine restores the last accepted iterate and rethrows. Counters and other internal state are not transactional. Full ownership and exception semantics are [RES-01](@ref).
 
 **Applies to.** ProximalGradientDescent with BackTracking.
 
-**Code.** `src/line_searches.jl: next_curvature, backtrack!; src/solve.jl: _solve_gradient!`.
+**Code.** `src/line_searches/backtracking.jl: next_curvature, backtrack!; src/solve.jl: _solve_gradient!`.
 
 **Tests.** test/core_regressions.jl: checked rejection before unrepresentable curvature; test/minimal_core_characterization.jl: numerical failure restores accepted point.
 
@@ -116,7 +116,7 @@ Scaling in [LS-06](@ref) bounds the squared norm of the scaled displacement; it 
 
 **Applies to.** ProximalGradientDescent; Float64 data.
 
-**Code.** `src/solvers/proximal_gradient_descent.jl: _step_curvature; src/line_searches.jl: backtrack!`.
+**Code.** `src/solvers/proximal_gradient_descent.jl: _step_curvature; src/line_searches/backtracking.jl: backtrack!`.
 
 **Tests.** test/core_regressions.jl: checked rejections and top-of-range steps.
 
@@ -141,7 +141,7 @@ Do not scale a nonfinite trial loss, a displacement with a nonfinite entry, or a
 
 **Applies to.** ProximalGradientDescent; Float32 or Float64.
 
-**Code.** `src/line_searches.jl: _scale_overflowing_step!, backtrack!`.
+**Code.** `src/line_searches/backtracking.jl: _scale_overflowing_step!, backtrack!`.
 
 **Tests.** test/core_regressions.jl: power-of-two scale invariance, restored delta_x and top-of-range steps; test/initial_curvature.jl: overflowing-step cases.
 
@@ -157,7 +157,7 @@ In Float32, a nonzero subnormal entry in `d̃` makes the check retain TFOCS's up
 
 **Applies to.** ProximalGradientDescent; the final paragraph concerns Float32.
 
-**Code.** `src/line_searches.jl: _scale_overflowing_step!, backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
+**Code.** `src/line_searches/backtracking.jl: _scale_overflowing_step!, backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
 
 **Tests.** test/core_regressions.jl: overflowing-step and subnormal tests.
 
@@ -171,7 +171,7 @@ This special case does not make subnormal estimates reliable or guarantee conver
 
 **Applies to.** ProximalGradientDescent; Float64.
 
-**Code.** `src/line_searches.jl: backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
+**Code.** `src/line_searches/backtracking.jl: backtrack!; src/solvers/proximal_gradient_descent.jl: _step_curvature`.
 
 **Tests.** test/core_regressions.jl: 1×1 and diagonal tiny-scale cases; test/stopping_scale.jl: strict small-scale PGD.
 
@@ -186,5 +186,7 @@ Existing characterization, regression and initial-curvature suites exercise both
 None beyond the support and stopping-wording conflicts recorded in [PGD](pg-iteration.md#PGD-UNRECONCILED) and [stopping](pg-stopping.md#STOP-UNRECONCILED).
 
 ## Change log
+
+[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: [LS-02](@ref) and [LS-09](@ref) point to the trials, the 64-trial limit and the underflowed-step error of the ℓ1-ball route ([IN-12](@ref)); the policy for the other penalties is unchanged.
 
 The overflow-scaling migration retains the deferred underflow limitation recorded in [issue #317](https://github.com/mlakolar/ProximalSolvers.jl/issues/317). APG failure and certified-bound details are authoritative in [APG-03](@ref) and [APG-06](@ref).

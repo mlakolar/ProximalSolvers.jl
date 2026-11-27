@@ -143,7 +143,7 @@ end
 function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
     base = f isa Scaled ? f.f : f
     (x isa Vector && base isa LeastSquaresLoss && base.Y isa Vector &&
-     !(g isa Union{IndBox,IndBallL2})) ||
+     !(g isa Union{IndBox,IndBallL2,IndBallL1})) ||
         throw(ArgumentError("explicit stopping and limits require dense vector least-squares PGD or APG with a supported penalty (excluding box and ball indicators)"))
     _check_gradient_policy_problem(x, f, g, method)
     limit = _gradient_policy_limit(options, limits)
@@ -183,7 +183,7 @@ function _assess_gradient_step(monitor::Stopping.Monitor, state, f, g, options, 
 end
 
 # The pilot makes its decision at the checkpoint and disallows trace callbacks.
-_gradient_decision_after_trace(::Stopping.Monitor, previous, assessment, state, options, t0,
+_gradient_decision_after_trace(::Stopping.Monitor, previous, assessment, state, g, options, t0,
                                iteration, stopped_by_callback) = assessment
 
 function _gradient_result(monitor::Stopping.Monitor, decision, state, method, options, trace, iteration)
