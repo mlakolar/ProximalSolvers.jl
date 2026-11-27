@@ -29,11 +29,15 @@ types. The source snapshot reconciled in [issue #416](https://github.com/mlakola
 (`models.jl`, `solver.jl`, `leastsquares.jl`, `multiresponse.jl`,
 `sqrtlasso.jl`). This is a dated source inventory, not a permanent file-count
 guarantee. The superseded thirteen-file list is preserved as
-[retired historical evidence](@ref ARCH-UNRECONCILED).
+[retired historical evidence](@ref ARCH-UNRECONCILED). Among later additions,
+`src/solvers/l1ball.jl` holds the ℓ1-ball route of PGD and APG ([IN-12](@ref)): its
+working constraint and its methods of the engine's trial and stopping hooks.
 
 ProximalBase supplies losses, L1 proximal operations and sparse coefficient
 storage; ProximalSolvers owns orchestration and algorithm-specific results. CD
-uses ProximalBase's scalar `prox_block`; PGD retains fused `value_and_prox!`.
+uses ProximalBase's scalar `prox_block`; regression PGD retains fused `value_and_prox!`, except on
+the ℓ1-ball route, whose trials call ProximalBase's `prox!` ([IN-12](@ref)), and graphical-lasso PGD
+uses `prox!`.
 Ownership of least-squares value/gradient oracles and solver caches is specified
 once in [FP-01](@ref). Dependency and diagnostic provenance is in [HIST-03](@ref).
 
@@ -41,7 +45,7 @@ once in [FP-01](@ref). Dependency and diagnostic provenance is in [HIST-03](@ref
 
 **Code.** `src/ProximalSolvers.jl`; `src/solve.jl`; `src/solvers/image_models.jl`; the two gradient solver implementations and `src/cd/`.
 
-**Tests.** `test/minimal_core_characterization.jl`, `test/core_regressions.jl`, `test/accelerated_pgd.jl`; implementation organization is also visible in the source tree.
+**Tests.** `test/minimal_core_characterization.jl`, `test/core_regressions.jl`, `test/accelerated_pgd.jl`, `test/l1ball_numerical.jl`; implementation organization is also visible in the source tree.
 
 **Sources.** `docs/src/internals.md:L1`, `docs/src/internals.md:L3`, `docs/src/internals.md:L7`, `docs/src/internals.md:L9`, `docs/src/internals.md:L13`, `docs/src/internals.md:L18`, `docs/src/internals.md:L57`, `docs/src/internals.md:L62`, `docs/src/developer/implementation-notes.md:L434`, `docs/src/developer/implementation-notes.md:L456`.
 
