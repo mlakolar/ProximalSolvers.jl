@@ -79,10 +79,12 @@ coefficients. See [STOP-28](@ref) for the comparison and admission rules.
 
 ## Schedule stationarity checks in PGD and APG
 
-`Every(k, ScaledKKT(rtol=...))` makes the check eligible at the starting
-point and after every `k` accepted steps. This can save accepted-point gradient
-evaluations in APG. You can combine a scheduled check with other conditions
-through `AnyOf` or `AllOf`.
+`Every(k, rule)` makes a supported `ScaledKKT` or
+`ProximalGradientMapping` check eligible at the starting point and after
+every `k` accepted steps. Scheduling can save accepted-point gradient
+evaluations in APG and proximal calls for mapping in either solver. You
+can combine a scheduled check with other conditions through `AnyOf` or
+`AllOf`.
 
 ~~~@example scheduled_kkt
 using ProximalBase, ProximalSolvers
@@ -95,9 +97,21 @@ r = solve!(x, f, NormL1(1.0), AccProxGradDescent(α=0.75, β=0.375);
 termination(r)
 ~~~
 
+~~~@example scheduled_mapping
+using ProximalBase, ProximalSolvers
+
+f = LeastSquaresLoss([2.0, 2.0], [1.0 0.0; 0.0 1.0])
+rule = Every(2, ProximalGradientMapping(rtol=0.375))
+r = solve!(zeros(2), f, NormLinf(2.0), AccProxGradDescent(α=1.0, β=0.5);
+           stopping=rule, limits=MaxIterations(3))
+@assert r.iterations == 2 && r.converged
+only(termination(r).observations)
+~~~
+
+The observation reports the check's `interval` and the wrapped rule's name.
 An off-schedule check is reported as `:not_checked`. The iteration and
-evaluation caps still apply at every step. See [STOP-25](@ref) for scheduling
-and limit ties.
+evaluation caps apply at each step. See [STOP-25](@ref) for scheduling and
+limit ties.
 
 ## [Cap the evaluations in dense least-squares PGD](@id pgd-evaluation-limits)
 

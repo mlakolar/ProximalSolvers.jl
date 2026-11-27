@@ -625,8 +625,8 @@ The check fills the column scales at its first evaluation and reuses them for
 the solve. Evaluations with identical `rtol` share a decision within the same
 checkpoint.
 
-`Every(k, ScaledKKT(...))` makes a stationarity leaf eligible at selected
-checkpoints under [STOP-25](@ref). The vector `NormLinf` route accepts
+`Every(k, rule)` schedules supported stationarity leaves under
+[STOP-25](@ref). The vector `NormLinf` route accepts
 `ProximalGradientMapping` under [STOP-28](@ref).
 
 `UserStop(predicate)` receives an immutable named tuple with `iteration` and
@@ -774,12 +774,12 @@ and [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/
 
 ### [STOP-25 Scheduled stationarity checks](@id STOP-25)
 
-**Statement.** `Every(k, ScaledKKT(rtol=...))` schedules one stationarity
-leaf on the PGD and APG routes of [STOP-22](@ref) and [STOP-27](@ref).
-`k` must be a positive integer representable as `Int`. The wrapped
-condition must be a `ScaledKKT` leaf. Use `Every` directly or as a child
-of `AnyOf` or `AllOf`. Validate the wrapped condition and its problem
-support before initialization.
+**Statement.** `Every(k, rule)` schedules a `ScaledKKT` leaf on the PGD and
+APG routes of [STOP-22](@ref) and [STOP-27](@ref), or a
+`ProximalGradientMapping` leaf on the route of [STOP-28](@ref).
+`k` must be a positive integer representable as `Int`. Use `Every` directly
+or as a child of `AnyOf` or `AllOf`. Validate the wrapped condition and its
+problem support before initialization.
 
 The leaf is eligible at the initial point (iteration zero) and at positive
 multiples of `k` accepted updates. Advance the count after line-search
@@ -788,21 +788,23 @@ On other iterations, report the leaf as unchecked with missing measurements.
 An unchecked leaf cannot pass, even when an earlier checkpoint passed or
 another leaf already checked the same tolerance at the current point.
 
-At an eligible checkpoint, use the normal `ScaledKKT` comparison and
-short-circuit order of [STOP-22](@ref), including reuse within the checkpoint.
-Limits still apply at every step under [STOP-22](@ref), [STOP-23](@ref) and
-[STOP-24](@ref). An off-schedule endpoint remains unchecked. At a
-scheduled endpoint with a reached cap, the existing cached-decision rule
-applies. A fresh APG evaluation admitted at a scheduled checkpoint can spend
-the last unit and settle a tie under [STOP-24](@ref).
+At an eligible checkpoint, use the wrapped rule's comparison and work
+admission in the short-circuit order of [STOP-22](@ref), including reuse
+within the checkpoint. The caps apply at each step. At an eligible
+checkpoint with a reached cap, reuse of an already measured verdict and
+ties with a measurement that spends the last unit follow [STOP-24](@ref),
+[STOP-27](@ref) or [STOP-28](@ref) for the wrapped rule.
 
 **Applies to.** Dense least-squares PGD and APG with input and penalty
-support for `ScaledKKT` under [STOP-22](@ref) or [STOP-27](@ref).
+support for `ScaledKKT` under [STOP-22](@ref) or [STOP-27](@ref), or for
+`ProximalGradientMapping` under [STOP-28](@ref).
 
 **Code.** `src/stopping.jl`.
 
-**Tests.** `test/pgd_stopping_policy.jl` checks initial and accepted-point
-scheduling, composition, missing evidence, limit ties and APG gradient counts.
+**Tests.** `test/pgd_stopping_policy.jl` and
+`test/multiresponse_lasso_pgd_apg.jl` check `ScaledKKT` scheduling.
+`test/linf.jl` checks mapping cadence, wrapped observations, work counts,
+limit ties and preflight refusals.
 
 **Sources.** [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
@@ -893,8 +895,9 @@ and [#525, diagnostic work admission](https://github.com/mlakolar/ProximalSolver
 at an accepted checkpoint, including the initial point. Use the rule's
 `rtol` in place of `gradtol`, including the tolerance floor and the step,
 threshold and rounding guards. Validate the tolerance as in [STOP-22](@ref).
-The leaf can appear in `AnyOf` or `AllOf`. Its Boolean decision supplies
-stationarity evidence under [RES-04](@ref).
+The leaf can appear in `AnyOf` or `AllOf` and can be scheduled by `Every`
+under [STOP-25](@ref). Its Boolean decision supplies stationarity evidence
+under [RES-04](@ref).
 
 After the finite positive step guard passes, the first measurement computes
 the reference gradient scale and caches it for the solve. Count that product

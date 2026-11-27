@@ -97,21 +97,23 @@ struct ProximalGradientMapping
 end
 
 """
-    Every(k, rule::ScaledKKT)
+    Every(k, rule::Union{ScaledKKT,ProximalGradientMapping})
 
-Make a `ScaledKKT` check eligible at the starting point and after every `k`
-accepted updates in supported PGD and APG solves. Use a positive integer `k`
-representable as `Int`. At other checkpoints the leaf is unchecked.
+Make a stationarity check eligible at the starting point and after every
+`k` accepted updates on PGD and APG routes that support the wrapped rule.
+Use a positive integer `k` representable as `Int`. At other checkpoints the
+leaf is unchecked. The observation reports `interval=k`.
 See [STOP-25](@ref) for scheduling, composition and limits.
 """
-struct Every
+struct Every{R<:Union{ScaledKKT,ProximalGradientMapping}}
     interval::Int
-    rule::ScaledKKT
+    rule::R
     function Every(k, rule)
         k isa Integer && 0 < k <= typemax(Int) ||
             throw(ArgumentError("the check interval must be a positive Int"))
-        rule isa ScaledKKT || throw(ArgumentError("Every requires a ScaledKKT condition"))
-        new(Int(k), rule)
+        rule isa Union{ScaledKKT,ProximalGradientMapping} ||
+            throw(ArgumentError("Every requires a ScaledKKT or ProximalGradientMapping condition"))
+        new{typeof(rule)}(Int(k), rule)
     end
 end
 
@@ -277,8 +279,9 @@ mutable struct RuleState{R}
     RuleState(rule::R) where R = new{R}(rule, -1, unchecked)
 end
 
-const GradientLeaves = Union{IterateChange,ObjectiveChange,ScaledKKT,Every,UserStop}
-const MappingLeaves = Union{IterateChange,ObjectiveChange,ProximalGradientMapping,UserStop}
+const GradientLeaves = Union{IterateChange,ObjectiveChange,ScaledKKT,Every{ScaledKKT},UserStop}
+const MappingLeaves = Union{IterateChange,ObjectiveChange,ProximalGradientMapping,
+                            Every{ProximalGradientMapping},UserStop}
 const ResidualLeaves = Union{PrimalResidual,DualResidual}
 
 function bind_rule(rule, context, supported)
@@ -479,9 +482,12 @@ observation_name(rule) = nameof(typeof(rule))
 observation_name(rule::Every) = observation_name(rule.rule)
 
 function observations(state::RuleState, k, path)
+    rule = state.rule
     o = observation_at(state, k)
-    ((; path, name=observation_name(state.rule), evidence=evidence(state.rule),
-       o.status, o.value, o.threshold, o.scale),)
+    observation = (; path, name=observation_name(rule), evidence=evidence(rule),
+                   o.status, o.value, o.threshold, o.scale)
+    rule isa Every && return ((; observation..., rule.interval),)
+    (observation,)
 end
 observations(tree::Union{AnyOf,AllOf}, k, path) =
     (Iterators.flatten(observations(child, k, (path..., i)) for (i, child) in enumerate(tree.rules))...,)
