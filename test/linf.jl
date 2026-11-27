@@ -181,4 +181,122 @@ end
   end
 end
 
+@testset "Selectable mapping uses the strict residual comparison ($T, $method)" for
+    T in (Float32, Float64), method in METHODS
+  X = T[1 0; 0 1]
+  y = T[2, 2]
+  tight = ProximalGradientMapping(rtol=0.5)
+  loose = ProximalGradientMapping(rtol=0.75)
+  apg = method isa AccProxGradDescent
+  for scale in (one(T), T(0.5))
+    f = isone(scale) ? LeastSquaresLoss(y, X) : scale * LeastSquaresLoss(y, X)
+    g = NormLinf(2scale)
+    x = zeros(T, 2)
+    # The prox clips both trial coordinates at t*scale. At x=0 the
+    # residual is scale and the reference scale is 2*scale.
+    r = solve!(x, f, g, method; stopping=AnyOf(tight, loose))
+    t = termination(r)
+    @test r.minimizer === x && iszero(x) && r.iterations == 0
+    @test r.converged && t.satisfied && t.reason === :rule && t.winning_branch == ((2,),)
+    @test map(o -> o.status, t.observations) == (:fail, :pass)
+    @test t.observations[2].name === :ProximalGradientMapping
+    @test t.observations[2].evidence === :stationarity && t.observations[2].value === true
+    @test t.counts == (f_calls=apg ? 2 : 1, grad_calls=2, g_calls=2, prox_calls=1,
+                       backtrack_steps=0, rejected_trials=0)
+
+    r = solve!(ones(T, 2), f, g, method; stopping=ProximalGradientMapping(rtol=0))
+    @test r.converged && r.iterations == 0 && r.minimizer == ones(T, 2)
+
+    r = solve!(zeros(T, 2), f, g, method; stopping=AnyOf(UserStop(_ -> true), loose))
+    t = termination(r)
+    @test t.reason === :user && t.observations[2].status === :not_checked
+    @test t.counts.f_calls == 1 && t.counts.grad_calls == (apg ? 0 : 1) && t.counts.prox_calls == 0
+  end
+
+  r = solve!(zeros(T, 2), LeastSquaresLoss(zeros(T, 2), X), NormLinf(one(T)), method;
+             stopping=AnyOf(loose, UserStop(_ -> true)))
+  t = termination(r)
+  @test t.reason === :user && !r.converged && t.observations[1].status === :fail
+end
+
+@testset "Selectable mapping validation and cap ties ($T, $method)" for
+    T in (Float32, Float64), method in METHODS
+  f = LeastSquaresLoss(T[2, 2], T[1 0; 0 1])
+  g = NormLinf(T(2))
+  mapping = ProximalGradientMapping(rtol=0.75)
+  cap = MaxProximalEvaluations(1)
+  for (other, reason, status) in ((mapping, :rule, :pass),
+                                  (ProximalGradientMapping(rtol=0.8), :limit, :not_checked))
+    r = solve!(zeros(T, 2), f, g, method; stopping=AllOf(mapping, other), limits=cap)
+    t = termination(r)
+    @test t.iteration == 0 && t.reason === reason && t.limit_reached
+    @test r.converged == t.satisfied == (reason === :rule)
+    @test t.reached_evaluation_limits === (cap,) && t.counts.prox_calls == 1
+    @test t.counts.backtrack_steps == t.counts.rejected_trials == 0
+    @test map(o -> o.status, t.observations) == (:pass, status)
+  end
+
+  x = fill(floatmax(T) / 2, 2)
+  start = copy(x)
+  for zero_cap in (MaxIterations(0), MaxObjectiveEvaluations(0),
+                   MaxGradientEvaluations(0), MaxProximalEvaluations(0))
+    r = solve!(x, f, g, method; stopping=mapping, limits=zero_cap)
+    t = termination(r)
+    @test r.minimizer === x && x == start && r.minimum === missing
+    @test t.reason === :limit && only(t.observations).status === :not_checked
+    @test all(iszero, values(t.counts))
+  end
+  @test_throws ArgumentError solve!(x, f, NormL1(one(T)), method;
+      stopping=AnyOf(UserStop(_ -> true), mapping), limits=MaxIterations(0))
+  @test_throws ArgumentError solve!(x, f, g, method;
+      stopping=AnyOf(mapping, ScaledKKT(rtol=0.75)), limits=MaxIterations(0))
+  @test_throws ArgumentError Every(2, mapping)
+  @test x == start
+end
+
+@testset "APG mapping reads accepted gradient and preserves displacement ($T)" for T in (Float32, Float64)
+  f = LeastSquaresLoss(T[2, 2], T[1 0; 0 1])
+  g, method = NormLinf(T(2)), AccProxGradDescent(α=1.0, β=0.5)
+  mapping = ProximalGradientMapping(rtol=0.375)
+  opts = ProximalOptions(store_trace=true, extended_trace=true)
+  # The first update is (0,0) -> (1/2,1/2). The accepted gradient gives
+  # hypothetical prox (3/4,3/4); the extrapolated gradient gives (1,1).
+  rule = AllOf(mapping, IterateChange(atol=0.8))
+  r = solve!(zeros(T, 2), f, g, method, opts; stopping=rule, limits=MaxIterations(2))
+  t = termination(r)
+  @test r.minimizer == fill(T(0.5), 2) && r.trace[1].metadata["x"] == r.minimizer
+  @test r.trace[1].metadata["grad_f(y)"] == fill(T(-2), 2)
+  @test r.converged && t.reason === :rule && t.iteration == 1
+  @test t.observations[2].value ≈ sqrt(0.5)
+  @test t.counts == (f_calls=6, grad_calls=4, g_calls=5, prox_calls=4,
+                     backtrack_steps=2, rejected_trials=1)
+
+  for (cap, reason, status) in ((MaxProximalEvaluations(3), :limit, :not_checked),
+                                (MaxProximalEvaluations(4), :rule, :pass))
+    capped = solve!(zeros(T, 2), f, g, method; stopping=mapping, limits=cap)
+    t = termination(capped)
+    @test capped.minimizer == r.minimizer && capped.minimum === r.minimum
+    @test t.reason === reason && t.reached_evaluation_limits === (cap,)
+    @test only(t.observations).status === status
+  end
+
+  r = solve!(zeros(T, 2), f, g, method;
+             stopping=AnyOf(mapping, UserStop(_ -> true)), limits=MaxGradientEvaluations(1))
+  t = termination(r)
+  @test t.iteration == 0 && t.reason === :user && !t.limit_reached
+  @test t.observations[1].status === :not_checked
+  @test t.counts.f_calls == 1 && t.counts.grad_calls == t.counts.prox_calls == 0
+
+  r = solve!(zeros(T, 2), f, g, method; stopping=mapping, limits=MaxGradientEvaluations(1))
+  t = termination(r)
+  @test t.iteration == 1 && t.reason === :limit && t.counts.grad_calls == 1
+  @test only(t.observations).status === :not_checked
+end
+
+@testset "Mapping tolerance validation" begin
+  for invalid in (-1, Inf, NaN, big"1e-1000")
+    @test_throws ArgumentError ProximalGradientMapping(rtol=invalid)
+  end
+end
+
 end

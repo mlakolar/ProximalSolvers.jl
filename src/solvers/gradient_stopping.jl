@@ -111,7 +111,8 @@ end
 function _gradient_policy_result(method, x, objective, increased, trace, monitor, reason, k,
                                  f_calls, grad_calls, prox_calls, backtrack_steps)
     g_calls = ismissing(objective) ? 0 : prox_calls + 1
-    counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials=prox_calls-k)
+    rejected_trials = prox_calls - _diagnostic_prox_calls(monitor.stationarity) - k
+    counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials)
     report = Stopping.report(monitor, reason, k, counts)
     evaluation_limits = monitor.evaluation_limits
     reached_evaluation_limits = filter(l -> Stopping.evaluation_limit_reached(l, counts), evaluation_limits)
@@ -135,14 +136,16 @@ const _MatrixGradientState = Union{
     AccProxGradDescentState{T,Matrix{T}} where T,
 }
 
-_prepare_gradient_stationarity!(state) = nothing
-function _prepare_gradient_stationarity!(state::_MatrixGradientState)
+function _counted_lambda_max!(state)
     if state.λmax < 0
         _lambda_max!(state)
         state.grad_calls += 1
     end
-    nothing
+    state.λmax
 end
+
+_prepare_gradient_stationarity!(state) = nothing
+_prepare_gradient_stationarity!(state::_MatrixGradientState) = _counted_lambda_max!(state)
 
 _gradient_stationarity!(state, grad, g, rtol) = _coordinatewise_stationary!(state, grad, g, rtol)
 _gradient_stationarity!(state::_MatrixGradientState, grad, g, rtol) =
@@ -168,9 +171,11 @@ _gradient_stationarity_provider(::AccProxGradDescent, f, g) = APGStationarityPro
 
 function Stopping.stationarity_admitted(::APGStationarityProvider,
     point::ProximalGradientStoppingPoint{T,<:AccProxGradDescentState{T,Matrix{T}}}, limits) where T
-    state = point.state
+    _reference_and_accepted_gradients_admitted(point.state, limits)
+end
+
+function _reference_and_accepted_gradients_admitted(state, limits)
     state.λmax < 0 || return true
-    # The first matrix check needs the reference and accepted gradients.
     # The reached-cap guard already leaves room for the smooth value.
     !any(l -> l isa MaxGradientEvaluations && l.n - state.grad_calls < 2, limits)
 end
@@ -187,6 +192,40 @@ function (provider::APGStationarityProvider)(point, rtol)
     _gradient_stationarity!(state, state.xhat, provider.penalty, rtol)
 end
 
+mutable struct ProximalGradientMappingProvider{F,G,T}
+    loss::F
+    penalty::G
+    iteration::Int
+    measurement::Union{Nothing,ProximalGradientMeasurement{T}}
+    prox_calls::Int
+end
+
+_diagnostic_prox_calls(cache) = 0
+_diagnostic_prox_calls(cache::Stopping.StationarityCache{<:ProximalGradientMappingProvider}) =
+    cache.provider.prox_calls
+
+function Stopping.stationarity_admitted(::ProximalGradientMappingProvider,
+    point::ProximalGradientStoppingPoint{<:Any,<:AccProxGradDescentState}, limits)
+    _reference_and_accepted_gradients_admitted(point.state, limits)
+end
+
+function (provider::ProximalGradientMappingProvider)(point, rtol)
+    state = point.state
+    if provider.iteration != point.iteration
+        t = one(state.L) / state.L
+        isfinite(t) && t > 0 || return false
+        λmax = _counted_lambda_max!(state)
+        grad = _gradient_at_x!(state, provider.loss)
+        state isa AccProxGradDescentState && (state.f_calls += 1)
+        # The initial point has no accepted predecessor.
+        provider.measurement = _measure_proximal_gradient_mapping!(state, provider.penalty, grad, t, λmax;
+                                                                  restore_displacement=point.iteration > 0)
+        provider.prox_calls += 1
+        provider.iteration = point.iteration
+    end
+    _proximal_gradient_mapping_passes(provider.measurement, rtol)
+end
+
 function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
     base = f isa Scaled ? f.f : f
     (base isa LeastSquaresLoss &&
@@ -195,9 +234,11 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
         throw(ArgumentError("explicit stopping and limits require dense least-squares PGD or APG with matching vector or matrix coefficients and a supported penalty"))
     _check_gradient_policy_problem(x, f, g, method)
     limit, evaluation_limits = _gradient_policy_limits(options, limits)
-    monitor = Stopping.prepare(stopping, limit, eltype(x); evaluation_limits)
+    mapping_supported = g isa NormLinf
+    supported = mapping_supported ? Stopping.MappingLeaves : Stopping.GradientLeaves
+    monitor = Stopping.prepare(stopping, limit, eltype(x), supported; evaluation_limits)
     use_stationarity = Stopping.needs_stationarity(monitor)
-    if use_stationarity && !(g isa Union{NormL1,ElasticNet})
+    if use_stationarity && !mapping_supported && !(g isa Union{NormL1,ElasticNet})
         throw(ArgumentError("ScaledKKT requires NormL1 or ElasticNet for dense vector least-squares PGD or APG"))
     end
     if iszero(limit.n) || any(l -> iszero(l.n), evaluation_limits)
@@ -205,9 +246,14 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
         return _gradient_policy_result(method, x, missing, false, trace, monitor, :limit, 0, 0, 0, 0, 0)
     end
     g_work = _working_gradient_penalty(g, eltype(x))
-    state = initial_state(method, options, f, g_work, x, Val(use_stationarity))
+    state = initial_state(method, options, f, g_work, x, Val(use_stationarity && !mapping_supported))
     if use_stationarity
-        monitor = Stopping.with_stationarity(monitor, _gradient_stationarity_provider(method, f, g_work))
+        provider = if mapping_supported
+            ProximalGradientMappingProvider{typeof(f),typeof(g_work),eltype(x)}(f, g_work, -1, nothing, 0)
+        else
+            _gradient_stationarity_provider(method, f, g_work)
+        end
+        monitor = Stopping.with_stationarity(monitor, provider)
     end
     _solve_gradient!(state, f, g_work, method, options, nothing, monitor)
 end

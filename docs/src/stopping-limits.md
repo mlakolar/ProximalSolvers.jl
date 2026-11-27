@@ -6,8 +6,9 @@ See the [current section](@ref evidence-stopping-352).
 
 ## [What a cap says about stationarity](@id stopping-at-cap)
 
-When a limit is already reached at a checkpoint, PGD, APG and CD skip a fresh
-`ScaledKKT` check. This includes a scheduled check at the iteration cap.
+When a limit is already reached at a checkpoint, PGD, APG and CD skip fresh
+stationarity checks. This includes a scheduled `ScaledKKT` check at the
+iteration cap.
 In CD, the check is skipped at the pass cap or when the next sweep cannot
 fit the remaining visit budget. A skipped check is reported as `:not_checked`.
 If it was the only selected condition, the result reports `reason = :limit`
@@ -52,6 +53,29 @@ keywords to use the solver’s default stopping policy.
 At the [iteration cap](@ref STOP-22), `IterateChange` and `UserStop`
 are marked `:not_checked`. In APG, an evaluated KKT check uses the gradient
 at the accepted point and includes its cost in the [oracle counts](@ref APG-04).
+
+## [Select proximal-gradient mapping for NormLinf](@id proximal-gradient-mapping)
+
+`ProximalGradientMapping(rtol=...)` checks how much one hypothetical proximal
+gradient step would move the accepted coefficients. Use it with dense
+vector-response least squares and `NormLinf` in PGD or APG.
+
+~~~@example explicit_proximal_gradient_mapping
+using ProximalBase, ProximalSolvers
+
+X = [1.0 0.0; 0.0 1.0]
+y = [2.0, 2.0]
+x = zeros(2)
+r = solve!(x, LeastSquaresLoss(y, X), NormLinf(2.0), ProximalGradientDescent();
+           stopping=ProximalGradientMapping(rtol=1e-6),
+           limits=(MaxIterations(100), MaxProximalEvaluations(200)))
+@assert r.converged && termination(r).satisfied
+termination(r)
+~~~
+
+Each diagnostic costs one proximal call. The first one also counts the
+reference gradient, and APG counts its fused evaluation at the accepted
+coefficients. See [STOP-28](@ref) for the comparison and admission rules.
 
 ## Schedule stationarity checks in PGD and APG
 
