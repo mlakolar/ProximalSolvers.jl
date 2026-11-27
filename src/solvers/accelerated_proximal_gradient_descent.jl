@@ -63,10 +63,11 @@ the loss value would allow. See
 [the logistic input contract](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-09) and
 [APG-08](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-08).
 
-A proposed stop is checked at the accepted point. The iteration's reported
-gradient-mapping residual is measured from the extrapolated point, so use the
-stopping documentation when interpreting it. The extra gradient for a proposed
-stop is included in `grad_calls`.
+With default stopping, a proposed stop is checked at the accepted point and the
+extra gradient is included in `grad_calls`. The iteration's reported
+gradient-mapping residual is measured from the extrapolated point. With an
+explicit `ScaledKKT` rule, the accepted-point fused evaluation counts in both
+`f_calls` and `grad_calls`. See [STOP-22](@ref).
 
 - [Extrapolation and restarts](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-01) and [dimension limits](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-02).
 - [Certified local bound test and assumptions](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/apg/#APG-06).
@@ -134,8 +135,8 @@ mutable struct AccProxGradDescentState{T, X<:VecOrMat{T}, M, Z, C}
     normx_previous::_SE{T}  # ‖x_previous‖
     fresh_only::Bool  # internal validation switch: decide every trial with the fresh A d
     fallbacks::Int    # trials decided with the fresh A d
-    # the column data of the coordinatewise check (_CoordinateScales, STOP-21) for least squares with NormL1 or
-    # ElasticNet on a Vector{Float32} or Vector{Float64}, filled at the first check; nothing for the other problems
+    # Column data, filled at the first coordinatewise check (STOP-21).
+    # Explicit policies without ScaledKKT leave this as nothing (STOP-22).
     scales::C
 end
 
@@ -144,7 +145,8 @@ function initial_state(
           options,
           f,
           g,
-          x0::VecOrMat{T}) where T
+          x0::VecOrMat{T},
+          ::Val{allocate_scales} = Val(true)) where {T, allocate_scales}
 
     model = _image_model(f)
     z_x = _image_buffer(model)
@@ -185,7 +187,7 @@ function initial_state(
                          normx0,
                          false,
                          0,
-                         _coordinate_scales(model, g, x0)
+                         allocate_scales ? _coordinate_scales(model, g, x0) : nothing
                          )
 end
 
@@ -321,6 +323,12 @@ function _check_bound_size(f, B::Matrix{T}) where T
   nothing
 end
 
+function _check_apg_problem(x, f, g, method::AccProxGradDescent)
+  _check_gradient_problem(x, f, g, :gradient)
+  _check_method(method, eltype(x))
+  _check_bound_size(f, x)
+end
+
 extended_trace!(dt, state::AccProxGradDescentState) = dt["grad_f(y)"] = _copy(state.grad_f_y)
 
 # The step is taken from y, so L (y - x) - ∇f(y) ∈ ∂g(x) and
@@ -339,12 +347,16 @@ end
 
 """
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions(); feasibility=nothing)
+    solve!(x, f, g, AccProxGradDescent(); stopping=rule, limits=MaxIterations(n))
 
 Minimize the same least-squares lasso, elastic net, `NormLinf` or `NormL2` problem as [`ProximalGradientDescent`](@ref) with
 accelerated proximal gradient descent, overwriting dense `Vector{T}` coefficients
 with `T = Float32` or `Float64`. A dense matrix response uses same-type dense
 matrix coefficients and unweighted `NormL1` under
 [IN-10](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-10).
+
+Dense vector least squares supports explicit stopping conditions and an
+independent iteration budget under [STOP-22](@ref).
 
 # Extended help
 
@@ -375,12 +387,15 @@ restores the last accepted `x` and rethrows, without a transaction guarantee for
 internal counters. The result shares `x`.
 """
 function solve!(x, f, g, method::AccProxGradDescent,
-                options::ProximalOptions = ProximalOptions(); feasibility = nothing, kwargs...)
+                options::ProximalOptions = ProximalOptions();
+                feasibility=nothing, stopping=nothing, limits=nothing, kwargs...)
   _check_keywords(kwargs)
-  _numerical_route(g, feasibility) && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :gradient)
-  _check_gradient_problem(x, f, g, :gradient)
-  _check_method(method, eltype(x))
-  _check_bound_size(f, x)
+  numerical_l1 = _numerical_route(g, feasibility)
+  if stopping !== nothing || limits !== nothing
+    return _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
+  end
+  numerical_l1 && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :gradient)
+  _check_apg_problem(x, f, g, method)
   t0 = time()
   g_work = _working_gradient_penalty(g, eltype(x))
   state = initial_state(method, options, f, g_work, x)

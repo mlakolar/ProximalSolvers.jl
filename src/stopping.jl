@@ -1,8 +1,8 @@
 """
     ProximalSolvers.Stopping
 
-Explicit stopping conditions, composition and iteration limits for the dense
-vector least-squares PGD pilot. Pass conditions as `stopping` and the iteration
+Explicit stopping conditions, composition and iteration limits for dense
+vector least-squares PGD and APG. Pass conditions as `stopping` and the iteration
 budget as `limits` to [`solve!`](@ref ProximalSolvers.solve!).
 """
 module Stopping
@@ -62,7 +62,7 @@ end
     ScaledKKT(; rtol)
 
 Check coordinatewise stationarity at the current point using the relative
-tolerance in [STOP-21](@ref). Supported for dense vector least-squares PGD with
+tolerance in [STOP-21](@ref). Supported for dense vector least-squares PGD and APG with
 `NormL1` or `ElasticNet`, with or without weights.
 """
 struct ScaledKKT

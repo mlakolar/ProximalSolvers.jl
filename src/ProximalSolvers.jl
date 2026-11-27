@@ -52,7 +52,7 @@ export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, Logist
        ProximalOptions, ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, LogisticADMMResults, OptimizationState,
        OptimizationTrace, NumericalFeasibility
 @static if VERSION >= v"1.11.0-DEV.469"
-  eval(Expr(:public, :OptimizationResults, :ProximalGradientDescentStoppingResult, :LineSearches))
+  eval(Expr(:public, :OptimizationResults, :ProximalGradientStoppingResult, :LineSearches))
 end
 include("types.jl")
 include("stopping.jl")
@@ -73,6 +73,6 @@ include("cd/sqrtlasso.jl")
 include("solvers/logistic_proxnewton.jl")
 include("solvers/logistic_admm.jl")
 include("utils.jl")
-include("solvers/pgd_stopping.jl")
+include("solvers/gradient_stopping.jl")
 include("precompile.jl")
 end

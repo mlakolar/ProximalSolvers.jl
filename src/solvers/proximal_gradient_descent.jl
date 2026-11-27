@@ -416,7 +416,7 @@ function solve!(x, f, g, method::ProximalGradientDescent,
   _check_keywords(kwargs)
   numerical_l1 = _numerical_route(g, feasibility)
   if stopping !== nothing || limits !== nothing
-    return _solve_pgd_policy!(x, f, g, method, options, stopping, limits)
+    return _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
   end
   numerical_l1 && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :pgd)
   _check_gradient_problem(x, f, g, :pgd)
