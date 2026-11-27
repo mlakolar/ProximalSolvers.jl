@@ -643,6 +643,9 @@ The check fills the column scales at its first evaluation and reuses them for
 the solve. Evaluations with identical `rtol` share a decision within the same
 checkpoint.
 
+`Every(k, ScaledKKT(...))` makes a stationarity leaf eligible at selected
+checkpoints under [STOP-25](@ref).
+
 `UserStop(predicate)` receives an immutable named tuple with `iteration` and
 `objective` (native type). Return `true` to request a stop or `false` to continue.
 A predicate must be callable with that tuple. Other return values are errors
@@ -782,6 +785,40 @@ accepted-point stationarity and simultaneous limits.
 
 **Sources.** [Hard evaluation admission in #525](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944)
 and [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
+
+### [STOP-25 Scheduled stationarity checks](@id STOP-25)
+
+**Statement.** `Every(k, ScaledKKT(rtol=...))` schedules one stationarity
+leaf on the dense vector PGD and APG routes of [STOP-22](@ref).
+`k` must be a positive integer representable as `Int`. The wrapped
+condition must be a `ScaledKKT` leaf. Use `Every` directly or as a child
+of `AnyOf` or `AllOf`. Validate the wrapped condition and its problem
+support before initialization.
+
+The leaf is eligible at the initial point (iteration zero) and at positive
+multiples of `k` accepted updates. Advance the count after line-search
+acceptance and any required APG restart as in [STOP-22](@ref).
+On other iterations, report the leaf as unchecked with missing measurements.
+An unchecked leaf cannot pass, even when an earlier checkpoint passed or
+another leaf already checked the same tolerance at the current point.
+
+At an eligible checkpoint, use the normal `ScaledKKT` comparison and
+short-circuit order of [STOP-22](@ref), including reuse within the checkpoint.
+Limits still apply at every step under [STOP-22](@ref), [STOP-23](@ref) and
+[STOP-24](@ref). An off-schedule endpoint remains unchecked. At a
+scheduled endpoint with a reached cap, the existing cached-decision rule
+applies. A fresh APG evaluation admitted at a scheduled checkpoint can spend
+the last unit and settle a tie under [STOP-24](@ref).
+
+**Applies to.** Dense vector least-squares PGD and APG with input and
+penalty support for `ScaledKKT` under [STOP-22](@ref).
+
+**Code.** `src/stopping.jl`.
+
+**Tests.** `test/pgd_stopping_policy.jl` checks initial and accepted-point
+scheduling, composition, missing evidence, limit ties and APG gradient counts.
+
+**Sources.** [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
 
 ## Change log
 

@@ -293,6 +293,122 @@ end
                        backtrack_steps=3, rejected_trials=2)
 end
 
+@testset "Scheduled ScaledKKT and iteration caps ($T)" for T in (Float32, Float64)
+    f = LeastSquaresLoss(T[0], ones(T, 1, 1))
+    g, kkt = NormL1(one(T)), ScaledKKT(rtol=0)
+    for method in (unit_step(), AccProxGradDescent(α=1.0))
+        for (start, cap) in ((zero(T), 2), (one(T), 2), (one(T), 1))
+            bare = solve!(T[start], f, g, method; stopping=kkt, limits=MaxIterations(cap))
+            wrapped = solve!(T[start], f, g, method;
+                             stopping=Every(big(1), kkt), limits=MaxIterations(cap))
+            @test wrapped.converged == bare.converged
+            @test wrapped.minimizer == bare.minimizer && wrapped.minimum === bare.minimum
+            @test isequal(termination(wrapped), termination(bare))
+        end
+
+        for cap in (1, 2, 3)
+            r = solve!(T[1], f, g, method; stopping=Every(2, kkt), limits=MaxIterations(cap))
+            t = termination(r)
+            @test r.minimizer == T[0] && r.iterations == min(cap, 2)
+            @test r.converged == t.satisfied == (cap == 3)
+            @test t.reason === (cap == 3 ? :rule : :limit) && t.limit_reached == (cap < 3)
+            o = only(t.observations)
+            @test o.path == () && o.name === :ScaledKKT && o.evidence === :stationarity
+            @test o.status === (cap == 3 ? :pass : :not_checked)
+        end
+    end
+end
+
+@testset "Scheduled checks use only eligible current evidence ($T)" for T in (Float32, Float64)
+    f = LeastSquaresLoss(T[0], ones(T, 1, 1))
+    g, kkt = NormL1(one(T)), ScaledKKT(rtol=0)
+    for method in (unit_step(), AccProxGradDescent(α=1.0))
+        visits = Int[]
+        user = UserStop(c -> (push!(visits, c.iteration); c.iteration == 1))
+        scheduled = Every(2, kkt)
+        r = solve!(T[0], f, g, method; stopping=AllOf(scheduled, user), limits=MaxIterations(3))
+        t = termination(r)
+        @test visits == [0, 2]
+        @test t.iteration == 3 && t.reason === :limit && !r.converged && !t.satisfied
+        @test map(o -> o.status, t.observations) == (:not_checked, :not_checked)
+
+        # The bare leaf passes at 1 and fills the cache. The wrapped leaf is
+        # off schedule, so only the second branch can stop the solve there.
+        at_one = UserStop(c -> c.iteration == 1)
+        rule = AnyOf(AllOf(at_one, kkt, scheduled), at_one)
+        r = solve!(T[0], f, g, method; stopping=rule, limits=MaxIterations(2))
+        t = termination(r)
+        @test t.iteration == 1 && t.reason === :user && t.satisfied && !r.converged
+        @test t.winning_branch == ((2,),)
+        @test map(o -> o.status, t.observations) == (:pass, :pass, :not_checked, :pass)
+    end
+end
+
+@testset "Scheduled checks validate their interval, condition and solver" begin
+    kkt = ScaledKKT(rtol=0)
+    for k in (0, -1, 2.0, big(typemax(Int)) + 1)
+        @test_throws ArgumentError Every(k, kkt)
+    end
+    user = UserStop(_ -> true)
+    for inner in (IterateChange(), ObjectiveChange(), user, AllOf(kkt), AnyOf(kkt),
+                  Every(2, kkt), MaxIterations(2), MaxGradientEvaluations(2), PrimalResidual())
+        @test_throws ArgumentError Every(2, inner)
+    end
+
+    rule = Every(2, kkt)
+    f, g, x = unit_loss(Float64), NormL1(0.5), [0.25]
+    for method in (unit_step(), AccProxGradDescent())
+        @test_throws ArgumentError solve!(x, f, NormL2(0.5), method;
+            stopping=AnyOf(user, rule), limits=MaxIterations(0))
+    end
+    @test_throws ArgumentError solve!(x, f, g, CDSolver(order=:cyclic);
+        stopping=AnyOf(user, rule), limits=MaxPasses(0))
+    @test_throws ArgumentError solve!(x, SqrNormL2(1, [1.0]), g, ADMMSolver();
+        stopping=AnyOf(PrimalResidual(), rule), limits=MaxIterations(0))
+    @test x == [0.25]
+end
+
+@testset "Scheduled APG check can spend the last evaluation ($T)" for T in (Float32, Float64)
+    f = LeastSquaresLoss(T[0], ones(T, 1, 1))
+    g, method = NormL1(one(T)), AccProxGradDescent(α=1.0)
+    kkt = ScaledKKT(rtol=0)
+    rule = AllOf(UserStop(c -> c.iteration == 2), Every(2, kkt), Every(2, kkt))
+    for (limit, can_check) in ((MaxGradientEvaluations(2), false), (MaxGradientEvaluations(3), true),
+                               (MaxObjectiveEvaluations(5), false), (MaxObjectiveEvaluations(6), true))
+        r = solve!(T[0], f, g, method; stopping=rule, limits=limit)
+        t = termination(r)
+        @test r.minimizer == T[0] && t.iteration == 2 && t.limit_reached
+        @test r.converged == t.satisfied == can_check
+        @test t.reason === (can_check ? :rule : :limit) && t.reached_evaluation_limits === (limit,)
+        @test t.winning_branch === (can_check ? ((1,), (2,), (3,)) : nothing)
+        @test all(o -> o.status === (can_check ? :pass : :not_checked), t.observations)
+        @test (t.counts.f_calls, t.counts.grad_calls, t.counts.prox_calls) ==
+              (can_check ? (6, 3, 2) : (5, 2, 2))
+    end
+end
+
+@testset "APG cadence counts accepted steps across a restart ($T)" for T in (Float32, Float64)
+    # Momentum overshoots at step 7 and APG retries from the accepted point.
+    f = LeastSquaresLoss(T[1, 0], T[0.5 0; 0 2])
+    g, method = NormL1(zero(T)), AccProxGradDescent(α=1.0, β=0.5)
+    kkt, never = ScaledKKT(rtol=0), UserStop(_ -> false)
+    limit = MaxIterations(8)
+    bare = solve!(zeros(T, 2), f, g, method; stopping=AllOf(kkt, never), limits=limit)
+    scheduled = solve!(zeros(T, 2), f, g, method;
+                       stopping=AllOf(Every(3, kkt), never), limits=limit)
+    a, b = termination(bare).counts, termination(scheduled).counts
+    @test bare.iterations == scheduled.iterations == 8 && a.rejected_trials == b.rejected_trials == 1
+    @test bare.minimizer == scheduled.minimizer && bare.minimum === scheduled.minimum
+    @test a.prox_calls == b.prox_calls == 9
+    @test a.grad_calls - b.grad_calls == a.f_calls - b.f_calls == 5 # 8 checks versus 3
+
+    rule = AllOf(Every(7, ScaledKKT(rtol=2)), UserStop(c -> c.iteration == 7))
+    r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=limit)
+    t = termination(r)
+    @test r.converged && t.reason === :rule && t.iteration == 7 && t.counts.rejected_trials == 1
+    @test t.winning_branch == ((1,), (2,))
+end
+
 @testset "APG checks the returned point and shares gradient work ($T)" for T in (Float32, Float64)
     # The extrapolated point has gradient [0.765625, 0]. The first proximal
     # step reaches zero, where the gradient is zero and the residual is nonzero.
