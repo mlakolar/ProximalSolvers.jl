@@ -495,7 +495,8 @@ in the objective's product), and for `Float64` data both are `Float64`.
 ## [CD-10 Explicit stopping after completed coordinate passes](@id CD-10)
 
 **Statement.** Pass `stopping=rule`, `limits=MaxPasses(n)`, or both to
-`solve!` with `CDSolver`. A limit alone selects a pass-budget solve. A rule
+`solve!` with `CDSolver`. [CD-11](@ref) adds a coordinate-visit limit.
+A limit alone selects a budget-only solve. A rule
 without a limit uses `CDSolver.maxpasses`. If a supplied limit disagrees with
 `maxpasses`, the limit can override the default value of `maxpasses` (100,000).
 A nondefault disagreement is refused. Omitting both keywords uses default stopping.
@@ -555,3 +556,43 @@ default trajectory agreement at a fixed budget and matched RNG state.
 
 **Sources.** [#523, solver rollout B3](https://github.com/mlakolar/ProximalSolvers.jl/issues/523)
 and [the shared stopping design](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
+
+## [CD-11 Hard coordinate-visit budget for scalar coordinate descent](@id CD-11)
+
+**Statement.** Supply `MaxCoordinateVisits(n)` through `limits` to cap
+coordinate visits. Supply one limit or a nonempty tuple of distinct limit
+kinds from `MaxPasses` and `MaxCoordinateVisits`. Resolve the pass limit and
+validate the problem, settings and entire rule tree under [CD-10](@ref).
+The visit capacity is a nonnegative `Int`.
+
+Use the pass order of [CD-02](@ref). A full sweep costs the number of
+coordinates. An active sweep costs the number of active coordinates at
+its start, before updates or compaction. A visited coordinate costs one
+even when its coefficient stays unchanged. Admit the scheduled sweep
+when its whole cost fits in the remaining visit budget. An empty active
+sweep fits with zero visits remaining and still counts toward the pass
+limit. A refused sweep performs no coordinate visits or random draws.
+
+The first scheduled sweep is full. If a limit prevents it, return the
+caller coefficients with a missing objective and zero work counts before
+initializing the model or invoking a predicate. After each completed
+sweep, decide the next scheduled sweep using the existing change and
+active-work tests and the compacted active set. The visit limit is reached
+when that sweep costs more than the remaining visit capacity, including
+when it leaves some visits unused.
+
+At this endpoint, apply the capped-checkpoint rules of [CD-10](@ref).
+`ObjectiveChange` can pass at a full-sweep tie with an earlier full
+objective. `UserStop` is unchecked there. Reuse the checkpoint objective
+for the returned point, computing it when needed under [CD-10](@ref).
+Return the last completed sweep through the existing commit boundary.
+[RES-05](@ref) specifies the result fields.
+
+**Applies to.** Explicit dense vector least-squares CD under [CD-10](@ref).
+
+**Code.** `src/cd/solver.jl` and `src/stopping.jl`.
+
+**Tests.** `test/cd_stopping.jl` checks full, active and empty-sweep costs,
+cap ties, no-work admission, seeded order and rollback.
+
+**Sources.** [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).

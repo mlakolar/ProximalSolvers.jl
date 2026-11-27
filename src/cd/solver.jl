@@ -27,7 +27,8 @@ also requires a certificate. See [RES-01](@ref).
 Dense vector least-squares lasso with an unweighted `NormL1` and momentum off
 also accepts `stopping` and `limits` in [`solve!`](@ref). `ObjectiveChange`
 compares consecutive full sweeps. Both full and active sweeps count toward
-`MaxPasses`. See [CD-10](@ref) for checkpoints and scheduling.
+`MaxPasses` and their visits count toward `MaxCoordinateVisits`. See
+[CD-10](@ref) and [CD-11](@ref) for checkpoints and admission.
 
 ## Keywords
 
@@ -180,9 +181,9 @@ end
 """
     ProximalSolvers.CoordinateDescentStoppingResult
 
-Result of an explicit stopping or pass-budget solve with [`CDSolver`](@ref).
-The minimizer aliases the input vector. The minimum is `missing` at a zero
-budget. Policy satisfaction is recorded in [`termination`](@ref), and this
+Result of an explicit stopping or budgeted solve with [`CDSolver`](@ref).
+The minimizer aliases the input vector. The minimum is `missing` when a limit
+prevents the first sweep. Policy satisfaction is recorded in [`termination`](@ref), and this
 route supplies no convergence certificate. See [RES-05](@ref).
 """
 struct CoordinateDescentStoppingResult{T,D}
@@ -311,20 +312,21 @@ end
 const _FULL_PASS_WORK = 20
 
 _cd_pass_limit(s, ::Nothing) = s.maxpasses
+_cd_needs_full_pass(x, converged, visits) = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
 
 function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver, observer=nothing) where {T}
   tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
   converged, visits = true, 0
   for pass in 1:_cd_pass_limit(s, observer)
-    full = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
+    full = _cd_needs_full_pass(x, converged, visits)
     active = full ? 0 : nactive(x)
     visits = full ? 0 : visits + active
     maxh = _pass!(x, m, g, st, full, scaled)
     st.passes, st.maxchange = pass, maxh
     converged = maxh<tol
     if observer !== nothing
-      _observe_cd_pass!(observer, m, g, x, pass, full, active) && break
+      _observe_cd_pass!(observer, m, g, x, pass, full, active, converged, visits) && break
     elseif full && converged
       status = _stop_check!(m, g, x, st, maxh, scaled)
       if status === :retry
@@ -557,6 +559,7 @@ mutable struct _CDStoppingObserver{T,M,F}
   monitor::M
   loss::F
   has_user_stop::Bool
+  visit_limit_reached::Bool
   reason::Symbol
   full_passes::Int
   active_passes::Int
@@ -565,6 +568,10 @@ mutable struct _CDStoppingObserver{T,M,F}
 end
 
 _cd_pass_limit(s, observer::_CDStoppingObserver) = observer.monitor.limit.n
+
+_cd_visit_limit_reached(::Tuple{}, completed, next_cost) = false
+_cd_visit_limit_reached(limits::Tuple{MaxCoordinateVisits}, completed, next_cost) =
+  next_cost > only(limits).n - completed
 
 function _measure_cd_objective!(observer, m, g, x)
   objective = _finite_cd_objective(m, observer.loss, g, x)
@@ -577,10 +584,11 @@ function _check_cd_checkpoint!(observer, m, g, x, pass, full)
   objective = _measure_cd_objective!(observer, m, g, x)
   full && (observer.previous_full_objective = objective)
   point = (; iteration=pass, objective, previous_objective)
-  observer.reason = Stopping.check!(observer.monitor, point)
+  observer.reason = Stopping.check!(observer.monitor, point, observer.visit_limit_reached)
 end
 
-function _observe_cd_pass!(observer::_CDStoppingObserver, m, g, x, pass, full, active)
+function _observe_cd_pass!(observer::_CDStoppingObserver, m, g, x, pass, full, active,
+                           small_change, active_visits)
   if full
     observer.full_passes += 1
     observer.coordinate_visits += ncoordinates(x)
@@ -588,10 +596,16 @@ function _observe_cd_pass!(observer::_CDStoppingObserver, m, g, x, pass, full, a
     observer.active_passes += 1
     observer.coordinate_visits += active
   end
-  observer.monitor.root === nothing && return false
+  limits = observer.monitor.evaluation_limits
+  if !isempty(limits)
+    next_cost = _cd_needs_full_pass(x, small_change, active_visits) ? ncoordinates(x) : nactive(x)
+    observer.visit_limit_reached = _cd_visit_limit_reached(limits, observer.coordinate_visits, next_cost)
+  end
+  observer.monitor.root === nothing && return observer.visit_limit_reached
   # Full sweeps define objective history. User predicates need the current value,
   # and the capped endpoint needs its value for the result.
-  (full || observer.has_user_stop || pass == observer.monitor.limit.n) || return false
+  (full || observer.has_user_stop || pass == observer.monitor.limit.n ||
+   observer.visit_limit_reached) || return false
   _check_cd_checkpoint!(observer, m, g, x, pass, full) !== :continue
 end
 
@@ -605,18 +619,27 @@ function _cd_rule_needs_user_context(rule)
   throw(ArgumentError("unsupported coordinate descent stopping condition $(typeof(rule))"))
 end
 
-function _cd_policy_limit(method, limits)
-  limits === nothing && return MaxPasses(method.maxpasses)
-  limits isa MaxPasses || throw(ArgumentError("explicit coordinate descent stopping requires limits=MaxPasses(n)"))
-  (method.maxpasses == _DEFAULT_CD_MAXPASSES || method.maxpasses == limits.n) ||
-    throw(ArgumentError("CDSolver.maxpasses conflicts with limits=MaxPasses($(limits.n))"))
-  limits
+function _cd_policy_limits(method, limits)
+  limits === nothing && return MaxPasses(method.maxpasses), ()
+  requested = limits isa Tuple ? limits : (limits,)
+  (isempty(requested) || !all(l -> l isa Union{MaxPasses,MaxCoordinateVisits}, requested)) &&
+    throw(ArgumentError("explicit coordinate descent limits must be MaxPasses, MaxCoordinateVisits, or a nonempty tuple of these limits"))
+  allunique(map(typeof, requested)) || throw(ArgumentError("each limit kind may be specified once"))
+  pass_index = findfirst(l -> l isa MaxPasses, requested)
+  limit = pass_index === nothing ? MaxPasses(method.maxpasses) : requested[pass_index]
+  (method.maxpasses == _DEFAULT_CD_MAXPASSES || method.maxpasses == limit.n) ||
+    throw(ArgumentError("CDSolver.maxpasses conflicts with limits=MaxPasses($(limit.n))"))
+  limit, filter(l -> l isa MaxCoordinateVisits, requested)
 end
 
 function _cd_policy_result(x, value, observer, passes, reason)
   counts = (; observer.full_passes, observer.active_passes, observer.coordinate_visits,
             observer.objective_evaluations)
-  decision = Stopping.report(observer.monitor, reason, passes, counts)
+  report = Stopping.report(observer.monitor, reason, passes, counts)
+  evaluation_limits = observer.monitor.evaluation_limits
+  reached_evaluation_limits = observer.visit_limit_reached ? evaluation_limits : ()
+  decision = merge(report, (; evaluation_limits, reached_evaluation_limits,
+                            limit_reached=report.limit_reached || observer.visit_limit_reached))
   CoordinateDescentStoppingResult(x, value, passes, false, decision)
 end
 
@@ -628,11 +651,13 @@ function _solve_cd_policy!(x, f, g, method, stopping, limits)
   (method.momentum === false || (method.momentum === nothing && !method.random)) ||
     throw(ArgumentError("explicit coordinate descent stopping requires momentum off"))
   _check_problem(x, f, g, :cd)
-  limit = _cd_policy_limit(method, limits)
+  limit, evaluation_limits = _cd_policy_limits(method, limits)
   has_user_stop = stopping === nothing ? false : _cd_rule_needs_user_context(stopping)
-  monitor = Stopping.prepare(stopping, limit, eltype(x))
-  observer = _CDStoppingObserver(zero(eltype(x)), nothing, monitor, f, has_user_stop, :continue, 0, 0, 0, 0)
-  limit.n == 0 && return _cd_policy_result(x, missing, observer, 0, :limit)
+  monitor = Stopping.prepare(stopping, limit, eltype(x); evaluation_limits)
+  visit_limit_reached = _cd_visit_limit_reached(evaluation_limits, 0, length(x))
+  observer = _CDStoppingObserver(zero(eltype(x)), nothing, monitor, f, has_user_stop,
+                                 visit_limit_reached, :continue, 0, 0, 0, 0)
+  (limit.n == 0 || visit_limit_reached) && return _cd_policy_result(x, missing, observer, 0, :limit)
 
   work = SparseIterate(x)
   m = _initialize_cd_model!(work, f, g, true)
