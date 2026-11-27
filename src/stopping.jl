@@ -484,10 +484,11 @@ observation_name(rule::Every) = observation_name(rule.rule)
 function observations(state::RuleState, k, path)
     rule = state.rule
     o = observation_at(state, k)
-    observation = (; path, name=observation_name(rule), evidence=evidence(rule),
-                   o.status, o.value, o.threshold, o.scale)
-    rule isa Every && return ((; observation..., rule.interval),)
-    (observation,)
+    name, kind = observation_name(rule), evidence(rule)
+    if rule isa Every
+        return ((; path, name, evidence=kind, o.status, o.value, o.threshold, o.scale, rule.interval),)
+    end
+    ((; path, name, evidence=kind, o.status, o.value, o.threshold, o.scale),)
 end
 observations(tree::Union{AnyOf,AllOf}, k, path) =
     (Iterators.flatten(observations(child, k, (path..., i)) for (i, child) in enumerate(tree.rules))...,)
