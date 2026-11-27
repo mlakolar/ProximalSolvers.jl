@@ -151,6 +151,21 @@ termination(r)
 The result reports whether the selected progress or user condition passed.
 See [STOP-26](@ref) for input support and limit accounting.
 
+Select `ScaledKKT(rtol=...)` to check stationarity across the coefficient
+matrix. It scales the largest entrywise violation by the larger of the
+gradient magnitude at zero and the penalty level. Its first check counts
+the reference product as one full gradient evaluation. APG also evaluates
+the gradient and value at the accepted coefficients. See [STOP-27](@ref)
+for the comparison and budget requirements.
+
+~~~@example explicit_multiresponse_stopping
+fit = solve!(zeros(1, 2), LeastSquaresLoss(Y, X), NormL1(0.5), AccProxGradDescent();
+             stopping=Every(2, ScaledKKT(rtol=1e-6)),
+             limits=(MaxIterations(100), MaxGradientEvaluations(200)))
+@assert fit.converged && termination(fit).satisfied
+termination(fit)
+~~~
+
 ## [Select stopping conditions in scalar coordinate descent](@id cd-select-stopping)
 
 For dense vector least-squares lasso with unweighted `NormL1`, turn momentum off

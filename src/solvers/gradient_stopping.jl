@@ -130,8 +130,31 @@ _check_gradient_policy_problem(x, f, g, ::ProximalGradientDescent) =
 _check_gradient_policy_problem(x, f, g, method::AccProxGradDescent) =
     _check_apg_problem(x, f, g, method)
 
-_gradient_stationarity_provider(::ProximalGradientDescent, f, g) =
-    (point, rtol) -> _coordinatewise_stationary!(point.state, point.state.grad_f_x, g, rtol)
+const _MatrixGradientState = Union{
+    ProximalGradientDescentState{T,Matrix{T}} where T,
+    AccProxGradDescentState{T,Matrix{T}} where T,
+}
+
+_prepare_gradient_stationarity!(state) = nothing
+function _prepare_gradient_stationarity!(state::_MatrixGradientState)
+    if state.λmax < 0
+        _lambda_max!(state)
+        state.grad_calls += 1
+    end
+    nothing
+end
+
+_gradient_stationarity!(state, grad, g, rtol) = _coordinatewise_stationary!(state, grad, g, rtol)
+_gradient_stationarity!(state::_MatrixGradientState, grad, g, rtol) =
+    _lambda_scaled_stationary(state.x, grad, g, state.λmax, rtol)
+
+function _gradient_stationarity_provider(::ProximalGradientDescent, f, g)
+    function check(point, rtol)
+        state = point.state
+        _prepare_gradient_stationarity!(state)
+        _gradient_stationarity!(state, state.grad_f_x, g, rtol)
+    end
+end
 
 # Between evaluations in one checkpoint, xhat holds the accepted gradient.
 # APG overwrites the scratch when the next update starts.
@@ -143,14 +166,25 @@ end
 
 _gradient_stationarity_provider(::AccProxGradDescent, f, g) = APGStationarityProvider(f, g, -1)
 
+function Stopping.stationarity_admitted(::APGStationarityProvider,
+    point::ProximalGradientStoppingPoint{T,<:AccProxGradDescentState{T,Matrix{T}}}, limits) where T
+    state = point.state
+    state.λmax < 0 || return true
+    # The first matrix check needs the reference and accepted gradients.
+    # The reached-cap guard already leaves room for the smooth value.
+    !any(l -> l isa MaxGradientEvaluations && l.n - state.grad_calls < 2, limits)
+end
+
 function (provider::APGStationarityProvider)(point, rtol)
     state = point.state
     if provider.iteration != point.iteration
+        # Form the reference gradient first because both calls use xhat.
+        _prepare_gradient_stationarity!(state)
         _gradient_at_x!(state, provider.loss)
         state.f_calls += 1
         provider.iteration = point.iteration
     end
-    _coordinatewise_stationary!(state, state.xhat, provider.penalty, rtol)
+    _gradient_stationarity!(state, state.xhat, provider.penalty, rtol)
 end
 
 function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
@@ -161,8 +195,7 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
         throw(ArgumentError("explicit stopping and limits require dense least-squares PGD or APG with matching vector or matrix coefficients and a supported penalty"))
     _check_gradient_policy_problem(x, f, g, method)
     limit, evaluation_limits = _gradient_policy_limits(options, limits)
-    supported = x isa Matrix ? Union{IterateChange,ObjectiveChange,UserStop} : Stopping.GradientLeaves
-    monitor = Stopping.prepare(stopping, limit, eltype(x), supported; evaluation_limits)
+    monitor = Stopping.prepare(stopping, limit, eltype(x); evaluation_limits)
     use_stationarity = Stopping.needs_stationarity(monitor)
     if use_stationarity && !(g isa Union{NormL1,ElasticNet})
         throw(ArgumentError("ScaledKKT requires NormL1 or ElasticNet for dense vector least-squares PGD or APG"))

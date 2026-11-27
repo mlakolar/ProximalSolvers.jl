@@ -116,7 +116,7 @@ Without the entry pass, one coefficient far above `λmax` (a large weight, or on
 
 A zero-weight coordinate has `cᵢ = 0`, is unpenalized and is scored by its full `|∇fᵢ|`, even with a large `λ0`. It is held to `τ λmax`, the threshold of the unpenalized problem. When the computed `λmax` is zero, its threshold is zero (`NaN` if `τ` is infinite), which fails the guard. No stop then passes, as with all-zero weights ([STOP-04](@ref)), although `x = 0` may be the minimizer. Each coefficient must already satisfy [IN-01](@ref): it is finite and normal when both factors are positive; a zero level or weight gives zero. An infinite coefficient iterate gives a nonfinite residual (`Inf`, or `NaN` if a `NaN` is read), which cannot pass.
 
-**Applies to.** PGD and APG: the `λmax`-based check of the logistic loss on dense vectors and of the least-squares matrices in [IN-10](@ref); the entry scores also enter [STOP-21](@ref) for least squares on dense vectors.
+**Applies to.** PGD and APG: the `λmax`-based check of the logistic loss on dense vectors and of the least-squares matrices in [IN-10](@ref), including the explicit matrix check under [STOP-27](@ref); the entry scores also enter [STOP-21](@ref) for least squares on dense vectors.
 
 **Code.** `src/utils.jl: convergence_assessment, _stationary!`.
 
@@ -790,7 +790,7 @@ and [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/
 ### [STOP-25 Scheduled stationarity checks](@id STOP-25)
 
 **Statement.** `Every(k, ScaledKKT(rtol=...))` schedules one stationarity
-leaf on the dense vector PGD and APG routes of [STOP-22](@ref).
+leaf on the PGD and APG routes of [STOP-22](@ref) and [STOP-27](@ref).
 `k` must be a positive integer representable as `Int`. The wrapped
 condition must be a `ScaledKKT` leaf. Use `Every` directly or as a child
 of `AnyOf` or `AllOf`. Validate the wrapped condition and its problem
@@ -811,8 +811,8 @@ scheduled endpoint with a reached cap, the existing cached-decision rule
 applies. A fresh APG evaluation admitted at a scheduled checkpoint can spend
 the last unit and settle a tie under [STOP-24](@ref).
 
-**Applies to.** Dense vector least-squares PGD and APG with input and
-penalty support for `ScaledKKT` under [STOP-22](@ref).
+**Applies to.** Dense least-squares PGD and APG with input and penalty
+support for `ScaledKKT` under [STOP-22](@ref) or [STOP-27](@ref).
 
 **Code.** `src/stopping.jl`.
 
@@ -824,8 +824,9 @@ scheduling, composition, missing evidence, limit ties and APG gradient counts.
 ### [STOP-26 Explicit stopping for multiresponse least-squares PGD and APG](@id STOP-26)
 
 **Statement.** The dense matrix-response route of [IN-10](@ref) accepts
-`IterateChange`, `ObjectiveChange` and `UserStop` through `stopping`,
-including expressions composed with `AnyOf` and `AllOf`. Validate the full
+`IterateChange`, `ObjectiveChange`, `UserStop` and stationarity leaves
+under [STOP-27](@ref) through `stopping`, including expressions composed with
+`AnyOf` and `AllOf`. Validate the full
 rule tree using these leaves, the inputs and the limits before initialization,
 including for zero caps. Follow [STOP-22](@ref) for option conflicts,
 accepted checkpoints, rule evaluation, objective ties and trace order.
@@ -854,6 +855,51 @@ shared checkpoint semantics, matrix aliasing and traces, and whole-matrix
 work accounting and rollback under caps.
 
 **Sources.** [#523, solver rollout B1 and B2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
+
+### [STOP-27 Selectable stationarity for multiresponse least-squares PGD and APG](@id STOP-27)
+
+**Statement.** On the matrix-response route of [STOP-26](@ref), `ScaledKKT`
+uses the maximum entrywise residual and reference scale of [STOP-03](@ref).
+Apply the full-point comparison of [STOP-04](@ref) with the leaf's `rtol` in
+place of `gradtol`. This includes the tolerance floor, the strict comparison
+and the guards for the scale and threshold. The leaf supplies a Boolean
+stationarity observation under [RES-04](@ref). [STOP-25](@ref) specifies
+scheduling with `Every`.
+
+At the first admitted matrix stationarity check, form the reference gradient
+product `s XᵀY` of [STOP-03](@ref) in the existing coefficient scratch and
+cache its largest absolute entry for the solve.
+Charge this product as one full gradient evaluation with zero value
+evaluations. At the accepted coefficients, PGD uses the gradient it holds.
+APG evaluates the smooth value and gradient from the accepted predictor,
+after forming the reference gradient if needed. Count both outputs under
+[STOP-24](@ref). Share the accepted gradient across the leaves at the same
+checkpoint, and share each decision at its stored tolerance.
+
+A fresh check may start when the checkpoint is below the applicable caps
+and all required evaluations fit. PGD needs one remaining gradient for
+the first check. APG needs one remaining value and two gradients for the
+first check, then one value and one gradient at each checkpoint that needs
+a fresh gradient. Admit the first APG check as a unit. With only one gradient
+left under its cap, leave that leaf unchecked and spend neither gradient
+nor value on the diagnostic. The remaining capacity is available to
+the solve. At a reached cap, apply the cached-decision rule of [STOP-22](@ref)
+and [STOP-24](@ref). A check that was admitted can use the last unit and
+settle the tie.
+
+**Applies to.** Dense matrix-response least squares with unweighted entrywise
+`NormL1` on PGD and APG under [IN-10](@ref).
+
+**Code.** `src/solvers/gradient_stopping.jl`, `src/stopping.jl` and
+`src/utils.jl`.
+
+**Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks the entrywise
+scale against an independent reference, threshold and range guards,
+checkpoint gradient provenance, shared evaluations, cadence and both
+types of limits.
+
+**Sources.** [#523, stationarity rollout](https://github.com/mlakolar/ProximalSolvers.jl/issues/523)
+and [#525, diagnostic work admission](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944).
 
 ## Change log
 

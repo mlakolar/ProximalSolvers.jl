@@ -115,15 +115,17 @@ add a proximal call without a trial or function call. Its guards and counting
 are [STOP-07](@ref) and [STOP-08](@ref). On the ℓ1-ball route, [IN-12](@ref)
 governs oracle counts for trials that can skip the projection or loss evaluation.
 
-For explicit stopping under [STOP-22](@ref) when initialization runs, it
-counts one smooth value and one penalty value. Each application of the fused
+With explicit stopping under [STOP-22](@ref) or [STOP-26](@ref),
+initialization counts one smooth value and one penalty value when it runs. Each application of the fused
 oracle at an accepted point counts one smooth value and one gradient. Let `C`
 count these applications, at most one per checkpoint including initialization.
-The gradient count is the number of fused evaluations started by searches
-plus `C`, including any search from an interrupted iteration under [STOP-24](@ref).
-For a solve that ends at a completed checkpoint or at initialization this is
-`grad_calls = iterations + restarts + C`. In either case `backtrack_steps = prox_calls`
-and `f_calls = 1 + grad_calls + backtrack_steps`. The trial total includes
+Let `Z` be one if the matrix reference gradient under [STOP-27](@ref) was
+computed and zero otherwise. The gradient count is the number of fused
+evaluations started by searches plus `C + Z`, including any search from an
+interrupted iteration under [STOP-24](@ref). For a solve that ends at a
+completed checkpoint or at initialization this is
+`grad_calls = iterations + restarts + C + Z`. In either case
+`backtrack_steps = prox_calls` and `f_calls = 1 + grad_calls + backtrack_steps - Z`. The trial total includes
 candidates discarded by a restart. A failed extrapolated oracle contributes
 to the value and gradient counts and contributes no prox trial when none ran.
 [RES-04](@ref) specifies the remaining result counters and the zero-cap return.
@@ -136,6 +138,7 @@ Errors do not transactionally restore the counters.
 
 **Tests.** test/accelerated_pgd.jl: image-cache counters, explicit restart accounting and trace/limits; test/pgd_stopping_policy.jl: explicit initialization, cap and shared diagnostic work; test/linf.jl: one extra prox for a proposed stop; test/norml2_pgd.jl: `backtrack_steps == prox_calls` with a dedicated `NormL2` check.
 `test/apg_evaluation_limits.jl` covers counts when a cap interrupts the update.
+`test/multiresponse_lasso_pgd_apg.jl` checks the counted matrix reference gradient and accepted-point diagnostics.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L320`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docstring:src/types.jl:L75`.
 
