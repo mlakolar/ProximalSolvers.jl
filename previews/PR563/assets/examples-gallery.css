@@ -1,0 +1,46 @@
+.examples-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.examples-gallery .examples-gallery-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.8rem;
+  border: 1px solid #8886;
+  border-radius: 0.6rem;
+  text-decoration: none;
+}
+
+.examples-gallery .examples-gallery-card:hover .examples-gallery-title,
+.examples-gallery .examples-gallery-card:focus-visible .examples-gallery-title {
+  text-decoration: underline;
+}
+
+.examples-gallery .examples-gallery-card:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.examples-gallery img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+  object-fit: contain;
+  margin-bottom: 0.3rem;
+  border-radius: 0.25rem;
+  background: #fff;
+}
+
+.examples-gallery-title {
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.examples-gallery-description {
+  font-size: 0.9em;
+  line-height: 1.4;
+}
