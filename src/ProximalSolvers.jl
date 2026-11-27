@@ -32,6 +32,7 @@ weighted least-squares model ([PN-01](https://mlakolar.github.io/ProximalSolvers
 [`ADMMSolver`](@ref) also solves the lasso with a raw `LeastSquaresLoss` and unweighted `NormL1` for `Float64` data with a tall or square design, specified in [ADM-05](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-05).
 [`ADMMSolver`](@ref) also supports the graphical-lasso combination of `LogDetLoss` and matrix-weighted `NormL1` on a dense `Matrix` specified in [ADM-04](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/admm/#ADM-04).
 [`ProximalGradientDescent`](@ref) also solves this graphical-lasso problem with bounded SPD backtracking and a KKT check, as specified in [PGD-06](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/pg-logdet/#PGD-06).
+[`ProximalGradientDescent`](@ref) and [`AccProxGradDescent`](@ref) also support the ℓ1-ball constraint `IndBallL1` with a same-type radius on a dense `Vector{Float32}` or `Vector{Float64}` with same-type least-squares data, on the numerical route of [IN-12](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/inputs/#IN-12); the optional keyword `feasibility = NumericalFeasibility(...)` of [`solve!`](@ref) overrides its tolerances.
 Losses, proximal operators and coordinate storage belong to PB.
 """
 module ProximalSolvers
@@ -40,16 +41,16 @@ using Printf
 using Random: AbstractRNG, default_rng, rand
 using SparseArrays: dropzeros!
 import ProximalBase
-using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, ElasticNet, SqrNormL2, NormLinf, NormL2, SparseIterate,
+using ProximalBase: LeastSquaresLoss, SqrtLeastSquaresLoss, LogisticLoss, Scaled, NormL1, LogDetLoss, NormL1Nonneg, IndNonnegative, IndBox, IndBallL2, IndBallL1, ElasticNet, SqrNormL2, NormLinf, NormL2, SparseIterate,
   ncoordinates, nactive, activecoordinates, activevalues, prox_block,
   prox!, value_and_prox!, BlockIterate, GroupNormL2, blockindices, blockview, prox_block!, kkt_violation
 include("blocks.jl")
 using .Blocks
-include("line_searches.jl")
+include("line_searches/LineSearches.jl")
 using .LineSearches
 export CDSolver, ProximalGradientDescent, AccProxGradDescent, ProxNewton, LogisticADMM, solve!, ProximalSolver,
        ProximalOptions, ADMMSolver, ADMMResults, CDResults, ProxNewtonResults, LogisticADMMResults, OptimizationState,
-       OptimizationTrace
+       OptimizationTrace, NumericalFeasibility
 @static if VERSION >= v"1.11.0-DEV.469"
   eval(Expr(:public, :OptimizationResults, :ProximalGradientStoppingResult, :CoordinateDescentStoppingResult, :LineSearches))
 end
@@ -61,6 +62,7 @@ include("solve.jl")
 include("solvers/image_models.jl")
 include("solvers/proximal_gradient_descent.jl")
 include("solvers/accelerated_proximal_gradient_descent.jl")
+include("solvers/l1ball.jl")
 include("solvers/admm.jl")
 include("solvers/logdet_proximal_gradient.jl")
 include("cd/models.jl")
