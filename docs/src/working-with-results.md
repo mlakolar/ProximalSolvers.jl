@@ -42,12 +42,17 @@ A convergence flag reports the solver's implemented stopping criterion;
 | Least-squares CD with default stopping, including group and multi-response fits | The pass-change test succeeded. See [CD-03](@ref) for the scalar test |
 | Scalar least-squares CD with an explicit policy | `converged` is false. Read satisfaction, reason, and full/active pass counts through `termination(r)`. See [RES-05](@ref) |
 | PGD/APG with default stopping | A stopping proposal passed the applicable computed stationarity check |
-| PGD/APG with an explicit policy | A passing `ScaledKKT` leaf in the winning branch sets `converged`. Inspect `termination(r).satisfied` and `termination(r).reason` for the policy outcome. See [RES-04](@ref) |
+| PGD/APG with an explicit policy | The winning branch includes a passing `ScaledKKT` leaf. Read `termination(r).satisfied` and `termination(r).reason` for the policy outcome ([RES-04](@ref)). |
 | `ProxNewton` (logistic regression) | The largest KKT score of the returned point is finite and at most `tol`; see [PN-05](@ref) |
 | `LogisticADMM` (logistic regression) | The primal and dual residual tests passed and the largest KKT score of the returned point is at most `tol`; see [LA-04](@ref) |
 | Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |
 | Consensus ADMM with default stopping | The primal and dual residual tests and any required stagnation check passed. See [ADM-02](@ref) |
 | Consensus ADMM with explicit stopping | Passing primal and dual residual leaves are both in the winning branch. See [RES-06](@ref) |
+
+With `IndBallL1`, the full stopping check can pass at a returned point outside the ball
+if that point passes the computed cap decision. `minimum` reports the monitored loss,
+which can be finite at a point where ProximalBase evaluates its indicator as `Inf`.
+See [IN-12](@ref).
 
 Use an [independent KKT check](@ref learn-02) or an appropriate
 [duality gap](@ref learn-07) when assessing a fit. An unavailable `gap` is `NaN`,
