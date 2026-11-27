@@ -6,7 +6,7 @@
 
 ## Problem
 
-Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` and `ElasticNet` (each with optional weights, [IN-03](@ref)), `NormLinf`, `NormL2` ([IN-11](@ref)), `GroupNormL2`, unweighted `NormL1Nonneg` and `IndNonnegative()`. `NormL1Nonneg` and `IndNonnegative()` enforce `x ≥ 0` under [IN-07](@ref). PGD also accepts `IndBox` (including `IndBallLinf`) and four-coefficient `IndBallL2` under [IN-08](@ref).
+Minimize `F(x) = s‖Xx - y‖²/2 + g(x)`. The supported penalties are `NormL1` and `ElasticNet` (each with optional weights, [IN-03](@ref)), `NormLinf`, `NormL2` ([IN-11](@ref)), `GroupNormL2`, unweighted `NormL1Nonneg` and `IndNonnegative()`. `NormL1Nonneg` and `IndNonnegative()` enforce `x ≥ 0` under [IN-07](@ref). PGD also accepts `IndBox` (including `IndBallLinf`) and four-coefficient `IndBallL2` under [IN-08](@ref), and `IndBallL1` on the route of [IN-12](@ref).
 
 ## Notation
 
@@ -32,9 +32,9 @@ Solvers, options and `BackTracking` each have a validating inner constructor. Se
 
 ### [PGD-01 Image, loss, gradient and proximal iteration order](@id PGD-01)
 
-**Statement.** PGD keeps the native least-squares image buffers and uses ProximalBase's value and gradient oracles. It forms the image before value and gradient, takes scalar steps, and calls `value_and_prox!` for each penalty step. Unweighted lasso levels follow [IN-02](@ref).
+**Statement.** PGD keeps the native least-squares image buffers and uses ProximalBase's value and gradient oracles. It forms the image before value and gradient, takes scalar steps, and calls `value_and_prox!` for each penalty step, except on the ℓ1-ball route, whose trials are in [IN-12](@ref). Unweighted lasso levels follow [IN-02](@ref).
 
-At an iteration it saves the last accepted point, objective components and gradient; multiplies `L` by the line search's `α`; then repeats the following trial until [LS-01](@ref) accepts it:
+At an iteration it saves the last accepted point, objective components and gradient; multiplies `L` by the line search's `α`; then repeats the following trial until [LS-01](@ref) accepts it. This sequence is that of the ordinary penalties; on the ℓ1-ball route a trial uses `prox!`, can skip the projection, and can skip forming the image and the loss ([IN-12](@ref)):
 
 1. Form the gradient-step point `xhat = x_previous - ∇f(x_previous)/L`.
 2. Apply `value_and_prox!` with step `1/L` into the caller's iterate.
@@ -60,7 +60,7 @@ For a raw `LogisticLoss` with `NormL1`, the same sequence forms the logistic ima
 
 **Applies to.** ProximalGradientDescent; dense vectors and the matrices in [IN-10](@ref).
 
-**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/solve.jl: _solve_gradient!`.
+**Code.** `src/solvers/proximal_gradient_descent.jl: initial_state, update_state!; src/line_searches/backtracking.jl: search!; src/utils.jl: LineSearches.trial!` (the shared trial of PGD and APG); `src/solve.jl: _trial_penalty_value, _solve_gradient!`.
 
 **Tests.** `test/multiresponse_lasso_pgd_apg.jl` checks matrix buffer shapes, values, gradients and traces. test/minimal_core_characterization.jl: PGD LS image and recorded-trial testsets; test/core_regressions.jl: gradient/image refresh; test/norml2_pgd.jl: PGD and APG solutions against the orthogonal closed form; test/nonnegative_lasso.jl and test/nonnegative_least_squares.jl: constrained solutions and feasibility in both precisions; test/logistic_pgd.jl: the logistic value and gradient and its solves.
 
@@ -98,6 +98,8 @@ The shared default policy is [STOP-01](@ref), including the three OR-combined pr
 **Statement.** `store_trace` stores an entry for every completed iteration; display and callback invocation are sampled by `print_every`. When storing, a callback receives the trace; otherwise it receives the current trace state. A callback returning `true` stops the solve. `extended_trace` requests the additional diagnostic data. These options use the existing engine and do not introduce a separate logging framework.
 
 Call and time limits are checked after a complete iteration, including any proposed-stop check and callback. A zero call limit is unlimited; counts can overshoot a positive limit by the work of one iteration. `maxiter` caps completed iterations, and `iteration_converged` means `iterations == maxiter`, not successful convergence. The Float32 stagnation check follows tracing and any callback due at that iteration; it does not change cadence.
+
+On the ℓ1-ball route the traced and called-back objective is the loss, and `grad_calls` and `prox_calls` include the gradient and prox evaluations that the full checks perform, which can be fewer than one of each per check ([FP-05](@ref), [IN-12](@ref)).
 
 The displayed `|g(x)|` is an internal gradient/proximal stopping residual, not the user's penalty value. Displayed `|x - x'|` and trace `dxx` are iterate-change diagnostics, and `backtrack_steps` counts line-search trials subject to each method's zero-step and stationarity-check rules. They do not describe changes in the statistical model.
 
@@ -147,6 +149,8 @@ Existing tests listed at each clause cover image order, fused prox, counts, cons
 **Sources.** `docs/src/developer/implementation-notes.md:L286`.
 
 ## Change log
+
+[#457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457), Phase B: PGD accepts `IndBallL1` on the route of [IN-12](@ref); the trial of the other penalties is unchanged.
 
 [#537](https://github.com/mlakolar/ProximalSolvers.jl/issues/537): the monitored penalty of a four-coefficient `IndBallL2` trial is specified in [IN-08](@ref). Measurements: [ball rounding evidence](evidence/ball-rounding-537.md).
 

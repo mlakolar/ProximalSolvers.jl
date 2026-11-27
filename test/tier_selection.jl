@@ -151,10 +151,11 @@ const STANDARD = TT.select(CI, "standard")
     "Manifest.toml","a/new/file.txt",".github/workflows/New.yml","ext/SomeExt.jl")
     @test classify(path)[1]=="full"
   end
-  for path in ("src/ProximalSolvers.jl","src/types.jl","src/solve.jl","src/blocks.jl","src/line_searches.jl",
-    "src/precompile.jl","src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl",
-    "src/utils.jl","src/solvers/image_models.jl","src/solvers/proximal_gradient_descent.jl",
-    "src/stopping.jl","src/solvers/pgd_stopping.jl")
+  for path in ("src/ProximalSolvers.jl","src/types.jl","src/solve.jl","src/blocks.jl",
+    "src/line_searches/LineSearches.jl","src/line_searches/backtracking.jl","src/precompile.jl",
+    "src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl","src/utils.jl",
+    "src/solvers/image_models.jl","src/solvers/proximal_gradient_descent.jl",
+    "src/solvers/l1ball.jl","src/stopping.jl","src/solvers/pgd_stopping.jl")
     @test classify(path)==("full",String[])
   end
   @test classify("docs/src/index.md","test/core_contracts.jl","src/cd/leastsquares.jl")[1]=="full"
