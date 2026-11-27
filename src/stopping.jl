@@ -414,8 +414,15 @@ function assess(rule::UserStop, point, monitor, at_limit)
     boolean_observation(pass)
 end
 
-residual_observation(value, threshold) =
-    Observation(value <= threshold ? :pass : :fail, Float64(value), Float64(threshold), missing)
+function residual_observation(value, threshold)
+    status = if isfinite(value) && isfinite(threshold)
+        value <= threshold ? :pass : :fail
+    else
+        :invalid
+    end
+    Observation(status, Float64(value), Float64(threshold), missing)
+end
+
 assess(::PrimalResidual, point, monitor, at_limit) = residual_observation(point.r_norm, point.eps_pri)
 assess(::DualResidual, point, monitor, at_limit) = residual_observation(point.s_norm, point.eps_dual)
 
