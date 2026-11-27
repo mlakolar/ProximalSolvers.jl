@@ -12,7 +12,7 @@ matrix-response lasso, [CD-10](@ref) for coordinate descent and
 module Stopping
 
 export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
-export Every, ProximalGradientMapping
+export Every, ProximalGradientMapping, DualGap
 export MaxCoordinateVisits
 export PrimalResidual, DualResidual
 export MaxObjectiveEvaluations, MaxGradientEvaluations, MaxProximalEvaluations
@@ -97,22 +97,38 @@ struct ProximalGradientMapping
 end
 
 """
-    Every(k, rule::Union{ScaledKKT,ProximalGradientMapping})
+    DualGap(; rtol)
 
-Make a stationarity check eligible at the starting point and after every
-`k` accepted updates on PGD and APG routes that support the wrapped rule.
+Check a certified upper bound on the relative primal-dual gap at the
+current coefficients. Supported for dense Float32 least-squares PGD with
+an unweighted, positive `NormL1` level supplied as Float32 or an exactly
+convertible Float64.
+See [STOP-29](@ref) for the bound and its arithmetic requirements.
+"""
+struct DualGap
+    rtol::Float64
+    DualGap(; rtol::Real) = new(tolerance(rtol, "rtol"))
+end
+
+const SchedulableCondition = Union{ScaledKKT,ProximalGradientMapping,DualGap}
+
+"""
+    Every(k, rule::Union{ScaledKKT,ProximalGradientMapping,DualGap})
+
+Make a check eligible at the starting point and after every `k` accepted
+updates on PGD and APG routes that support the wrapped rule.
 Use a positive integer `k` representable as `Int`. At other checkpoints the
 leaf is unchecked. The observation reports `interval=k`.
 See [STOP-25](@ref) for scheduling, composition and limits.
 """
-struct Every{R<:Union{ScaledKKT,ProximalGradientMapping}}
+struct Every{R<:SchedulableCondition}
     interval::Int
     rule::R
     function Every(k, rule)
         k isa Integer && 0 < k <= typemax(Int) ||
             throw(ArgumentError("the check interval must be a positive Int"))
-        rule isa Union{ScaledKKT,ProximalGradientMapping} ||
-            throw(ArgumentError("Every requires a ScaledKKT or ProximalGradientMapping condition"))
+        rule isa SchedulableCondition ||
+            throw(ArgumentError("Every requires a ScaledKKT, ProximalGradientMapping or DualGap condition"))
         new{typeof(rule)}(Int(k), rule)
     end
 end
@@ -282,6 +298,7 @@ end
 const GradientLeaves = Union{IterateChange,ObjectiveChange,ScaledKKT,Every{ScaledKKT},UserStop}
 const MappingLeaves = Union{IterateChange,ObjectiveChange,ProximalGradientMapping,
                             Every{ProximalGradientMapping},UserStop}
+const GapLeaves = Union{DualGap,Every{DualGap}}
 const ResidualLeaves = Union{PrimalResidual,DualResidual}
 
 function bind_rule(rule, context, supported)
@@ -313,28 +330,46 @@ mutable struct StationarityCache{F}
     decisions::Dict{UInt64,Bool}
 end
 
-struct Monitor{R,S,L,E}
+mutable struct GapCache{F}
+    provider::F
+    iteration::Int
+    upper::Union{Nothing,Float64}
+    checked_tolerances::Set{UInt64}
+end
+
+struct Monitor{R,S,L,E,G}
     root::R
     limit::L
     movement::MovementCache
     stationarity::S
     evaluation_limits::E
+    gap::G
 end
 
 user_context(k, objective) = (; iteration=k, objective)
 prepare(rule, limit::Union{MaxIterations,MaxPasses}, ::Type{T}, supported=GradientLeaves;
         evaluation_limits=()) where {T} =
     Monitor(rule === nothing ? nothing : bind_rule(rule, user_context(0, zero(T)), supported),
-            limit, MovementCache(nothing, nothing, nothing), nothing, evaluation_limits)
+            limit, MovementCache(nothing, nothing, nothing), nothing, evaluation_limits, nothing)
 
 needs_stationarity(monitor::Monitor) = needs_stationarity(monitor.root)
 needs_stationarity(::Union{Nothing,RuleState}) = false
-needs_stationarity(::RuleState{<:Union{ScaledKKT,Every,ProximalGradientMapping}}) = true
+needs_stationarity(::RuleState{<:Union{ScaledKKT,Every{ScaledKKT},ProximalGradientMapping,
+                                      Every{ProximalGradientMapping}}}) = true
 needs_stationarity(tree::Union{AnyOf,AllOf}) = any(needs_stationarity, tree.rules)
+
+needs_gap(monitor::Monitor) = needs_gap(monitor.root)
+needs_gap(::Union{Nothing,RuleState}) = false
+needs_gap(::RuleState{<:GapLeaves}) = true
+needs_gap(tree::Union{AnyOf,AllOf}) = any(needs_gap, tree.rules)
 
 with_stationarity(monitor, provider) =
     Monitor(monitor.root, monitor.limit, monitor.movement,
-            StationarityCache(provider, -1, Dict{UInt64,Bool}()), monitor.evaluation_limits)
+            StationarityCache(provider, -1, Dict{UInt64,Bool}()), monitor.evaluation_limits, monitor.gap)
+
+with_gap(monitor, provider) =
+    Monitor(monitor.root, monitor.limit, monitor.movement, monitor.stationarity,
+            monitor.evaluation_limits, GapCache(provider, -1, nothing, Set{UInt64}()))
 
 function stationarity!(cache::StationarityCache, point, rtol::Float64)
     if cache.iteration != point.iteration
@@ -405,6 +440,27 @@ function assess(rule::Union{ScaledKKT,ProximalGradientMapping}, point, monitor, 
     boolean_observation(stationarity!(cache, point, rule.rtol))
 end
 
+function assess(rule::DualGap, point, monitor, at_limit)
+    cache = monitor.gap
+    key = reinterpret(UInt64, rule.rtol)
+    if at_limit
+        cache.iteration == point.iteration && key in cache.checked_tolerances || return unchecked
+    else
+        if cache.iteration != point.iteration
+            cache.upper = cache.provider(point)
+            cache.iteration = point.iteration
+            empty!(cache.checked_tolerances)
+        end
+        push!(cache.checked_tolerances, key)
+    end
+    upper = cache.upper
+    upper === nothing && return Observation(:invalid, missing, rule.rtol, missing)
+    # Finite nonnegative Float64 values have the same ordering as their bits,
+    # even if a user predicate changed the thread's subnormal handling.
+    pass = reinterpret(UInt64, upper) <= key
+    Observation(pass ? :pass : :fail, upper, rule.rtol, missing)
+end
+
 function assess(rule::Every, point, monitor, at_limit)
     iszero(point.iteration % rule.interval) || return unchecked
     assess(rule.rule, point, monitor, at_limit)
@@ -430,7 +486,9 @@ assess(::PrimalResidual, point, monitor, at_limit) = residual_observation(point.
 assess(::DualResidual, point, monitor, at_limit) = residual_observation(point.s_norm, point.eps_dual)
 
 evidence(::Union{IterateChange,ObjectiveChange}) = :progress
-evidence(::Union{ScaledKKT,Every,ProximalGradientMapping}) = :stationarity
+evidence(::Union{ScaledKKT,ProximalGradientMapping}) = :stationarity
+evidence(::DualGap) = :gap_bound
+evidence(rule::Every) = evidence(rule.rule)
 evidence(::UserStop) = :user
 evidence(::ResidualLeaves) = :residual
 
@@ -438,7 +496,7 @@ checkpoint_evaluation_limit_reached(monitor, point) = false
 
 evaluate!(::Nothing, point, monitor, at_limit) = :continue
 function evaluate!(state::RuleState, point, monitor, at_limit)
-    # A stationarity evaluation can exhaust a budget during this checkpoint.
+    # A diagnostic can exhaust a budget during this checkpoint.
     at_limit = at_limit || checkpoint_evaluation_limit_reached(monitor, point)
     observation = assess(state.rule, point, monitor, at_limit)
     state.iteration = point.iteration

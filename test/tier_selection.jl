@@ -87,7 +87,7 @@ end
   @test sort(m.helpers) == ["tiers"]
   @test isempty(m.environments)
   @test sort(quick) == sort(["aqua", "ci_gate", "naming", "tier_selection", "minimal_core_characterization",
-                            "core_contracts", "paired_master", "pgd_stopping_policy"])
+                            "core_contracts", "paired_master", "pgd_stopping_policy", "dual_gap"])
   @test m.tier["core_regressions"]=="standard"
   @test m.tier["examples"]=="full"
   @test "tier_selection" in quick
@@ -155,7 +155,7 @@ const STANDARD = TT.select(CI, "standard")
     "src/line_searches/LineSearches.jl","src/line_searches/backtracking.jl","src/precompile.jl",
     "src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl","src/utils.jl",
     "src/solvers/image_models.jl","src/solvers/proximal_gradient_descent.jl",
-    "src/solvers/l1ball.jl","src/stopping.jl","src/solvers/gradient_stopping.jl")
+    "src/solvers/l1ball.jl","src/stopping.jl","src/solvers/gradient_stopping.jl","src/solvers/dual_gap.jl")
     @test classify(path)==("full",String[])
   end
   @test classify("docs/src/index.md","test/core_contracts.jl","src/cd/leastsquares.jl")[1]=="full"

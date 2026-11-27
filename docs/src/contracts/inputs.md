@@ -99,7 +99,8 @@ solver reuses a penalty already parameterized by `T`. The working penalty suppli
 fused value and proximal evaluation, and the stationarity residual and scale.
 The caller's penalty is unchanged. [IN-03](@ref) defines the working penalty for
 weighted `ElasticNet` in CD, PGD and APG. ADMM has its own scalar-parameter rules
-in [ADM-01](@ref).
+in [ADM-01](@ref). [STOP-29](@ref) specifies the additional level
+requirement for the selectable Float32 lasso gap.
 
 For `Scaled(LeastSquaresLoss(...), s)`, the supported loss scale is either:
 

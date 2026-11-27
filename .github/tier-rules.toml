@@ -91,6 +91,7 @@ paths = [
   "src/precompile.jl", "src/stopping.jl", "src/utils.jl",
   "src/cd/models.jl", "src/cd/solver.jl", "src/cd/multiresponse.jl", "src/cd/leastsquares.jl", "src/cd/sqrtlasso.jl",
   "src/solvers/image_models.jl", "src/solvers/proximal_gradient_descent.jl", "src/solvers/gradient_stopping.jl",
+  "src/solvers/dual_gap.jl",
   "src/solvers/accelerated_proximal_gradient_descent.jl", "src/solvers/l1ball.jl", "src/solvers/admm.jl",
   "src/solvers/logdet_proximal_gradient.jl", "src/solvers/logistic_proxnewton.jl", "src/solvers/logistic_admm.jl",
 ]

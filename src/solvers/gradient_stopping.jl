@@ -110,7 +110,7 @@ end
 
 function _gradient_policy_result(method, x, objective, increased, trace, monitor, reason, k,
                                  f_calls, grad_calls, prox_calls, backtrack_steps)
-    g_calls = ismissing(objective) ? 0 : prox_calls + 1
+    g_calls = ismissing(objective) ? 0 : prox_calls + 1 + _dual_gap_calls(monitor.gap)
     rejected_trials = prox_calls - _diagnostic_prox_calls(monitor.stationarity) - k
     counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials)
     report = Stopping.report(monitor, reason, k, counts)
@@ -118,8 +118,8 @@ function _gradient_policy_result(method, x, objective, increased, trace, monitor
     reached_evaluation_limits = filter(l -> Stopping.evaluation_limit_reached(l, counts), evaluation_limits)
     decision = merge(report, (; evaluation_limits, reached_evaluation_limits,
                               limit_reached=report.limit_reached || !isempty(reached_evaluation_limits)))
-    converged = monitor.stationarity !== nothing && decision.satisfied &&
-        any(o -> o.evidence === :stationarity && o.status === :pass &&
+    converged = (monitor.stationarity !== nothing || monitor.gap !== nothing) && decision.satisfied &&
+        any(o -> (o.evidence === :stationarity || o.evidence === :gap_bound) && o.status === :pass &&
                o.path in decision.winning_branch, decision.observations)
     ProximalGradientStoppingResult(
         method, x, objective, k, converged, report.limit_reached, increased, reason === :stalled,
@@ -226,6 +226,45 @@ function (provider::ProximalGradientMappingProvider)(point, rtol)
     _proximal_gradient_mapping_passes(provider.measurement, rtol)
 end
 
+mutable struct DualGapProvider
+    X::Matrix{Float32}
+    y::Vector{Float32}
+    level::Float32
+    workspace::Union{Nothing,_DualGapWorkspace}
+    calls::Int
+end
+
+_dual_gap_calls(::Nothing) = 0
+_dual_gap_calls(cache::Stopping.GapCache{DualGapProvider}) = cache.provider.calls
+
+function (provider::DualGapProvider)(point)
+    _dual_gap_fp_supported() || return nothing
+    workspace = provider.workspace
+    if workspace === nothing
+        workspace = _DualGapWorkspace(size(provider.X)...)
+        provider.workspace = workspace
+    end
+    state = point.state
+    upper = _relative_dual_gap_upper!(workspace, provider.X, provider.y, state.x,
+                                     Float64(provider.level))
+    state.f_calls += 1
+    state.grad_calls += 1
+    provider.calls += 1
+    upper
+end
+
+function _dual_gap_level(x, f, g, method)
+    (method isa ProximalGradientDescent && x isa Vector{Float32} &&
+     f isa LeastSquaresLoss && f.X isa Matrix{Float32} && f.Y isa Vector{Float32} &&
+     g isa NormL1{<:Union{Float32,Float64},Nothing}) ||
+        throw(ArgumentError("DualGap requires raw dense Float32 least-squares PGD with an unweighted NormL1 penalty and a Float32 or Float64 level"))
+    level = _converted_level(Float32, g.λ0)
+    (isfinite(level) && !signbit(level) && !Stopping.stored_zero(level) &&
+     (g.λ0 isa Float32 || Stopping.stored_equal(Float64(level), g.λ0))) ||
+        throw(ArgumentError("DualGap requires a positive penalty level exactly representable in Float32"))
+    level
+end
+
 function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
     base = f isa Scaled ? f.f : f
     (base isa LeastSquaresLoss &&
@@ -235,9 +274,10 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
     _check_gradient_policy_problem(x, f, g, method)
     limit, evaluation_limits = _gradient_policy_limits(options, limits)
     mapping_supported = g isa NormLinf
-    supported = mapping_supported ? Stopping.MappingLeaves : Stopping.GradientLeaves
+    supported = mapping_supported ? Stopping.MappingLeaves : Union{Stopping.GradientLeaves,Stopping.GapLeaves}
     monitor = Stopping.prepare(stopping, limit, eltype(x), supported; evaluation_limits)
     use_stationarity = Stopping.needs_stationarity(monitor)
+    gap_level = Stopping.needs_gap(monitor) ? _dual_gap_level(x, f, g, method) : nothing
     if use_stationarity && !mapping_supported && !(g isa Union{NormL1,ElasticNet})
         throw(ArgumentError("ScaledKKT requires NormL1 or ElasticNet for dense vector least-squares PGD or APG"))
     end
@@ -254,6 +294,10 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
             _gradient_stationarity_provider(method, f, g_work)
         end
         monitor = Stopping.with_stationarity(monitor, provider)
+    end
+    if gap_level !== nothing
+        data = leastsquares_data(f)
+        monitor = Stopping.with_gap(monitor, DualGapProvider(data.X, data.Y, gap_level, nothing, 0))
     end
     _solve_gradient!(state, f, g_work, method, options, nothing, monitor)
 end

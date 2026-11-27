@@ -49,7 +49,7 @@ Clause IDs are permanent. When a clause is replaced, keep its heading, mark it
 | `APG` | Extrapolation, restart and the bound test | [Accelerated PG](@ref APG-01) |
 | `ADM` | Two-function consensus ADMM | [Consensus ADMM](@ref ADM-01) |
 | `LS` | Backtracking, acceptance and range recovery | [Line search](@ref LS-01) |
-| `STOP` | Proposals, stationarity checks and separate exits | [PG stopping](@ref STOP-01) |
+| `STOP` | Proposals, stationarity and gap checks, and separate exits | [PG stopping](@ref STOP-01) |
 | `RES` | Results, diagnostics and mutation on failure | [Results and failures](@ref RES-01) |
 | `DEF` | Unsupported features and rejected settings | [Deferred surface](@ref DEF-01) |
 
