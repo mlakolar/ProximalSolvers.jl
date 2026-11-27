@@ -27,6 +27,7 @@ the design requirement.
 | `ProximalGradientDescent`, `AccProxGradDescent`, least squares | dense `Vector{T}` | `NormL1` or `ElasticNet`, each with or without weights ([IN-03](@ref)), `NormLinf`, `NormL2` under [IN-11](@ref), or `GroupNormL2` under [IN-04](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, matrix-response least squares | dense `Matrix{T}` | unweighted `NormL1` under [IN-10](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, constrained least squares | feasible dense `Vector{T}` | `IndBox` (including `IndBallLinf`) or four-coefficient `IndBallL2` under [IN-08](@ref) |
+| `ProximalGradientDescent`, `AccProxGradDescent`, ℓ1-ball-constrained least squares | dense `Vector{T}` whose start passes the numerical cap | `IndBallL1` under [IN-12](@ref) |
 | `ProximalGradientDescent` or `CDSolver`, nonnegative least squares or nonnegative lasso | feasible nonnegative dense `Vector{T}` (not a `SparseIterate`) | `IndNonnegative()` or unweighted `NormL1Nonneg` under [IN-07](@ref) |
 | `ProximalGradientDescent`, `AccProxGradDescent`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) and, for APG, [APG-08](@ref) |
 | `ProxNewton`, logistic regression with a raw `LogisticLoss` | dense `Vector{Float64}` | `NormL1`, with or without weights, under [IN-09](@ref) and [PN-01](@ref) |
@@ -441,9 +442,12 @@ The coordinate-descent solver and coefficient storage other than a dense
 `Vector{T}` are unsupported for this indicator. Stopping proposals use the
 [generic proximal-gradient check](@ref STOP-07).
 
+The ℓ1 ball `IndBallL1(r)` is not one of these indicators; its route is [IN-12](@ref), whose start
+need not lie inside the ball.
+
 **Applies to.** Dense Float32 and Float64 PGD and APG with a least-squares loss and the concrete indicators above.
 
-**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`, `_trial_penalty_value`, `_within_ball_tolerance`, `_solve_gradient!`. The admission is called from `update_state!` of PGD and `_prox_grad_step!` of APG.
+**Code.** `src/solve.jl`: `_check_penalty`, `_check_box`, `_check_problem`, `_trial_penalty_value`, `_within_ball_tolerance`, `_solve_gradient!`. The admission is called from the shared trial, `LineSearches.trial!` in `src/utils.jl`, which PGD's `search!` and APG's `_prox_grad_step!` call.
 
 **Tests.** `test/constrained_least_squares.jl` checks feasibility, optimality, input rules and both precisions. For PGD and APG in both precisions, from hard-coded trial points: "Admitted exterior trial: radius below the four-entry range" checks the fused value `Inf` of the first trial; a one-iteration solve whose returned point has standalone `g(x) = Inf`, with a finite `minimum` that equals the last stored trace objective and agrees with the standalone loss under `isapprox` at `rtol = sqrt(eps(T))`; violation within `10eps(T)` (computed in 256-bit arithmetic, then rounded to `Float64`); the refusal of the returned point as a start; and a default-options solve whose `minimum` agrees with the standalone loss in the same way and whose `converged` flag agrees with the independent residual-versus-threshold comparison; "Admitted exterior trial: sum of squares beyond the range of T" checks that the standalone indicator at the one-iteration returned point is `Inf` (the fused value is not asserted there), the violation, and on that return a finite `minimum` equal to the last stored trace objective and agreeing with the loss, and, in its default-options run, which stores no trace, a finite `minimum` agreeing with the loss; "Admitted exterior trial: monitored trace and residual" checks that `minimum` is finite and equals the last traced objective, and that the trace values and `f_residual` are finite. "Reported minimum: smooth term and penalty term" runs in `Float32` only: for a scaled loss whose cached and standalone values differ by one unit in the last place, `minimum` equals the last traced objective and the value with an `IndBox` penalty. "Exceptional Euclidean projection rolls back" keeps a rejected trial (radius `nextfloat(zero(T))`) raising and restoring. "Admission of a rounded ball trial" checks the helper at points nominally `2eps(T)` and `12eps(T)` outside the ball (offsets before the entries are rounded), nonfinite entries, zero, `NaN`, other penalties and zero allocations. The measurements are in the [evidence page](evidence/ball-rounding-537.md).
 
@@ -730,3 +734,194 @@ losses, and dense-vector CD, with unchanged coefficients. It also checks rollbac
 in both gradient methods.
 
 **Sources.** [Issue #457](https://github.com/mlakolar/ProximalSolvers.jl/issues/457) and [pull request #494](https://github.com/mlakolar/ProximalSolvers.jl/pull/494).
+
+## [IN-12 The ℓ1-ball route of PGD and APG](@id IN-12)
+
+**Statement.**
+
+*Selection.* `ProximalGradientDescent` and `AccProxGradDescent` take this route for every
+`IndBallL1(r)` penalty:
+
+```julia
+solve!(x, f, IndBallL1(r), method, options)                     # default tolerances
+solve!(x, f, IndBallL1(r), method, options; feasibility = NumericalFeasibility(objective_rtol = 1e-8))
+```
+
+The route addresses minimizing `(s/2) * sum(abs2, y - X*x)` over `norm(x, 1) <= r` with numerical
+feasibility. The coefficients are a dense `Vector{T}`, `T` being `Float32` or `Float64`; the loss is
+`LeastSquaresLoss(y, X)` or one positive `Scaled` of it under [IN-02](@ref), with a dense `Matrix{T}`
+design and a `Vector{T}` response; shapes, finiteness and aliasing follow [IN-01](@ref) and
+[IN-05](@ref).
+
+*Tolerances.* The optional keyword `feasibility` takes a
+`NumericalFeasibility(; coefficient_rtol = nothing, coefficient_atol = 0, objective_rtol = nothing,
+mapping_rtol = nothing)`, which stores the values as given; `nothing` (the default of the keyword)
+means `NumericalFeasibility()`. At the call, a `nothing` tolerance takes the default for `T`:
+
+| Tolerance | `Float32` | `Float64` |
+| --- | --- | --- |
+| `coefficient_rtol` | `1e-5` | `1e-10` |
+| `coefficient_atol` | `0` | `0` |
+| `objective_rtol` | `1e-5` | `1e-9` |
+| `mapping_rtol` | `1e-4` | `1e-8` |
+
+The values enter the cap and budgets of [FP-05](@ref) as `Float64` (a `-0.0` as `0.0`), with the loss
+scale `s` as supplied (`Float64(s)`, `1.0` for a raw loss). The cap is at most the radius; it is not
+small for every choice of tolerances.
+
+*Refusals*, before any write to `x`, in this order, each an `ArgumentError` unless noted:
+
+1. The keyword check of `solve!` and route selection. An explicit stopping rule or limit under
+   [STOP-22](@ref) is refused with `IndBallL1`, including a zero limit. A
+   `feasibility` other than `nothing` with a penalty other than `IndBallL1` is refused with a message
+   that names `IndBallL1`. `CDSolver`, `ADMMSolver`, `ProxNewton`, `LogisticADMM` and graphical-lasso PGD
+   refuse `feasibility` through their own keyword checks.
+2. A `feasibility` that is not a `NumericalFeasibility`.
+3. A `LogisticLoss`, raw or scaled; coefficients that are not a dense `Vector{Float32}` or
+   `Vector{Float64}`, a matrix included.
+4. The data checks of the other least-squares penalties, run with the placeholder `NormL1(zero(T))`:
+   a square-root loss; a loss other than `LeastSquaresLoss` or one `Scaled` of it; its loss scale
+   ([IN-02](@ref)); the types of `X` and `y`; the shapes (`DimensionMismatch`); aliasing
+   ([IN-05](@ref)); nonfinite entries.
+5. For APG, the method factors in `T` and the dimension limits of [APG-02](@ref).
+6. A radius that is not of type `T`, not finite or not positive.
+7. A tolerance that is neither `nothing` nor a real number; a coefficient tolerance that, as given or
+   in `Float64`, is not finite or is negative; an objective or mapping tolerance that, as given or in
+   `Float64`, is not finite or is not positive. With both coefficient tolerances zero the cap is `0`.
+8. A cap, budget or curvature of [FP-05](@ref) that is not finite in `Float64`, or a curvature whose
+   conversion to `T` is not finite and positive.
+9. For a design with a nonzero column: a curvature (in `Float64` or in `T`), gap budget or mapping
+   budget that is zero or subnormal. A design whose columns are all zero keeps the curvature `1.0` and
+   is exempt from this item only.
+10. A start whose decision ([FP-05](@ref)) is `:over` (over the computed cap) or `:unresolved`. A
+    start that passes the computed cap decision may lie outside the ball.
+11. A start whose loss is not finite in `T`, refused by the state's start check.
+
+*Trials.* The iterations of PGD ([PGD-01](@ref)) and APG ([APG-01](@ref)) keep their order, line
+search, extrapolation, certified bound and restart. Each trial from the gradient-step point `xhat`:
+
+1. when an entry of `xhat` is not finite, has `f(x) = Inf`, with no projection and no write to `x`;
+2. otherwise writes the projection of `xhat` at step `1/L` into `x` by ProximalBase's `prox!` for a
+   private `IndBallL1` with the caller's radius, counted in `prox_calls`, and caches the decision of
+   `x` against the cap ([FP-05](@ref));
+3. for the code `:pass`, forms the loss of `x`, counted in `f_calls`, with penalty value `0`; for
+   `:over` and `:unresolved`, has `f(x) = Inf`.
+
+A trial with `f(x) = Inf` takes the nonfinite branch of PGD's line search ([LS-02](@ref)) and, in
+APG, raises `L` through `next_curvature`; an accepted trial has a finite loss, so its decision passed
+the cap. That decision can pass at a point outside the ball whose computed widened mass
+exceeds `r` by less than the cap; this is a computed comparison, not an exact bound on the violation.
+A search from one base point (PGD's line search, each call of APG's step) allows 64 trials; the
+attempted 65th trial forms its `xhat` and then, before any projection, raises
+`ErrorException("line search failed: 64 trials from one base point were not accepted (…)")`, unless
+`next_curvature` or PGD's curvature update raised a line-search error earlier. After PGD's search, an accepted trial that differs from `x_previous`
+elementwise while the computed squared norm of `x - x_previous` is zero raises
+`ErrorException("line search failed: the step is nonzero but its squared norm underflows (…)")`, since
+[LS-02](@ref) accepts such a step as a zero step without its test and the route reserves that exit for
+an unchanged `x`. APG accepts a trial equal to its extrapolated point `y` entrywise when its smooth value is finite
+and the computed norms of the trial and of the displacement are usable ([APG-01](@ref)), and has no
+squared-norm shortcut that could accept a nonzero step. After PGD's search, a nonfinite entry of the gradient at
+the accepted trial raises an `ErrorException` inside the step. In each case the engine restores the last accepted `x`
+and rethrows ([RES-03](@ref)). The state's penalty value is `0` throughout, so the trace's `fg_x`, the
+callback's objective, `f_residual` and `f_increased` use the loss.
+
+*Stopping.* The engine's three proposals ([STOP-01](@ref), with [STOP-10](@ref)) run the full check
+of [FP-05](@ref) at the accepted `x` with the decision cached by its trial; a cached code other than
+`:pass` fails the check. So does a nonfinite entry of the witness, the residual or the gradient, of the
+mapping's trial point or of its projection, a nonfinite support gap, mapping or noise, and an infinite product
+in a selected term of the underflow allowance, which makes that allowance `Inf`. A `min` with an independent
+finite cap can replace an infinite inner product; this is safe because the cap is independently an upper bound
+for that error contribution.
+[FP-05](@ref) names the guarded vectors and final values, gives the order of these tests and the gradient and
+prox calls that the check counts. When they run no check, B1's unchanged-iterate proposal (`x` equal to
+`x_previous` elementwise, also with `ftol = 0`) and its two progress proposals
+(`maximum(abs, x - x_previous) <= sqrt(mapping_rtol) * maximum(abs, x)`, or `f_residual` of the loss
+at most `objective_rtol`, with the resolved tolerances) run it, and a pass sets `x_converged`. These
+proposals are triggers for the full check, not success criteria, and an accepted iteration runs the
+full check at most once. `converged` means that the full check passed at an admitted returned point,
+whose decision passed the cap. The check measures stationarity at the rounded radial witness defined
+in [FP-05](@ref); admission is the computed cap decision on the widened mass. Neither `converged` nor
+`minimum` certifies exact membership in the ball. When the check fails, the three proposal flags are cleared and the solve continues unless another exit applies.
+
+*Objective increases.* `allow_f_increases = false` is not enforced on this route: unlike
+[STOP-09](@ref), a computed increase of the loss does not by itself end the solve, though another
+exit can still end it at that iteration, as in [APG-03](@ref). `f_increased` reports the comparison
+at the last iteration, at the first iteration against the starting value; a stored
+trace records the objectives of completed iterations, so it shows changes between recorded iterations only; the
+first comparison is against the starting objective, which the trace does not contain. The configurable stopping of
+[#523](https://github.com/mlakolar/ProximalSolvers.jl/issues/523) may revisit this. The stagnation,
+limit and callback exits apply as for the other penalties; after them `converged` is false unless a
+check passed at that iteration.
+
+*Result.* The reported `minimum` is the numerical composite objective monitored at the returned
+point, as for `IndBallL2` in [IN-08](@ref): the cached loss plus the monitored penalty, which is `0` on
+this route. So `minimum` can be finite at an
+admitted point that ProximalBase's strict indicator evaluates as `Inf`. The exact extended-valued composite is `+Inf` at a mathematically exterior point,
+while the monitored objective can be finite. Neither `converged` nor `minimum` certifies exact
+membership of the returned point in the ball; `g(result.minimizer)` is ProximalBase's standalone decision
+in working precision, without the route's cap. `gap` is `NaN`. A cap decision and a passing check are
+computed comparisons, not exact-arithmetic certificates. These statements about the returned point assume that callbacks leave
+the coefficients and the data unchanged; the solver does not detect such a change.
+
+**Applies to.** `ProximalGradientDescent` and `AccProxGradDescent` with `IndBallL1` on dense
+`Vector{Float32}` or `Vector{Float64}` least squares.
+
+**Code.** `src/solve.jl`: `_numerical_route`, `_feasibility_tolerances`, `_feasibility_tolerance`,
+`_normal_positive`, `_check_numerical_l1`, `_stop_on_gradient_increase`,
+`_solve_gradient!`; `src/solvers/l1ball.jl`: `_NumericalL1Ball`,
+`LineSearches.trial!`, `LineSearches.search!`, `_prox_grad_step!`, `convergence_assessment`,
+`_stationary!`, `_stop_on_gradient_increase`,
+`_solve_numerical_l1!`; `src/utils.jl`:
+`LineSearches.trial!`, `_trial_step!` (the trial of the other penalties); `src/line_searches/backtracking.jl`:
+`search!`; `src/solvers/proximal_gradient_descent.jl` and
+`src/solvers/accelerated_proximal_gradient_descent.jl`: `solve!`; `src/types.jl`:
+`NumericalFeasibility`, `OptimizationResults`.
+
+**Tests.** `test/l1ball_numerical.jl`, in both precisions and with both methods unless noted:
+- the refusals before any write, compactly: the keyword with other penalties, a value that is not a
+  `NumericalFeasibility`, an unknown keyword, square-root and (`Float64`) logistic losses, a matrix
+  coefficient, a shape mismatch, the radius cases, invalid and underflowing tolerances, an infeasible
+  start, an overflowing curvature, `CDSolver` with the keyword; the underflow refusals, a fully
+  subnormal `Float32` problem included;
+- the route without the keyword returns the same coefficients bitwise, convergence flag and
+  iteration count as the route with `NumericalFeasibility()`, and the override with zero coefficient
+  tolerances refuses a boundary start that the default accepts;
+- every success on the #508 fixtures meets the #514 targets under an independent 256-bit MPFR
+  evaluation with the test's own witness and projection, which does not replay the noises,
+  allowance or decision of [FP-05](@ref); a success has a proposal flag, and `minimum` equals the
+  last traced or callback objective, when one is recorded, and agrees with the standalone loss; analytic fixtures pin convergence at a point exactly outside the ball whose
+  widened mass exceeds `r` (`Float32`), at one exactly outside whose widened mass rounds to `r`
+  (`Float64`) and at an interior point, each passing the MPFR evaluation, with `minimum` equal to the
+  last traced objective, the cached loss;
+- on the fixtures without the 2048-coefficient cases, the decision of each accepted iterate,
+  recomputed from the callback's vector, passes the recomputed cap;
+- on the tested fixtures, at most one full check per iteration, counted by the gradient and
+  projection calls of `convergence_assessment` (these fixtures reach the projection whenever they
+  check), also where the engine's objective test and B1's objective proposal both hold and the check
+  fails; with `ftol = 0`, B1's proposals stop three fixtures at the first iteration
+  with successes that pass the MPFR evaluation;
+- with `allow_f_increases = false`, an increase at the first iteration sets `f_increased` and the
+  solve continues, as with `allow_f_increases = true`;
+- a callback stop returns the iterate of its iteration; the 64-trial error and the `Float32` PGD
+  nonfinite accepted gradient each restore the start bitwise;
+- a `Float64` PGD step from `5e-171` to `4e-170` (`X = 1`, `y = 1e-170`, loss scale `1e150`,
+  `r = 4e-170`), whose squared norm underflows, raises the underflowed-step error and restores the
+  start bitwise, and the smooth majorization condition fails at that step in MPFR; APG raises the
+  64-trial error on the same problem; an unchanged first step is accepted and converges;
+- the refusals of data of the other precision and of a matrix response with a vector start.
+
+**Sources.** [Issue #457, Phase B](https://github.com/mlakolar/ProximalSolvers.jl/issues/457);
+[the approved plan](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7073644919);
+[the maintainer's review of the shrink round](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7116783858),
+which made the route the default and removed the result report; the shrink commit also removed B1's
+stopping proposals for a time;
+[the maintainer's decision on Variant C](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7118027244),
+which restored B1's unchanged-iterate and progress proposals as triggers and continuation after an
+objective increase with a truthful `f_increased`;
+[the maintainer's decision on the round 4 blockers](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7119424286),
+which added the underflowed-step error;
+[the maintainer's decision on `converged`](https://github.com/mlakolar/ProximalSolvers.jl/pull/529#issuecomment-7123901128),
+which made `converged` the result of the full check at an admitted point, as in #538, and removed the
+membership requirement and `approximate_solution`;
+[the #515 handoff](https://github.com/mlakolar/ProximalSolvers.jl/issues/515#issuecomment-7072925678);
+the research reference [B1 at d58b9099](https://github.com/mlakolar/ProximalSolvers.jl/blob/d58b9099c5837230212496766a721972b98d83f3/research/issue-515/b1.jl).

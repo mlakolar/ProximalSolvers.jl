@@ -95,9 +95,11 @@ r = solve!(x, f, NormL1(1.0), AccProxGradDescent(α=0.75, β=0.375);
 termination(r)
 ~~~
 
-An off-schedule check is reported as `:not_checked`. The iteration and
-evaluation caps still apply at every step. See [STOP-25](@ref) for scheduling
-and limit ties.
+An off-schedule check is reported as `:not_checked`. A scheduled check
+at a reached iteration cap is also `:not_checked`, including when the cap
+is a multiple of `k`. With `MaxIterations(2)` in the example above, APG
+returns the same point with `reason = :limit` and `converged = false`.
+Evaluation caps apply at each step. See [STOP-25](@ref) for limit ties.
 
 ## [Cap the evaluations in dense least-squares PGD](@id pgd-evaluation-limits)
 
@@ -307,7 +309,9 @@ general, and an exact or near-exact fit can return `converged = false`. The matr
 lasso of [IN-10](@ref) keeps the `λmax`-based check of [STOP-03](@ref). For square-root lasso, a bounded
 fallback can certify an uncertified stopped point or return a point with a
 proved lower objective; recovery at exact fits is not guaranteed. See the
-[bounded recovery rule](@ref CDQ-05).
+[bounded recovery rule](@ref CDQ-05). On the ℓ1-ball route of PGD and APG, `converged`
+means that the full check passed at the returned point, which can lie outside the ball and still pass
+the computed cap decision ([IN-12](@ref)).
 
 ## What the change test of coordinate descent implies
 
