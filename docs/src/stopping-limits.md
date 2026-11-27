@@ -10,8 +10,10 @@ Use `stopping` to choose a condition and `limits=MaxIterations(n)` to cap the
 number of accepted updates. `AnyOf` accepts the first passing condition.
 `AllOf` needs its conditions to pass at the same checkpoint. `IterateChange`
 and `ObjectiveChange` measure progress between accepted points. `UserStop`
-accepts a predicate over scalar checkpoint metadata. The [stopping contract](@ref STOP-22)
-specifies the comparison scales, option conflicts and checks available at the cap.
+accepts a predicate over scalar checkpoint metadata. With `NormL1` or
+`ElasticNet`, `ScaledKKT(rtol=...)` checks computed coordinatewise stationarity.
+The [stopping contract](@ref STOP-22) specifies the comparison scales, option
+conflicts and checks available at the cap.
 
 ```julia
 using ProximalBase, ProximalSolvers
@@ -20,16 +22,22 @@ X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
 y = [2.0, -2.0, 0.5]
 x = zeros(2)
 rule = AllOf(IterateChange(atol=1e-10, rtol=1e-7),
-             ObjectiveChange(rtol=1e-8))
+             ScaledKKT(rtol=1e-5))
 r = solve!(x, LeastSquaresLoss(y, X), NormL1(0.1),
            ProximalGradientDescent(); stopping=rule, limits=MaxIterations(200))
 termination(r)
 ```
 
-`termination(r).satisfied` says whether the selected expression passed. A
-progress or user stop leaves `r.converged` false. The [result contract](@ref RES-04)
+`termination(r).satisfied` says whether the selected expression passed.
+`r.converged` is true when the winning branch includes a passing `ScaledKKT`.
+The [result contract](@ref RES-04)
 describes the stop reason, winning leaves, observations and counts. Omit both
 keywords to use the default PGD stopping policy.
+
+At the [iteration cap](@ref STOP-22), a tie can use stored objective values.
+`ScaledKKT`, `IterateChange` and `UserStop` are marked `:not_checked` there.
+A solve using `ScaledKKT` alone reports `reason = :limit` and
+`converged = false` if it reaches the cap.
 
 ## The criterion and a certificate
 

@@ -77,7 +77,10 @@ function Base.show(io::IO, r::ProximalGradientDescentStoppingResult)
     _show_minimizer(io, minimizer(r))
     println(io, " * Minimum: ", minimum(r))
     println(io, " * Iterations: ", iterations(r))
-    print(io, " * Stop reason: ", termination(r).reason)
+    decision = termination(r)
+    println(io, " * Convergence: ", converged(r))
+    println(io, " * Stopping condition satisfied: ", decision.satisfied)
+    print(io, " * Stop reason: ", decision.reason)
 end
 
 function _pgd_policy_limit(options, limits)
@@ -101,8 +104,11 @@ function _pgd_policy_result(method, x, objective, increased, trace, monitor, rea
     g_calls = ismissing(objective) ? 0 : prox_calls + 1
     counts = (; f_calls, grad_calls, g_calls, prox_calls, backtrack_steps, rejected_trials=prox_calls-k)
     decision = Stopping.report(monitor, reason, k, counts)
+    converged = monitor.stationarity !== nothing && decision.satisfied &&
+        any(o -> o.evidence === :stationarity && o.status === :pass &&
+               o.path in decision.winning_branch, decision.observations)
     ProximalGradientDescentStoppingResult(
-        method, x, objective, k, false, decision.limit_reached, increased, reason === :stalled,
+        method, x, objective, k, converged, decision.limit_reached, increased, reason === :stalled,
         trace, backtrack_steps, f_calls, grad_calls, prox_calls, decision)
 end
 
@@ -114,12 +120,22 @@ function _solve_pgd_policy!(x, f, g, method, options, stopping, limits)
     _check_gradient_problem(x, f, g, :pgd)
     limit = _pgd_policy_limit(options, limits)
     monitor = Stopping.prepare(stopping, limit, eltype(x))
+    use_stationarity = Stopping.needs_stationarity(monitor)
+    if use_stationarity && !(g isa Union{NormL1,ElasticNet})
+        throw(ArgumentError("ScaledKKT requires NormL1 or ElasticNet for dense vector least-squares PGD"))
+    end
     if iszero(limit.n)
         trace = OptimizationTrace{typeof(method)}()
         return _pgd_policy_result(method, x, missing, false, trace, monitor, :limit, 0, 0, 0, 0, 0)
     end
     g_work = _working_gradient_penalty(g, eltype(x))
-    state = initial_state(method, options, f, g_work, x, Val(false))
+    state = initial_state(method, options, f, g_work, x, Val(use_stationarity))
+    if use_stationarity
+        monitor = Stopping.with_stationarity(monitor, (point, rtol) ->
+            _coordinatewise_stationary!(point.state, point.state.grad_f_x, g_work, rtol))
+    end
+    # Vector PGD completes each update or throws. An interruptible route
+    # needs an _interrupted_gradient_decision method for its stopping decision.
     _solve_gradient!(state, f, g_work, method, options, nothing, monitor)
 end
 

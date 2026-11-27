@@ -81,9 +81,9 @@ Outside cases A and B, these refuse the stop. (C) A computed smooth scale `ρ = 
 
 **Work.** The column data occupy one `Float64` and one `Int` per column in the state, allocated when the state is created. At the first check of a solve the column pass reads `X` once (`O(np)`), reads again (up to three times) each column whose plain sum is not finite or is below `floatmin(Float64)`, and scans `y` once (`O(n)`). The check computes no `λmax` (the state's `λmax` stays `-1`) and no `Xᵀy`. Each check is `O(p)` beyond the gradient: the pass over the coordinates, `‖x‖` when `λ2` is not a stored `±0`, the stored-zero scan of `x` when `y` is zero and, for `NormL1(λ, w)`, the scan of the weights by the constructor of the converted penalty. The scale reads the stored loss value and does not form the residual; APG's gradient at `x`, the only product with `X` of a check, forms it from the cached image ([STOP-08](@ref)). A check changes no counter other than that gradient's `grad_calls`. The column data are filled at the first check. In the tests, a check after the first allocates nothing with levels of type `T`, a `BigFloat` level of `NormL1` and `Rational{Int}` levels of `ElasticNet`; a penalty whose levels are not of type `T` is converted at each check, which can allocate (for example with `Rational{BigInt}` levels).
 
-**Applies to.** PGD and APG; least squares, raw or with one positive scale ([IN-02](@ref)), with `NormL1(λ)`, `NormL1(λ, w)`, `ElasticNet(λ1, λ2)` or `ElasticNet(λ1, λ2, w)`, including all-zero weights and zero levels; dense `Vector{T}`; `T = Float32` or `Float64`. The logistic loss and the matrix response use [STOP-03](@ref), `GroupNormL2` [STOP-05](@ref), `NormL2` [STOP-17](@ref), `NormL1Nonneg` and `IndNonnegative()` [STOP-16](@ref), and the other penalties [STOP-07](@ref).
+**Applies to.** PGD and APG; least squares, raw or with one positive scale ([IN-02](@ref)), with `NormL1(λ)`, `NormL1(λ, w)`, `ElasticNet(λ1, λ2)` or `ElasticNet(λ1, λ2, w)`, including all-zero weights and zero levels; dense `Vector{T}`; `T = Float32` or `Float64`. Explicit PGD calls this check through [`ScaledKKT`](@ref) under [STOP-22](@ref). The logistic loss and the matrix response use [STOP-03](@ref), `GroupNormL2` [STOP-05](@ref), `NormL2` [STOP-17](@ref), `NormL1Nonneg` and `IndNonnegative()` [STOP-16](@ref), and the other penalties [STOP-07](@ref).
 
-**Code.** `src/utils.jl`: the coordinatewise `_stationary!`, `_coordinates_pass`, `_coordinate_threshold`, `_threshold_factor`, `_ridge_level`, `_stored_zero`, `_se_sqrt`, `_se_twice`, `_CoordinateScales`, `_coordinate_scales`, `_filled_scales!`, `_column_scale`; the `_SE` arithmetic of `src/solvers/image_models.jl`; `src/solvers/proximal_gradient_descent.jl` and `src/solvers/accelerated_proximal_gradient_descent.jl`: the state field `scales`.
+**Code.** `src/utils.jl` contains `_coordinatewise_stationary!`, called by the default coordinatewise `_stationary!` and the explicit PGD adapter in `src/solvers/pgd_stopping.jl`. It uses `_coordinates_pass`, `_coordinate_threshold`, `_threshold_factor`, `_ridge_level`, `_stored_zero`, `_se_sqrt`, `_se_twice`, `_CoordinateScales`, `_coordinate_scales`, `_filled_scales!`, `_column_scale`; the `_SE` arithmetic of `src/solvers/image_models.jl`; `src/solvers/proximal_gradient_descent.jl` and `src/solvers/accelerated_proximal_gradient_descent.jl`: the state field `scales`.
 
 **Tests.** `test/stopping_coordinatewise.jl`: cases A and B at the check and through `solve!` (zero response, a zero column with `xᵢ = 0` and with `cᵢ = 0`, columns of `-0.0`, `X = 0`), the offset and case-A examples of the rule, stored subnormals under gradual underflow (with flushing, the test helper restores the previous setting and the fixture calls must finish without throwing; no decision is asserted), the refusal C (an exact fit) and other refusals (a near-exact consistent fit, a tiny loss scale, an infinite `τ`, nonfinite gradient entries; case D has no test, since under gradual underflow the scaled norm of a nonzero finite column is positive and finite), the threshold range against a BigFloat recomputation of the rule (a product whose first factor would round to a subnormal, `gradtol = 1e308`, ridge energy at a zero loss, an iterate with an overflowing squared norm, a column whose norm exceeds `floatmax(Float64)`, a column of entries `1e-170` and one of `1e160`, a residual of `1e159`), the #400 offset fixture against a BigFloat active-set reference, a centered control, a tiny intercept weight and a rescaled column, the ridge term of a zero-weight `ElasticNet` coordinate, the counters, allocations for the tested level types, the threshold against a BigFloat recomputation, the strict comparison, the cached image, loss value and gradient after a rejected trial, a zero step and an APG restart, and the problems that keep the `λmax`-based checks. `test/stopping_scale.jl`, `test/entry_thresholds.jl`, `test/weighted_lasso.jl`, `test/elasticnet.jl` and `test/weighted_elasticnet.jl` check converged solves against this rule on independent BigFloat scores with first-order rounding allowances; `test/initial_curvature.jl`, `test/core_regressions.jl` and `test/accelerated_pgd.jl` check named exact-fit fixtures for accurate returns without convergence.
 
@@ -572,8 +572,8 @@ A nonnegative `Int` iteration budget counts accepted PGD updates.
 `MaxIterations(0)` validates the configuration and returns the unchanged start
 before solver oracle initialization or rule evaluation. A positive budget
 initializes the loss, gradient and penalty value and requires a finite starting
-composite objective. Pilot initialization omits the column workspace for the
-default coordinatewise check of [STOP-21](@ref). The solve checks the initial
+composite objective. Pilot initialization reserves the column workspace of
+[STOP-21](@ref) for rule trees containing `ScaledKKT`. The solve checks the initial
 point and then checks each completed update once after acceptance, gradient
 completion and the finite objective check. A rejected trial leaves the policy
 history at the preceding accepted point. A failed update restores that point
@@ -608,6 +608,16 @@ threshold is invalid and cannot pass. A positive-tolerance comparison uses
 the computed values under the thread's floating-point mode, including any
 rounding of a threshold to zero. No tolerance floor is applied.
 
+`ScaledKKT(rtol=...)` is supported for `NormL1` and `ElasticNet`, with or
+without supported weights. It applies [STOP-21](@ref) with the rule's `rtol`
+in place of `gradtol`, including the `64 eps(T)` floor and its range guards.
+`rtol` uses the same validation as the progress tolerances. Every rule leaf
+must be supported before initialization, even under a zero cap or a
+short-circuiting expression. The initial point and accepted updates supply the
+computed loss and gradient already stored by PGD. The check fills the column
+scales at its first evaluation and reuses them for the solve. Evaluations with
+identical `rtol` share a decision within the same checkpoint.
+
 `UserStop(predicate)` receives an immutable named tuple with `iteration` and
 `objective` (native type). Return `true` to request a stop or `false` to continue.
 A predicate must be callable with that tuple. Other return values are errors
@@ -622,8 +632,8 @@ that checkpoint. Invalid and unchecked leaves cannot pass. Iterate measurements
 of the same kind are shared within a checkpoint, and objective conditions reuse
 the solver's accepted objective values. At a reached cap, the monitor may
 decide a tie using the cached objective and predecessor. It skips movement
-scans and predicates and leaves those conditions unchecked. Display and result
-construction request no extra solver oracle calls. Trace operations run after
+scans, stationarity checks and predicates. It leaves those conditions unchecked.
+Display and result construction request no extra solver oracle calls. Trace operations run after
 the policy decision and cannot supply evidence for it. [RES-04](@ref) specifies
 the result and accounting.
 
@@ -643,7 +653,11 @@ checkpoints after rejected trials in the public solve path. It also checks
 the trace at an initial stop and after rejected trials, tests the pilot's
 workspace, and compares its progress stop with the default's coordinatewise
 check on an exact fit.
-`test/core_regressions.jl` covers the explicit-policy Float32 stagnation exit.
+It also checks stationarity at initial and accepted points, short-circuited and
+capped KKT leaves, unsupported nested leaves and oracle accounting.
+`test/stopping_coordinatewise.jl` checks the shared evaluator against
+independent references. `test/core_regressions.jl` covers the explicit-policy
+Float32 stagnation exit.
 
 **Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
 

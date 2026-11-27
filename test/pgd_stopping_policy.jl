@@ -47,7 +47,10 @@ end
     @test t.winning_branch === nothing && t.observations[1].status == :not_checked
     @test PS.minimum(r) === missing && PS.iterations(r) == 0 && PS.minimizer(r) === x
     @test all(iszero, values(t.counts)) && isempty(calls) && x == T[0]
-    @test PS.iteration_limit_reached(r) && occursin("Minimum: missing", sprint(show, r))
+    printed = sprint(show, r)
+    @test PS.iteration_limit_reached(r) && occursin("Minimum: missing", printed)
+    @test occursin(" * Convergence: false", printed)
+    @test occursin(" * Stopping condition satisfied: false", printed)
 
     r = solve!(x, f, g, method; limits=MaxIterations(4))
     t = termination(r)
@@ -170,6 +173,122 @@ end
     @test length(r.trace) == 1
     @test r.trace[1].iteration == 1 && r.trace[1].fg_x == r.minimum
     @test r.trace[1].metadata["x"] == x
+end
+
+@testset "ScaledKKT at the initial point ($T)" for T in (Float32, Float64)
+    X = reshape(T[1, 0, 0, 0], 2, 2)
+    y = T[1, 1]
+    f, method = LeastSquaresLoss(y, X), unit_step()
+    kkt = ScaledKKT(rtol=0)
+
+    # The zero-weight first coordinate has a zero score at x₁ = 1. With
+    # the scaled loss and ridge term below, the zero score is at x₁ = 1/2.
+    for (loss, penalty, x) in ((f, NormL1(T(0.25), T[0, 1]), T[1, 0]),
+                               (T(2) * f, ElasticNet(T(0.25), T(2), T[0, 1]), T[0.5, 0]))
+        start = copy(x)
+        r = solve!(x, loss, penalty, method; stopping=kkt, limits=MaxIterations(1))
+        t = termination(r)
+        @test r.converged && t.satisfied && t.reason === :rule && !t.limit_reached
+        @test t.iteration == 0 && t.winning_branch == ((),)
+        @test only(t.observations) === (; path=(), name=:ScaledKKT, evidence=:stationarity,
+                                        status=:pass, value=true, threshold=true, scale=missing)
+        @test t.counts == (f_calls=1, grad_calls=1, g_calls=1, prox_calls=0,
+                           backtrack_steps=0, rejected_trials=0)
+        @test r.minimizer === x && x == start
+    end
+
+    g = NormL1(zero(T))
+    exact = solve!(T[1], unit_loss(T), g, method; stopping=kkt, limits=MaxIterations(1))
+    @test !exact.converged && termination(exact).reason === :limit
+    zero_fit = LeastSquaresLoss(T[0], fill(one(T), 1, 1))
+    trivial = solve!(T[0], zero_fit, g, method; stopping=kkt, limits=MaxIterations(1))
+    @test trivial.converged && trivial.iterations == 0
+
+    # At x = 0 the first score is 1 and its scale is sqrt(2); the
+    # second column has zero scale and zero score.
+    for rtol in (0.0, nextfloat(0.0), Float64(floatmin(T)), 0.5, 0.75, floatmax(Float64))
+        tau = T(max(rtol, 64 * Float64(eps(T))))
+        threshold = T(BigFloat(tau) * sqrt(BigFloat(2)))
+        expected = isfinite(threshold) && threshold >= floatmin(T) && one(T) < threshold
+        r = solve!(zeros(T, 2), f, g, method;
+                   stopping=ScaledKKT(; rtol), limits=MaxIterations(1))
+        @test r.converged == expected
+        @test r.iterations == (expected ? 0 : 1)
+    end
+end
+
+@testset "ScaledKKT evidence follows the winning branch" begin
+    f = LeastSquaresLoss([1.0, 1.0], reshape([1.0, 0.0], 2, 1))
+    g, method = NormL1(0.0), unit_step()
+    kkt, yes, no = ScaledKKT(rtol=1e-5), UserStop(_ -> true), UserStop(_ -> false)
+    for (rule, converged, reason, branches, statuses) in (
+        (AllOf(yes, kkt), true, :rule, ((1,), (2,)), (:pass, :pass)),
+        (AnyOf(yes, kkt), false, :user, ((1,),), (:pass, :not_checked)),
+        (AnyOf(AllOf(kkt, no), yes), false, :user, ((2,),), (:pass, :fail, :pass)),
+    )
+        r = solve!([1.0], f, g, method; stopping=rule)
+        t = termination(r)
+        @test r.iterations == 0 && r.converged == converged && t.satisfied
+        @test t.reason === reason && t.winning_branch == branches
+        @test map(o -> o.status, t.observations) == statuses
+        printed = sprint(show, r)
+        @test occursin(" * Convergence: $converged", printed)
+        @test occursin(" * Stopping condition satisfied: true", printed)
+    end
+    for (rule, reason, statuses) in (
+        (kkt, :limit, (:not_checked,)),
+        (AnyOf(kkt, ObjectiveChange(atol=0.5)), :rule, (:not_checked, :pass)),
+    )
+        r = solve!([0.0], f, g, method; stopping=rule, limits=MaxIterations(1))
+        t = termination(r)
+        @test r.minimizer == [1.0] && r.iterations == 1
+        @test !r.converged && t.limit_reached && t.reason === reason
+        @test t.satisfied == (reason === :rule)
+        @test map(o -> o.status, t.observations) == statuses
+    end
+
+    x = [0.0]
+    r = solve!(x, f, g, method; stopping=kkt, limits=MaxIterations(0))
+    @test r.minimizer === x && x == [0.0] && r.minimum === missing && !r.converged
+    @test all(iszero, values(termination(r).counts))
+    @test only(termination(r).observations).status === :not_checked
+    for cap in (0, 2)
+        @test_throws ArgumentError solve!(x, f, NormL2(0.0), method;
+            stopping=AnyOf(yes, AllOf(no, kkt)), limits=MaxIterations(cap))
+        @test x == [0.0]
+    end
+    for rtol in (-1, Inf, NaN, -nextfloat(0.0))
+        @test_throws ArgumentError ScaledKKT(; rtol)
+    end
+end
+
+@testset "ScaledKKT shares identical observations within a checkpoint" begin
+    loose, tight = ScaledKKT(rtol=0.5), ScaledKKT(rtol=0.25)
+    scans = Tuple{Int,Float64}[]
+    provider(point, rtol) = (push!(scans, (point.iteration, rtol)); true)
+    stopping = PS.Stopping
+    monitor = stopping.with_stationarity(
+        stopping.prepare(AllOf(loose, tight, loose), MaxIterations(2), Float64), provider)
+    @test stopping.check!(monitor, (; iteration=0)) === :rule
+    @test stopping.check!(monitor, (; iteration=1)) === :rule
+    @test stopping.check!(monitor, (; iteration=2)) === :limit
+    @test scans == [(0, 0.5), (0, 0.25), (1, 0.5), (1, 0.25)]
+    @test all(o -> o.status === :not_checked, stopping.observations(monitor.root, 2, ()))
+end
+
+@testset "ScaledKKT uses the accepted gradient after rejected trials" begin
+    method = ProximalGradientDescent(ls=PS.LineSearches.BackTracking(α=2.0^-520, β=2.0^-260))
+    f = LeastSquaresLoss([1.0, 1.0], reshape([1.0, 0.0], 2, 1))
+    g, kkt = NormL1(0.0), ScaledKKT(rtol=1e-5)
+    visited = Tuple{Int,Float64}[]
+    record = UserStop(c -> (push!(visited, (c.iteration, c.objective)); true))
+    r = solve!([0.0], f, g, method; stopping=AllOf(record, kkt), limits=MaxIterations(2))
+    t = termination(r)
+    @test visited == [(0, 1.0), (1, 0.5)]
+    @test r.minimizer == [1.0] && r.minimum == 0.5 && r.converged
+    @test t.reason === :rule && t.winning_branch == ((1,), (2,))
+    @test t.counts == (f_calls=5, grad_calls=2, g_calls=4, prox_calls=3,
+                       backtrack_steps=3, rejected_trials=2)
 end
 
 @testset "Absolute movement requires a finite distance" begin

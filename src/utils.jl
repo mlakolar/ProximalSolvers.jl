@@ -197,11 +197,15 @@ _se_twice(a::_SE{T}) where {T} = iszero(a.s) ? a : _SE{T}(a.s, a.e + 1)
 # The decision compares computed scores with computed thresholds; it is not a certificate in exact arithmetic.
 function _stationary!(state::_CoordinatewiseState{T}, f, g::Union{NormL1, ElasticNet},
                       options::ProximalOptions) where {T<:Union{Float32, Float64}}
-  grad = _gradient_at_x!(state, f)
+  _coordinatewise_stationary!(state, _gradient_at_x!(state, f), g, options.gradtol)
+end
+
+function _coordinatewise_stationary!(state::_CoordinatewiseState{T}, grad,
+                                    g::Union{NormL1,ElasticNet}, rtol::Float64) where {T}
   gT = _converted_penalty(g, T)
   λ2 = _ridge_level(gT)
   scales = _filled_scales!(state.scales, state.model, λ2)
-  τ = T(max(options.gradtol, 64 * Float64(eps(T))))
+  τ = T(max(rtol, 64 * Float64(eps(T))))
   trivial = scales.y_zero && all(_stored_zero, state.x)
   c = _threshold_factor(τ, state.f_x, λ2, state.x)
   _coordinates_pass(gT, grad, state.x, scales.h, c, trivial)
