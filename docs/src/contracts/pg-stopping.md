@@ -663,8 +663,8 @@ the result and accounting.
 `Vector{Float32}` or `Vector{Float64}`, with matching dense vector-response
 least squares and any supported positive loss scale. Each route accepts its
 supported penalties apart from `IndBox`, `IndBallL1` and `IndBallL2`. The
-ℓ1-ball route follows [IN-12](@ref). Other solvers and problem routes reject
-the opt-in keywords.
+ℓ1-ball route follows [IN-12](@ref). [CD-10](@ref) specifies the explicit
+coordinate descent route.
 
 **Code.** `src/stopping.jl`, `src/solvers/gradient_stopping.jl` and
 `src/solvers/proximal_gradient_descent.jl` and

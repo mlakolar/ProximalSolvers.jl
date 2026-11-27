@@ -12,6 +12,7 @@ quick = [
 ]
 standard = [
   "cd_numerics",
+  "cd_stopping",
   "group_cd",
   "group_cd_preflight",
   "group_pgd",

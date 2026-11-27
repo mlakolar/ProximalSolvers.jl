@@ -42,6 +42,36 @@ A solve using `ScaledKKT` alone reports `reason = :limit` and
 uses the gradient at the accepted point and includes its cost in the
 [oracle counts](@ref APG-04).
 
+## [Select stopping conditions in scalar coordinate descent](@id cd-select-stopping)
+
+For dense vector least-squares lasso with unweighted `NormL1`, turn momentum off
+and pass a rule, a pass budget, or both. A full sweep visits all coefficients.
+An active sweep revisits the active coordinates. Both count toward `MaxPasses`.
+`ObjectiveChange` compares consecutive full sweeps. `UserStop` can run after
+either kind of sweep before the cap.
+
+~~~@example explicit_cd_stopping
+using ProximalBase, ProximalSolvers
+
+X = [1.0 0.0; 0.0 2.0; 0.0 0.0]
+y = [2.0, -2.0, 0.5]
+x = zeros(2)
+r = solve!(x, LeastSquaresLoss(y, X), NormL1(0.5),
+           CDSolver(order=:cyclic, momentum=false);
+           stopping=ObjectiveChange(), limits=MaxPasses(20))
+@assert x == [1.5, -0.875]
+@assert termination(r).satisfied
+@assert termination(r).counts.full_passes == 2
+termination(r)
+~~~
+
+The orthogonal columns give the lasso solution `[1.5, -0.875]` on the first
+full sweep. The next full sweep has the same objective and satisfies the rule.
+Read `termination(r).satisfied` for progress and `termination(r).counts` for
+full passes, active passes, visits, and objective evaluations. Check
+[full-point stationarity](@ref learn-02) when accuracy matters.
+[CD-10](@ref) specifies the checkpoints and their cost.
+
 ## The criterion and a certificate
 
 See the [current section](@ref RES-01). For PGD and APG on least squares with a

@@ -21,8 +21,13 @@ result = solve!(beta, (1/3)*LeastSquaresLoss(y, X), NormL1(0.1),
                 CDSolver(order=:cyclic, momentum=false))
 ```
 
-`converged` is a change test, with an additional certificate for square-root
-lasso; see [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
+With default stopping, `converged` reports a change test and square-root lasso
+also requires a certificate. See [RES-01](@ref).
+
+Dense vector least-squares lasso with an unweighted `NormL1` and momentum off
+also accepts `stopping` and `limits` in [`solve!`](@ref). `ObjectiveChange`
+compares consecutive full sweeps. Both full and active sweeps count toward
+`MaxPasses`. See [CD-10](@ref) for checkpoints and scheduling.
 
 ## Keywords
 
@@ -111,8 +116,10 @@ struct CDSolver{R<:AbstractRNG} <: ProximalSolver
   end
 end
 
+const _DEFAULT_CD_MAXPASSES = 100_000
+
 # anderson, gaptol and gapsafe are accepted at their defaults only and not stored.
-function CDSolver(; maxpasses::Integer = 100_000, tol::Real = 1e-7, order::Symbol = :random,
+function CDSolver(; maxpasses::Integer = _DEFAULT_CD_MAXPASSES, tol::Real = 1e-7, order::Symbol = :random,
                   relative::Bool = true, anderson::Integer = 0, momentum::Union{Nothing, Bool} = nothing,
                   rng::AbstractRNG = default_rng(), gaptol::Real = 0.0, gapsafe::Bool = false)
   order in (:random, :cyclic) || throw(ArgumentError("order must be :random or :cyclic, but it is :$order."))
@@ -168,6 +175,35 @@ function Base.show(io::IO, r::CDResults)
   isnan(r.gap) || @printf io "   * relative duality gap %.2e\n" r.gap
   r.kkt_checks > 0 && @printf io " * Optimality checks after screening: %d\n" r.kkt_checks
   return
+end
+
+"""
+    ProximalSolvers.CoordinateDescentStoppingResult
+
+Result of an explicit stopping or pass-budget solve with [`CDSolver`](@ref).
+The minimizer aliases the input vector. The minimum is `missing` at a zero
+budget. Policy satisfaction is recorded in [`termination`](@ref), and this
+route supplies no convergence certificate. See [RES-05](@ref).
+"""
+struct CoordinateDescentStoppingResult{T,D}
+  minimizer::Vector{T}
+  minimum::Union{Missing,T}
+  passes::Int
+  converged::Bool
+  decision::D
+end
+
+Base.summary(::CoordinateDescentStoppingResult) = "Coordinate Descent"
+minimizer(r::CoordinateDescentStoppingResult) = r.minimizer
+minimum(r::CoordinateDescentStoppingResult) = r.minimum
+iterations(r::CoordinateDescentStoppingResult) = r.passes
+converged(r::CoordinateDescentStoppingResult) = r.converged
+Stopping.termination(r::CoordinateDescentStoppingResult) = r.decision
+
+function Base.show(io::IO, r::CoordinateDescentStoppingResult)
+  print(io, summary(r), " stopping result (passes=", r.passes, ", minimum=", r.minimum,
+        ", converged=", r.converged, ", satisfied=", r.decision.satisfied,
+        ", reason=", r.decision.reason, ")")
 end
 
 # Nesterov momentum on the passes over the active set (see CDSolver), as in
@@ -255,8 +291,8 @@ function _tolerances(m, x, s::CDSolver, ::Type{T}) where T
   u = scaled ? sy : one(T)
   T(s.tol)*u, scaled
 end
-# After each pass, the strict change test `maxh < tol` selects the next pass:
-# full after a converged pass, active otherwise. Only a converged full pass stops, through the model's
+# After each pass, the strict change test `maxh < tol` selects a full pass after a small change
+# and an active pass otherwise. Under default stopping only a converged full pass stops, through the model's
 # `_stop_check!`: for least squares and the group lasso it stops with `converged = true`; for the
 # square-root loss it stops certified or uncertified, or it lowers the threshold, and the loop then
 # reads `tol` again and continues (in the momentum loop, after `_momentum_reset!`, as after any full
@@ -273,17 +309,23 @@ end
 # forced passes. In the momentum loop, a forced full pass first refreshes the cache if momentum
 # moved it, as the converged active pass before an ordinary full pass does.
 const _FULL_PASS_WORK = 20
-function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver) where {T}
+
+_cd_pass_limit(s, ::Nothing) = s.maxpasses
+
+function _cd_plain!(x, m, g, st::_CDState{T}, s::CDSolver, observer=nothing) where {T}
   tol, scaled = _tolerances(m, x, s, T)
   st.passes, st.converged, st.maxchange, st.tolerance = 0, false, T(NaN), tol
   converged, visits = true, 0
-  for pass in 1:s.maxpasses
+  for pass in 1:_cd_pass_limit(s, observer)
     full = converged || visits >= _FULL_PASS_WORK * ncoordinates(x)
-    visits = full ? 0 : visits + nactive(x)
+    active = full ? 0 : nactive(x)
+    visits = full ? 0 : visits + active
     maxh = _pass!(x, m, g, st, full, scaled)
     st.passes, st.maxchange = pass, maxh
     converged = maxh<tol
-    if full && converged
+    if observer !== nothing
+      _observe_cd_pass!(observer, m, g, x, pass, full, active) && break
+    elseif full && converged
       status = _stop_check!(m, g, x, st, maxh, scaled)
       if status === :retry
         tol = st.tolerance
@@ -449,21 +491,32 @@ function _warn_not_converged(st::_CDState, s::CDSolver, uncertified::Bool)
     @warn "coordinate descent did not converge in maxpasses = $(s.maxpasses) passes (last change $(round(st.maxchange; sigdigits = 3)), tolerance $(round(st.tolerance; sigdigits = 3)))."
   end
 end
+
+function _initialize_cd_model!(work, f, g, prepare::Bool)
+  m = cdmodel(f, work)
+  initialize!(m, work)
+  prepare && _prepare!(m, g, work)
+  m
+end
+
+function _finite_cd_objective(m, f, g, work)
+  result_value = loss_value(m, f, work)+g(work)
+  isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
+  result_value
+end
+
 # The run shared by the dense and owner wrappers, on a private SparseIterate: the
 # solve, the model's fallback after an uncertified stop (`_fallback!`, which updates the state and the
 # model's outcome), the not-converged warning and the finite-objective check. It returns the
 # state, the final objective and the result's gap (`_result_gap` of the model); the caller commits
 # the point only afterwards.
 function _run_cd!(work::Union{SparseIterate, BlockIterate}, f, g, method::CDSolver)
-  m = cdmodel(f, work)
-  initialize!(m, work)
-  method.maxpasses > 0 && _prepare!(m, g, work)
+  m = _initialize_cd_model!(work, f, g, method.maxpasses > 0)
   st = _CDState(eltype(work), work, method)
   _cd!(work, m, g, st, method)
   _uncertified(m) && _fallback!(m, g, work, st, method)
   _warn_not_converged(st, method, _uncertified(m))
-  result_value = loss_value(m, f, work)+g(work)
-  isfinite(result_value) || throw(ArgumentError("coordinate descent produced a nonfinite objective; rescale the problem"))
+  result_value = _finite_cd_objective(m, f, g, work)
   st, result_value, _result_gap(m)
 end
 function _solve_dense!(x::Vector, f, g, method::CDSolver)
@@ -498,11 +551,114 @@ function _copy_dense!(dest::Vector{T}, src::SparseIterate{T}) where {T}
   dest
 end
 
+mutable struct _CDStoppingObserver{T,M,F}
+  objective::T
+  previous_full_objective::Union{Nothing,T}
+  monitor::M
+  loss::F
+  has_user_stop::Bool
+  reason::Symbol
+  full_passes::Int
+  active_passes::Int
+  coordinate_visits::Int
+  objective_evaluations::Int
+end
+
+_cd_pass_limit(s, observer::_CDStoppingObserver) = observer.monitor.limit.n
+
+function _measure_cd_objective!(observer, m, g, x)
+  objective = _finite_cd_objective(m, observer.loss, g, x)
+  observer.objective_evaluations += 1
+  observer.objective = objective
+end
+
+function _check_cd_checkpoint!(observer, m, g, x, pass, full)
+  previous_objective = full ? observer.previous_full_objective : nothing
+  objective = _measure_cd_objective!(observer, m, g, x)
+  full && (observer.previous_full_objective = objective)
+  point = (; iteration=pass, objective, previous_objective)
+  observer.reason = Stopping.check!(observer.monitor, point)
+end
+
+function _observe_cd_pass!(observer::_CDStoppingObserver, m, g, x, pass, full, active)
+  if full
+    observer.full_passes += 1
+    observer.coordinate_visits += ncoordinates(x)
+  else
+    observer.active_passes += 1
+    observer.coordinate_visits += active
+  end
+  observer.monitor.root === nothing && return false
+  # Full sweeps define objective history. User predicates need the current value,
+  # and the capped endpoint needs its value for the result.
+  (full || observer.has_user_stop || pass == observer.monitor.limit.n) || return false
+  _check_cd_checkpoint!(observer, m, g, x, pass, full) !== :continue
+end
+
+function _cd_rule_needs_user_context(rule)
+  if rule isa Union{ObjectiveChange,UserStop}
+    return rule isa UserStop
+  elseif rule isa Union{AnyOf,AllOf}
+    # Validate each child even if an earlier one already needs the context.
+    return any(map(_cd_rule_needs_user_context, rule.rules))
+  end
+  throw(ArgumentError("unsupported coordinate descent stopping condition $(typeof(rule))"))
+end
+
+function _cd_policy_limit(method, limits)
+  limits === nothing && return MaxPasses(method.maxpasses)
+  limits isa MaxPasses || throw(ArgumentError("explicit coordinate descent stopping requires limits=MaxPasses(n)"))
+  (method.maxpasses == _DEFAULT_CD_MAXPASSES || method.maxpasses == limits.n) ||
+    throw(ArgumentError("CDSolver.maxpasses conflicts with limits=MaxPasses($(limits.n))"))
+  limits
+end
+
+function _cd_policy_result(x, value, observer, passes, reason)
+  counts = (; observer.full_passes, observer.active_passes, observer.coordinate_visits,
+            observer.objective_evaluations)
+  decision = Stopping.report(observer.monitor, reason, passes, counts)
+  CoordinateDescentStoppingResult(x, value, passes, false, decision)
+end
+
+function _solve_cd_policy!(x, f, g, method, stopping, limits)
+  base = f isa Scaled ? f.f : f
+  (x isa Vector && base isa LeastSquaresLoss && base.Y isa Vector && g isa NormL1{<:Real,Nothing}) ||
+    throw(ArgumentError("explicit coordinate descent stopping requires dense vector least squares with unweighted NormL1"))
+  # Random scalar least squares enables default momentum on the private SparseIterate.
+  (method.momentum === false || (method.momentum === nothing && !method.random)) ||
+    throw(ArgumentError("explicit coordinate descent stopping requires momentum off"))
+  _check_problem(x, f, g, :cd)
+  limit = _cd_policy_limit(method, limits)
+  has_user_stop = stopping === nothing ? false : _cd_rule_needs_user_context(stopping)
+  monitor = Stopping.prepare(stopping, limit, eltype(x))
+  observer = _CDStoppingObserver(zero(eltype(x)), nothing, monitor, f, has_user_stop, :continue, 0, 0, 0, 0)
+  limit.n == 0 && return _cd_policy_result(x, missing, observer, 0, :limit)
+
+  work = SparseIterate(x)
+  m = _initialize_cd_model!(work, f, g, true)
+  if has_user_stop && _check_cd_checkpoint!(observer, m, g, work, 0, false) !== :continue
+    return _cd_policy_result(x, observer.objective, observer, 0, observer.reason)
+  end
+
+  st = _CDState(eltype(x), work, method)
+  _cd_plain!(work, m, g, st, method, observer)
+  if stopping === nothing
+    _measure_cd_objective!(observer, m, g, work)
+    observer.reason = :limit
+  end
+  result = _cd_policy_result(x, observer.objective, observer, st.passes, observer.reason)
+  _copy_dense!(x, work)
+  result
+end
+
 # The dense and one-dimensional SparseIterate routes pass the private run the working penalty of the solve
 # (`_working_cd_penalty`, after the gates): a weighted ElasticNet with levels in T, whose weights are kept as they
 # are; any other penalty is passed as supplied. The block and matrix routes take their penalty as supplied.
-function solve!(x, f, g, method::CDSolver; kwargs...)
+function solve!(x, f, g, method::CDSolver; stopping=nothing, limits=nothing, kwargs...)
   _check_keywords(kwargs)
+  if stopping !== nothing || limits !== nothing
+    return _solve_cd_policy!(x, f, g, method, stopping, limits)
+  end
   if x isa SparseIterate
     _check_owner_problem(x, f, g)
     return _solve_owner!(x, f, _working_cd_penalty(g, eltype(x)), method)

@@ -21,7 +21,8 @@ r = solve!(beta, f, penalty,
 ~~~
 
 Every solver reports `minimizer`, `minimum` and `converged`.
-Coordinate descent also provides `passes`, `maxchange`, and `tolerance`.
+Coordinate descent provides `passes`. Its default result also provides
+`maxchange` and `tolerance`.
 PGD and APG provide `iterations`, more detailed stopping residuals and
 an optional iteration `trace`. ADMM provides `iterations`, `status`, and
 primal and dual residuals with their tolerances. `ProxNewton` provides `iterations`,
@@ -36,7 +37,8 @@ A convergence flag reports the solver's implemented stopping criterion;
 
 | Solver/problem | Meaning of `converged=true` |
 | --- | --- |
-| Least-squares CD, including group and multi-response fits | The pass-change test succeeded; it is not an independent optimality check |
+| Least-squares CD with default stopping, including group and multi-response fits | The pass-change test succeeded. See [CD-03](@ref) for the scalar test |
+| Scalar least-squares CD with an explicit policy | `converged` is false. Read satisfaction, reason, and full/active pass counts through `termination(r)`. See [RES-05](@ref) |
 | PGD/APG with default stopping | A stopping proposal passed the applicable computed stationarity check |
 | PGD/APG with an explicit policy | The winning branch includes a passing `ScaledKKT` leaf. Read `termination(r).satisfied` and `termination(r).reason` for the policy outcome ([RES-04](@ref)). |
 | `ProxNewton` (logistic regression) | The largest KKT score of the returned point is finite and at most `tol`; see [PN-05](@ref) |

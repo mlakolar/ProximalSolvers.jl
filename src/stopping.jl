@@ -1,13 +1,14 @@
 """
     ProximalSolvers.Stopping
 
-Explicit stopping conditions, composition and iteration limits for dense
-vector least-squares PGD and APG. Pass conditions as `stopping` and the iteration
-budget as `limits` to [`solve!`](@ref ProximalSolvers.solve!).
+Explicit stopping conditions, composition and budgets for dense vector least squares.
+Pass conditions as `stopping` and the iteration or pass budget as `limits`
+to [`solve!`](@ref ProximalSolvers.solve!).
+See [STOP-22](@ref) for PGD and APG and [CD-10](@ref) for coordinate descent.
 """
 module Stopping
 
-export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, termination
+export IterateChange, ObjectiveChange, ScaledKKT, UserStop, AnyOf, AllOf, MaxIterations, MaxPasses, termination
 
 # The integer call boundary keeps scalar comparisons valid when the thread
 # flushes subnormals and the compiler recognizes a floating-point zero test.
@@ -48,8 +49,11 @@ end
     ObjectiveChange(; atol=0.0, rtol=0.0)
 
 Check the absolute change in the original composite objective between successive
-accepted iterates. Two zero tolerances select equality of the computed
-objectives. See [STOP-22](@ref) for the scale and arithmetic.
+accepted iterates for PGD and APG, or successive completed full sweeps for
+coordinate descent. The first full sweep has no predecessor, and the rule is
+unchecked on active sweeps. Two zero tolerances select equality of the computed
+objectives. See [STOP-22](@ref) for the scale and arithmetic and [CD-10](@ref)
+for coordinate-descent checkpoints.
 """
 struct ObjectiveChange
     atol::Float64
@@ -75,7 +79,9 @@ end
 
 Stop when `predicate(context)` returns `true`. The immutable context has
 `iteration` and `objective` fields and is available from the initial point.
-See [STOP-22](@ref) for evaluation order and budget ties.
+For coordinate descent, `iteration` counts completed passes.
+Both full and active passes supply checkpoints before the cap.
+See [STOP-22](@ref) and [CD-10](@ref) for evaluation order and budget ties.
 """
 struct UserStop{F}
     predicate::F
@@ -112,6 +118,20 @@ struct MaxIterations
     n::Int
     function MaxIterations(n::Integer)
         0 <= n <= typemax(Int) || throw(ArgumentError("the iteration limit must be a nonnegative Int"))
+        new(Int(n))
+    end
+end
+
+"""
+    MaxPasses(n)
+
+Hard limit of `n` completed coordinate passes, with `n` a nonnegative integer.
+Supply this limit through `limits=MaxPasses(n)` to [`CDSolver`](@ref ProximalSolvers.CDSolver).
+"""
+struct MaxPasses
+    n::Int
+    function MaxPasses(n::Integer)
+        0 <= n <= typemax(Int) || throw(ArgumentError("the pass limit must be a nonnegative Int"))
         new(Int(n))
     end
 end
@@ -157,15 +177,15 @@ mutable struct StationarityCache{F}
     decisions::Dict{UInt64,Bool}
 end
 
-struct Monitor{R,S}
+struct Monitor{R,S,L}
     root::R
-    limit::MaxIterations
+    limit::L
     movement::MovementCache
     stationarity::S
 end
 
 user_context(k, objective) = (; iteration=k, objective)
-prepare(rule, limit::MaxIterations, ::Type{T}) where {T} =
+prepare(rule, limit::Union{MaxIterations,MaxPasses}, ::Type{T}) where {T} =
     Monitor(rule === nothing ? nothing : bind_rule(rule, user_context(0, zero(T))),
             limit, MovementCache(nothing, nothing, nothing), nothing)
 
@@ -223,10 +243,12 @@ end
 
 function assess(rule::ObjectiveChange, point, monitor, at_limit)
     point.iteration == 0 && return unchecked
+    previous = point.previous_objective
+    previous === nothing && return unchecked
     if stored_zero(rule.atol) && stored_zero(rule.rtol)
-        return boolean_observation(stored_equal(point.objective, point.previous_objective))
+        return boolean_observation(stored_equal(point.objective, previous))
     end
-    current, previous = Float64(point.objective), Float64(point.previous_objective)
+    current, previous = Float64(point.objective), Float64(previous)
     atmost(abs(current - previous), rule.atol, rule.rtol, max(abs(current), abs(previous)))
 end
 
@@ -314,7 +336,7 @@ end
 
 Return the termination record of an explicit-policy solve. The record gives
 the reason, policy satisfaction, winning leaf paths, iteration, limit, final
-checkpoint observations and work counts. See [RES-04](@ref).
+checkpoint observations and work counts. See [RES-04](@ref) and [RES-05](@ref).
 """
 function termination end
 
