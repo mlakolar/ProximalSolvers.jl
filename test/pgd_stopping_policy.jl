@@ -303,7 +303,9 @@ end
                              stopping=Every(big(1), kkt), limits=MaxIterations(cap))
             @test wrapped.converged == bare.converged
             @test wrapped.minimizer == bare.minimizer && wrapped.minimum === bare.minimum
-            @test isequal(termination(wrapped), termination(bare))
+            expected = termination(bare)
+            observation = (; only(expected.observations)..., interval=1)
+            @test isequal(termination(wrapped), (; expected..., observations=(observation,)))
         end
 
         for cap in (1, 2, 3)
@@ -315,6 +317,7 @@ end
             o = only(t.observations)
             @test o.path == () && o.name === :ScaledKKT && o.evidence === :stationarity
             @test o.status === (cap == 3 ? :pass : :not_checked)
+            @test o.interval == 2
         end
     end
 end
@@ -361,10 +364,12 @@ end
         @test_throws ArgumentError solve!(x, f, NormL2(0.5), method;
             stopping=AnyOf(user, rule), limits=MaxIterations(0))
     end
-    @test_throws ArgumentError solve!(x, f, g, CDSolver(order=:cyclic);
-        stopping=AnyOf(user, rule), limits=MaxPasses(0))
-    @test_throws ArgumentError solve!(x, SqrNormL2(1, [1.0]), g, ADMMSolver();
-        stopping=AnyOf(PrimalResidual(), rule), limits=MaxIterations(0))
+    for unsupported in (rule, Every(2, ProximalGradientMapping(rtol=0)))
+        @test_throws ArgumentError solve!(x, f, g, CDSolver(order=:cyclic);
+            stopping=AnyOf(user, unsupported), limits=MaxPasses(0))
+        @test_throws ArgumentError solve!(x, SqrNormL2(1, [1.0]), g, ADMMSolver();
+            stopping=AnyOf(PrimalResidual(), unsupported), limits=MaxIterations(0))
+    end
     @test x == [0.25]
 end
 

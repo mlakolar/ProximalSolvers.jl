@@ -748,7 +748,10 @@ end
   r = solve!(zeros(T, 1, 2), f, g, method;
              stopping=Every(1, kkt), limits=MaxIterations(2))
   plain = solve!(zeros(T, 1, 2), f, g, method; stopping=kkt, limits=MaxIterations(2))
-  @test isequal(termination(r), termination(plain)) && r.minimizer == plain.minimizer
+  expected = termination(plain)
+  observation = (; only(expected.observations)..., interval=1)
+  @test isequal(termination(r), (; expected..., observations=(observation,)))
+  @test r.minimizer == plain.minimizer
 
   rule = AnyOf(Every(2, kkt), UserStop(c -> c.iteration == 1))
   r = solve!(zeros(T, 1, 2), f, g, method; stopping=rule, limits=MaxIterations(2))

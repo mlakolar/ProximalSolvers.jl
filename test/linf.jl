@@ -250,8 +250,105 @@ end
       stopping=AnyOf(UserStop(_ -> true), mapping), limits=MaxIterations(0))
   @test_throws ArgumentError solve!(x, f, g, method;
       stopping=AnyOf(mapping, ScaledKKT(rtol=0.75)), limits=MaxIterations(0))
-  @test_throws ArgumentError Every(2, mapping)
+  @test_throws ArgumentError solve!(x, f, NormL1(one(T)), method;
+      stopping=AnyOf(UserStop(_ -> true), Every(2, mapping)), limits=MaxIterations(0))
+  @test_throws ArgumentError solve!(x, f, g, method;
+      stopping=AnyOf(UserStop(_ -> true), Every(2, ScaledKKT(rtol=0))), limits=MaxIterations(0))
   @test x == start
+end
+
+@testset "Scheduled mapping saves work at the same checkpoint ($T)" for T in (Float32, Float64)
+  X, y = T[1 0; 0 1], T[2, 2]
+  mapping = ProximalGradientMapping(rtol=0.75)
+  never = UserStop(_ -> false)
+  limit = MaxIterations(3)
+  for scale in (one(T), T(0.5)), method in (ProximalGradientDescent(), AccProxGradDescent(α=1.0, β=0.5))
+    f = isone(scale) ? LeastSquaresLoss(y, X) : scale * LeastSquaresLoss(y, X)
+    g = NormLinf(2scale)
+    bare = solve!(zeros(T, 2), f, g, method; stopping=AllOf(mapping, never), limits=limit)
+    each = solve!(zeros(T, 2), f, g, method; stopping=AllOf(Every(1, mapping), never), limits=limit)
+    scheduled = solve!(zeros(T, 2), f, g, method; stopping=AllOf(Every(2, mapping), never), limits=limit)
+    expected = termination(bare)
+    observation = (; expected.observations[1]..., interval=1)
+    @test isequal(termination(each), (; expected..., observations=(observation, expected.observations[2])))
+    @test isequal(each.minimizer, bare.minimizer) && each.minimum === bare.minimum
+    t = termination(scheduled)
+    @test scheduled.iterations == bare.iterations == 3 && t.reason === :limit
+    @test isequal(scheduled.minimizer, bare.minimizer) && scheduled.minimum === bare.minimum
+    @test t.observations[1].status === :not_checked && t.observations[1].interval == 2
+    a, b = expected.counts, t.counts
+    @test a.backtrack_steps == b.backtrack_steps && a.rejected_trials == b.rejected_trials
+    @test a.prox_calls - b.prox_calls == a.g_calls - b.g_calls == 1
+    @test a.grad_calls - b.grad_calls == a.f_calls - b.f_calls == (method isa AccProxGradDescent)
+  end
+end
+
+@testset "Scheduled mapping evidence and cap ties ($T)" for T in (Float32, Float64)
+  X, y = T[1 0; 0 1], T[2, 2]
+  mapping = ProximalGradientMapping(rtol=0.75)
+  scheduled = Every(2, mapping)
+  for scale in (one(T), T(0.5)), method in (ProximalGradientDescent(), AccProxGradDescent(α=1.0, β=0.5))
+    f = isone(scale) ? LeastSquaresLoss(y, X) : scale * LeastSquaresLoss(y, X)
+    g = NormLinf(2scale)
+    initial = solve!(zeros(T, 2), f, g, method; stopping=scheduled)
+    t = termination(initial)
+    @test initial.converged && t.reason === :rule && t.iteration == 0 && t.counts.prox_calls == 1
+    @test only(t.observations) === (path=(), name=:ProximalGradientMapping, evidence=:stationarity,
+                                   status=:pass, value=true, threshold=true, scale=missing, interval=2)
+
+    # Stop at 1 through the second branch after the bare leaf caches its pass.
+    at_one = UserStop(c -> c.iteration == 1)
+    rule = AnyOf(AllOf(at_one, mapping, scheduled), at_one)
+    r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxIterations(2))
+    t = termination(r)
+    @test t.iteration == 1 && t.reason === :user && !r.converged && t.winning_branch == ((2,),)
+    @test map(o -> o.status, t.observations) == (:pass, :pass, :not_checked, :pass)
+    @test t.observations[3].interval == 2 && ismissing(t.observations[3].value)
+
+    rule = Every(2, ProximalGradientMapping(rtol=0.375))
+    capped = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=MaxIterations(2))
+    t = termination(capped)
+    @test t.iteration == 2 && t.reason === :limit && !capped.converged
+    @test only(t.observations).status === :not_checked && only(t.observations).interval == 2
+
+    at_two = UserStop(c -> c.iteration == 2)
+    last_prox = isone(scale) ? 4 : 3
+    other = Every(2, ProximalGradientMapping(rtol=0.8))
+    for (n, duplicate, reason, statuses) in
+        ((last_prox - 1, scheduled, :limit, (:not_checked, :not_checked, :not_checked)),
+         (last_prox, scheduled, :rule, (:pass, :pass, :pass)),
+         (last_prox, other, :limit, (:pass, :pass, :not_checked)))
+      cap = MaxProximalEvaluations(n)
+      r = solve!(zeros(T, 2), f, g, method; stopping=AllOf(at_two, scheduled, duplicate), limits=cap)
+      t = termination(r)
+      @test isequal(r.minimizer, capped.minimizer) && r.minimum === capped.minimum
+      @test t.iteration == 2 && t.reason === reason && r.converged == (reason === :rule)
+      @test t.reached_evaluation_limits === (cap,) && t.counts.prox_calls == n
+      @test map(o -> o.status, t.observations) == statuses
+      @test t.observations[2].interval == t.observations[3].interval == 2
+    end
+  end
+end
+
+@testset "APG mapping cadence counts accepted steps across a restart ($T)" for T in (Float32, Float64)
+  f = LeastSquaresLoss(T[1, 0], T[0.5 0; 0 2])
+  g, method = NormLinf(zero(T)), AccProxGradDescent(α=1.0, β=0.5)
+  mapping, never = ProximalGradientMapping(rtol=0), UserStop(_ -> false)
+  limit = MaxIterations(8)
+  bare = solve!(zeros(T, 2), f, g, method; stopping=AllOf(mapping, never), limits=limit)
+  scheduled = solve!(zeros(T, 2), f, g, method; stopping=AllOf(Every(3, mapping), never), limits=limit)
+  a, b = termination(bare).counts, termination(scheduled).counts
+  @test bare.iterations == scheduled.iterations == 8 && a.rejected_trials == b.rejected_trials == 1
+  @test isequal(bare.minimizer, scheduled.minimizer) && bare.minimum === scheduled.minimum
+  @test a.backtrack_steps == b.backtrack_steps == 9
+  @test a.prox_calls - b.prox_calls == a.g_calls - b.g_calls == 5
+  @test a.grad_calls - b.grad_calls == a.f_calls - b.f_calls == 5
+
+  rule = AllOf(Every(7, ProximalGradientMapping(rtol=2)), UserStop(c -> c.iteration == 7))
+  r = solve!(zeros(T, 2), f, g, method; stopping=rule, limits=limit)
+  t = termination(r)
+  @test r.converged && t.reason === :rule && t.iteration == 7 && t.counts.rejected_trials == 1
+  @test t.winning_branch == ((1,), (2,)) && t.observations[1].interval == 7
 end
 
 @testset "APG mapping reads accepted gradient and preserves displacement ($T)" for T in (Float32, Float64)
