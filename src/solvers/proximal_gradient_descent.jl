@@ -139,8 +139,8 @@ mutable struct ProximalGradientDescentState{T, X<:VecOrMat{T}, G<:VecOrMat{T}, M
     # min(Lexact, max(c, L/β)) for the rejected trial's L, which need not equal c); set by
     # backtrack!, cleared at the start of update_state!
     verified_rejection::Bool
-    # the column data of the coordinatewise check (_CoordinateScales, STOP-21) for least squares with NormL1 or
-    # ElasticNet on a Vector{Float32} or Vector{Float64}, filled at the first check; nothing for the other problems
+    # Column data for the default coordinatewise check (STOP-21), filled at the
+    # first check. The explicit stopping pilot (STOP-22) leaves this as nothing.
     scales::C
 end
 
@@ -150,7 +150,8 @@ function initial_state(
           options,
           f,
           g,
-          x0::VecOrMat{T}) where T
+          x0::VecOrMat{T},
+          ::Val{allocate_scales} = Val(true)) where {T, allocate_scales}
 
     grad_f_x = _dense_similar(x0)
     model = _image_model(f)
@@ -185,7 +186,7 @@ function initial_state(
                          dz,
                          0,
                          false,
-                         _coordinate_scales(model, g, x0)
+                         allocate_scales ? _coordinate_scales(model, g, x0) : nothing
                          )
 end
 
@@ -322,6 +323,7 @@ end
 """
     solve!(x, f, g, CDSolver())
     solve!(x, f, g, ProximalGradientDescent(), options=ProximalOptions(); feasibility=nothing)
+    solve!(x, f, g, ProximalGradientDescent(); stopping=rule, limits=MaxIterations(n))
     solve!(x, f, g, AccProxGradDescent(), options=ProximalOptions(); feasibility=nothing)
     solve!(x::BlockIterate, f, g::GroupNormL2, CDSolver())
 
@@ -345,6 +347,8 @@ saved_beta = copy(result.minimizer)
 
 The meaning of `converged` depends on the method and loss; see
 [result semantics](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/results-failures/#RES-01).
+The dense vector least-squares PGD pilot accepts explicit conditions and an
+independent iteration budget. See [STOP-22](@ref) and [`termination`](@ref).
 
 # Extended help
 
@@ -407,9 +411,14 @@ and [CD's change test](https://mlakolar.github.io/ProximalSolvers.jl/dev/contrac
 - [Group steps and private storage](https://mlakolar.github.io/ProximalSolvers.jl/dev/contracts/cd-group/#CDG-01).
 """
 function solve!(x, f, g, method::ProximalGradientDescent,
-                options::ProximalOptions = ProximalOptions(); feasibility = nothing, kwargs...)
+                options::ProximalOptions = ProximalOptions();
+                feasibility=nothing, stopping=nothing, limits=nothing, kwargs...)
   _check_keywords(kwargs)
-  _numerical_route(g, feasibility) && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :pgd)
+  numerical_l1 = _numerical_route(g, feasibility)
+  if stopping !== nothing || limits !== nothing
+    return _solve_pgd_policy!(x, f, g, method, options, stopping, limits)
+  end
+  numerical_l1 && return _solve_numerical_l1!(x, f, g, feasibility, method, options, :pgd)
   _check_gradient_problem(x, f, g, :pgd)
   t0 = time()
   g_work = _working_gradient_penalty(g, eltype(x))
@@ -424,4 +433,8 @@ end
 # The stop it causes is not a convergence or accuracy test.
 _stagnated(state, options) = false
 _stagnated(state::ProximalGradientDescentState{Float32}, options) =
-  iszero(options.ftol) && state.verified_rejection && _unchanged(state.x, state.x_previous)
+  iszero(options.ftol) && _verified_pgd_stall(state)
+
+_verified_pgd_stall(state) = false
+_verified_pgd_stall(state::ProximalGradientDescentState{Float32}) =
+  state.verified_rejection && _unchanged(state.x, state.x_previous)

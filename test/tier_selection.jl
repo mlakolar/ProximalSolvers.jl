@@ -86,7 +86,8 @@ end
   # only these are not tests: a test file moved into either list would stop running
   @test sort(m.helpers) == ["tiers"]
   @test isempty(m.environments)
-  @test sort(quick)==sort(["aqua","ci_gate","naming","tier_selection","minimal_core_characterization","core_contracts","paired_master"])
+  @test sort(quick) == sort(["aqua", "ci_gate", "naming", "tier_selection", "minimal_core_characterization",
+                            "core_contracts", "paired_master", "pgd_stopping_policy"])
   @test m.tier["core_regressions"]=="standard"
   @test m.tier["examples"]=="full"
   @test "tier_selection" in quick
@@ -150,9 +151,11 @@ const STANDARD = TT.select(CI, "standard")
     "Manifest.toml","a/new/file.txt",".github/workflows/New.yml","ext/SomeExt.jl")
     @test classify(path)[1]=="full"
   end
-  for path in ("src/ProximalSolvers.jl","src/types.jl","src/solve.jl","src/blocks.jl","src/line_searches/LineSearches.jl",
-    "src/line_searches/backtracking.jl","src/precompile.jl","src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl",
-    "src/utils.jl","src/solvers/image_models.jl","src/solvers/proximal_gradient_descent.jl")
+  for path in ("src/ProximalSolvers.jl","src/types.jl","src/solve.jl","src/blocks.jl",
+    "src/line_searches/LineSearches.jl","src/line_searches/backtracking.jl","src/precompile.jl",
+    "src/cd/models.jl","src/cd/solver.jl","src/cd/leastsquares.jl","src/utils.jl",
+    "src/solvers/image_models.jl","src/solvers/proximal_gradient_descent.jl",
+    "src/solvers/l1ball.jl","src/stopping.jl","src/solvers/pgd_stopping.jl")
     @test classify(path)==("full",String[])
   end
   @test classify("docs/src/index.md","test/core_contracts.jl","src/cd/leastsquares.jl")[1]=="full"

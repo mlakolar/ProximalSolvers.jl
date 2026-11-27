@@ -807,23 +807,56 @@ _rollback_gradient_step!(state) = _copyto!(state.x, state.x_previous)
   true
 end
 
-function _solve_gradient!(state, f, g, method, options, t0 = time())
+struct DefaultGradientDecision
+  assessment::NTuple{5,Bool}
+  strict_limits::Bool
+  call_limit_reached::Bool
+  stagnated::Bool
+  stop::Bool
+end
 
-  tr = OptimizationTrace{typeof(method)}()
-  tracing = _gradient_tracing(state, options)
+function _initial_gradient_decision(::Nothing, state, options, t0)
   strict_limits = _strict_gradient_limits(state)
   call_limit_reached = strict_limits && _gradient_call_limit(state, options)
   stopped = call_limit_reached || (strict_limits && _gradient_time_limit(t0, options))
-  stopped_by_callback = false
-  stagnated = false
-  x_converged, fg_converged, grad_converged, f_increased = false, false, false, false
+  DefaultGradientDecision((false, false, false, false, false), strict_limits,
+                          call_limit_reached, false, stopped || options.maxiter <= 0)
+end
 
-  converged = false
+_assess_gradient_step(::Nothing, state, f, g, options, iteration) =
+  convergence_assessment(state, f, g, options)
+
+function _gradient_decision_after_trace(::Nothing, previous, assessment, state, g, options, t0,
+                                       iteration, stopped_by_callback)
+  x_converged, fg_converged, grad_converged, converged, f_increased = assessment
+  stopped_by_time_limit = _gradient_time_limit(t0, options)
+  call_limit_reached = _gradient_call_limit(state, options)
+  if previous.strict_limits && (stopped_by_time_limit || call_limit_reached || iteration == options.maxiter)
+    x_converged = fg_converged = grad_converged = converged = false
+  end
+
+  stagnated = _stagnated(state, options)
+  increased = f_increased && _stop_on_gradient_increase(state, g, options)
+  stopped = increased || stagnated || stopped_by_callback || stopped_by_time_limit || call_limit_reached
+  DefaultGradientDecision((x_converged, fg_converged, grad_converged, converged, f_increased),
+                          previous.strict_limits, call_limit_reached, stagnated,
+                          stopped || converged || iteration >= options.maxiter)
+end
+
+function _interrupted_gradient_decision(decision::DefaultGradientDecision, state, options)
+  DefaultGradientDecision(decision.assessment, decision.strict_limits,
+                          _gradient_call_limit(state, options), decision.stagnated, true)
+end
+
+function _solve_gradient!(state, f, g, method, options, t0 = time(), policy = nothing)
+  tr = OptimizationTrace{typeof(method)}()
+  tracing = _gradient_tracing(state, options)
+  decision = _initial_gradient_decision(policy, state, options, t0)
   iteration = 0
 
   options.show_trace && @printf "Iter     Function value       |dx|/|x|       Step Size\n"
 
-  while !converged && !stopped && iteration < options.maxiter
+  while !decision.stop
     completed = try
       accepted = _gradient_step!(state, f, g, method, options, t0)
       (!accepted || isfinite(state.f_x + state.g_x)) ||
@@ -834,32 +867,21 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
       rethrow()
     end
     if !completed
-      call_limit_reached = _gradient_call_limit(state, options)
+      decision = _interrupted_gradient_decision(decision, state, options)
       break
     end
     iteration += 1
 
-    x_converged, fg_converged,
-    grad_converged, converged, f_increased = convergence_assessment(state, f, g, options)
+    assessment = _assess_gradient_step(policy, state, f, g, options, iteration)
+    stopped_by_callback = tracing && trace!(tr, state, iteration, options)
+    decision = _gradient_decision_after_trace(policy, decision, assessment, state, g, options, t0,
+                                              iteration, stopped_by_callback)
+  end
+  _gradient_result(policy, decision, state, method, options, tr, iteration)
+end
 
-    if tracing
-      # update trace; callbacks can stop routine early by returning true
-      stopped_by_callback = trace!(tr, state, iteration, options)
-    end
-
-    stopped_by_time_limit = _gradient_time_limit(t0, options)
-    call_limit_reached = _gradient_call_limit(state, options)
-    if strict_limits && (stopped_by_time_limit || call_limit_reached || iteration == options.maxiter)
-      x_converged = fg_converged = grad_converged = converged = false
-    end
-
-    # a numerical-stagnation stop (see _stagnated), checked after trace! and any callback call
-    # that is due at this iteration under print_every
-    stagnated = _stagnated(state, options)
-
-    increased = f_increased && _stop_on_gradient_increase(state, g, options)
-    stopped = increased || stagnated || stopped_by_callback || stopped_by_time_limit || call_limit_reached
-  end # while
+function _gradient_result(::Nothing, decision, state, method, options, tr, iteration)
+  x_converged, fg_converged, grad_converged, converged, f_increased = decision.assessment
   # the residuals are stored as Float64, like the tolerances, whatever the element type
   return OptimizationResults{typeof(method), typeof(state.f_x), ndims(state.x), typeof(method), typeof(state.x)}(
                 method,
@@ -883,8 +905,8 @@ function _solve_gradient!(state, f, g, method, options, t0 = time())
                 state.f_calls,
                 state.grad_calls,
                 state.prox_calls,
-                call_limit_reached,
-                stagnated,
+                decision.call_limit_reached,
+                decision.stagnated,
                 NaN)           # gap sentinel, never computed
 
 end

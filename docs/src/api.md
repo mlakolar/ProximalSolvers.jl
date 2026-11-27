@@ -30,4 +30,13 @@ OptimizationState
 OptimizationTrace
 ProximalSolvers.OptimizationResults
 ProximalSolvers.LineSearches.BackTracking
+ProximalSolvers.Stopping
+IterateChange
+ObjectiveChange
+UserStop
+AnyOf
+AllOf
+MaxIterations
+termination
+ProximalSolvers.ProximalGradientDescentStoppingResult
 ```

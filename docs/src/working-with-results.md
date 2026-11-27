@@ -37,11 +37,17 @@ A convergence flag reports the solver's implemented stopping criterion;
 | Solver/problem | Meaning of `converged=true` |
 | --- | --- |
 | Least-squares CD, including group and multi-response fits | The pass-change test succeeded; it is not an independent optimality check |
-| PGD/APG | A stopping proposal passed the applicable computed stationarity check; with `IndBallL1`, the full check, at a returned point that can lie outside the ball and still pass the computed cap decision; `minimum` is the monitored loss, which can be finite where ProximalBase's indicator is `Inf` ([IN-12](@ref)) |
+| PGD/APG with default stopping | A stopping proposal passed the applicable computed stationarity check |
+| PGD with an explicit policy | The progress and user rules leave `converged` false. Read `termination(r).satisfied` and `termination(r).reason` ([RES-04](@ref)). |
 | `ProxNewton` (logistic regression) | The largest KKT score of the returned point is finite and at most `tol`; see [PN-05](@ref) |
 | `LogisticADMM` (logistic regression) | The primal and dual residual tests passed and the largest KKT score of the returned point is at most `tol`; see [LA-04](@ref) |
 | Square-root lasso with CD | The square-root certificate succeeded under its documented conditions |
 | Consensus ADMM | The primal and dual residual tests and any required stagnation check passed. See [ADM-02](@ref) |
+
+With `IndBallL1`, the full stopping check can pass at a returned point outside the ball
+if that point passes the computed cap decision. `minimum` reports the monitored loss,
+which can be finite at a point where ProximalBase evaluates its indicator as `Inf`.
+See [IN-12](@ref).
 
 Use an [independent KKT check](@ref learn-02) or an appropriate
 [duality gap](@ref learn-07) when assessing a fit. An unavailable `gap` is `NaN`,
@@ -83,7 +89,7 @@ gradient/proximal stopping residual**, **not** the value of your
 penalty object, even if you named that object `g`. Likewise,
 the displayed `|x - x'|` abbreviates a stopping diagnostic;
 see the [API documentation](api.md) for precise definitions.
-PGD's stopping tests combine by OR and a proposal must pass the applicable
+PGD's default stopping tests combine by OR and a proposal must pass the applicable
 stationarity check; see [the stopping contract](@ref STOP-01).
 
 Trace fields such as `dxx` describe relative iterate changes, and

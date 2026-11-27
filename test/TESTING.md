@@ -2,7 +2,7 @@
 
 Quick: Aqua, naming, unchanged required Linux CI/gate contracts, fail-closed
 inventory/selection, unchanged C0 independent numerical characterization and
-new public refusal contracts and exact-source paired-control policy tests. Standard adds ported scalar cache/scale/helper
+new public refusal contracts, explicit PGD stopping contracts and exact-source paired-control policy tests. Standard adds ported scalar cache/scale/helper
 regressions, the vector `SparseIterate` coordinate-descent contracts
 (`sparse_cd`), the coordinate-descent loss-scale numerics (`cd_numerics`) and the accelerated proximal gradient contracts (`accelerated_pgd`:
 analytic, duality-gap, KKT and finite-support references from the raw data;

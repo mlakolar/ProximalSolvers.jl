@@ -88,9 +88,9 @@ tier = "full"
 paths = [
   "src/ProximalSolvers.jl", "src/types.jl", "src/solve.jl", "src/blocks.jl",
   "src/line_searches/LineSearches.jl", "src/line_searches/backtracking.jl",
-  "src/precompile.jl", "src/utils.jl",
+  "src/precompile.jl", "src/stopping.jl", "src/utils.jl",
   "src/cd/models.jl", "src/cd/solver.jl", "src/cd/multiresponse.jl", "src/cd/leastsquares.jl", "src/cd/sqrtlasso.jl",
-  "src/solvers/image_models.jl", "src/solvers/proximal_gradient_descent.jl",
+  "src/solvers/image_models.jl", "src/solvers/proximal_gradient_descent.jl", "src/solvers/pgd_stopping.jl",
   "src/solvers/accelerated_proximal_gradient_descent.jl", "src/solvers/l1ball.jl", "src/solvers/admm.jl",
   "src/solvers/logdet_proximal_gradient.jl", "src/solvers/logistic_proxnewton.jl", "src/solvers/logistic_admm.jl",
 ]

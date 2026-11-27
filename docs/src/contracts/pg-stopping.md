@@ -356,7 +356,7 @@ and can be set together with `stagnated=true`.
 
 ### [STOP-18 Exit classes and the evidence each carries](@id STOP-18)
 
-**Statement.** Every return is classified by its final-iteration flags together with the supplied `allow_f_increases` option, which the result does not store. When several conditions apply at that iteration, each flag keeps its own meaning ([STOP-09](@ref)). The first matching row below names the return's class for reporting; the order does not rank the evidence.
+**Statement.** A return with default stopping is classified by its final-iteration flags together with the supplied `allow_f_increases` option, which the result does not store. When several conditions apply at that iteration, each flag keeps its own meaning ([STOP-09](@ref)). The first matching row below names the return's class for reporting; the order does not rank the evidence.
 
 | Class | Result fields | Evidence about the returned point |
 | --- | --- | --- |
@@ -548,6 +548,104 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 > `GroupNormL2` (the **Groups** item below), and other penalties use [the generic stationarity check](@ref "The generic stationarity check"). At an iteration at which the `x`, `f` or
 
 **Sources.** `README.md:L52`, `docs/src/working-with-results.md:L29`, `docstring:src/types.jl:L23`, `docstring:src/solvers/proximal_gradient_descent.jl:L30`, `docstring:src/solvers/accelerated_proximal_gradient_descent.jl:L44`, `docs/src/numerics.md:L86`.
+
+## Explicit stopping
+
+### [STOP-22 Explicit stopping for dense vector least-squares PGD](@id STOP-22)
+
+**Statement.** Pass `stopping=rule`, `limits=MaxIterations(n)`, or both to
+`solve!`. The rule replaces the success predicates and stationarity check of
+[STOP-01](@ref). Supplying a limit alone selects a budget-only policy. A rule
+without a limit uses `ProximalOptions.maxiter` (200 by default). When both
+keywords are omitted or `nothing`, the default policy applies.
+
+The input rules of [PGD-01](@ref) apply within the pilot surface below. Before
+initialization, validate the complete rule tree, the limit and the inputs. A
+nondefault `ftol`, `xtol`, `gradtol`, `allow_f_increases`, oracle call limit,
+`time_limit` or legacy `callback` is refused. A nondefault `maxiter` must agree
+with an explicit `MaxIterations`. The comparison uses the values stored in
+`ProximalOptions`. Trace storage, display and `print_every` remain available.
+`AnyOf` and `AllOf` take at least one condition. Limits are accepted through
+`limits`, and a limit anywhere in the rule tree is refused.
+
+A nonnegative `Int` iteration budget counts accepted PGD updates.
+`MaxIterations(0)` validates the configuration and returns the unchanged start
+before solver oracle initialization or rule evaluation. A positive budget
+initializes the loss, gradient and penalty value and requires a finite starting
+composite objective. Pilot initialization omits the column workspace for the
+default coordinatewise check of [STOP-21](@ref). The solve checks the initial
+point and then checks each completed update once after acceptance, gradient
+completion and the finite objective check. A rejected trial leaves the policy
+history at the preceding accepted point. A failed update restores that point
+and rethrows as in [RES-03](@ref). A finite increase in the accepted objective
+is recorded and does not of itself cause a stop. If the policy and cap permit
+continuing, PGD checks the Float32 verified-rejection stagnation condition of
+[STOP-11](@ref) independently of the legacy `ftol` setting.
+
+For successive accepted coefficients `p, x`, `IterateChange` compares
+`‖x-p‖₂` with `atol + rtol * max(‖x‖₂, ‖p‖₂)`. `ObjectiveChange` compares
+`abs(F(x)-F(p))` with `atol + rtol * max(abs(F(x)), abs(F(p)))`, where `F`
+is the original composite objective. Both comparisons are inclusive. With
+two zero tolerances, `IterateChange` uses elementwise equality by value, and
+`ObjectiveChange` compares the stored objective values for equality. These
+exact checks compare the stored bits, equating the two signs of zero. This
+specifies comparisons of fixed checkpoint values. [FP-01](@ref) governs the
+stopping decision of the solve under subnormal flushing. Both progress
+conditions are unchecked at initialization, where no predecessor
+exists. Step acceptance records the predecessor and the objective independently
+of which leaves are evaluated.
+
+Tolerances must be finite and nonnegative and are stored as `Float64`. A
+positive tolerance that rounds to zero, or a tolerance that converts to a
+nonfinite value, is refused. Each `F` is the native sum of the cached loss and
+penalty values, widened before the change comparison. For Float32 coefficients,
+the differences and squared norms for movement are accumulated in Float64.
+For Float64 coefficients, use Euclidean norms of the accepted displacement
+and, when the relative term is selected, the two coefficients. A zero
+relative tolerance uses `atol` directly. Otherwise the threshold is formed
+with one rounded multiply-add in Float64. A nonfinite measurement or
+threshold is invalid and cannot pass. A positive-tolerance comparison uses
+the computed values under the thread's floating-point mode, including any
+rounding of a threshold to zero. No tolerance floor is applied.
+
+`UserStop(predicate)` receives an immutable named tuple with `iteration` and
+`objective` (native type). Return `true` to request a stop or `false` to continue.
+A predicate must be callable with that tuple. Other return values are errors
+at evaluation, and exceptions in the predicate propagate from the accepted
+checkpoint. A predicate must leave solver inputs alone. Work it performs lies
+outside the solver counts. The solver binds fresh rule state each solve. A
+caller sharing mutable state captured by a predicate owns its synchronization.
+
+Evaluate children left to right, short-circuiting on the first pass in `AnyOf`
+and on the first nonpass in `AllOf`. A pass in an `AllOf` child is valid for
+that checkpoint. Invalid and unchecked leaves cannot pass. Iterate measurements
+of the same kind are shared within a checkpoint, and objective conditions reuse
+the solver's accepted objective values. At a reached cap, the monitor may
+decide a tie using the cached objective and predecessor. It skips movement
+scans and predicates and leaves those conditions unchecked. Display and result
+construction request no extra solver oracle calls. Trace operations run after
+the policy decision and cannot supply evidence for it. [RES-04](@ref) specifies
+the result and accounting.
+
+**Applies to.** `ProximalGradientDescent` on a dense `Vector{Float32}` or
+`Vector{Float64}`, with matching dense vector-response least squares and any
+supported positive loss scale. The pilot covers the supported PGD penalties
+apart from `IndBox`, `IndBallL1` and `IndBallL2`. The ℓ1-ball route follows
+[IN-12](@ref). Other solvers and problem routes reject the opt-in keywords.
+
+**Code.** `src/stopping.jl`, `src/solvers/pgd_stopping.jl` and
+`src/solvers/proximal_gradient_descent.jl`; the shared driver is
+`_solve_gradient!` in `src/solve.jl`.
+
+**Tests.** `test/pgd_stopping_policy.jl` exercises composition, history,
+caps, preflight, failed-step rollback, progress arithmetic and accepted
+checkpoints after rejected trials in the public solve path. It also checks
+the trace at an initial stop and after rejected trials, tests the pilot's
+workspace, and compares its progress stop with the default's coordinatewise
+check on an exact fit.
+`test/core_regressions.jl` covers the explicit-policy Float32 stagnation exit.
+
+**Sources.** [The accepted pilot interface](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7072155495).
 
 ## Change log
 

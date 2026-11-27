@@ -770,10 +770,11 @@ small for every choice of tolerances.
 
 *Refusals*, before any write to `x`, in this order, each an `ArgumentError` unless noted:
 
-1. The keyword check of `solve!`, which refuses every keyword other than `feasibility`; then a
-   `feasibility` other than `nothing` with a penalty other than `IndBallL1`, with a message that
-   names `IndBallL1`. `CDSolver`, `ADMMSolver`, `ProxNewton`, `LogisticADMM` and graphical-lasso PGD
-   refuse the keyword through their own keyword checks.
+1. The keyword check of `solve!` and route selection. An explicit stopping rule or limit under
+   [STOP-22](@ref) is refused with `IndBallL1`, including a zero limit. A
+   `feasibility` other than `nothing` with a penalty other than `IndBallL1` is refused with a message
+   that names `IndBallL1`. `CDSolver`, `ADMMSolver`, `ProxNewton`, `LogisticADMM` and graphical-lasso PGD
+   refuse `feasibility` through their own keyword checks.
 2. A `feasibility` that is not a `NumericalFeasibility`.
 3. A `LogisticLoss`, raw or scaled; coefficients that are not a dense `Vector{Float32}` or
    `Vector{Float64}`, a matrix included.
