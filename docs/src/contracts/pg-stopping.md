@@ -570,7 +570,8 @@ The older introductory limitation to PGD for group lasso is also **retired**: [I
 ### [STOP-22 Explicit stopping for dense vector least-squares PGD and APG](@id STOP-22)
 
 **Statement.** Pass `stopping=rule`, `limits=MaxIterations(n)`, or both to
-`solve!`. Dense vector PGD also accepts the evaluation limits of [STOP-23](@ref).
+`solve!`. Dense vector PGD and APG also accept evaluation limits under
+[STOP-23](@ref) and [STOP-24](@ref), respectively.
 The rule replaces the success predicates and stationarity check of
 [STOP-01](@ref). Supplying a limit alone selects a budget-only policy. A rule
 without a limit uses `ProximalOptions.maxiter` (200 by default). When both
@@ -589,7 +590,7 @@ with an explicit `MaxIterations`. The comparison uses the values stored in
 A nonnegative `Int` iteration budget counts accepted updates.
 `MaxIterations(0)` validates the configuration and returns the unchanged start
 before solver oracle initialization or rule evaluation. With a positive
-iteration cap and no zero evaluation cap ([STOP-23](@ref)), the solver
+iteration cap and no zero evaluation cap ([STOP-23](@ref), [STOP-24](@ref)), the solver
 initializes the loss and penalty value and requires a finite starting
 composite objective. PGD also initializes its gradient. Allocate the column workspace of
 [STOP-21](@ref) for rule trees containing `ScaledKKT`. The solve checks the initial
@@ -656,7 +657,9 @@ that checkpoint. Invalid and unchecked leaves cannot pass. Iterate measurements
 of the same kind are shared within a checkpoint, and objective conditions reuse
 the solver's accepted objective values. At a reached cap, the monitor may
 decide a tie using the cached objective and predecessor. It skips movement
-scans, stationarity checks and predicates. It leaves those conditions unchecked.
+scans, fresh stationarity checks and predicates. It leaves those conditions
+unchecked. [STOP-24](@ref) also describes a cap reached during APG stationarity
+evaluation and the reuse of an already measured result.
 Display and result construction request no extra solver oracle calls. Trace operations run after
 the policy decision and cannot supply evidence for it. [RES-04](@ref) specifies
 the result and accounting.
@@ -723,8 +726,8 @@ At initialization or after a completed update, apply the reached-cap rule of
 can win a tie. [RES-04](@ref) specifies the returned flags and counters.
 
 **Applies to.** `ProximalGradientDescent` on the dense vector least-squares
-route of [STOP-22](@ref), including its supported scaled loss. The evaluation
-budgets are refused on other routes.
+route of [STOP-22](@ref), including its supported scaled loss. [STOP-24](@ref)
+applies the same limit configuration to the dense vector APG route.
 
 **Code.** `src/stopping.jl`, `src/solvers/gradient_stopping.jl`,
 `src/solvers/proximal_gradient_descent.jl`, `src/line_searches/backtracking.jl` and `src/solve.jl`.
@@ -732,6 +735,50 @@ budgets are refused on other routes.
 **Tests.** `test/pgd_evaluation_limits.jl` checks initialization, admission
 within backtracking, rollback and counts, cap ties, preflight, and agreement
 with the iteration-only route when the evaluation caps do not bind.
+
+**Sources.** [Hard evaluation admission in #525](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944)
+and [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).
+
+### [STOP-24 Hard evaluation budgets for dense vector least-squares APG](@id STOP-24)
+
+**Statement.** The limit kinds, tuple syntax, option conflicts and
+zero-cap behavior of [STOP-23](@ref) also apply to dense vector APG. Validate
+the supported problem and the full rule tree before initialization. APG
+initialization evaluates one smooth value and one penalty value.
+
+Before a new search from the extrapolated point, or from the previous
+accepted point on a restart under [APG-03](@ref), require capacity in each
+configured evaluation budget. The fused smooth oracle at that point uses
+one value and one gradient. Before each candidate trial, require room for
+one proximal call and one smooth value. These trials can use the gradient
+that already reached its cap. Keep the line-search and restart decisions of
+[APG-01](@ref) and [APG-03](@ref) before accepting a solver update.
+
+If a needed call is refused before the update is complete, restore the
+last accepted coefficients and return the objective, trace and rules from
+that checkpoint. Count evaluations already completed, including work on
+rejected and discarded trials and a search whose first trial could not run.
+A failure detected before a refusal follows [APG-03](@ref) and [RES-03](@ref).
+
+An accepted-point `ScaledKKT` observation may require a fused evaluation of
+the smooth value and gradient at the accepted coefficients. Admit both
+outputs together and count each under [APG-04](@ref). If that evaluation
+reaches a cap, finish the observation and retain its evidence. For remaining
+leaves, apply the reached-cap rule of [STOP-22](@ref). A duplicate
+`ScaledKKT` leaf with the same stored tolerance can reuse a result already
+measured at this checkpoint. A newly measured passing branch can settle the
+tie. [RES-04](@ref) specifies the limit flags and report counts.
+
+**Applies to.** `AccProxGradDescent` on the dense vector least-squares route of
+[STOP-22](@ref), including its supported scaled loss. The evaluation budgets
+are refused on the matrix-response and logistic routes.
+
+**Code.** `src/stopping.jl`, `src/solvers/gradient_stopping.jl` and
+`src/solvers/accelerated_proximal_gradient_descent.jl`.
+
+**Tests.** `test/apg_evaluation_limits.jl` checks budget admission at
+initialization, backtracking and restarts, partial work and rollback,
+accepted-point stationarity and simultaneous limits.
 
 **Sources.** [Hard evaluation admission in #525](https://github.com/mlakolar/ProximalSolvers.jl/issues/525#issuecomment-7070995944)
 and [#523, criterion rollout A2](https://github.com/mlakolar/ProximalSolvers.jl/issues/523).

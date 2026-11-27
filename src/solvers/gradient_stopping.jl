@@ -10,6 +10,9 @@ function ProximalGradientStoppingPoint(state, k)
                                   state.f_x_previous + state.g_x_previous)
 end
 
+Stopping.checkpoint_evaluation_limit_reached(monitor, point::ProximalGradientStoppingPoint) =
+    Stopping.evaluation_limit_reached(monitor.evaluation_limits, point.state)
+
 function Stopping.same_iterate(point::ProximalGradientStoppingPoint{T}) where {T}
     U = Stopping.bit_type(T)
     x = reinterpret(U, point.state.x)
@@ -84,7 +87,7 @@ function Base.show(io::IO, r::ProximalGradientStoppingResult)
     print(io, " * Stop reason: ", decision.reason)
 end
 
-function _gradient_policy_limits(options, method, limits)
+function _gradient_policy_limits(options, limits)
     defaults = ProximalOptions()
     options.callback === nothing ||
         throw(ArgumentError("ProximalOptions.callback must be nothing with explicit stopping or limits. Use UserStop for a predicate."))
@@ -94,11 +97,9 @@ function _gradient_policy_limits(options, method, limits)
             throw(ArgumentError("ProximalOptions.$name must have its default value with explicit stopping or limits"))
     end
     limits === nothing && return MaxIterations(options.maxiter), ()
-    (method isa ProximalGradientDescent || limits isa MaxIterations) ||
-        throw(ArgumentError("explicit APG stopping requires limits=MaxIterations(n)"))
     requested = limits isa Tuple ? limits : (limits,)
     (isempty(requested) || !all(l -> l isa Union{MaxIterations,Stopping.EvaluationLimit}, requested)) &&
-        throw(ArgumentError("explicit PGD limits must be a limit or a nonempty tuple of iteration and evaluation limits"))
+        throw(ArgumentError("explicit gradient limits must be a limit or a nonempty tuple of iteration and evaluation limits"))
     allunique(map(typeof, requested)) || throw(ArgumentError("each limit kind may be specified once"))
     iteration_index = findfirst(l -> l isa MaxIterations, requested)
     limit = iteration_index === nothing ? MaxIterations(options.maxiter) : requested[iteration_index]
@@ -158,7 +159,7 @@ function _solve_gradient_policy!(x, f, g, method, options, stopping, limits)
      !(g isa Union{IndBox,IndBallL2,IndBallL1})) ||
         throw(ArgumentError("explicit stopping and limits require dense vector least-squares PGD or APG with a supported penalty (excluding box and ball indicators)"))
     _check_gradient_policy_problem(x, f, g, method)
-    limit, evaluation_limits = _gradient_policy_limits(options, method, limits)
+    limit, evaluation_limits = _gradient_policy_limits(options, limits)
     monitor = Stopping.prepare(stopping, limit, eltype(x); evaluation_limits)
     use_stationarity = Stopping.needs_stationarity(monitor)
     if use_stationarity && !(g isa Union{NormL1,ElasticNet})
@@ -181,19 +182,24 @@ end
     _update_pgd_state!(f, g, state, method, monitor.evaluation_limits)
 end
 
+@inline function _gradient_step!(monitor::Stopping.Monitor, state, f, g,
+                                 method::AccProxGradDescent, options, t0)
+    _update_apg_state!(f, g, state, method, monitor.evaluation_limits)
+end
+
 _interrupted_gradient_decision(::Stopping.Monitor, decision, state, options) =
     (; reason=:limit, stop=true, point=decision.point)
 
 function _initial_gradient_decision(monitor::Stopping.Monitor, state, options, t0)
     point = ProximalGradientStoppingPoint(state, 0)
     isfinite(point.objective) || throw(ArgumentError("start from a point where the composite objective is finite"))
-    reason = Stopping.check!(monitor, point, Stopping.evaluation_limit_reached(monitor.evaluation_limits, state))
+    reason = Stopping.check!(monitor, point)
     (; reason, stop=reason !== :continue, point)
 end
 
 function _assess_gradient_step(monitor::Stopping.Monitor, state, f, g, options, iteration)
     point = ProximalGradientStoppingPoint(state, iteration)
-    reason = Stopping.check!(monitor, point, Stopping.evaluation_limit_reached(monitor.evaluation_limits, state))
+    reason = Stopping.check!(monitor, point)
     if reason === :continue && _verified_pgd_stall(state)
         reason = :stalled
     end

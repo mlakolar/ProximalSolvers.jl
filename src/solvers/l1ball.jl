@@ -293,8 +293,10 @@ function LineSearches.search!(state::ProximalGradientDescentState, ls::LineSearc
   iszero(_norm(state.delta_x)^2) && !_unchanged(state.x, state.x_previous) && _l1_underflowed_step_error()
   _allfinite(state.grad_f_x) || _l1_gradient_error()
 end
-_prox_grad_step!(f, g::_NumericalL1Ball, state::AccProxGradDescentState{T}, β::T) where T =
-  (g.trials = 0; invoke(_prox_grad_step!, Tuple{Any, Any, AccProxGradDescentState{T}, T}, f, g, state, β))
+function _prox_grad_step!(f, g::_NumericalL1Ball, state::AccProxGradDescentState{T}, β::T, limits::Tuple{}) where T
+  g.trials = 0
+  invoke(_prox_grad_step!, Tuple{Any, Any, AccProxGradDescentState{T}, T, Tuple}, f, g, state, β, limits)
+end
 
 # The engine's three proposals and, when one fires, the full check below, through the method of the other penalties.
 # When that method ran no check, B1's unchanged-iterate and progress proposals (‖x - x_previous‖∞ at most

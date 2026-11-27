@@ -71,6 +71,8 @@ a callback or a limit. Its admitted base can lie outside the ball ([IN-12](@ref)
 With explicit stopping, the selected policy governs the exit ([STOP-22](@ref)).
 
 A nonfinite value or gradient at the extrapolated point is treated the same way: restart when momentum was used, otherwise fail. A nonfinite smooth trial value is rejected, raising `L` through `next_curvature` rather than immediately accepting or silently ending. If `L/β` cannot increase finitely, the search errors; [RES-01](@ref) specifies restoration of the last accepted iterate and rethrow. A trial with a nonfinite smooth value is never accepted. The monitored penalty of an `IndBallL2` trial is specified in [IN-08](@ref).
+An explicit evaluation limit can prevent the restart or interrupt a search
+under [STOP-24](@ref).
 
 **Applies to.** AccProxGradDescent; supported dense least-squares and logistic ([APG-08](@ref)) problems.
 
@@ -113,11 +115,14 @@ add a proximal call without a trial or function call. Its guards and counting
 are [STOP-07](@ref) and [STOP-08](@ref). On the ℓ1-ball route, [IN-12](@ref)
 governs oracle counts for trials that can skip the projection or loss evaluation.
 
-For explicit stopping under [STOP-22](@ref) with a positive cap, initialization
+For explicit stopping under [STOP-22](@ref) when initialization runs, it
 counts one smooth value and one penalty value. Each application of the fused
 oracle at an accepted point counts one smooth value and one gradient. Let `C`
-count these applications, at most one per checkpoint including the initial point.
-Here `grad_calls = iterations + restarts + C`, `backtrack_steps = prox_calls`
+count these applications, at most one per checkpoint including initialization.
+The gradient count is the number of fused evaluations started by searches
+plus `C`, including any search from an interrupted iteration under [STOP-24](@ref).
+For a solve that ends at a completed checkpoint or at initialization this is
+`grad_calls = iterations + restarts + C`. In either case `backtrack_steps = prox_calls`
 and `f_calls = 1 + grad_calls + backtrack_steps`. The trial total includes
 candidates discarded by a restart. A failed extrapolated oracle contributes
 to the value and gradient counts and contributes no prox trial when none ran.
@@ -130,6 +135,7 @@ Errors do not transactionally restore the counters.
 **Code.** `src/solvers/accelerated_proximal_gradient_descent.jl: _prox_grad_step!; src/utils.jl: _gradient_at_x!, _stationary!`.
 
 **Tests.** test/accelerated_pgd.jl: image-cache counters, explicit restart accounting and trace/limits; test/pgd_stopping_policy.jl: explicit initialization, cap and shared diagnostic work; test/linf.jl: one extra prox for a proposed stop; test/norml2_pgd.jl: `backtrack_steps == prox_calls` with a dedicated `NormL2` check.
+`test/apg_evaluation_limits.jl` covers counts when a cap interrupts the update.
 
 **Sources.** `docs/src/developer/implementation-notes.md:L320`, `docs/src/numerics.md:L194`, `docs/src/numerics.md:L238`, `docstring:src/types.jl:L75`.
 
